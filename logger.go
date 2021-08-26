@@ -128,8 +128,8 @@ func (l *Log) Flush() {
 			for _, baseLogger := range l.seed.baseLoggers.List {
 				baseLogger.Buffered.Span(
 					dirtyLog.seed.description,
-					dirtyLog.seed.myTrace.traceId,
-					dirtyLog.seed.myTrace.spanId,
+					dirtyLog.seed.myTrace,
+					dirtyLog.seed.parentTrace,
 					index,
 					data)
 			}

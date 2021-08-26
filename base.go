@@ -12,10 +12,8 @@ type BufferedBase interface {
 
 	Span(
 		description string,
-		traceId HexBytes,
-		spanId HexBytes,
-		parentTraceId HexBytes,
-		parentSpanId HexBytes,
+		trace Trace,
+		parent Trace,
 		searchTerms []Field,
 		data []Field)
 

@@ -115,7 +115,7 @@ func (t Trace) GetVersion() HexBytes { return t.version }
 func (t Trace) GetTraceId() HexBytes { return t.traceId }
 func (t Trace) GetSpanId() HexBytes  { return t.traceId }
 func (t Trace) GetFlags() HexBytes   { return t.flags }
-func (t Trace) IsZero() bool         { return t.traceid.IsZero() }
+func (t Trace) IsZero() bool         { return t.traceId.IsZero() }
 
 func NewHexBytes(length int) HexBytes {
 	return HexBytes{

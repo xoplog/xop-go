@@ -25,8 +25,8 @@ type prefilledNonBlocking struct {
 type spanMessage struct {
 	buffered    xm.BufferedBase
 	description string
-	traceId     xm.HexBytes
-	spanId      xm.HexBytes
+	trace       xm.Trace
+	parent      xm.Trace
 	searchTerms []xm.Field
 	data        []xm.Field
 }
@@ -70,7 +70,7 @@ func (n *nonBlockingBase) receive() {
 		case msg := <-n.flushBuffer:
 			msg.buffered.Flush()
 		case msg := <-n.spanBuffer:
-			msg.buffered.Span(msg.description, msg.traceId, msg.spanId, msg.searchTerms, msg.data)
+			msg.buffered.Span(msg.description, msg.trace, msg.parent, msg.searchTerms, msg.data)
 		case msg := <-n.logBuffer:
 			msg.prefilled.Log(msg.level, msg.msg, msg.traceId, msg.spanId, msg.values)
 		}
@@ -101,13 +101,13 @@ func (b *bufferedNonBlocking) Flush() {
 	}
 }
 
-func (b *bufferedNonBlocking) Span(description string, traceId xm.HexBytes, spanId xm.HexBytes, searchTerms []xm.Field, data []xm.Field) {
+func (b *bufferedNonBlocking) Span(description string, trace xm.Trace, parent xm.Trace, searchTerms []xm.Field, data []xm.Field) {
 	select {
 	case b.base.spanBuffer <- spanMessage{
 		buffered:    b.buffered,
 		description: description,
-		traceId:     traceId,
-		spanId:      spanId,
+		trace:       trace,
+		parent:      parent,
 		searchTerms: searchTerms,
 		data:        data,
 	}:
