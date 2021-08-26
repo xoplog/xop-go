@@ -9,7 +9,7 @@ import (
 	"github.com/muir/xm/propagate"
 )
 
-func makeChildSpan(parent xm.Logger, r *http.Request) *xm.Logger {
+func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
 	route := mux.CurrentRoute(r)
 	name := route.GetName()
 	if name == "" {
@@ -44,7 +44,7 @@ func makeChildSpan(parent xm.Logger, r *http.Request) *xm.Logger {
 		seed.Trace().SpanId().SetRandom()
 	}
 
-	log := seed.Logger(r.Method + " " + name)
+	log := seed.Log(r.Method + " " + name)
 
 	log.SpanIndex(
 		xm.String("type", "http.endpoint"),
@@ -54,7 +54,7 @@ func makeChildSpan(parent xm.Logger, r *http.Request) *xm.Logger {
 	return log
 }
 
-func ParentLogMiddleware(parentLog xm.Logger) func(http.HandlerFunc) http.HandlerFunc {
+func ParentLogMiddleware(parentLog xm.Log) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -69,8 +69,8 @@ func ParentLogMiddleware(parentLog xm.Logger) func(http.HandlerFunc) http.Handle
 }
 
 // MakeLogInjector is compatible with https://github.com/muir/nject/nvelope
-func MakeLogInjector(parentLog xm.Logger) func(func(*xm.Logger), *http.Request) {
-	return func(inner func(*xm.Logger), r *http.Request) {
+func MakeLogInjector(parentLog xm.Log) func(func(*xm.Log), *http.Request) {
+	return func(inner func(*xm.Log), r *http.Request) {
 		log := makeChildSpan(parentLog, r)
 		startTime := time.Now()
 		defer log.End()

@@ -32,7 +32,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 	return seed.ApplyMods(mods)
 }
 
-func (l *Logger) CopySeed(mods ...SeedModifier) Seed {
+func (l *Log) CopySeed(mods ...SeedModifier) Seed {
 	seed := l.seed.Copy()
 	return seed.ApplyMods(mods)
 }

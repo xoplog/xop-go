@@ -8,9 +8,9 @@ import (
 	"github.com/muir/xm"
 )
 
-func Log(log xm.Logger) *rest.RequestOpts {
+func Log(log xm.Log) *rest.RequestOpts {
 	var startTime time.Time
-	var step *xm.Logger
+	var step *xm.Log
 	var farSideSpan xm.HexBytes
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {

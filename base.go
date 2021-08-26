@@ -91,7 +91,7 @@ func WithOnlyPrefill(fields ...Field) SeedModifier {
 	}
 }
 
-func (l *Logger) finishBaseLoggerChanges() {
+func (l *Log) finishBaseLoggerChanges() {
 	for i, baseLogger := range l.seed.baseLoggers.List {
 		if baseLogger.Buffered == nil {
 			baseLogger.Buffered = baseLogger.Base.StartBuffer()
@@ -110,7 +110,7 @@ func (l *Logger) finishBaseLoggerChanges() {
 	l.seed.prefillChanged = false
 }
 
-func (l *Logger) BaseLoggers() map[string]BaseLogger {
+func (l *Log) BaseLoggers() map[string]BaseLogger {
 	m := make(map[string]BaseLogger)
 	for _, baseLogger := range l.seed.baseLoggers.List {
 		m[baseLogger.Name] = baseLogger.Base

@@ -115,6 +115,7 @@ func (t Trace) GetVersion() HexBytes { return t.version }
 func (t Trace) GetTraceId() HexBytes { return t.traceId }
 func (t Trace) GetSpanId() HexBytes  { return t.traceId }
 func (t Trace) GetFlags() HexBytes   { return t.flags }
+func (t Trace) IsZero() bool         { return t.traceid.IsZero() }
 
 func NewHexBytes(length int) HexBytes {
 	return HexBytes{
@@ -219,9 +220,9 @@ func (s Seed) SubSpan() Seed {
 	return s
 }
 
-func (l *Logger) TracingState() State     { return l.seed.state }
-func (l *Logger) TracingBaggage() Baggage { return l.seed.baggage }
-func (l *Logger) TracingParent() Trace    { return l.seed.parentTrace }
-func (l *Logger) Tracing() Trace          { return l.seed.myTrace }
-func (l *Logger) TracingId() string       { return l.seed.myTrace.traceIdString }
-func (l *Logger) TracingHeader() string   { return l.seed.myTrace.headerString }
+func (l *Log) TracingState() State     { return l.seed.state }
+func (l *Log) TracingBaggage() Baggage { return l.seed.baggage }
+func (l *Log) TracingParent() Trace    { return l.seed.parentTrace }
+func (l *Log) Tracing() Trace          { return l.seed.myTrace }
+func (l *Log) TracingId() string       { return l.seed.myTrace.traceIdString }
+func (l *Log) TracingHeader() string   { return l.seed.myTrace.headerString }

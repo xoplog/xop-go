@@ -8,16 +8,16 @@ type contextKeyType struct{}
 
 var contextKey = contextKeyType{}
 
-func (log *Logger) IntoContext(ctx context.Context) context.Context {
+func (log *Log) IntoContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, contextKey, log)
 }
 
-func FromContext(ctx context.Context) (*Logger, bool) {
+func FromContext(ctx context.Context) (*Log, bool) {
 	v := ctx.Value(contextKey)
-	return v.(*Logger), v != nil
+	return v.(*Log), v != nil
 }
 
-func MustFromContext(ctx context.Context) *Logger {
+func MustFromContext(ctx context.Context) *Log {
 	log, ok := FromContext(ctx)
 	if !ok {
 		panic("Could not find logger in context")

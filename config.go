@@ -12,6 +12,6 @@ func (s Seed) AlterConfig(mods ...ConfigModifier) {
 	}
 }
 
-func (l *Logger) Config() Config {
+func (l *Log) Config() Config {
 	return l.seed.config
 }

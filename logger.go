@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Logger struct {
+type Log struct {
 	seed   Seed
 	local  local
 	shared *shared
@@ -37,15 +37,15 @@ type shared struct {
 	// Dirty holds spans that have modified data and need to be
 	// written or re-written.  It does not not track logs that
 	// need flushing
-	Dirty []*Logger
+	Dirty []*Log
 }
 
 var DefaultFlushDelay = time.Minute * 5
 
-func (s Seed) Logger(description string) *Logger {
+func (s Seed) Log(description string) *Log {
 	s = s.Copy()
 	s.myTrace.rebuildSetNonZero()
-	log := &Logger{
+	log := &Log{
 		seed: s,
 		shared: &shared{
 			RefCount:    1,
@@ -64,8 +64,8 @@ func (s Seed) Logger(description string) *Logger {
 	return log
 }
 
-func (old *Logger) newChildLog(seed Seed) *Logger {
-	log := &Logger{
+func (old *Log) newChildLog(seed Seed) *Log {
+	log := &Log{
 		local: local{
 			InDirty:        1,
 			Created:        time.Now(),
@@ -80,7 +80,7 @@ func (old *Logger) newChildLog(seed Seed) *Logger {
 	return log
 }
 
-func (l *Logger) touched() {
+func (l *Log) touched() {
 	wasInDirty := atomic.SwapInt32(&l.local.InDirty, 1)
 	if wasInDirty == 0 {
 		func() {
@@ -94,19 +94,19 @@ func (l *Logger) touched() {
 	}
 }
 
-func (l *Logger) enableFlushTimer() {
+func (l *Log) enableFlushTimer() {
 	was := atomic.SwapInt32(&l.shared.FlushActive, 1)
 	if was == 0 {
 		l.shared.FlushTimer.Reset(l.shared.FlushDelay)
 	}
 }
 
-func (l *Logger) timerFlush() {
+func (l *Log) timerFlush() {
 	atomic.StoreInt32(&l.shared.FlushActive, 0)
 	l.Flush()
 }
 
-func (l *Logger) Flush() {
+func (l *Log) Flush() {
 	atomic.StoreInt32(&l.shared.UnflushedLogs, 0)
 	func() {
 		l.shared.DataLock.Lock()
@@ -141,7 +141,7 @@ func (l *Logger) Flush() {
 	}
 }
 
-func (l *Logger) log(level Level, msg string, values []Field) {
+func (l *Log) log(level Level, msg string, values []Field) {
 	unflushed := atomic.AddInt32(&l.shared.UnflushedLogs, 1)
 	if unflushed == 1 {
 		l.enableFlushTimer()
@@ -151,20 +151,20 @@ func (l *Logger) log(level Level, msg string, values []Field) {
 	}
 }
 
-// XXX func (l *Logger) Zap() zaplike.Logger
-// XXX func (l *Logger) ZapSugar() zaplike.Sugar
-// XXX func (l *Logger) Zero() zerolike.Logger
+// XXX func (l *Log) Zap() zaplike.Log
+// XXX func (l *Log) ZapSugar() zaplike.Sugar
+// XXX func (l *Log) Zero() zerolike.Log
 
-// End is used to single that a Logger, Fork(), or Step() is done.  When all
+// End is used to single that a Log, Fork(), or Step() is done.  When all
 // of the parts of a buffered log are finished, it is automatically flushed.
-func (l *Logger) End() {
+func (l *Log) End() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
 	if remaining <= 0 {
 		l.Flush()
 	}
 }
 
-func (l *Logger) addRef() {
+func (l *Log) addRef() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, 1)
 	if remaining > 1 {
 		return
@@ -175,31 +175,31 @@ func (l *Logger) addRef() {
 	l.shared.FlushTimer.Reset(DefaultFlushDelay)
 }
 
-func (l *Logger) Fork(msg string, mods ...SeedModifier) *Logger {
+func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
 	l.addRef()
 	return l.ForkNoWait(msg, mods...)
 }
 
-func (l *Logger) ForkNoWait(msg string, mods ...SeedModifier) *Logger {
+func (l *Log) ForkNoWait(msg string, mods ...SeedModifier) *Log {
 	seed := l.CopySeed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.ForkCounter, 1))
 	seed.prefix += "." + base26(counter)
 	return l.newChildLog(seed)
 }
 
-func (l *Logger) Step(msg string, mods ...SeedModifier) *Logger {
+func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 	l.addRef()
 	return l.StepNoWait(msg, mods...)
 }
 
-func (l *Logger) StepNoWait(msg string, mods ...SeedModifier) *Logger {
+func (l *Log) StepNoWait(msg string, mods ...SeedModifier) *Log {
 	seed := l.CopySeed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
 	seed.prefix += "." + strconv.Itoa(counter)
 	return l.newChildLog(seed)
 }
 
-func (l *Logger) BufferedSpanData(values ...Field) {
+func (l *Log) BufferedSpanData(values ...Field) {
 	func() {
 		l.shared.DataLock.Lock()
 		defer l.shared.DataLock.Unlock()
@@ -208,7 +208,7 @@ func (l *Logger) BufferedSpanData(values ...Field) {
 	l.touched()
 }
 
-func (l *Logger) LocalSpanData(values ...Field) {
+func (l *Log) LocalSpanData(values ...Field) {
 	if l.local.IsBufferParent {
 		l.BufferedSpanData(values...)
 		return
@@ -221,7 +221,7 @@ func (l *Logger) LocalSpanData(values ...Field) {
 	l.touched()
 }
 
-func (l *Logger) SpanIndex(searchable ...Field) {
+func (l *Log) SpanIndex(searchable ...Field) {
 	func() {
 		l.shared.DataLock.Lock()
 		defer l.shared.DataLock.Unlock()
@@ -230,20 +230,20 @@ func (l *Logger) SpanIndex(searchable ...Field) {
 	l.touched()
 }
 
-func (l *Logger) Debug(msg string, values ...Field)  { l.log(DebugLevel, msg, values) }
-func (l *Logger) Trace(msg string, values ...Field)  { l.log(TraceLevel, msg, values) }
-func (l *Logger) Info(msg string, values ...Field)   { l.log(InfoLevel, msg, values) }
-func (l *Logger) Warn(msg string, values ...Field)   { l.log(WarnLevel, msg, values) }
-func (l *Logger) Error(msg string, values ...Field)  { l.log(ErrorLevel, msg, values) }
-func (l *Logger) Alert(msg string, values ...Field)  { l.log(AlertLevel, msg, values) }
-func (l *Logger) Metric(msg string, values ...Field) { l.log(MetricLevel, msg, values) }
+func (l *Log) Debug(msg string, values ...Field)  { l.log(DebugLevel, msg, values) }
+func (l *Log) Trace(msg string, values ...Field)  { l.log(TraceLevel, msg, values) }
+func (l *Log) Info(msg string, values ...Field)   { l.log(InfoLevel, msg, values) }
+func (l *Log) Warn(msg string, values ...Field)   { l.log(WarnLevel, msg, values) }
+func (l *Log) Error(msg string, values ...Field)  { l.log(ErrorLevel, msg, values) }
+func (l *Log) Alert(msg string, values ...Field)  { l.log(AlertLevel, msg, values) }
+func (l *Log) Metric(msg string, values ...Field) { l.log(MetricLevel, msg, values) }
 
 // XXX
-// func (l *Logger) Guage(name string, value float64, )
-// func (l *Logger) AdjustCounter(name string, value float64, )
+// func (l *Log) Guage(name string, value float64, )
+// func (l *Log) AdjustCounter(name string, value float64, )
 // XXX redaction
 
-func (l *Logger) CurrentPrefill() []Field {
+func (l *Log) CurrentPrefill() []Field {
 	c := make([]Field, len(l.seed.prefill))
 	copy(c, l.seed.prefill)
 	return c
