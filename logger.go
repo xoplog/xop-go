@@ -147,7 +147,7 @@ func (l *Log) log(level Level, msg string, values []Field) {
 		l.enableFlushTimer()
 	}
 	for _, baseLogger := range l.seed.baseLoggers.List {
-		baseLogger.Prefilled.Log(level, msg, l.seed.myTrace.traceId, l.seed.myTrace.spanId, values)
+		baseLogger.Prefilled.Log(level, msg, values)
 	}
 }
 
@@ -230,13 +230,12 @@ func (l *Log) SpanIndex(searchable ...Field) {
 	l.touched()
 }
 
-func (l *Log) Debug(msg string, values ...Field)  { l.log(DebugLevel, msg, values) }
-func (l *Log) Trace(msg string, values ...Field)  { l.log(TraceLevel, msg, values) }
-func (l *Log) Info(msg string, values ...Field)   { l.log(InfoLevel, msg, values) }
-func (l *Log) Warn(msg string, values ...Field)   { l.log(WarnLevel, msg, values) }
-func (l *Log) Error(msg string, values ...Field)  { l.log(ErrorLevel, msg, values) }
-func (l *Log) Alert(msg string, values ...Field)  { l.log(AlertLevel, msg, values) }
-func (l *Log) Metric(msg string, values ...Field) { l.log(MetricLevel, msg, values) }
+func (l *Log) Debug(msg string, values ...Field) { l.log(DebugLevel, msg, values) }
+func (l *Log) Trace(msg string, values ...Field) { l.log(TraceLevel, msg, values) }
+func (l *Log) Info(msg string, values ...Field)  { l.log(InfoLevel, msg, values) }
+func (l *Log) Warn(msg string, values ...Field)  { l.log(WarnLevel, msg, values) }
+func (l *Log) Error(msg string, values ...Field) { l.log(ErrorLevel, msg, values) }
+func (l *Log) Alert(msg string, values ...Field) { l.log(AlertLevel, msg, values) }
 
 // XXX
 // func (l *Log) Guage(name string, value float64, )

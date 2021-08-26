@@ -17,11 +17,11 @@ type BufferedBase interface {
 		searchTerms []Field,
 		data []Field)
 
-	Prefill([]Field) Prefilled
+	Prefill(trace Trace, fields []Field) Prefilled
 }
 
 type Prefilled interface {
-	Log(level Level, msg string, traceId HexBytes, spanId HexBytes, values []Field)
+	Log(level Level, msg string, values []Field)
 }
 
 type baseLoggers struct {
@@ -96,7 +96,7 @@ func (l *Log) finishBaseLoggerChanges() {
 		} else if !l.seed.prefillChanged {
 			continue
 		}
-		baseLogger.Prefilled = baseLogger.Buffered.Prefill(l.seed.prefill)
+		baseLogger.Prefilled = baseLogger.Buffered.Prefill(l.seed.myTrace, l.seed.prefill)
 		l.seed.baseLoggers.List[i] = baseLogger
 	}
 	for _, baseLogger := range l.seed.baseLoggers.Removed {
