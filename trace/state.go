@@ -1,4 +1,4 @@
-package xm
+package trace
 
 // State tracks the contents of key/values that are passed
 // through a trace in the "tracestate" header.
@@ -13,7 +13,6 @@ type State struct {
 	asString string
 }
 
-func (s Seed) State() *State        { return &s.traceState.state }
 func (s *State) SetString(h string) { s.asString = h }
 func (s State) IsZero() bool        { return s.asString == "" }
 func (s State) String() string      { return s.asString }

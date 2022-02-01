@@ -1,4 +1,4 @@
-package z
+package zap
 
 import (
 	"fmt"
@@ -9,12 +9,6 @@ import (
 )
 
 type Field = zapcore.Field
-
-func copyFields(from []Field) []Field {
-	n := make([]Field, len(from))
-	copy(n, from)
-	return n
-}
 
 // TODO: how are we going to handle redacting Any?
 

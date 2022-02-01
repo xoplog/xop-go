@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/muir/xm"
 	"github.com/muir/xm/propagate"
+	"github.com/muir/xm/trace"
 )
 
 func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
@@ -28,7 +29,7 @@ func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
 			propagate.SetByB3ParentSpanId(&seed, b3ParentSpanId)
 		} else {
 			// Uh oh, no parent span id
-			*seed.TraceParent() = xm.NewTrace()
+			*seed.TraceParent() = trace.NewTrace()
 		}
 		if b3SpanId := r.Header.Get("X-B3-SpanId"); b3SpanId != "" {
 			seed.Trace().SpanId().SetString(b3SpanId)

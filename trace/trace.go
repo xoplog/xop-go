@@ -41,22 +41,6 @@ import (
 // These headers can be used with
 // [gRPC too](https://github.com/grpc/grpc-go/blob/master/Documentation/grpc-metadata.md)
 //
-type traceState struct {
-	parentTrace Trace
-	myTrace     Trace
-	state       State
-	baggage     Baggage
-}
-
-func (t traceState) Copy() traceState {
-	return traceState{
-		parentTrace: t.parentTrace.Copy(),
-		myTrace:     t.myTrace.Copy(),
-		state:       t.state,
-		baggage:     t.baggage,
-	}
-}
-
 type Trace struct {
 	version HexBytes // 1 byte
 
@@ -91,13 +75,6 @@ type HexBytes struct {
 	s string
 }
 
-func (s Seed) Trace() *Trace {
-	return &s.myTrace
-}
-func (s Seed) TraceParent() *Trace {
-	return &s.parentTrace
-}
-
 func NewTrace() Trace {
 	return Trace{
 		version: NewHexBytes(1),
@@ -111,11 +88,14 @@ func (t *Trace) Version() *HexBytes  { return &t.version }
 func (t *Trace) TraceId() *HexBytes  { return &t.traceId }
 func (t *Trace) SpanId() *HexBytes   { return &t.spanId }
 func (t *Trace) Flags() *HexBytes    { return &t.flags }
+func (t *Trace) RandomizeSpanId()    { t.spanId.SetRandom() }
 func (t Trace) GetVersion() HexBytes { return t.version }
 func (t Trace) GetTraceId() HexBytes { return t.traceId }
 func (t Trace) GetSpanId() HexBytes  { return t.traceId }
 func (t Trace) GetFlags() HexBytes   { return t.flags }
 func (t Trace) IsZero() bool         { return t.traceId.IsZero() }
+func (t Trace) IdString() string     { return t.traceIdString }
+func (t Trace) HeaderString() string { return t.headerString }
 
 func NewHexBytes(length int) HexBytes {
 	return HexBytes{
@@ -123,9 +103,11 @@ func NewHexBytes(length int) HexBytes {
 		s: strings.Repeat("0", length*2),
 	}
 }
+
 func NewSpanId() HexBytes {
 	return NewHexBytes(8)
 }
+
 func NewTraceId() HexBytes {
 	return NewHexBytes(8)
 }
@@ -137,18 +119,22 @@ func (x *HexBytes) SetBytes(b []byte) {
 	setBytes(x.b, b)
 	x.s = hex.EncodeToString(x.b)
 }
+
 func (x *HexBytes) SetString(s string) {
 	setBytesFromString(x.b, s)
 	x.s = hex.EncodeToString(x.b)
 }
+
 func (x *HexBytes) SetZero() {
 	setBytes(x.b, zeroBytes)
 	x.s = hex.EncodeToString(x.b)
 }
+
 func (x *HexBytes) SetRandom() {
 	randomBytesNotAllZero(x.b)
 	x.s = hex.EncodeToString(x.b)
 }
+
 func (x HexBytes) Copy() HexBytes {
 	b := make([]byte, len(x.b))
 	copy(b, x.b)
@@ -196,7 +182,7 @@ func setBytes(dest []byte, b []byte) {
 	}
 }
 
-func (t *Trace) rebuildSetNonZero() {
+func (t *Trace) RebuildSetNonZero() {
 	if t.traceId.IsZero() {
 		t.traceId.SetRandom()
 	}
@@ -213,16 +199,3 @@ func (t *Trace) rebuild() {
 		"-" + t.flags.String()
 	t.traceIdString = t.traceId.String() + "/" + t.spanId.String()
 }
-
-func (s Seed) SubSpan() Seed {
-	s.parentTrace = s.myTrace.Copy()
-	s.myTrace.spanId.SetRandom()
-	return s
-}
-
-func (l *Log) TracingState() State     { return l.seed.state }
-func (l *Log) TracingBaggage() Baggage { return l.seed.baggage }
-func (l *Log) TracingParent() Trace    { return l.seed.parentTrace }
-func (l *Log) Tracing() Trace          { return l.seed.myTrace }
-func (l *Log) TracingId() string       { return l.seed.myTrace.traceIdString }
-func (l *Log) TracingHeader() string   { return l.seed.myTrace.headerString }

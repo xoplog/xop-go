@@ -2,18 +2,21 @@ package xmzap
 
 import (
 	"github.com/muir/xm"
-	"go.uber.org/zap"
+	"github.com/muir/xm/trace"
+	"github.com/muir/xm/zap"
+
+	uberzap "go.uber.org/zap"
 )
 
 type xmzap struct {
-	zapLogger *zap.Logger
+	zapLogger *uberzap.Logger
 	level     xm.Level
 }
 
 // ZapBase wraps a zap logger so that it can function as
 // a BaseLogger.  Note that the levels don't match exactly
 // and Trace becomes Debug and Alert becomes Error.
-func ZapBase(zapLogger *zap.Logger) xm.BaseLogger {
+func ZapBase(zapLogger *uberzap.Logger) xm.BaseLogger {
 	return &xmzap{
 		zapLogger: zapLogger,
 		level:     xm.DebugLevel,
@@ -39,8 +42,8 @@ func (z *xmzap) Flush() {
 
 func (z *xmzap) Span(
 	description string,
-	trace xm.Trace,
-	parent xm.Trace,
+	trace trace.Trace,
+	parent trace.Trace,
 	searchTerms map[string][]string,
 	data map[string]interface{}) {
 	fields := make([]zap.Field, 0, 20)
@@ -64,10 +67,10 @@ func (z *xmzap) Span(
 	z.zapLogger.Warn(description, fields...)
 }
 
-func (z *xmzap) Prefill(trace xm.Trace, f []xm.Field) xm.Prefilled {
+func (z *xmzap) Prefill(trace trace.Trace, f []zap.Field) xm.Prefilled {
 	return &xmzap{
 		zapLogger: z.zapLogger.With(
-			append([]xm.Field{
+			append([]zap.Field{
 				zap.String("xm.trace", trace.GetTraceId().String()),
 				zap.String("xm.span", trace.GetSpanId().String()),
 			}, f...)...),
@@ -75,7 +78,7 @@ func (z *xmzap) Prefill(trace xm.Trace, f []xm.Field) xm.Prefilled {
 	}
 }
 
-func (z *xmzap) Log(level xm.Level, msg string, values []xm.Field) {
+func (z *xmzap) Log(level xm.Level, msg string, values []zap.Field) {
 	if level < z.level {
 		return
 	}

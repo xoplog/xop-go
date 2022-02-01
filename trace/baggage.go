@@ -1,4 +1,4 @@
-package xm
+package trace
 
 // Baggage tracks the contents of key/values that are passed
 // through a trace in the "baggage" header.
@@ -16,7 +16,6 @@ type Baggage struct {
 	asString string
 }
 
-func (s Seed) Baggage() *Baggage      { return &s.traceState.baggage }
 func (b *Baggage) SetString(h string) { b.asString = h }
 func (b Baggage) IsZero() bool        { return b.asString == "" }
 func (b Baggage) String() string      { return b.asString }

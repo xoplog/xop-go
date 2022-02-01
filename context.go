@@ -14,9 +14,10 @@ func (log *Log) IntoContext(ctx context.Context) context.Context {
 
 func FromContextOrDiscard(ctx context.Context) *Log {
 	log, ok := FromContext(ctx)
-	if !ok {
-		return NewDiscardLogger()
+	if ok {
+		return log
 	}
+	return NewSeed().Log("discard")
 }
 
 func FromContext(ctx context.Context) (*Log, bool) {
@@ -24,7 +25,7 @@ func FromContext(ctx context.Context) (*Log, bool) {
 	return v.(*Log), v != nil
 }
 
-func MustFromContext(ctx context.Context) *Log {
+func FromContextOrPanic(ctx context.Context) *Log {
 	log, ok := FromContext(ctx)
 	if !ok {
 		panic("Could not find logger in context")

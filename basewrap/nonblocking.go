@@ -2,6 +2,8 @@ package basewrap
 
 import (
 	"github.com/muir/xm"
+	"github.com/muir/xm/trace"
+	"github.com/muir/xm/zap"
 )
 
 type nonBlockingBase struct {
@@ -25,8 +27,8 @@ type prefilledNonBlocking struct {
 type spanMessage struct {
 	buffered    xm.BufferedBase
 	description string
-	trace       xm.Trace
-	parent      xm.Trace
+	trace       trace.Trace
+	parent      trace.Trace
 	searchTerms map[string][]string
 	data        map[string]interface{}
 }
@@ -39,7 +41,7 @@ type logMessage struct {
 	prefilled xm.Prefilled
 	level     xm.Level
 	msg       string
-	values    []xm.Field
+	values    []zap.Field
 }
 
 // NonBlocking wraps a BaseLogger so that nearly all operations are
@@ -101,8 +103,8 @@ func (b *bufferedNonBlocking) Flush() {
 
 func (b *bufferedNonBlocking) Span(
 	description string,
-	trace xm.Trace,
-	parent xm.Trace,
+	trace trace.Trace,
+	parent trace.Trace,
 	searchTerms map[string][]string,
 	data map[string]interface{},
 ) {
@@ -119,14 +121,14 @@ func (b *bufferedNonBlocking) Span(
 	}
 }
 
-func (b *bufferedNonBlocking) Prefill(trace xm.Trace, f []xm.Field) xm.Prefilled {
+func (b *bufferedNonBlocking) Prefill(trace trace.Trace, f []zap.Field) xm.Prefilled {
 	return prefilledNonBlocking{
 		prefilled: b.buffered.Prefill(trace, f),
 		base:      b.base,
 	}
 }
 
-func (p prefilledNonBlocking) Log(level xm.Level, msg string, values []xm.Field) {
+func (p prefilledNonBlocking) Log(level xm.Level, msg string, values []zap.Field) {
 	select {
 	case p.base.logBuffer <- logMessage{
 		prefilled: p.prefilled,

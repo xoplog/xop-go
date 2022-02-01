@@ -2,9 +2,11 @@ package xm
 
 import (
 	"github.com/muir/xm/trace"
-	"github.com/muir/xm/z"
+	"github.com/muir/xm/zap"
 )
 
+// BaseLogger is the bottom half of a logger -- the part that actually
+// outputs data somewhere.  There can be many BaseLogger implementations
 type BaseLogger interface {
 	SetLevel(Level)
 	WantDurable() bool
@@ -22,11 +24,11 @@ type BufferedBase interface {
 		searchTerms map[string][]string,
 		data map[string]interface{})
 
-	Prefill(trace trace.Trace, fields []z.Field) Prefilled
+	Prefill(trace trace.Trace, fields []zap.Field) Prefilled
 }
 
 type Prefilled interface {
-	Log(level Level, msg string, values []z.Field)
+	Log(level Level, msg string, values []zap.Field)
 }
 
 type baseLoggers struct {
@@ -80,14 +82,14 @@ func WithBaseLogger(name string, base BaseLogger) SeedModifier {
 	}
 }
 
-func WithAdditionalPrefill(fields ...z.Field) SeedModifier {
+func WithAdditionalPrefill(fields ...zap.Field) SeedModifier {
 	return func(s *Seed) {
 		s.prefillChanged = true
 		s.prefill = append(s.prefill, fields...)
 	}
 }
 
-func WithOnlyPrefill(fields ...z.Field) SeedModifier {
+func WithOnlyPrefill(fields ...zap.Field) SeedModifier {
 	return func(s *Seed) {
 		s.prefillChanged = true
 		s.prefill = fields
