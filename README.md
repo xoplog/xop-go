@@ -36,7 +36,42 @@ Datadog
 
 [Software Tracing With Go](https://www.doxsey.net/blog/software-tracing-with-go/)
 
+# Architecture
 
+A complete logging solution has:
+
+## Generating Logs
+
+Logging API for writing code.  There are a couple of flavors that are commonly
+found: Printf-style; Key/Value style; Structure with functional args style; and
+Structured with methods style.
+
+Tracing APIs have less variation.  Opentracing is a fine example.
+
+## Writing logs
+
+Logs can be sent directly to a server; they can be written to STDOUT. Most systems
+use JSON for structured logging, but Open Telementry uses Protobufs.  
+
+## Gathering logs
+
+Most frameworks include an intermediary program that scrapes up logs, especially
+STDOUT logs, and sends them on to servers relibably.  This has an advantage of lowering
+the likelihood of backpressure.
+
+Should backpressure exist at all?  Maybe.  Some logs may be required for auditing
+purposes and such logs may need to be sent reliably.
+
+## Indexing logs
+
+ElasticSearch and SingleStore seem like the best bets
+
+It makes sense to do full-text indexing and also trace-level indexing separately
+so that the trace-level indexing can be retained for a longer duration.
+
+## Storing logs
+
+S3 and other bulk storage
 
 # Generating tracelogs API
 
@@ -149,7 +184,6 @@ Step 4: Once written to buckets, inbox files can be removed.
 Step 5: Add/update Elastic indexes.  
 
 NOTES
-
 
 
 

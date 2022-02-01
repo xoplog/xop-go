@@ -4,8 +4,6 @@ import (
 	"sync/atomic"
 )
 
-type Level int32
-
 const (
 	// Open Telemetry puts tracing as lower level than debugging.  Why?
 	// https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/logs/v1/logs.proto
@@ -17,6 +15,8 @@ const (
 	ErrorLevel       = 17
 	AlertLevel       = 20 // OTEL "Error4"
 )
+
+type Level int32
 
 func (level *Level) AtomicLoad() Level {
 	return Level(atomic.LoadInt32((*int32)(level)))
