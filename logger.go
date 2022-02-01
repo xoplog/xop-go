@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/muir/xm/z"
 )
 
 type Log struct {
@@ -143,7 +145,7 @@ func (l *Log) Flush() {
 	}
 }
 
-func (l *Log) log(level Level, msg string, values []Field) {
+func (l *Log) log(level Level, msg string, values []z.Field) {
 	unflushed := atomic.AddInt32(&l.shared.UnflushedLogs, 1)
 	if unflushed == 1 {
 		l.enableFlushTimer()
@@ -239,20 +241,20 @@ func (l *Log) SpanIndex(keyValuePairs ...string) {
 	l.touched()
 }
 
-func (l *Log) Debug(msg string, values ...Field) { l.log(DebugLevel, msg, values) }
-func (l *Log) Trace(msg string, values ...Field) { l.log(TraceLevel, msg, values) }
-func (l *Log) Info(msg string, values ...Field)  { l.log(InfoLevel, msg, values) }
-func (l *Log) Warn(msg string, values ...Field)  { l.log(WarnLevel, msg, values) }
-func (l *Log) Error(msg string, values ...Field) { l.log(ErrorLevel, msg, values) }
-func (l *Log) Alert(msg string, values ...Field) { l.log(AlertLevel, msg, values) }
+func (l *Log) Debug(msg string, values ...z.Field) { l.log(DebugLevel, msg, values) }
+func (l *Log) Trace(msg string, values ...z.Field) { l.log(TraceLevel, msg, values) }
+func (l *Log) Info(msg string, values ...z.Field)  { l.log(InfoLevel, msg, values) }
+func (l *Log) Warn(msg string, values ...z.Field)  { l.log(WarnLevel, msg, values) }
+func (l *Log) Error(msg string, values ...z.Field) { l.log(ErrorLevel, msg, values) }
+func (l *Log) Alert(msg string, values ...z.Field) { l.log(AlertLevel, msg, values) }
 
 // XXX
 // func (l *Log) Guage(name string, value float64, )
 // func (l *Log) AdjustCounter(name string, value float64, )
 // XXX redaction
 
-func (l *Log) CurrentPrefill() []Field {
-	c := make([]Field, len(l.seed.prefill))
+func (l *Log) CurrentPrefill() []z.Field {
+	c := make([]z.Field, len(l.seed.prefill))
 	copy(c, l.seed.prefill)
 	return c
 }

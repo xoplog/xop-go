@@ -1,5 +1,10 @@
 package xm
 
+import (
+	"github.com/muir/xm/trace"
+	"github.com/muir/xm/z"
+)
+
 type BaseLogger interface {
 	SetLevel(Level)
 	WantDurable() bool
@@ -12,16 +17,16 @@ type BufferedBase interface {
 
 	Span(
 		description string,
-		trace Trace,
-		parent Trace,
+		trace trace.Trace,
+		parent trace.Trace,
 		searchTerms map[string][]string,
 		data map[string]interface{})
 
-	Prefill(trace Trace, fields []Field) Prefilled
+	Prefill(trace trace.Trace, fields []z.Field) Prefilled
 }
 
 type Prefilled interface {
-	Log(level Level, msg string, values []Field)
+	Log(level Level, msg string, values []z.Field)
 }
 
 type baseLoggers struct {
@@ -75,14 +80,14 @@ func WithBaseLogger(name string, base BaseLogger) SeedModifier {
 	}
 }
 
-func WithAdditionalPrefill(fields ...Field) SeedModifier {
+func WithAdditionalPrefill(fields ...z.Field) SeedModifier {
 	return func(s *Seed) {
 		s.prefillChanged = true
 		s.prefill = append(s.prefill, fields...)
 	}
 }
 
-func WithOnlyPrefill(fields ...Field) SeedModifier {
+func WithOnlyPrefill(fields ...z.Field) SeedModifier {
 	return func(s *Seed) {
 		s.prefillChanged = true
 		s.prefill = fields

@@ -2,13 +2,15 @@ package xm
 
 import (
 	"time"
+
+	"github.com/muir/xm/z"
 )
 
 type Seed struct {
 	config Config
 	traceState
 	prefix         string
-	prefill        []Field
+	prefill        []z.Field
 	prefillChanged bool
 	description    string
 	data           map[string]interface{}
@@ -46,7 +48,7 @@ func (s Seed) ApplyMods(mods []SeedModifier) Seed {
 	return s
 }
 
-func PrefilOnly(fields []Field) SeedModifier {
+func PrefilOnly(fields []z.Field) SeedModifier {
 	return func(s *Seed) {
 		s.prefill = fields
 	}
