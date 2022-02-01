@@ -47,9 +47,9 @@ func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
 	log := seed.Log(r.Method + " " + name)
 
 	log.SpanIndex(
-		xm.String("type", "http.endpoint"),
-		xm.String("endpoint", name),
-		xm.String("url", r.URL.String()),
+		"type", "http.endpoint",
+		"endpoint", name,
+		"url", r.URL.String(),
 	)
 	return log
 }
@@ -63,7 +63,9 @@ func ParentLogMiddleware(parentLog xm.Log) func(http.HandlerFunc) http.HandlerFu
 			r = r.WithContext(log.IntoContext(ctx))
 			startTime := time.Now()
 			next(w, r)
-			log.LocalSpanData(xm.Duration("duration", time.Now().Sub(startTime)))
+			log.LocalSpanData(map[string]interface{}{
+				"duration": time.Now().Sub(startTime),
+			})
 		}
 	}
 }
@@ -75,6 +77,8 @@ func MakeLogInjector(parentLog xm.Log) func(func(*xm.Log), *http.Request) {
 		startTime := time.Now()
 		defer log.End()
 		inner(log)
-		log.LocalSpanData(xm.Duration("duration", time.Now().Sub(startTime)))
+		log.LocalSpanData(map[string]interface{}{
+			"duration": time.Now().Sub(startTime),
+		})
 	}
 }

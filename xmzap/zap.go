@@ -41,19 +41,35 @@ func (z *xmzap) Span(
 	description string,
 	trace xm.Trace,
 	parent xm.Trace,
-	searchTerms []xm.Field,
-	data []xm.Field) {
-	z.zapLogger.Info(
-	// XXX
+	searchTerms map[string][]string,
+	data map[string]interface{}) {
+	fields := make([]zap.Field, 0, 20)
+	fields = append(fields,
+		zap.String("xm.type", "span"),
+		zap.String("xm.trace", trace.GetTraceId().String()),
+		zap.String("xm.span", trace.GetSpanId().String()),
 	)
+	if !parent.IsZero() {
+		fields = append(fields,
+			zap.String("xm.parent_span", parent.GetSpanId().String()),
+			zap.String("xm.parent_trace", parent.GetSpanId().String()),
+		)
+	}
+	if len(searchTerms) != 0 {
+		fields = append(fields, zap.Any("xm.index", searchTerms))
+	}
+	if len(data) != 0 {
+		fields = append(fields, zap.Any("xm.data", data))
+	}
+	z.zapLogger.Warn(description, fields...)
 }
 
 func (z *xmzap) Prefill(trace xm.Trace, f []xm.Field) xm.Prefilled {
 	return &xmzap{
 		zapLogger: z.zapLogger.With(
 			append([]xm.Field{
-				xm.String("xm.trace", trace.GetTraceId().String()),
-				xm.String("xm.span", trace.GetSpanId().String()),
+				zap.String("xm.trace", trace.GetTraceId().String()),
+				zap.String("xm.span", trace.GetSpanId().String()),
 			}, f...)...),
 		level: z.level,
 	}

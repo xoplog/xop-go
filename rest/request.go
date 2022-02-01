@@ -15,10 +15,11 @@ func Log(log xm.Log) *rest.RequestOpts {
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
 			startTime = time.Now()
-			step := log.Step(o.Description, xm.Data(
-				xm.String("type", "http.request"),
-				xm.String("url", r.URL.String()),
-				xm.String("method", r.Method)))
+			step := log.Step(o.Description, xm.Data(map[string]interface{}{
+				"type":   "http.request",
+				"url":    r.URL.String(),
+				"method": r.Method,
+			}))
 			r.Header.Set("traceparent", step.TracingHeader())
 			if !step.TracingBaggage().IsZero() {
 				r.Header.Set("baggage", step.TracingBaggage().String())

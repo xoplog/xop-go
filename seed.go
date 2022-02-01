@@ -11,7 +11,7 @@ type Seed struct {
 	prefill        []Field
 	prefillChanged bool
 	description    string
-	data           []Field
+	data           map[string]interface{}
 	baseLoggers    baseLoggers
 	flushDelay     time.Duration
 }
@@ -28,7 +28,9 @@ func (s Seed) Copy() Seed {
 type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
-	seed := &Seed{}
+	seed := &Seed{
+		data: make(map[string]interface{}),
+	}
 	return seed.ApplyMods(mods)
 }
 
@@ -50,8 +52,10 @@ func PrefilOnly(fields []Field) SeedModifier {
 	}
 }
 
-func Data(f ...Field) SeedModifier {
+func Data(overrides map[string]interface{}) SeedModifier {
 	return func(s *Seed) {
-		s.data = append(s.data, f...)
+		for k, v := range overrides {
+			s.data[k] = v
+		}
 	}
 }

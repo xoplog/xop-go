@@ -19,7 +19,7 @@ type local struct {
 	Created        time.Time
 	InDirty        int32      // in shared.Dirty? 0 = false, 1 = true
 	DataLock       sync.Mutex // protects Data
-	Data           []Field
+	Data           map[string]interface{}
 	IsBufferParent bool
 }
 
@@ -27,8 +27,8 @@ type local struct {
 type shared struct {
 	RefCount      int32
 	DataLock      sync.Mutex // protects Data, Index and Dirty, can take local.DataLock while holding this lock
-	Data          []Field
-	Index         []Field
+	Data          map[string]interface{}
+	Index         map[string][]string
 	UnflushedLogs int32
 	FlushTimer    *time.Timer
 	FlushDelay    time.Duration
@@ -49,8 +49,9 @@ func (s Seed) Log(description string) *Log {
 		seed: s,
 		shared: &shared{
 			RefCount:    1,
-			Data:        copyFields(s.data),
+			Data:        copyMap(s.data),
 			FlushActive: 1,
+			Index:       make(map[string][]string),
 		},
 		local: local{
 			InDirty:        1,
@@ -70,6 +71,7 @@ func (old *Log) newChildLog(seed Seed) *Log {
 			InDirty:        1,
 			Created:        time.Now(),
 			IsBufferParent: false,
+			Data:           make(map[string]interface{}),
 		},
 		seed:   seed,
 		shared: old.shared,
@@ -113,8 +115,8 @@ func (l *Log) Flush() {
 		defer l.shared.DataLock.Unlock()
 		for _, dirtyLog := range l.shared.Dirty {
 			atomic.StoreInt32(&dirtyLog.local.InDirty, 0)
-			var index []Field
-			var data []Field
+			var index map[string][]string
+			var data map[string]interface{}
 			if dirtyLog.local.IsBufferParent {
 				index = dirtyLog.shared.Index
 				data = dirtyLog.shared.Data
@@ -199,33 +201,40 @@ func (l *Log) StepNoWait(msg string, mods ...SeedModifier) *Log {
 	return l.newChildLog(seed)
 }
 
-func (l *Log) BufferedSpanData(values ...Field) {
+func (l *Log) BufferedSpanData(dataToAppend map[string]interface{}) {
 	func() {
 		l.shared.DataLock.Lock()
 		defer l.shared.DataLock.Unlock()
-		l.shared.Data = append(l.shared.Data, values...)
+		for key, value := range dataToAppend {
+			l.local.Data[key] = value
+		}
 	}()
 	l.touched()
 }
 
-func (l *Log) LocalSpanData(values ...Field) {
+func (l *Log) LocalSpanData(dataToAppend map[string]interface{}) {
 	if l.local.IsBufferParent {
-		l.BufferedSpanData(values...)
+		l.BufferedSpanData(dataToAppend)
 		return
 	}
 	func() {
 		l.local.DataLock.Lock()
 		defer l.local.DataLock.Unlock()
-		l.local.Data = append(l.local.Data, values...)
+		for key, value := range dataToAppend {
+			l.local.Data[key] = value
+		}
 	}()
 	l.touched()
 }
 
-func (l *Log) SpanIndex(searchable ...Field) {
+func (l *Log) SpanIndex(keyValuePairs ...string) {
 	func() {
 		l.shared.DataLock.Lock()
 		defer l.shared.DataLock.Unlock()
-		l.shared.Index = append(l.shared.Index, searchable...)
+		for i := 0; i < len(keyValuePairs)-2; i += 2 {
+			key := keyValuePairs[i]
+			l.shared.Index[key] = append(l.shared.Index[key], keyValuePairs[i+1])
+		}
 	}()
 	l.touched()
 }
@@ -246,4 +255,12 @@ func (l *Log) CurrentPrefill() []Field {
 	c := make([]Field, len(l.seed.prefill))
 	copy(c, l.seed.prefill)
 	return c
+}
+
+func copyMap(o map[string]interface{}) map[string]interface{} {
+	n := make(map[string]interface{})
+	for k, v := range o {
+		n[k] = v
+	}
+	return n
 }

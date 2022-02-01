@@ -14,8 +14,8 @@ type BufferedBase interface {
 		description string,
 		trace Trace,
 		parent Trace,
-		searchTerms []Field,
-		data []Field)
+		searchTerms map[string][]string,
+		data map[string]interface{})
 
 	Prefill(trace Trace, fields []Field) Prefilled
 }

@@ -27,8 +27,8 @@ type spanMessage struct {
 	description string
 	trace       xm.Trace
 	parent      xm.Trace
-	searchTerms []xm.Field
-	data        []xm.Field
+	searchTerms map[string][]string
+	data        map[string]interface{}
 }
 
 type flushMessage struct {
@@ -99,7 +99,13 @@ func (b *bufferedNonBlocking) Flush() {
 	}
 }
 
-func (b *bufferedNonBlocking) Span(description string, trace xm.Trace, parent xm.Trace, searchTerms []xm.Field, data []xm.Field) {
+func (b *bufferedNonBlocking) Span(
+	description string,
+	trace xm.Trace,
+	parent xm.Trace,
+	searchTerms map[string][]string,
+	data map[string]interface{},
+) {
 	select {
 	case b.base.spanBuffer <- spanMessage{
 		buffered:    b.buffered,
