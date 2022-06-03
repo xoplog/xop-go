@@ -1,0 +1,158 @@
+fast data loading mysql: https://github.com/go-sql-driver/mysql/blob/master/infile.go
+
+
+elastic/opensearch -- if you know the structure of your data
+
+
+
+build it myself:
+
+
+RARE:
+	KV TABLE:
+	attribute	value	timestamp 	indexid
+
+MEDIUM:
+	KV -> BLOB ID
+	attribute	value	blobid	timestamp / timestamp
+
+	blobid		timstamp / timestamp	array of index + timestamp
+
+FREQUENT:
+	table for a single KV:
+	indexID		timestamp
+
+
+
+
+TABLES:
+	attributes:		attribute_name attribute_number	attribute_type
+	kvblob_map_number:	attribute_number	value	start_time	end_time	kvblob_id	count
+	kvblob_map_string:	attribute_number	value	start_time	end_time	kvblob_id	count
+	kvblob_number:		kvblob_id	attribute_number	value	start_time	end_time	[itemid list]
+	kvblob_string:		kvblob_id	attribute_number	value	start_time	end_time	[itemid list]
+	kcounts:		attribute_number	day	count
+	kvcounts:		attribute_number	value	day	count_kvblob	count_kvtable
+	kvtable_number:		attribute_number	value	time	itemid
+	kvtable_string:		attribute_number	value	time	itemid
+	items:			itemid	type	start_time	end_time	last_access	computed_attributes(json)
+	blob_map:		itemid	blobid	starting_position	length
+	blob_index:		blobid	path	timestamp	size
+	blobs:			path	compressed_data
+	blob_todo:		shard(blobid%shards)	blobid	timestamp
+	rules:			id	type	data
+
+INJEST:
+	1. data is sent in batches rather than streamed.  
+	-----
+	2. write to compressed raw blob store:	
+		tx:
+			blobs: blobId(bigint), blob, traceid, sourceid, source message sequence number
+			blobtodo: shardid(blobId%shards), blobid, timestamp
+	-----
+	3. find unlocked, unprocessed blobs to process
+	4. figure out the set of items and their types 
+	5. insert into items, blob_map, attributes, kvblob_*, kvtable_*
+		Use kvblob if there are >100 instances in a day
+	-----
+	6. periodically update kcounts & kvcounts
+
+BLOOM FILTER for key frequency, for key / value frequency, for key / numeric range frequency 
+Or Top-K
+https://pkg.go.dev/github.com/tylertreat/boomfilters#section-readme -- Counting Bloom Filter or Cuckoo Filter
+
+
+SEARCH:
+	in parallel, query 
+
+	ranged_atribute	[start	end)	[start_time	end_time)	kvblob_id	count
+
+	counts	[ranged_start	ranged_end)	
+
+	Count		-> combine by adding
+	Total		-> combine by taking the latest
+	DistinctValue	-> combine by keeping both
+	Rate		-> combine by averaging
+
+	For all of the above....
+
+	indexed by range
+
+Injest
+	N copies of write-to-blob
+	M copies of indexer (initial implementation M=1)
+	
+Track members
+	Leader election
+	Shard (re)assignment
+	Notification bus (unreliable)
+		Cross-bar (every Nth (10th) node) + leaf topology
+		redis?
+
+Counting bloom filter
+	db
+	in-memory replicated 
+	in-memory distributed
+	Use hyper log log to calculate size for next week's bloom filter
+	https://hur.st/bloomfilter/?n=100G&p=0.004&m=&k=8
+	Every interval, clear all bloom filter cells that are below the kv blob threshold (1k)
+	use https://en.wikipedia.org/wiki/Approximate_counting_algorithm for counters, maybe
+
+Blob store
+	kind
+	path
+	create timestamp
+
+Blob index
+	document id -> blob kind/path, offset start, length
+
+document
+	anything independently indexed
+	docid - uuid
+	type: trace, span, log-line, request, whatever
+	key / value index by docid
+	bitmap position?
+
+Key/value frequency
+	Low	<1k	shared key/value table
+	Medium	<1m	kv blob
+	High	<1%	custom table: timestamp docid
+	Super	>=1%	column store bitmap
+
+Floats
+	key/value frequency by powers-of-N goupings ish
+
+Integers
+	key/value frequency by powers-of-four goupings
+	
+User config
+	Attribute type (string, int, float, unindexed)
+	Keep all vs keep last vs keep non
+	What counts as a document
+	How long to keep document index (30 days)
+	How long to keep blob index / blobs (2 yrs)
+	How long to keep documents that have been viewed (forever)
+	Time interval for index blobs (7 days)
+	Stored in table
+
+Search results
+	can be named
+	can be frozen or refreshed
+	union
+	intersection
+	full-text search within
+	downloadable
+	paged
+
+
+
+
+
+Indexing
+	Lock blobs
+	Read blobs
+		Use channels to send to N different writers
+			Writer writes to one table using INFILE loading
+		After 1 second, finish write and ack to sender
+	Mark blobs as processed
+

@@ -64,7 +64,7 @@ purposes and such logs may need to be sent reliably.
 
 ## Indexing logs
 
-ElasticSearch and SingleStore seem like the best bets
+ElasticSearch vs OpenSearch vs Solr?  Elastic loses on the licensing front.
 
 It makes sense to do full-text indexing and also trace-level indexing separately
 so that the trace-level indexing can be retained for a longer duration.
