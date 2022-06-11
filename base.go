@@ -6,7 +6,7 @@ import (
 )
 
 // BaseLogger is the bottom half of a logger -- the part that actually
-// outputs data somewhere.  There can be many BaseLogger implementations
+// outputs data somewhere.  There can be many BaseLogger implementations.
 type BaseLogger interface {
 	SetLevel(Level)
 	WantDurable() bool
