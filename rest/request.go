@@ -5,19 +5,19 @@ import (
 	"time"
 
 	"github.com/muir/rest"
-	"github.com/muir/xm"
-	"github.com/muir/xm/trace"
-	"github.com/muir/xm/zap"
+	"github.com/muir/xop"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/zap"
 )
 
-func Log(log xm.Log) *rest.RequestOpts {
+func Log(log xop.Log) *rest.RequestOpts {
 	var startTime time.Time
-	var step *xm.Log
+	var step *xop.Log
 	var farSideSpan trace.HexBytes
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
 			startTime = time.Now()
-			step := log.Step(o.Description, xm.Data(map[string]interface{}{
+			step := log.Step(o.Description, xop.Data(map[string]interface{}{
 				"type":   "http.request",
 				"url":    r.URL.String(),
 				"method": r.Method,
@@ -40,7 +40,7 @@ func Log(log xm.Log) *rest.RequestOpts {
 			return nil
 		}).
 		DoAfter(func(result rest.Result) rest.Result {
-			fields := make([]zap.Field, 0, 20)
+			fields := make([]xopthing.Thing, 0, 20)
 			fields = append(fields,
 				zap.String("type", "http.request"),
 				zap.String("url", result.Request.URL.String()),

@@ -1,4 +1,4 @@
-package xm
+package xop
 
 import (
 	"strconv"
@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xm/trace"
-	"github.com/muir/xm/zap"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/zap"
 )
 
 type Log struct {
@@ -146,7 +146,7 @@ func (l *Log) Flush() {
 	}
 }
 
-func (l *Log) log(level Level, msg string, values []zap.Field) {
+func (l *Log) log(level xopconst.Level, msg string, values []xopthing.Thing) {
 	unflushed := atomic.AddInt32(&l.shared.UnflushedLogs, 1)
 	if unflushed == 1 {
 		l.enableFlushTimer()
@@ -242,20 +242,69 @@ func (l *Log) SpanIndex(keyValuePairs ...string) {
 	l.touched()
 }
 
-func (l *Log) Debug(msg string, values ...zap.Field) { l.log(DebugLevel, msg, values) }
-func (l *Log) Trace(msg string, values ...zap.Field) { l.log(TraceLevel, msg, values) }
-func (l *Log) Info(msg string, values ...zap.Field)  { l.log(InfoLevel, msg, values) }
-func (l *Log) Warn(msg string, values ...zap.Field)  { l.log(WarnLevel, msg, values) }
-func (l *Log) Error(msg string, values ...zap.Field) { l.log(ErrorLevel, msg, values) }
-func (l *Log) Alert(msg string, values ...zap.Field) { l.log(AlertLevel, msg, values) }
+func (l *Log) Debug()
+
+func (l *Log) DebugMsg(msg string, values ...xopthing.Thing) { l.log(DebugLevel, msg, values) }
+func (l *Log) TraceMsg(msg string, values ...xopthing.Thing) { l.log(TraceLevel, msg, values) }
+func (l *Log) InfoMsg(msg string, values ...xopthing.Thing)  { l.log(InfoLevel, msg, values) }
+func (l *Log) WarnMsg(msg string, values ...xopthing.Thing)  { l.log(WarnLevel, msg, values) }
+func (l *Log) ErrorMsg(msg string, values ...xopthing.Thing) { l.log(ErrorLevel, msg, values) }
+func (l *Log) AlertMsg(msg string, values ...xopthing.Thing) { l.log(AlertLevel, msg, values) }
+
+func (l *Log) Debug() *LogLine { return l.logLine(DebugLevel) }
+func (l *Log) Trace() *LogLine { return l.logLine(TraceLevel) }
+func (l *Log) Info() *LogLine  { return l.logLine(InfoLevel) }
+func (l *Log) Warn() *LogLine  { return l.logLine(WarnLevel) }
+func (l *Log) Error() *LogLine { return l.logLine(ErrorLevel) }
+func (l *Log) Alert() *LogLine { return l.logLine(AlertLevel) }
+
+type LogLine struct {
+	log          *Log
+	pendingLines []PendingLine
+}
+
+func (l *Log) logLine(level xopconst.Level) {
+	// TODO: Allocation
+	ll := &LogLine{
+		log: l,
+	}
+	for _, base := range l.seed.baseLoggers.List {
+		ll.pendingLines = append(ll.pendingLines, base.Start(level))
+	}
+	return ll
+}
+
+// TODO: generate these
+func (ll *LogLine) Int(name string, value int) *LogLine {
+	for _, line := range ll.pendingLines {
+		line.Int(name, value)
+	}
+	return ll
+}
+func (ll *LogLine) Str(name string, value string) *LogLine {
+	for _, line := range ll.pendingLines {
+		line.Str(name, value)
+	}
+	return ll
+}
+
+func (ll *LogLine) Msg(msg string) {
+	for _, base := range ll.pendingLines {
+		line.Msg(msg)
+	}
+}
+
+func (ll *LogLine) Msgf(msg string, v ...interface{}) {
+	ll.Msg(fmt.Sprintf(msg, v...))
+}
 
 // XXX
 // func (l *Log) Guage(name string, value float64, )
 // func (l *Log) AdjustCounter(name string, value float64, )
 // XXX redaction
 
-func (l *Log) CurrentPrefill() []zap.Field {
-	c := make([]zap.Field, len(l.seed.prefill))
+func (l *Log) CurrentPrefill() []xopthing.Thing {
+	c := make([]xopthing.Thing, len(l.seed.prefill))
 	copy(c, l.seed.prefill)
 	return c
 }

@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/muir/xm"
-	"github.com/muir/xm/propagate"
-	"github.com/muir/xm/trace"
+	"github.com/muir/xop"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopprop"
 )
 
-func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
+func makeChildSpan(parent xop.Log, r *http.Request) *xop.Log {
 	route := mux.CurrentRoute(r)
 	name := route.GetName()
 	if name == "" {
@@ -20,13 +20,13 @@ func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
 	seed := parent.CopySeed()
 
 	if b3 := r.Header.Get("b3"); b3 != "" {
-		propagate.SetByB3Header(&seed, b3)
+		xopprop.SetByB3Header(&seed, b3)
 	} else if tp := r.Header.Get("traceparent"); tp != "" {
-		propagate.SetByTraceParentHeader(&seed, tp)
+		xopprop.SetByTraceParentHeader(&seed, tp)
 	} else if b3TraceId := r.Header.Get("X-B3-TraceId"); b3TraceId != "" {
 		seed.Trace().TraceId().SetString(b3TraceId)
 		if b3ParentSpanId := r.Header.Get("X-B3-ParentSpanId"); b3ParentSpanId != "" {
-			propagate.SetByB3ParentSpanId(&seed, b3ParentSpanId)
+			xopprop.SetByB3ParentSpanId(&seed, b3ParentSpanId)
 		} else {
 			// Uh oh, no parent span id
 			*seed.TraceParent() = trace.NewTrace()
@@ -38,7 +38,7 @@ func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
 		}
 
 		if b3Sampling := r.Header.Get("X-B3-Sampled"); b3Sampling != "" {
-			propagate.SetByB3Sampled(&seed, b3Sampling)
+			xopprop.SetByB3Sampled(&seed, b3Sampling)
 		}
 	} else {
 		seed.Trace().TraceId().SetRandom()
@@ -55,7 +55,7 @@ func makeChildSpan(parent xm.Log, r *http.Request) *xm.Log {
 	return log
 }
 
-func ParentLogMiddleware(parentLog xm.Log) func(http.HandlerFunc) http.HandlerFunc {
+func ParentLogMiddleware(parentLog xop.Log) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -72,8 +72,8 @@ func ParentLogMiddleware(parentLog xm.Log) func(http.HandlerFunc) http.HandlerFu
 }
 
 // MakeLogInjector is compatible with https://github.com/muir/nject/nvelope
-func MakeLogInjector(parentLog xm.Log) func(func(*xm.Log), *http.Request) {
-	return func(inner func(*xm.Log), r *http.Request) {
+func MakeLogInjector(parentLog xop.Log) func(func(*xop.Log), *http.Request) {
+	return func(inner func(*xop.Log), r *http.Request) {
 		log := makeChildSpan(parentLog, r)
 		startTime := time.Now()
 		defer log.End()

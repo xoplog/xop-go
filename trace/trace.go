@@ -49,14 +49,18 @@ type Trace struct {
 	// missing and the parent ids can't be tied together
 	traceId HexBytes // 16 bytes
 
+	// This is the recevied "parent-id" field.
+	// XXX add methods and propagate
+	parentId HexBytes // 8 bytes
+
 	// This is the "parent-id" field in the header.  The W3C spec name for this
 	// causes confusion.  It's also considered the "span-id".
 	spanId HexBytes // 8 bytes
 
 	flags HexBytes // 1 byte
 
-	headerString  string
-	traceIdString string
+	headerString  string // version + traceId + spanId + flags
+	traceIdString string // traceId + spanId
 }
 
 func (t Trace) Copy() Trace {

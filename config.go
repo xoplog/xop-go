@@ -1,4 +1,4 @@
-package xm
+package xop
 
 type Config struct {
 	UseB3 bool // Zipkin

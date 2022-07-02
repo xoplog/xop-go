@@ -1,18 +1,18 @@
-package xm
+package xop
 
 import (
 	"time"
 
-	"github.com/muir/xm/trace"
-	"github.com/muir/xm/zap"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/zap"
 )
 
-// Seed is used to create a Log
+// Seed is used to create a Log.
 type Seed struct {
 	config Config
 	traceState
 	prefix         string
-	prefill        []zap.Field
+	prefill        []xopthing.Thing
 	prefillChanged bool
 	description    string
 	data           map[string]interface{}
@@ -29,8 +29,8 @@ func (s Seed) Copy() Seed {
 	return n
 }
 
-func copyFields(from []zap.Field) []zap.Field {
-	n := make([]zap.Field, len(from))
+func copyFields(from []xopthing.Thing) []xopthing.Thing {
+	n := make([]xopthing.Thing, len(from))
 	copy(n, from)
 	return n
 }
@@ -56,7 +56,7 @@ func (s Seed) ApplyMods(mods []SeedModifier) Seed {
 	return s
 }
 
-func PrefilOnly(fields []zap.Field) SeedModifier {
+func PrefilOnly(fields []xopthing.Thing) SeedModifier {
 	return func(s *Seed) {
 		s.prefill = fields
 	}

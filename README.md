@@ -1,4 +1,4 @@
-# xm - Golang structured log generation combined with tracing
+# xop - Golang structured log generation combined with tracing (Cross Obserability Platform)
 
 # Development status
 

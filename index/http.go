@@ -44,11 +44,11 @@ func New(app *nserve.App, creg *nfigure.Registry) *server {
 		for _, addr := range s.ListenAddress {
 			addr := addr
 			listener, err := net.Listen("tcp", addr)
-			if err != nil { return errors.Wrapf(err, "xm log recevier at %s", addr) }
+			if err != nil { return errors.Wrapf(err, "xop log recevier at %s", addr) }
 			go func() {
 				err := http.Serve(listener, handler)
 				if err != nil && !shutdownCalled {
-					panic(fmt.Sprintf("http.Serve for xm log recevier on %s exited early with %s", addr, err))
+					panic(fmt.Sprintf("http.Serve for xop log recevier on %s exited early with %s", addr, err))
 				}
 			}
 		}
@@ -63,7 +63,7 @@ func New(app *nserve.App, creg *nfigure.Registry) *server {
 
 func (s *server) GetHandler() http.Handler {
 	r := mux.NewRouter()
-	service := npoint.RegisterServiceWithMux("xm-receive", r,
+	service := npoint.RegisterServiceWithMux("xop-receive", r,
 		LOGGER,
 		nvelope.InjectWriter,
 		nvelope.EncodeJSON,

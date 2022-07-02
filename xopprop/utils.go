@@ -1,14 +1,14 @@
-package propagate
+package xopprop
 
 import (
 	"strings"
 
-	"github.com/muir/xm"
+	"github.com/muir/xop"
 )
 
 // "traceparent" header
 // Example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
-func SetByTraceParentHeader(s *xm.Seed, h string) {
+func SetByTraceParentHeader(s *xop.Seed, h string) {
 	splits := strings.SplitN(h, "-", 5)
 	if len(splits) != 4 {
 		return
@@ -28,7 +28,7 @@ func SetByTraceParentHeader(s *xm.Seed, h string) {
 
 // https://github.com/openzipkin/b3-propagation
 // b3: traceid-spanid-sampled-parentspanid
-func SetByB3Header(s *xm.Seed, h string) {
+func SetByB3Header(s *xop.Seed, h string) {
 	switch h {
 	case "0", "1":
 		SetByB3Sampled(s, h)
@@ -50,7 +50,7 @@ func SetByB3Header(s *xm.Seed, h string) {
 }
 
 // X-B3-Sampled
-func SetByB3Sampled(s *xm.Seed, h string) {
+func SetByB3Sampled(s *xop.Seed, h string) {
 	switch h {
 	case "1":
 		s.Trace().Flags().SetBytes([]byte{1})
@@ -62,7 +62,7 @@ func SetByB3Sampled(s *xm.Seed, h string) {
 
 // X-B3-ParentSpanId
 // Implies parent trace id is the same as my trace id
-func SetByB3ParentSpanId(s *xm.Seed, h string) {
+func SetByB3ParentSpanId(s *xop.Seed, h string) {
 	s.TraceParent().SpanId().SetString(h)
 	if s.TraceParent().SpanId().IsZero() {
 		s.TraceParent().TraceId().SetZero()

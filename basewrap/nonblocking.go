@@ -1,31 +1,31 @@
 package basewrap
 
 import (
-	"github.com/muir/xm"
-	"github.com/muir/xm/trace"
-	"github.com/muir/xm/zap"
+	"github.com/muir/xop"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/zap"
 )
 
 type nonBlockingBase struct {
-	under       xm.BaseLogger
-	level       xm.Level
+	under       xop.BaseLogger
+	level       xopconst.Level
 	spanBuffer  chan spanMessage
 	flushBuffer chan flushMessage
 	logBuffer   chan logMessage
 }
 
 type bufferedNonBlocking struct {
-	buffered xm.BufferedBase
+	buffered xop.BufferedBase
 	base     *nonBlockingBase
 }
 
 type prefilledNonBlocking struct {
-	prefilled xm.Prefilled
+	prefilled xop.Prefilled
 	base      *nonBlockingBase
 }
 
 type spanMessage struct {
-	buffered    xm.BufferedBase
+	buffered    xop.BufferedBase
 	description string
 	trace       trace.Trace
 	parent      trace.Trace
@@ -34,14 +34,14 @@ type spanMessage struct {
 }
 
 type flushMessage struct {
-	buffered xm.BufferedBase
+	buffered xop.BufferedBase
 }
 
 type logMessage struct {
-	prefilled xm.Prefilled
-	level     xm.Level
+	prefilled xop.Prefilled
+	level     xopconst.Level
 	msg       string
-	values    []zap.Field
+	values    []xopthing.Thing
 }
 
 // NonBlocking wraps a BaseLogger so that nearly all operations are
@@ -50,7 +50,7 @@ type logMessage struct {
 // limit will be dropped.
 //
 // NonBlocking bufferSize must be at least 10 and 500 is suggested.
-func NonBlocking(underlying xm.BaseLogger, bufferSize int) xm.BaseLogger {
+func NonBlocking(underlying xop.BaseLogger, bufferSize int) xop.BaseLogger {
 	if bufferSize < 10 {
 		bufferSize = 10
 	}
@@ -77,7 +77,7 @@ func (n *nonBlockingBase) receive() {
 	}
 }
 
-func (n *nonBlockingBase) SetLevel(level xm.Level) {
+func (n *nonBlockingBase) SetLevel(level xopconst.Level) {
 	n.under.SetLevel(level)
 }
 
@@ -85,7 +85,7 @@ func (n *nonBlockingBase) WantDurable() bool {
 	return true
 }
 
-func (n *nonBlockingBase) StartBuffer() xm.BufferedBase {
+func (n *nonBlockingBase) StartBuffer() xop.BufferedBase {
 	return &bufferedNonBlocking{
 		base:     n,
 		buffered: n.StartBuffer(),
@@ -121,14 +121,14 @@ func (b *bufferedNonBlocking) Span(
 	}
 }
 
-func (b *bufferedNonBlocking) Prefill(trace trace.Trace, f []zap.Field) xm.Prefilled {
+func (b *bufferedNonBlocking) Prefill(trace trace.Trace, f []xopthing.Thing) xop.Prefilled {
 	return prefilledNonBlocking{
 		prefilled: b.buffered.Prefill(trace, f),
 		base:      b.base,
 	}
 }
 
-func (p prefilledNonBlocking) Log(level xm.Level, msg string, values []zap.Field) {
+func (p prefilledNonBlocking) Log(level xopconst.Level, msg string, values []xopthing.Thing) {
 	select {
 	case p.base.logBuffer <- logMessage{
 		prefilled: p.prefilled,
