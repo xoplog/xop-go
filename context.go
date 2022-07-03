@@ -1,4 +1,4 @@
-package xop
+package xoplog
 
 import (
 	"context"
@@ -8,7 +8,7 @@ type contextKeyType struct{}
 
 var contextKey = contextKeyType{}
 
-func (log *Log) IntoContext(ctx context.Context) context.Context {
+func (l *Log) IntoContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, contextKey, log)
 }
 

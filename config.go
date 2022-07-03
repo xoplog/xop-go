@@ -1,4 +1,4 @@
-package xop
+package xoplog
 
 type Config struct {
 	UseB3 bool // Zipkin
@@ -6,9 +6,17 @@ type Config struct {
 
 type ConfigModifier func(*Config)
 
-func (s Seed) AlterConfig(mods ...ConfigModifier) {
-	for _, mod := range mods {
-		mod(&s.config)
+func WithConfig(config Config) SeedModifier {
+	return func(s *Seed) {
+		s.config = config
+	}
+}
+
+func WithConfigChanges(mods ...ConfigModifier) SeedModifier {
+	return func(s *Seed) {
+		for _, mod := range mods {
+			mod(&s.config)
+		}
 	}
 }
 

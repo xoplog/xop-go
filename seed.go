@@ -1,18 +1,18 @@
-package xop
+package xoplog
 
 import (
 	"time"
 
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/zap"
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xop"
 )
 
 // Seed is used to create a Log.
 type Seed struct {
-	config Config
-	traceState
+	config         Config
+	traceBundle    trace.Bundle
 	prefix         string
-	prefill        []xopthing.Thing
+	prefill        []xop.Thing
 	prefillChanged bool
 	description    string
 	data           map[string]interface{}
@@ -23,14 +23,14 @@ type Seed struct {
 func (s Seed) Copy() Seed {
 	n := s
 	n.prefill = copyFields(s.prefill)
-	n.baseLoggers = s.baseLoggers.CopyWithoutTrace()
+	n.baseLoggers = s.baseLoggers.copyWithoutTrace()
 	n.data = nil
-	n.traceState = s.traceState.Copy()
+	n.traceBundle = s.traceBundle.Copy()
 	return n
 }
 
-func copyFields(from []xopthing.Thing) []xopthing.Thing {
-	n := make([]xopthing.Thing, len(from))
+func copyFields(from []xop.Thing) []xop.Thing {
+	n := make([]xop.Thing, len(from))
 	copy(n, from)
 	return n
 }
@@ -44,8 +44,8 @@ func NewSeed(mods ...SeedModifier) Seed {
 	return seed.ApplyMods(mods)
 }
 
-func (l *Log) CopySeed(mods ...SeedModifier) Seed {
-	seed := l.seed.Copy()
+func (s *Span) Seed(mods ...SeedModifier) Seed {
+	seed := s.seed.Copy()
 	return seed.ApplyMods(mods)
 }
 
@@ -56,50 +56,38 @@ func (s Seed) ApplyMods(mods []SeedModifier) Seed {
 	return s
 }
 
-func PrefilOnly(fields []xopthing.Thing) SeedModifier {
+func WithTrace(trace trace.Trace) SeedModifier {
+	return func(s *Seed) {
+		s.traceBundle.Trace = trace
+	}
+}
+
+func WithMorePrefill(fields ...xop.Thing) SeedModifier {
+	return func(s *Seed) {
+		s.prefillChanged = true
+		s.prefill = append(s.prefill, fields...)
+	}
+}
+
+func WithPrefill(fields ...xop.Thing) SeedModifier {
 	return func(s *Seed) {
 		s.prefill = fields
+		s.prefillChanged = true
 	}
 }
 
-func Data(overrides map[string]interface{}) SeedModifier {
+func WithData(fields ...xop.Thing) SeedModifier {
 	return func(s *Seed) {
-		for k, v := range overrides {
-			s.data[k] = v
-		}
+		s.data = fields
 	}
 }
 
-func (s Seed) State() *trace.State { return &s.traceState.state }
-
-func (s Seed) Trace() *trace.Trace {
-	return &s.myTrace
+func (s Seed) Trace() trace.Bundle {
+	return s.traceBundle
 }
-
-func (s Seed) TraceParent() *trace.Trace {
-	return &s.parentTrace
-}
-
-func (s Seed) Baggage() *trace.Baggage { return &s.traceState.baggage }
 
 func (s Seed) SubSpan() Seed {
 	s.parentTrace = s.myTrace.Copy()
 	s.myTrace.RandomizeSpanId()
 	return s
-}
-
-type traceState struct {
-	parentTrace trace.Trace
-	myTrace     trace.Trace
-	state       trace.State
-	baggage     trace.Baggage
-}
-
-func (t traceState) Copy() traceState {
-	return traceState{
-		parentTrace: t.parentTrace.Copy(),
-		myTrace:     t.myTrace.Copy(),
-		state:       t.state,
-		baggage:     t.baggage,
-	}
 }

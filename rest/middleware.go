@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/muir/xop"
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/xopprop"
+	"github.com/muir/xoplog"
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xopprop"
 )
 
-func makeChildSpan(parent xop.Log, r *http.Request) *xop.Log {
+func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
 	route := mux.CurrentRoute(r)
 	name := route.GetName()
 	if name == "" {
@@ -55,7 +55,7 @@ func makeChildSpan(parent xop.Log, r *http.Request) *xop.Log {
 	return log
 }
 
-func ParentLogMiddleware(parentLog xop.Log) func(http.HandlerFunc) http.HandlerFunc {
+func ParentLogMiddleware(parentLog xoplog.Log) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -72,8 +72,8 @@ func ParentLogMiddleware(parentLog xop.Log) func(http.HandlerFunc) http.HandlerF
 }
 
 // MakeLogInjector is compatible with https://github.com/muir/nject/nvelope
-func MakeLogInjector(parentLog xop.Log) func(func(*xop.Log), *http.Request) {
-	return func(inner func(*xop.Log), r *http.Request) {
+func MakeLogInjector(parentLog xoplog.Log) func(func(*xoplog.Log), *http.Request) {
+	return func(inner func(*xoplog.Log), r *http.Request) {
 		log := makeChildSpan(parentLog, r)
 		startTime := time.Now()
 		defer log.End()

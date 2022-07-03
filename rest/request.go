@@ -5,19 +5,19 @@ import (
 	"time"
 
 	"github.com/muir/rest"
-	"github.com/muir/xop"
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/zap"
+	"github.com/muir/xoplog"
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xop"
 )
 
-func Log(log xop.Log) *rest.RequestOpts {
+func Log(log xoplog.Log) *rest.RequestOpts {
 	var startTime time.Time
-	var step *xop.Log
+	var step *xoplog.Log
 	var farSideSpan trace.HexBytes
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
 			startTime = time.Now()
-			step := log.Step(o.Description, xop.Data(map[string]interface{}{
+			step := log.Step(o.Description, xoplog.Data(map[string]interface{}{
 				"type":   "http.request",
 				"url":    r.URL.String(),
 				"method": r.Method,
@@ -40,29 +40,29 @@ func Log(log xop.Log) *rest.RequestOpts {
 			return nil
 		}).
 		DoAfter(func(result rest.Result) rest.Result {
-			fields := make([]xopthing.Thing, 0, 20)
+			fields := make([]xop.Thing, 0, 20)
 			fields = append(fields,
-				zap.String("type", "http.request"),
-				zap.String("url", result.Request.URL.String()),
-				zap.String("method", result.Request.Method),
-				zap.Duration("duration", time.Now().Sub(startTime)))
+				xop.String("type", "http.request"),
+				xop.String("url", result.Request.URL.String()),
+				xop.String("method", result.Request.Method),
+				xop.Duration("duration", time.Now().Sub(startTime)))
 
 			if result.Error != nil {
-				fields = append(fields, zap.NamedError("error", result.Error))
+				fields = append(fields, xop.NamedError("error", result.Error))
 			} else {
-				fields = append(fields, zap.Int("http.status", result.Response.StatusCode))
+				fields = append(fields, xop.Int("http.status", result.Response.StatusCode))
 				tr := result.Response.Header.Get("traceresponse")
 				if tr != "" {
-					fields = append(fields, zap.String("traceresponse", tr))
+					fields = append(fields, xop.String("traceresponse", tr))
 				}
 				if !farSideSpan.IsZero() {
-					fields = append(fields, zap.String("b3.spanid", farSideSpan.String()))
+					fields = append(fields, xop.String("b3.spanid", farSideSpan.String()))
 				}
 				if result.DecodeTarget != nil {
-					fields = append(fields, zap.Any("response", result.DecodeTarget))
+					fields = append(fields, xop.Any("response", result.DecodeTarget))
 				}
 				if result.Options.HasData {
-					fields = append(fields, zap.Any("request", result.Options.Data))
+					fields = append(fields, xop.Any("request", result.Options.Data))
 				}
 			}
 			step.Info(result.Options.Description, fields...)

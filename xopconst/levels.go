@@ -1,4 +1,4 @@
-package xop
+package xoplog
 
 import (
 	"sync/atomic"

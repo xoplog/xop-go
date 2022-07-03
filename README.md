@@ -187,3 +187,16 @@ NOTES
 
 
 
+# Terminology
+
+A "trace" is the the entire set of spans relating to one starting request or action.  It can
+span multiple servers.
+
+A "request" is a single request or action being handled by one program.  It does not span multiple
+servers.  There can be multiple requests in a trace.
+
+A "span" is a linear portion of the processing required to handle a request.  A single span should
+not include multiple threads of execution.  Span should represent a logical component to of the
+work being done.  Breaking the work into spans is an exercise for the programmer.
+
+

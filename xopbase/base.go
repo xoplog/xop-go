@@ -1,10 +1,11 @@
-package xop
+package xoplog
 
 import (
 	"time"
 
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/zap"
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xop"
+	"github.com/muir/xoplog/xopconst"
 )
 
 // BaseLogger is the bottom half of a logger -- the part that actually
@@ -27,16 +28,21 @@ type BaseRequest interface {
 
 type BaseSpan interface {
 	Line(Level, time.Time) BaseLine
-	Data([]xopthing.Thing)
-	LinePrefil([]xopthing.Thing) // adds
+	SetType(xopconst.Type)
+	// Data adds to what has already been provided for this span
+	Data([]xop.Thing)
+	// LinePrefill adds to what has already been provided for this span
+	AddPrefill([]xop.Thing)
 	ResetLinePrefill()
-	Span(span trace.Trace) BaseSpan // inherits line prefill
+	Span(span trace.Bundle) BaseSpan // inherits line prefill but not data
 }
 
 type BaseLine interface {
 	BaseObjectParts
 	// TODO: ExternalReference(name string, itemId string, storageId string)
 	Msg(string)
+	// TODO: Guage()
+	// TODO: Event()
 }
 
 type SubObject interface {
@@ -62,8 +68,6 @@ type BaseObjectParts interface {
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
-	// TODO: Guage()
-	// TODO: Event()
 }
 
 type BaseBuffer interface {
