@@ -12,17 +12,20 @@ import (
 )
 
 type Log struct {
-	span   Span
-	local  local   // one span in a request
-	shared *shared // shared between spans in a request
+	span    Span
+	request *Span
+	local   local   // one span in a request
+	shared  *shared // shared between spans in a request
 }
 
 type Span struct {
-	seed     Seed
-	dataLock sync.Mutex // protects Data & SpanType
-	data     []zop.Thing
-	spanType SpanType
-	log      *Log // back to self
+	seed      Seed
+	dataLock  sync.Mutex // protects Data & SpanType
+	data      []zop.Thing
+	spanType  SpanType
+	startTime time.Time
+	endTime   int64 // unix nano
+	log       *Log  // back to self
 }
 
 type local struct {
@@ -35,7 +38,6 @@ type local struct {
 
 // shared is common between the loggers that share a search index
 type shared struct {
-	request       *Span
 	RefCount      int32
 	UnflushedLogs int32
 	FlushTimer    *time.Timer
@@ -53,10 +55,11 @@ var DefaultFlushDelay = time.Minute * 5
 func (s Seed) Request(description string) *Log {
 	s = s.Copy()
 	s.myTrace.RebuildSetNonZero()
-	log := &Log{
-		span: &Span{
-			seed: s,
-			data: copyMap(s.data),
+	log := Log{
+		span: Span{
+			seed:      s,
+			data:      copyMap(s.data),
+			startTime: time.Now(),
 		},
 		shared: &shared{
 			RefCount:    1,
@@ -69,8 +72,8 @@ func (s Seed) Request(description string) *Log {
 			IsBufferParent: true,
 		},
 	}
-	log.span.log = log
-	log.shared.request = log.span
+	log.span.log = &log
+	log.request = &log.span
 	log.shared.Dirty = append(log.shared.Dirty, log)
 	log.finishBaseLoggerChanges()
 	log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
@@ -80,18 +83,20 @@ func (s Seed) Request(description string) *Log {
 func (old *Log) newChildLog(seed Seed) *Log {
 	log := &Log{
 		span: &Span{
-			seed: seed,
+			seed:      seed,
+			startTime: time.Now(),
 		},
 		local: local{
 			InDirty:        1,
 			Created:        time.Now(),
 			IsBufferParent: false,
 		},
-		shared: old.shared,
+		shared:  old.shared,
+		request: old.request,
 	}
 	log.span.log = log
-	log.shared.request.dataLock.Lock()
-	defer log.shared.request.dataLock.Unlock()
+	log.request.dataLock.Lock()
+	defer log.request.dataLock.Unlock()
 	log.shared.Dirty = append(log.shared.Dirty, log)
 	return log
 }
@@ -99,8 +104,8 @@ func (old *Log) newChildLog(seed Seed) *Log {
 func (s *Span) touched() {
 	wasInDirty := atomic.SwapInt32(&s.log.local.InDirty, 1)
 	if wasInDirty == 0 {
-		s.log.shared.request.dataLock.Lock()
-		defer s.log.shared.request.dataLock.Unlock()
+		s.log.request.dataLock.Lock()
+		defer s.log.request.dataLock.Unlock()
 		s.log.shared.Dirty = append(l.shared.Dirty, l)
 		if len(s.log.shared.Dirty) == 1 {
 			s.log.enableFlushTimer()
@@ -123,8 +128,8 @@ func (l *Log) timerFlush() {
 func (l *Log) Flush() {
 	atomic.StoreInt32(&l.shared.UnflushedLogs, 0)
 	func() {
-		l.shared.request.dataLock.Lock()
-		defer l.shared.request.dataLock.Unlock()
+		l.request.dataLock.Lock()
+		defer l.request.dataLock.Unlock()
 		for _, dirtyLog := range l.shared.Dirty {
 			atomic.StoreInt32(&dirtyLog.local.InDirty, 0) // TODO: need atomic?
 			var index map[string][]string
@@ -176,6 +181,9 @@ func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
 // automatically flushed.
 func (l *Log) Done() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
+	now := time.Now().UnixNano()
+	atomic.StoreInt64(&l.span.endTime, now)
+	atomic.StoreInt64(&l.request.endTime, now)
 	if remaining <= 0 {
 		l.Flush()
 	}
@@ -215,11 +223,11 @@ func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 }
 
 func (l *Log) Request() *Span {
-	return l.shared.Request
+	return l.request
 }
 
 func (l *Log) Span() *Span {
-	return l.local.Span
+	return &l.span
 }
 
 func (s *Span) SetType(spanType xopconst.SpanType) {
