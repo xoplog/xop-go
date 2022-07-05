@@ -9,10 +9,10 @@ type contextKeyType struct{}
 var contextKey = contextKeyType{}
 
 // TODO: have a default log that prints
-var Default = NewSeed().Log("discard")
+var Default = NewSeed().Request("discard")
 
 func (l *Log) IntoContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, contextKey, log)
+	return context.WithValue(ctx, contextKey, l)
 }
 
 func FromContextOrDefault(ctx context.Context) *Log {

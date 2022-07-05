@@ -1,8 +1,8 @@
 package xoplog
 
 import (
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
+	"github.com/muir/xoplog/xopconst"
 )
 
 type baseLoggers struct {
@@ -11,8 +11,21 @@ type baseLoggers struct {
 }
 
 type baseLogger struct {
-	Base     xopbase.BaseLogger
+	Name     string
+	Base     xopbase.Logger
 	MinLevel xopconst.Level
+}
+
+func (s baseLoggers) requests() (xopbase.Requests, bool) {
+	baseRequests := make(xopbase.Requests, len(s.List))
+	var referencesKept bool
+	for i, baseLogger := range s.List {
+		baseRequests[i] = baseLogger.Base.Request()
+		if baseLogger.Base.ReferencesKept() {
+			referencesKept = true
+		}
+	}
+	return baseRequests, referencesKept
 }
 
 func (s baseLoggers) copyWithoutTrace() baseLoggers {
@@ -44,30 +57,11 @@ func WithoutBaseLogger(name string) SeedModifier {
 	}
 }
 
-func WithBaseLogger(name string, baseLogger xopbase.BaseLogger) SeedModifier {
+func WithBaseLogger(name string, logger xopbase.Logger) SeedModifier {
 	return func(s *Seed) {
 		s.baseLoggers.List = append(s.baseLoggers.List, baseLogger{
 			Name: name,
-			Base: baseLogger,
+			Base: logger,
 		})
 	}
-}
-
-func (l *Log) finishBaseLoggerChanges() {
-	for i, baseLogger := range l.seed.baseLoggers.List {
-		if baseLogger.Buffered == nil {
-			baseLogger.Buffered = baseLogger.Base.StartBuffer()
-		} else if !l.seed.prefillChanged {
-			continue
-		}
-		baseLogger.Prefilled = baseLogger.Buffered.Prefill(l.seed.myTrace, l.seed.prefill)
-		l.seed.baseLoggers.List[i] = baseLogger
-	}
-	for _, baseLogger := range l.seed.baseLoggers.Removed {
-		if baseLogger.Buffered != nil {
-			baseLogger.Buffered.Flush()
-		}
-	}
-	l.seed.baseLoggers.Removed = nil
-	l.seed.prefillChanged = false
 }

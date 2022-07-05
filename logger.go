@@ -9,6 +9,10 @@ import (
 
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
+	"github.com/muir/xoplog/xopbase"
+	"github.com/muir/xoplog/xopconst"
+
+	"github.com/mohae/deepcopy"
 )
 
 type Log struct {
@@ -20,33 +24,36 @@ type Log struct {
 
 type Span struct {
 	seed      Seed
-	dataLock  sync.Mutex // protects Data & SpanType
-	data      []zop.Thing
-	spanType  SpanType
-	startTime time.Time
-	endTime   int64 // unix nano
-	log       *Log  // back to self
+	dataLock  sync.Mutex // protects Data & SpanType (can only be held for short periods)
+	data      []xop.Thing
+	spanType  xopconst.SpanType
+	log       *Log // back to self
+	baseSpans xopbase.Spans
 }
 
 type local struct {
-	ForkCounter    int32
-	StepCounter    int32
-	Created        time.Time
-	InDirty        int32 // in shared.Dirty? 0 = false, 1 = true
-	IsBufferParent bool
+	ForkCounter int32
+	StepCounter int32
+	Created     time.Time
+	InDirty     int32 // in shared.Dirty? 0 = false, 1 = true
+	IsDirty     int32 // span data/type needs updating (must also be InDirty)
+	IsRequest   bool
 }
 
 // shared is common between the loggers that share a search index
 type shared struct {
-	RefCount      int32
-	UnflushedLogs int32
-	FlushTimer    *time.Timer
-	FlushDelay    time.Duration
-	FlushActive   int32 // 1 == timer is running, 0 = timer is not running
+	FlushLock      sync.Mutex // protects Flush() (can be held for a longish period)
+	RefCount       int32
+	UnflushedLogs  int32
+	FlushTimer     *time.Timer
+	FlushDelay     time.Duration
+	FlushActive    int32 // 1 == timer is running, 0 = timer is not running
+	BaseRequests   xopbase.Requests
+	ReferencesKept bool
 
 	// Dirty holds spans that have modified data and need to be
 	// written or re-written.  It does not not track logs that
-	// need flushing. Protected by Span.dataLock.
+	// need flushing. Protected by request.dataLock.
 	Dirty []*Log
 }
 
@@ -54,42 +61,42 @@ var DefaultFlushDelay = time.Minute * 5
 
 func (s Seed) Request(description string) *Log {
 	s = s.Copy()
-	s.myTrace.RebuildSetNonZero()
+	s.traceBundle.Trace.RebuildSetNonZero()
 	log := Log{
 		span: Span{
-			seed:      s,
-			data:      copyMap(s.data),
-			startTime: time.Now(),
+			seed: s,
+			// XXX data:      copyMap(s.data),
 		},
 		shared: &shared{
 			RefCount:    1,
 			FlushActive: 1,
-			Index:       make(map[string][]string),
 		},
 		local: local{
-			InDirty:        1,
-			Created:        time.Now(),
-			IsBufferParent: true,
+			InDirty:   1,
+			IsDirty:   1,
+			Created:   time.Now(),
+			IsRequest: true,
 		},
 	}
 	log.span.log = &log
 	log.request = &log.span
-	log.shared.Dirty = append(log.shared.Dirty, log)
-	log.finishBaseLoggerChanges()
+	log.shared.Dirty = append(log.shared.Dirty, &log)
 	log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
-	return log
+	log.shared.BaseRequests, log.shared.ReferencesKept = log.span.seed.baseLoggers.requests()
+	log.span.baseSpans = log.shared.BaseRequests.Spans(log.span.seed.traceBundle)
+	return &log
 }
 
 func (old *Log) newChildLog(seed Seed) *Log {
 	log := &Log{
-		span: &Span{
-			seed:      seed,
-			startTime: time.Now(),
+		span: Span{
+			seed: seed,
 		},
 		local: local{
-			InDirty:        1,
-			Created:        time.Now(),
-			IsBufferParent: false,
+			InDirty:   1,
+			IsDirty:   1,
+			Created:   time.Now(),
+			IsRequest: false,
 		},
 		shared:  old.shared,
 		request: old.request,
@@ -101,15 +108,15 @@ func (old *Log) newChildLog(seed Seed) *Log {
 	return log
 }
 
-func (s *Span) touched() {
-	wasInDirty := atomic.SwapInt32(&s.log.local.InDirty, 1)
+func (l *Log) setDirty() {
+	wasInDirty := atomic.SwapInt32(&l.local.InDirty, 1)
 	if wasInDirty == 0 {
-		s.log.request.dataLock.Lock()
-		defer s.log.request.dataLock.Unlock()
-		s.log.shared.Dirty = append(l.shared.Dirty, l)
-		if len(s.log.shared.Dirty) == 1 {
-			s.log.enableFlushTimer()
-		}
+		func() {
+			l.request.dataLock.Lock()
+			defer l.request.dataLock.Unlock()
+			l.shared.Dirty = append(l.shared.Dirty, l)
+		}()
+		l.enableFlushTimer()
 	}
 }
 
@@ -120,55 +127,69 @@ func (l *Log) enableFlushTimer() {
 	}
 }
 
+// timerFlush is only called by log.shared.FlushTimer
 func (l *Log) timerFlush() {
-	atomic.StoreInt32(&l.shared.FlushActive, 0)
 	l.Flush()
 }
 
 func (l *Log) Flush() {
-	atomic.StoreInt32(&l.shared.UnflushedLogs, 0)
+	func() {
+		l.shared.FlushLock.Lock()
+		defer l.shared.FlushLock.Unlock()
+		// Stop is is not thread-safe with respect to other calls to Stop
+		l.shared.FlushTimer.Stop()
+		atomic.StoreInt32(&l.shared.FlushActive, 0)
+	}()
+	var dirty []*Log
 	func() {
 		l.request.dataLock.Lock()
 		defer l.request.dataLock.Unlock()
-		for _, dirtyLog := range l.shared.Dirty {
-			atomic.StoreInt32(&dirtyLog.local.InDirty, 0) // TODO: need atomic?
-			var index map[string][]string
-			var data map[string]interface{}
-			if dirtyLog.local.IsBufferParent {
-				index = dirtyLog.shared.Index
-				data = dirtyLog.shared.Data
-			} else {
-				func() {
-					dirtyLog.local.DataLock.Lock()
-					defer dirtyLog.local.DataLock.Unlock()
-					data = dirtyLog.local.Data
-				}()
-			}
-			for _, baseLogger := range l.seed.baseLoggers.List {
-				// XXX still need this?
-				baseLogger.Buffered.Span(
-					dirtyLog.seed.description,
-					dirtyLog.seed.myTrace,
-					dirtyLog.seed.parentTrace,
-					index,
-					data)
-			}
+		dirty = l.shared.Dirty
+		l.shared.Dirty = nil
+		for _, log := range dirty {
+			atomic.StoreInt32(&log.local.InDirty, 0)
 		}
-		l.shared.Dirty = l.shared.Dirty[:0]
 	}()
-	for _, baseLogger := range l.seed.baseLoggers.List {
-		baseLogger.Buffered.Flush()
+
+	l.shared.FlushLock.Lock()
+	defer l.shared.FlushLock.Unlock()
+	for _, log := range dirty {
+		for _, baseSpan := range log.span.baseSpans {
+			baseSpan.SpanInfo(log.span.spanType, log.span.data)
+		}
 	}
+	l.shared.BaseRequests.Flush()
 }
 
 func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
-	unflushed := atomic.AddInt32(&l.shared.UnflushedLogs, 1)
-	if unflushed == 1 {
-		l.enableFlushTimer()
+	t := time.Now()
+	for _, baseSpan := range l.span.baseSpans {
+		line := baseSpan.Line(level, t)
+		for _, thing := range values {
+			switch thing.Type {
+			case xop.IntType:
+				line.Int(thing.Key, thing.Int)
+			case xop.UintType:
+				line.Uint(thing.Key, thing.Any.(uint64))
+			case xop.BoolType:
+				line.Bool(thing.Key, thing.Any.(bool))
+			case xop.StringType:
+				line.Str(thing.Key, thing.String)
+			case xop.TimeType:
+				line.Time(thing.Key, thing.Any.(time.Time))
+			case xop.AnyType:
+				line.Any(thing.Key, thing.Any)
+			case xop.ErrorType:
+				line.Error(thing.Key, thing.Any.(error))
+			case xop.UnsetType:
+				fallthrough
+			default:
+				panic(fmt.Sprintf("malformed xop.Thing, type is %d", thing.Type))
+			}
+		}
+		line.Msg(msg)
 	}
-	for _, baseLogger := range l.seed.baseLoggers.List {
-		baseLogger.Prefilled.Log(level, msg, values)
-	}
+	l.enableFlushTimer()
 }
 
 // TODO func (l *Log) Zap() like zap
@@ -181,11 +202,10 @@ func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
 // automatically flushed.
 func (l *Log) Done() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
-	now := time.Now().UnixNano()
-	atomic.StoreInt64(&l.span.endTime, now)
-	atomic.StoreInt64(&l.request.endTime, now)
 	if remaining <= 0 {
 		l.Flush()
+	} else {
+		l.enableFlushTimer()
 	}
 }
 
@@ -194,11 +214,10 @@ func (l *Log) Done() {
 func (l *Log) Wait() *Log {
 	remaining := atomic.AddInt32(&l.shared.RefCount, 1)
 	if remaining > 1 {
-		return
+		return l
 	}
-	// This indicates a bug in the code that is using the
-	// logger.
-	l.Warn("Too many calls to log.Done()")
+	// This indicates a bug in the code that is using the logger.
+	l.Warn().Msg("Too many calls to log.Done()") // TODO: allow user to provide error maker
 	l.shared.FlushTimer.Reset(DefaultFlushDelay)
 	return l
 }
@@ -231,67 +250,81 @@ func (l *Log) Span() *Span {
 }
 
 func (s *Span) SetType(spanType xopconst.SpanType) {
-	s.DataLock.Lock()
-	defer s.DataLock.Unlock()
-	s.SpanType = spanType
+	func() {
+		s.dataLock.Lock()
+		defer s.dataLock.Unlock()
+		s.spanType = spanType
+	}()
+	s.log.setDirty()
 }
 
 func (s *Span) AddData(additionalData ...xop.Thing) {
 	func() {
-		s.DataLock.Lock()
-		defer s.DataLock.Unlock()
-		s.Data = append(s.Data, additionalData...)
+		s.dataLock.Lock()
+		defer s.dataLock.Unlock()
+		s.data = append(s.data, additionalData...)
 	}()
-	l.touched()
+	s.log.setDirty()
 }
 
-func (l *Log) LogThings(level Level, msg string, values ...xop.Thing) { l.log(level, msg, values) }
-
-func (l *Log) Debug() *LogLine { return l.logLine(DebugLevel) }
-func (l *Log) Trace() *LogLine { return l.logLine(TraceLevel) }
-func (l *Log) Info() *LogLine  { return l.logLine(InfoLevel) }
-func (l *Log) Warn() *LogLine  { return l.logLine(WarnLevel) }
-func (l *Log) Error() *LogLine { return l.logLine(ErrorLevel) }
-func (l *Log) Alert() *LogLine { return l.logLine(AlertLevel) }
+func (l *Log) LogThings(level xopconst.Level, msg string, values ...xop.Thing) {
+	l.log(level, msg, values)
+}
 
 type LogLine struct {
-	log          *Log
-	pendingLines []PendingLine
+	log   *Log
+	lines xopbase.Lines
 }
 
-func (l *Log) logLine(level xopconst.Level) {
-	// TODO: Allocation
-	ll := &LogLine{
-		log: l,
+func (l *Log) LogLine(level xopconst.Level) LogLine {
+	// TODO PERFORMANCE: have a sync.Pool of LogLines
+	return LogLine{
+		log:   l,
+		lines: l.span.baseSpans.Line(level, time.Now()),
 	}
-	for _, base := range l.seed.baseLoggers.List {
-		ll.pendingLines = append(ll.pendingLines, base.Start(level))
-	}
-	return ll
 }
+
+func (l *Log) Debug() LogLine { return l.LogLine(xopconst.DebugLevel) }
+func (l *Log) Trace() LogLine { return l.LogLine(xopconst.TraceLevel) }
+func (l *Log) Info() LogLine  { return l.LogLine(xopconst.InfoLevel) }
+func (l *Log) Warn() LogLine  { return l.LogLine(xopconst.WarnLevel) }
+func (l *Log) Error() LogLine { return l.LogLine(xopconst.ErrorLevel) }
+func (l *Log) Alert() LogLine { return l.LogLine(xopconst.AlertLevel) }
 
 // TODO: generate these
-func (ll *LogLine) Int(name string, value int) *LogLine {
-	for _, line := range ll.pendingLines {
-		line.Int(name, value)
-	}
-	return ll
-}
-func (ll *LogLine) Str(name string, value string) *LogLine {
-	for _, line := range ll.pendingLines {
-		line.Str(name, value)
-	}
-	return ll
-}
+// TODO: the rest of the set
+func (ll LogLine) Msg(msg string)                     { ll.lines.Msg(msg); ll.log.enableFlushTimer() }
+func (ll LogLine) Msgf(msg string, v ...interface{})  { ll.Msg(fmt.Sprintf(msg, v...)) }
+func (ll LogLine) Msgs(v ...interface{})              { ll.Msg(fmt.Sprint(v...)) }
+func (ll LogLine) Int(k string, v int) LogLine        { ll.lines.Int(k, int64(v)); return ll }
+func (ll LogLine) Int8(k string, v int8) LogLine      { ll.lines.Int(k, int64(v)); return ll }
+func (ll LogLine) Int16(k string, v int16) LogLine    { ll.lines.Int(k, int64(v)); return ll }
+func (ll LogLine) Int32(k string, v int32) LogLine    { ll.lines.Int(k, int64(v)); return ll }
+func (ll LogLine) Int64(k string, v int64) LogLine    { ll.lines.Int(k, v); return ll }
+func (ll LogLine) Uint(k string, v uint) LogLine      { ll.lines.Uint(k, uint64(v)); return ll }
+func (ll LogLine) Uint8(k string, v uint8) LogLine    { ll.lines.Uint(k, uint64(v)); return ll }
+func (ll LogLine) Uint16(k string, v uint16) LogLine  { ll.lines.Uint(k, uint64(v)); return ll }
+func (ll LogLine) Uint32(k string, v uint32) LogLine  { ll.lines.Uint(k, uint64(v)); return ll }
+func (ll LogLine) Uint64(k string, v uint64) LogLine  { ll.lines.Uint(k, v); return ll }
+func (ll LogLine) Str(k string, v string) LogLine     { ll.lines.Str(k, v); return ll }
+func (ll LogLine) Bool(k string, v bool) LogLine      { ll.lines.Bool(k, v); return ll }
+func (ll LogLine) Time(k string, v time.Time) LogLine { ll.lines.Time(k, v); return ll }
+func (ll LogLine) Error(k string, v error) LogLine    { ll.lines.Error(k, v); return ll }
 
-func (ll *LogLine) Msg(msg string) {
-	for _, base := range ll.pendingLines {
-		line.Msg(msg)
-	}
-}
+// AnyImmutable can be used to log something that is not going to be further modified
+// after this call.
+func (ll LogLine) AnyImmutable(k string, v interface{}) LogLine { ll.lines.Any(k, v); return ll }
 
-func (ll *LogLine) Msgf(msg string, v ...interface{}) {
-	ll.Msg(fmt.Sprintf(msg, v...))
+// Any can be used to log something that might be modified after this call.  If any base
+// logger does not immediately serialize, then the object will be copied using
+// github.com/mohae/deepcopy.Copy()
+func (ll LogLine) Any(k string, v interface{}) LogLine {
+	if ll.log.shared.ReferencesKept {
+		// TODO: make copy function configurable
+		v = deepcopy.Copy(v)
+	}
+	ll.lines.Any(k, v)
+	return ll
 }
 
 // TODO: func (l *Log) Guage(name string, value float64, )
@@ -312,7 +345,7 @@ func copyMap(o map[string]interface{}) map[string]interface{} {
 	return n
 }
 
-func (s *Span) TraceState() trace.State     { return s.seed.state }
-func (s *Span) TraceBaggage() trace.Baggage { return s.seed.baggage }
-func (s *Span) TraceParent() trace.Trace    { return s.seed.parentTrace }
-func (s *Span) Trace() trace.Trace          { return s.seed.myTrace }
+func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
+func (s *Span) TraceBaggage() trace.Baggage { return s.seed.traceBundle.Baggage }
+func (s *Span) TraceParent() trace.Trace    { return s.seed.traceBundle.ParentTrace }
+func (s *Span) Trace() trace.Trace          { return s.seed.traceBundle.Trace }

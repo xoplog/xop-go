@@ -15,7 +15,7 @@ type Seed struct {
 	prefill        []xop.Thing
 	prefillChanged bool
 	description    string
-	data           map[string]interface{}
+	data           []xop.Thing
 	baseLoggers    baseLoggers
 	flushDelay     time.Duration
 }
@@ -39,7 +39,9 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
-		data: make(map[string]interface{}),
+		config: Config{
+			FlushDelay: DefaultFlushDelay,
+		},
 	}
 	return seed.ApplyMods(mods)
 }
@@ -87,7 +89,7 @@ func (s Seed) Trace() trace.Bundle {
 }
 
 func (s Seed) SubSpan() Seed {
-	s.parentTrace = s.myTrace.Copy()
-	s.myTrace.RandomizeSpanId()
+	s.traceBundle = s.traceBundle.Copy()
+	s.traceBundle.Trace.RandomizeSpanId()
 	return s
 }

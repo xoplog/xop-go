@@ -1,4 +1,4 @@
-package xoplog
+package xopbase
 
 import (
 	"time"
@@ -8,37 +8,47 @@ import (
 	"github.com/muir/xoplog/xopconst"
 )
 
-// BaseLogger is the bottom half of a logger -- the part that actually
-// outputs data somewhere.  There can be many BaseLogger implementations.
-type BaseLogger interface {
-	Request() BaseRequest
+// Logger is the bottom half of a logger -- the part that actually
+// outputs data somewhere.  There can be many Logger implementations.
+type Logger interface {
+	Request() Request
 
-	// ReferencesOkay should return true if references to objects are okay
-	// as parameters to Any() and inside Things.  References are okay as long
-	// as the objects are immediately encoded or transformed.
-	ReferencesOkay() bool
+	// ReferencesKept should return true if Any() objects are not immediately
+	// serialized (the object is kept around and serilized later).  If copies
+	// are kept, then xoplog.Log will make copies.
+	ReferencesKept() bool
 
 	Close()
 }
 
-type BaseRequest interface {
+type Request interface {
+	// Calls to Flush are single-threaded along with calls to SpanInfo
 	Flush()
-	Span(span trace.Trace) BaseSpan
+	Span(span trace.Bundle) Span
 }
 
-type BaseSpan interface {
-	Line(Level, time.Time) BaseLine
-	SetType(xopconst.Type)
-	// Data adds to what has already been provided for this span
-	Data([]xop.Thing)
-	// LinePrefill adds to what has already been provided for this span
+type Span interface {
+	// Line starts another line of log output.  Span implementations
+	// can expect multiple calls simultaneously and even during a call
+	// to SpanInfo() or Flush().
+	Line(xopconst.Level, time.Time) Line
+
+	// SpanInfo replaces the span type and span data.
+	// Calls to flush are single-threaded along with calls to SpanInfo
+	SpanInfo(xopconst.SpanType, []xop.Thing)
+
+	// AddPrefill adds to what has already been provided for this span.
+	// Calls to AddPrefill will not overlap other calls to AddPrefil or
+	// to ResetLinePrefil.
 	AddPrefill([]xop.Thing)
 	ResetLinePrefill()
-	Span(span trace.Bundle) BaseSpan // inherits line prefill but not data
+
+	// Span creates a new Span that should inherit prefil but not data
+	Span(span trace.Bundle) Span
 }
 
-type BaseLine interface {
-	BaseObjectParts
+type Line interface {
+	ObjectParts
 	// TODO: ExternalReference(name string, itemId string, storageId string)
 	Msg(string)
 	// TODO: Guage()
@@ -46,7 +56,7 @@ type BaseLine interface {
 }
 
 type SubObject interface {
-	BaseObjectParts
+	ObjectParts
 	Complete()
 }
 
@@ -56,7 +66,7 @@ type Encoder interface {
 	Encode(elementName string, data interface{}) ([]byte, error)
 }
 
-type BaseObjectParts interface {
+type ObjectParts interface {
 	Int(string, int64)
 	Uint(string, uint64)
 	Bool(string, bool)
@@ -64,13 +74,14 @@ type BaseObjectParts interface {
 	Time(string, time.Time)
 	Error(string, error)
 	Any(string, interface{}) // generally serialized with JSON
+	// TODO: TraceReference(string, trace.Trace)
 	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
 }
 
-type BaseBuffer interface {
+type Buffer interface {
 	Context()
 	Flush()
 }
