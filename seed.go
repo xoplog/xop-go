@@ -42,6 +42,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 		config: Config{
 			FlushDelay: DefaultFlushDelay,
 		},
+		traceBundle: trace.NewBundle(),
 	}
 	return seed.ApplyMods(mods)
 }

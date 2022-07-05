@@ -7,6 +7,13 @@ type Bundle struct {
 	Baggage     Baggage
 }
 
+func NewBundle() Bundle {
+	return Bundle{
+		ParentTrace: NewTrace(),
+		Trace:       NewTrace(),
+	}
+}
+
 func (b Bundle) Copy() Bundle {
 	return Bundle{
 		ParentTrace: b.ParentTrace.Copy(),

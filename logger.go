@@ -36,7 +36,6 @@ type local struct {
 	StepCounter int32
 	Created     time.Time
 	InDirty     int32 // in shared.Dirty? 0 = false, 1 = true
-	IsDirty     int32 // span data/type needs updating (must also be InDirty)
 	IsRequest   bool
 }
 
@@ -65,7 +64,6 @@ func (s Seed) Request(description string) *Log {
 	log := Log{
 		span: Span{
 			seed: s,
-			// XXX data:      copyMap(s.data),
 		},
 		shared: &shared{
 			RefCount:    1,
@@ -73,7 +71,6 @@ func (s Seed) Request(description string) *Log {
 		},
 		local: local{
 			InDirty:   1,
-			IsDirty:   1,
 			Created:   time.Now(),
 			IsRequest: true,
 		},
@@ -94,7 +91,6 @@ func (old *Log) newChildLog(seed Seed) *Log {
 		},
 		local: local{
 			InDirty:   1,
-			IsDirty:   1,
 			Created:   time.Now(),
 			IsRequest: false,
 		},

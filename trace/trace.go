@@ -50,7 +50,7 @@ type Trace struct {
 	traceId HexBytes // 16 bytes
 
 	// This is the recevied "parent-id" field.
-	// XXX add methods and propagate
+	// TODO: add methods and propagate
 	parentId HexBytes // 8 bytes
 
 	// This is the "parent-id" field in the header.  The W3C spec name for this
@@ -151,6 +151,9 @@ func (x HexBytes) Copy() HexBytes {
 var zeroBytes = make([]byte, 16)
 
 func randomBytesNotAllZero(byts []byte) {
+	if len(byts) == 0 {
+		panic("cannot have a random empty string")
+	}
 	for {
 		_, _ = rand.Read(byts)
 		if !allZero(byts) {
