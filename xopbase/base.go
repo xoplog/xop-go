@@ -11,7 +11,7 @@ import (
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
-	Request() Request
+	Request(span trace.Bundle) Request
 
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
@@ -24,17 +24,15 @@ type Logger interface {
 type Request interface {
 	// Calls to Flush are single-threaded along with calls to SpanInfo
 	Flush()
-	Span(span trace.Bundle) Span
+	Span
 }
 
 type Span interface {
-	// Line starts another line of log output.  Span implementations
-	// can expect multiple calls simultaneously and even during a call
-	// to SpanInfo() or Flush().
-	Line(xopconst.Level, time.Time) Line
+	// Span creates a new Span that should inherit prefil but not data
+	Span(span trace.Bundle) Span
 
 	// SpanInfo replaces the span type and span data.
-	// Calls to flush are single-threaded along with calls to SpanInfo
+	// SpanInfo calls are only made while holding the Flush() lock
 	SpanInfo(xopconst.SpanType, []xop.Thing)
 
 	// AddPrefill adds to what has already been provided for this span.
@@ -43,8 +41,10 @@ type Span interface {
 	AddPrefill([]xop.Thing)
 	ResetLinePrefill()
 
-	// Span creates a new Span that should inherit prefil but not data
-	Span(span trace.Bundle) Span
+	// Line starts another line of log output.  Span implementations
+	// can expect multiple calls simultaneously and even during a call
+	// to SpanInfo() or Flush().
+	Line(xopconst.Level, time.Time) Line
 }
 
 type Line interface {

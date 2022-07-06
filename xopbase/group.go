@@ -1,10 +1,11 @@
 package xopbase
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopconst"
 )
 
@@ -28,10 +29,10 @@ func (r Requests) Flush() {
 	wg.Wait()
 }
 
-func (r Requests) Spans(span trace.Bundle) Spans {
+func (r Requests) Spans() Spans {
 	spans := make(Spans, len(r))
 	for i, request := range r {
-		spans[i] = request.Span(span)
+		spans[i] = request.(Span)
 	}
 	return spans
 }
@@ -82,5 +83,36 @@ func (l Lines) Error(k string, v error) {
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)
+	}
+}
+
+func (l Lines) Things(things []xop.Thing) {
+	for _, line := range l {
+		LineThings(line, things)
+	}
+}
+
+func LineThings(line Line, things []xop.Thing) {
+	for _, thing := range things {
+		switch thing.Type {
+		case xop.IntType:
+			line.Int(thing.Key, thing.Int)
+		case xop.UintType:
+			line.Uint(thing.Key, thing.Any.(uint64))
+		case xop.BoolType:
+			line.Bool(thing.Key, thing.Any.(bool))
+		case xop.StringType:
+			line.Str(thing.Key, thing.String)
+		case xop.TimeType:
+			line.Time(thing.Key, thing.Any.(time.Time))
+		case xop.AnyType:
+			line.Any(thing.Key, thing.Any)
+		case xop.ErrorType:
+			line.Error(thing.Key, thing.Any.(error))
+		case xop.UnsetType:
+			fallthrough
+		default:
+			panic(fmt.Sprintf("malformed xop.Thing, type is %d", thing.Type))
+		}
 	}
 }

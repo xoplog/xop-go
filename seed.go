@@ -44,15 +44,15 @@ func NewSeed(mods ...SeedModifier) Seed {
 		},
 		traceBundle: trace.NewBundle(),
 	}
-	return seed.ApplyMods(mods)
+	return seed.applyMods(mods)
 }
 
 func (s *Span) Seed(mods ...SeedModifier) Seed {
 	seed := s.seed.Copy()
-	return seed.ApplyMods(mods)
+	return seed.applyMods(mods)
 }
 
-func (s Seed) ApplyMods(mods []SeedModifier) Seed {
+func (s Seed) applyMods(mods []SeedModifier) Seed {
 	for _, mod := range mods {
 		mod(&s)
 	}

@@ -1,6 +1,7 @@
 package xoplog
 
 import (
+	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 )
@@ -16,11 +17,11 @@ type baseLogger struct {
 	MinLevel xopconst.Level
 }
 
-func (s baseLoggers) requests() (xopbase.Requests, bool) {
+func (s baseLoggers) requests(bundle trace.Bundle) (xopbase.Requests, bool) {
 	baseRequests := make(xopbase.Requests, len(s.List))
 	var referencesKept bool
 	for i, baseLogger := range s.List {
-		baseRequests[i] = baseLogger.Base.Request()
+		baseRequests[i] = baseLogger.Base.Request(bundle)
 		if baseLogger.Base.ReferencesKept() {
 			referencesKept = true
 		}
