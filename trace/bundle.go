@@ -1,7 +1,7 @@
 package trace
 
 type Bundle struct {
-	ParentTrace Trace
+	TraceParent Trace
 	Trace       Trace
 	State       State
 	Baggage     Baggage
@@ -9,14 +9,14 @@ type Bundle struct {
 
 func NewBundle() Bundle {
 	return Bundle{
-		ParentTrace: NewTrace(),
+		TraceParent: NewTrace(),
 		Trace:       NewTrace(),
 	}
 }
 
 func (b Bundle) Copy() Bundle {
 	return Bundle{
-		ParentTrace: b.ParentTrace.Copy(),
+		TraceParent: b.TraceParent.Copy(),
 		Trace:       b.Trace.Copy(),
 		State:       b.State,
 		Baggage:     b.Baggage,

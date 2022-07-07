@@ -16,6 +16,9 @@ type testingT interface {
 }
 
 var _ xopbase.Logger = &TestLogger{}
+var _ xopbase.Request = &Span{}
+var _ xopbase.Span = &Span{}
+var _ xopbase.Line = &Line{}
 
 func NewTestLogger(t testingT) *TestLogger {
 	return &TestLogger{
@@ -34,7 +37,7 @@ type TestLogger struct {
 type Span struct {
 	lock         sync.Mutex
 	testLogger   *TestLogger
-	Span         trace.Bundle
+	Trace        trace.Bundle
 	IsRequest    bool
 	Parent       *Span
 	Spans        []*Span
@@ -54,12 +57,13 @@ type Line struct {
 	Completed bool
 }
 
-func (l *TestLogger) Close() {}
+func (l *TestLogger) Close()               {}
+func (l *TestLogger) ReferencesKept() bool { return true }
 func (l *TestLogger) Request(bundle trace.Bundle) xopbase.Request {
 	return &Span{
-		testLogger: t,
+		testLogger: l,
 		IsRequest:  true,
-		Span:       bundle,
+		Trace:      bundle,
 	}
 }
 
@@ -109,6 +113,12 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xoplog.BaseLine {
 	s.Lines = append(s.Lines, line)
 	return line
 }
+
+func (l *Line) Any(k string, v interface{}) { l.Things.Any(k, v) }
+func (l *Line) Int(k string, v int64)       { l.Things.Int(k, v) }
+func (l *Line) Str(k string, v string)      { l.Things.Str(k, v) }
+func (l *Line) Bool(k string, v bool)       { l.Things.Bool(k, v) }
+func (l *Line) Time(k string, v time.Time)  { l.Things.Time(k, v) }
 
 func (l *Line) Msg(m string) {
 	l.Message = m

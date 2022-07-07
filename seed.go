@@ -59,6 +59,12 @@ func (s Seed) applyMods(mods []SeedModifier) Seed {
 	return s
 }
 
+func WithBundle(bundle trace.Bundle) SeedModifier {
+	return func(s *Seed) {
+		s.traceBundle = bundle
+	}
+}
+
 func WithTrace(trace trace.Trace) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle.Trace = trace

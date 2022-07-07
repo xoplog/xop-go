@@ -322,5 +322,6 @@ func copyMap(o map[string]interface{}) map[string]interface{} {
 
 func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
 func (s *Span) TraceBaggage() trace.Baggage { return s.seed.traceBundle.Baggage }
-func (s *Span) TraceParent() trace.Trace    { return s.seed.traceBundle.ParentTrace }
-func (s *Span) Trace() trace.Trace          { return s.seed.traceBundle.Trace }
+func (s *Span) TraceParent() trace.Trace    { return s.seed.traceBundle.TraceParent.Copy() }
+func (s *Span) Trace() trace.Trace          { return s.seed.traceBundle.Trace.Copy() }
+func (s *Span) Bundle() trace.Bundle        { return s.seed.traceBundle.Copy() }

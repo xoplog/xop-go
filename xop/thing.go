@@ -72,6 +72,7 @@ type Builder struct {
 	T []Thing
 }
 
+func NewBuilder() *Builder                             { return &Builder{} }
 func (b Builder) Things() []Thing                      { return b.T }
 func (b *Builder) Int(k string, v int) *Builder        { b.T = append(b.T, Int(k, v)); return b }
 func (b *Builder) Int8(k string, v int8) *Builder      { b.T = append(b.T, Int8(k, v)); return b }
