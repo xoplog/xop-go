@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
@@ -44,14 +43,15 @@ type Span struct {
 	RequestLines []*Line
 	Lines        []*Line
 	Data         []xop.Thing
+	SpanType     xopconst.SpanType
 	SpanPrefill  []xop.Thing
 	LinePrefill  []xop.Thing
 }
 
 type Line struct {
-	xop.Things
+	Things    xop.Things
 	Level     xopconst.Level
-	Time      time.Time
+	Timestamp time.Time
 	Span      *Span
 	Message   string
 	Completed bool
@@ -69,7 +69,7 @@ func (l *TestLogger) Request(bundle trace.Bundle) xopbase.Request {
 
 func (l *Span) Flush() {}
 
-func (s *Span) Span(span trace.Bundle) xoplog.Span {
+func (s *Span) Span(span trace.Bundle) xopbase.Span {
 	s.testLogger.lock.Lock()
 	defer s.testLogger.lock.Unlock()
 	s.lock.Lock()
@@ -93,17 +93,23 @@ func (s *Span) AddPrefill(data []xop.Thing) {
 	s.LinePrefill = append(s.LinePrefill, data...)
 }
 
+func (s *Span) ResetLinePrefill() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.LinePrefill = nil
+}
+
 func (s *Span) ResetPrefil(data []xop.Thing) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.LinePrefill = nil
 }
 
-func (s *Span) Line(level xopconst.Level, t time.Time) xoplog.BaseLine {
+func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	line := &Line{
-		Level: level,
-		Time:  t,
-		Span:  s,
+		Level:     level,
+		Timestamp: t,
+		Span:      s,
 	}
 	s.testLogger.lock.Lock()
 	defer s.testLogger.lock.Unlock()
@@ -114,10 +120,12 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xoplog.BaseLine {
 	return line
 }
 
-func (l *Line) Any(k string, v interface{}) { l.Things.Any(k, v) }
+func (l *Line) Any(k string, v interface{}) { l.Things.AnyImmutable(k, v) }
 func (l *Line) Int(k string, v int64)       { l.Things.Int(k, v) }
+func (l *Line) Uint(k string, v uint64)     { l.Things.Uint(k, v) }
 func (l *Line) Str(k string, v string)      { l.Things.Str(k, v) }
 func (l *Line) Bool(k string, v bool)       { l.Things.Bool(k, v) }
+func (l *Line) Error(k string, v error)     { l.Things.Error(k, v) }
 func (l *Line) Time(k string, v time.Time)  { l.Things.Time(k, v) }
 
 func (l *Line) Msg(m string) {
