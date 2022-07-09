@@ -23,7 +23,7 @@ type Seed struct {
 func (s Seed) Copy() Seed {
 	n := s
 	n.prefill = copyFields(s.prefill)
-	n.baseLoggers = s.baseLoggers.copyWithoutTrace()
+	n.baseLoggers = s.baseLoggers.Copy()
 	n.data = nil
 	n.traceBundle = s.traceBundle.Copy()
 	return n
@@ -44,6 +44,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 		},
 		traceBundle: trace.NewBundle(),
 	}
+	seed.rebuildAsOne()
 	return seed.applyMods(mods)
 }
 
