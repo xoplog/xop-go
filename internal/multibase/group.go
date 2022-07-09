@@ -125,6 +125,12 @@ func (s Spans) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	return lines
 }
 
+func (l Lines) Recycle(level xopconst.Level, t time.Time) {
+	for _, line := range l {
+		line.Recycle(level, t)
+	}
+}
+
 func (l Lines) Int(k string, v int64) {
 	for _, line := range l {
 		line.Int(k, v)

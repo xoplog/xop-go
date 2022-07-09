@@ -58,7 +58,6 @@ type Line struct {
 	Timestamp time.Time
 	Span      *Span
 	Message   string
-	Completed bool
 }
 
 func (l *TestLogger) WithMe() xoplog.SeedModifier {
@@ -122,17 +121,22 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	return line
 }
 
-func (l *Line) Any(k string, v interface{}) { l.Things.AnyImmutable(k, v) }
-func (l *Line) Int(k string, v int64)       { l.Things.Int(k, v) }
-func (l *Line) Uint(k string, v uint64)     { l.Things.Uint(k, v) }
-func (l *Line) Str(k string, v string)      { l.Things.Str(k, v) }
-func (l *Line) Bool(k string, v bool)       { l.Things.Bool(k, v) }
-func (l *Line) Error(k string, v error)     { l.Things.Error(k, v) }
-func (l *Line) Time(k string, v time.Time)  { l.Things.Time(k, v) }
+func (l Line) Any(k string, v interface{}) { l.Things.AnyImmutable(k, v) }
+func (l Line) Int(k string, v int64)       { l.Things.Int(k, v) }
+func (l Line) Uint(k string, v uint64)     { l.Things.Uint(k, v) }
+func (l Line) Str(k string, v string)      { l.Things.Str(k, v) }
+func (l Line) Bool(k string, v bool)       { l.Things.Bool(k, v) }
+func (l Line) Error(k string, v error)     { l.Things.Error(k, v) }
+func (l Line) Time(k string, v time.Time)  { l.Things.Time(k, v) }
+func (l *Line) Recycle(level xopconst.Level, t time.Time) {
+	l.Level = level
+	l.Timestamp = t
+	l.Things = xop.Things{}
+	l.Message = ""
+}
 
-func (l *Line) Msg(m string) {
+func (l Line) Msg(m string) {
 	l.Message = m
-	l.Completed = true
 	text := m
 	// TODO: replace with higher performance version
 	// TODO: move encoding somewhere else
@@ -172,6 +176,6 @@ func (l *Line) Msg(m string) {
 	defer l.Span.testLogger.lock.Unlock()
 	l.Span.lock.Lock()
 	defer l.Span.lock.Unlock()
-	l.Span.testLogger.Lines = append(l.Span.testLogger.Lines, l)
-	l.Span.Lines = append(l.Span.Lines, l)
+	l.Span.testLogger.Lines = append(l.Span.testLogger.Lines, &l)
+	l.Span.Lines = append(l.Span.Lines, &l)
 }

@@ -48,11 +48,18 @@ type Span interface {
 }
 
 type Line interface {
-	ObjectParts
 	// TODO: ExternalReference(name string, itemId string, storageId string)
-	Msg(string)
 	// TODO: Guage()
 	// TODO: Event()
+
+	ObjectParts
+
+	// Msg may only be called once.  After calling Msg, the line
+	// may not be used for anything else unless Recycle is called.
+	Msg(string)
+
+	// Recycle starts the line ready to use again.
+	Recycle(xopconst.Level, time.Time)
 }
 
 type SubObject interface {

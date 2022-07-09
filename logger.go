@@ -29,6 +29,7 @@ type Span struct {
 	spanType xopconst.SpanType
 	log      *Log // back to self
 	base     xopbase.Span
+	linePool sync.Pool
 }
 
 type local struct {
@@ -157,10 +158,9 @@ func (l *Log) Flush() {
 }
 
 func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
-	line := l.span.base.Line(level, time.Now())
-	xopbase.LineThings(line, values)
+	line := l.LogLine(level)
+	xopbase.LineThings(line.line, values)
 	line.Msg(msg)
-	l.enableFlushTimer()
 }
 
 // TODO func (l *Log) Zap() like zap
@@ -247,40 +247,51 @@ type LogLine struct {
 	line xopbase.Line
 }
 
-func (l *Log) LogLine(level xopconst.Level) LogLine {
-	// TODO PERFORMANCE: have a sync.Pool of LogLines
-	return LogLine{
+func (l *Log) LogLine(level xopconst.Level) *LogLine {
+	recycled := l.span.linePool.Get()
+	if recycled != nil {
+		// TODO: try using LogLine instead of *LogLine
+		ll := recycled.(*LogLine)
+		ll.line.Recycle(level, time.Now())
+		return ll
+	}
+	return &LogLine{
 		log:  l,
 		line: l.span.base.Line(level, time.Now()),
 	}
 }
 
-func (l *Log) Debug() LogLine { return l.LogLine(xopconst.DebugLevel) }
-func (l *Log) Trace() LogLine { return l.LogLine(xopconst.TraceLevel) }
-func (l *Log) Info() LogLine  { return l.LogLine(xopconst.InfoLevel) }
-func (l *Log) Warn() LogLine  { return l.LogLine(xopconst.WarnLevel) }
-func (l *Log) Error() LogLine { return l.LogLine(xopconst.ErrorLevel) }
-func (l *Log) Alert() LogLine { return l.LogLine(xopconst.AlertLevel) }
+func (ll *LogLine) Msg(msg string) {
+	ll.line.Msg(msg)
+	ll.log.span.linePool.Put(ll)
+	ll.log.enableFlushTimer()
+}
+
+func (l *Log) Debug() *LogLine { return l.LogLine(xopconst.DebugLevel) }
+func (l *Log) Trace() *LogLine { return l.LogLine(xopconst.TraceLevel) }
+func (l *Log) Info() *LogLine  { return l.LogLine(xopconst.InfoLevel) }
+func (l *Log) Warn() *LogLine  { return l.LogLine(xopconst.WarnLevel) }
+func (l *Log) Error() *LogLine { return l.LogLine(xopconst.ErrorLevel) }
+func (l *Log) Alert() *LogLine { return l.LogLine(xopconst.AlertLevel) }
 
 // TODO: generate these
 // TODO: the rest of the set
-func (ll LogLine) Msg(msg string)                     { ll.line.Msg(msg); ll.log.enableFlushTimer() }
-func (ll LogLine) Msgf(msg string, v ...interface{})  { ll.Msg(fmt.Sprintf(msg, v...)) }
-func (ll LogLine) Msgs(v ...interface{})              { ll.Msg(fmt.Sprint(v...)) }
-func (ll LogLine) Int(k string, v int) LogLine        { ll.line.Int(k, int64(v)); return ll }
-func (ll LogLine) Int8(k string, v int8) LogLine      { ll.line.Int(k, int64(v)); return ll }
-func (ll LogLine) Int16(k string, v int16) LogLine    { ll.line.Int(k, int64(v)); return ll }
-func (ll LogLine) Int32(k string, v int32) LogLine    { ll.line.Int(k, int64(v)); return ll }
-func (ll LogLine) Int64(k string, v int64) LogLine    { ll.line.Int(k, v); return ll }
-func (ll LogLine) Uint(k string, v uint) LogLine      { ll.line.Uint(k, uint64(v)); return ll }
-func (ll LogLine) Uint8(k string, v uint8) LogLine    { ll.line.Uint(k, uint64(v)); return ll }
-func (ll LogLine) Uint16(k string, v uint16) LogLine  { ll.line.Uint(k, uint64(v)); return ll }
-func (ll LogLine) Uint32(k string, v uint32) LogLine  { ll.line.Uint(k, uint64(v)); return ll }
-func (ll LogLine) Uint64(k string, v uint64) LogLine  { ll.line.Uint(k, v); return ll }
-func (ll LogLine) Str(k string, v string) LogLine     { ll.line.Str(k, v); return ll }
-func (ll LogLine) Bool(k string, v bool) LogLine      { ll.line.Bool(k, v); return ll }
-func (ll LogLine) Time(k string, v time.Time) LogLine { ll.line.Time(k, v); return ll }
-func (ll LogLine) Error(k string, v error) LogLine    { ll.line.Error(k, v); return ll }
+func (ll *LogLine) Msgf(msg string, v ...interface{})   { ll.Msg(fmt.Sprintf(msg, v...)) }
+func (ll *LogLine) Msgs(v ...interface{})               { ll.Msg(fmt.Sprint(v...)) }
+func (ll *LogLine) Int(k string, v int) *LogLine        { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int8(k string, v int8) *LogLine      { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int16(k string, v int16) *LogLine    { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int32(k string, v int32) *LogLine    { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int64(k string, v int64) *LogLine    { ll.line.Int(k, v); return ll }
+func (ll *LogLine) Uint(k string, v uint) *LogLine      { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint8(k string, v uint8) *LogLine    { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint16(k string, v uint16) *LogLine  { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint32(k string, v uint32) *LogLine  { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint64(k string, v uint64) *LogLine  { ll.line.Uint(k, v); return ll }
+func (ll *LogLine) Str(k string, v string) *LogLine     { ll.line.Str(k, v); return ll }
+func (ll *LogLine) Bool(k string, v bool) *LogLine      { ll.line.Bool(k, v); return ll }
+func (ll *LogLine) Time(k string, v time.Time) *LogLine { ll.line.Time(k, v); return ll }
+func (ll *LogLine) Error(k string, v error) *LogLine    { ll.line.Error(k, v); return ll }
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.
@@ -289,7 +300,7 @@ func (ll LogLine) AnyImmutable(k string, v interface{}) LogLine { ll.line.Any(k,
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using
 // github.com/mohae/deepcopy.Copy()
-func (ll LogLine) Any(k string, v interface{}) LogLine {
+func (ll *LogLine) Any(k string, v interface{}) *LogLine {
 	if ll.log.shared.ReferencesKept {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
