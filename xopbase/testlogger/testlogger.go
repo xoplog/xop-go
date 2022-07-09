@@ -1,9 +1,12 @@
 package testlogger
 
 import (
+	"encoding/json"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
@@ -12,6 +15,7 @@ import (
 
 type testingT interface {
 	Log(...interface{})
+	Name() string
 }
 
 var _ xopbase.Logger = &TestLogger{}
@@ -19,7 +23,7 @@ var _ xopbase.Request = &Span{}
 var _ xopbase.Span = &Span{}
 var _ xopbase.Line = &Line{}
 
-func NewTestLogger(t testingT) *TestLogger {
+func New(t testingT) *TestLogger {
 	return &TestLogger{
 		t: t,
 	}
@@ -55,6 +59,10 @@ type Line struct {
 	Span      *Span
 	Message   string
 	Completed bool
+}
+
+func (l *TestLogger) WithMe() xoplog.SeedModifier {
+	return xoplog.WithBaseLogger("testing", l)
 }
 
 func (l *TestLogger) Close()               {}
@@ -111,12 +119,6 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 		Timestamp: t,
 		Span:      s,
 	}
-	s.testLogger.lock.Lock()
-	defer s.testLogger.lock.Unlock()
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.testLogger.Lines = append(s.testLogger.Lines, line)
-	s.Lines = append(s.Lines, line)
 	return line
 }
 
@@ -131,4 +133,45 @@ func (l *Line) Time(k string, v time.Time)  { l.Things.Time(k, v) }
 func (l *Line) Msg(m string) {
 	l.Message = m
 	l.Completed = true
+	text := m
+	// TODO: replace with higher performance version
+	// TODO: move encoding somewhere else
+	for _, thing := range l.Things.Things {
+		text += " " + thing.Key + "="
+		switch thing.Type {
+		case xop.IntType:
+			text += strconv.FormatInt(thing.Int, 64)
+		case xop.UintType:
+			text += strconv.FormatUint(thing.Any.(uint64), 64)
+		case xop.BoolType:
+			text += strconv.FormatBool(thing.Any.(bool))
+		case xop.StringType:
+			enc, _ := json.Marshal(thing.String)
+			text += string(enc)
+		case xop.TimeType:
+			text += thing.Any.(time.Time).Format(time.RFC3339)
+		case xop.AnyType:
+			enc, err := json.Marshal(thing.Any)
+			if err != nil {
+				text += "???(marshal error:" + err.Error() + ")"
+			} else {
+				text += string(enc)
+			}
+		case xop.ErrorType:
+			text += thing.Any.(error).Error()
+		case xop.UnsetType:
+			fallthrough
+		// TODO: more types?
+		default:
+			text += "???(unknown thing" + strconv.Itoa(int(thing.Type)) + ")"
+		}
+	}
+
+	l.Span.testLogger.t.Log(text)
+	l.Span.testLogger.lock.Lock()
+	defer l.Span.testLogger.lock.Unlock()
+	l.Span.lock.Lock()
+	defer l.Span.lock.Unlock()
+	l.Span.testLogger.Lines = append(l.Span.testLogger.Lines, l)
+	l.Span.Lines = append(l.Span.Lines, l)
 }

@@ -200,3 +200,45 @@ not include multiple threads of execution.  Span should represent a logical comp
 work being done.  Breaking the work into spans is an exercise for the programmer.
 
 
+# Naming
+
+## Name registry
+
+Arbitrary names are supported for tagging log lines. For attributes to be displayed
+specially in front-ends, they need to follow standards. Standard attribute groups are
+pre-registered as structs. These can be shared between organizations by contributing
+them to the [Xop repository](https://github.com/muir/xoplog/zoptag).
+
+The data associated with spans, traces, and requests must come from pre-registered
+tag structs.
+
+## Other systems
+
+### Open Telementry
+
+[They](https://opentelemetry.io/docs/reference/specification/common/attribute-naming/) say to use
+dots (`.`) to separate namespaces in attribute names and underscores (`_`) to separate words within a name.
+Do not use a namespace as an attribute.
+
+They have lots of examples for:
+
+- [Resources](https://opentelemetry.io/docs/reference/specification/resource/semantic_conventions/)
+- [Traces](https://opentelemetry.io/docs/reference/specification/trace/semantic_conventions/)
+- [Metrics](https://opentelemetry.io/docs/reference/specification/metrics/semantic_conventions/)
+
+### Open Tracing
+
+The Open Tracing project has been "archived" in favor of Open Telementry.  That said, they have a
+much shorter set of [semantic conventions](https://opentracing.io/specification/conventions/).
+
+### Zipkin
+
+While lacking a full set of semantic conventions, Zipkin has some sage advice around
+[how to instrument spans](https://zipkin.io/pages/instrumenting.html)
+
+### OpenCensus
+
+OpenCensus lacks a full set of semantic conventions, but it does having suggestions for
+how to [name spans](https://opencensus.io/tracing/span/name/).  In OpenCensus, tags names
+need to be [registered](https://opencensus.io/tag/key/).
+
