@@ -1,4 +1,4 @@
-package xm
+package xoplog
 
 import (
 	"context"
@@ -8,16 +8,19 @@ type contextKeyType struct{}
 
 var contextKey = contextKeyType{}
 
-func (log *Log) IntoContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, contextKey, log)
+// TODO: have a default log that prints
+var Default = NewSeed().Request("discard")
+
+func (l *Log) IntoContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKey, l)
 }
 
-func FromContextOrDiscard(ctx context.Context) *Log {
+func FromContextOrDefault(ctx context.Context) *Log {
 	log, ok := FromContext(ctx)
 	if ok {
 		return log
 	}
-	return NewSeed().Log("discard")
+	return Default
 }
 
 func FromContext(ctx context.Context) (*Log, bool) {

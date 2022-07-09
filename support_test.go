@@ -1,4 +1,4 @@
-package xm
+package xoplog
 
 import (
 	"testing"

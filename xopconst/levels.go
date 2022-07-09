@@ -1,4 +1,4 @@
-package xm
+package xopconst
 
 import (
 	"sync/atomic"
