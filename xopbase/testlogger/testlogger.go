@@ -47,13 +47,13 @@ type traceInfo struct {
 	spans     map[string]int
 }
 
-func (l *TestLogger) setShort(span trace.Bundle) string {
+func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	ts := span.Trace.GetTraceId().String()
 	if ti, ok := l.traceMap[ts]; ok {
 		ti.spanCount++
 		ti.spans[span.Trace.GetSpanId().String()] = ti.spanCount
 		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
-		l.t.Log("Start span " + short + "=" + span.Trace.HeaderString())
+		l.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
 		return short
 	}
 	l.traceCount++
@@ -65,7 +65,7 @@ func (l *TestLogger) setShort(span trace.Bundle) string {
 		},
 	}
 	short := fmt.Sprintf("T%d.%d", l.traceCount, 1)
-	l.t.Log("Start span " + short + "=" + span.Trace.HeaderString())
+	l.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
 	return short
 }
 
@@ -97,20 +97,20 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 
 func (l *TestLogger) Close()               {}
 func (l *TestLogger) ReferencesKept() bool { return true }
-func (l *TestLogger) Request(span trace.Bundle) xopbase.Request {
+func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	return &Span{
 		testLogger: l,
 		IsRequest:  true,
 		Trace:      span,
-		short:      l.setShort(span),
+		short:      l.setShort(span, name),
 	}
 }
 
 func (l *Span) Flush() {}
 
-func (s *Span) Span(span trace.Bundle) xopbase.Span {
+func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	s.testLogger.lock.Lock()
 	defer s.testLogger.lock.Unlock()
 	s.lock.Lock()
@@ -118,7 +118,7 @@ func (s *Span) Span(span trace.Bundle) xopbase.Span {
 	n := &Span{
 		testLogger: s.testLogger,
 		Trace:      span,
-		short:      s.testLogger.setShort(span),
+		short:      s.testLogger.setShort(span, name),
 	}
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)

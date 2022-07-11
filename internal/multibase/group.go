@@ -27,10 +27,10 @@ func CombineLoggers(loggers []xopbase.Logger) xopbase.Logger {
 	return Loggers(loggers)
 }
 
-func (l Loggers) Request(span trace.Bundle) xopbase.Request {
+func (l Loggers) Request(span trace.Bundle, descriptionOrName string) xopbase.Request {
 	r := make(Requests, len(l))
 	for i, logger := range l {
-		r[i] = logger.Request(span)
+		r[i] = logger.Request(span, descriptionOrName)
 	}
 	return r
 }
@@ -62,17 +62,17 @@ func (s Requests) Flush() {
 	wg.Wait()
 }
 
-func (s Requests) Span(span trace.Bundle) xopbase.Span {
+func (s Requests) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
 	spans := make(Spans, len(s))
 	for i, ele := range s {
-		spans[i] = ele.Span(span)
+		spans[i] = ele.Span(span, descriptionOrName)
 	}
 	return spans
 }
-func (s Spans) Span(span trace.Bundle) xopbase.Span {
+func (s Spans) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
 	spans := make(Spans, len(s))
 	for i, ele := range s {
-		spans[i] = ele.Span(span)
+		spans[i] = ele.Span(span, descriptionOrName)
 	}
 	return spans
 }

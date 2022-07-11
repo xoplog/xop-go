@@ -1,7 +1,11 @@
 
-Replace HexBytes with arrays etc can be used as map keys
+Replace HexBytes with arrays etc can be used as map keys.  Use go 1.18?
 
 Adhere to go spec: Id -> ID
+
+Get rid of zop.Thing entirely.
+
+Rename "zoplog" -> "zop"
 
 Replace SpanType & AddData 
 
