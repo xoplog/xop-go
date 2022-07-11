@@ -2,6 +2,7 @@ package testlogger
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -25,16 +26,47 @@ var _ xopbase.Line = &Line{}
 
 func New(t testingT) *TestLogger {
 	return &TestLogger{
-		t: t,
+		t:        t,
+		traceMap: make(map[string]*traceInfo),
 	}
 }
 
 type TestLogger struct {
-	lock     sync.Mutex
-	t        testingT
-	Requests []*Span
-	Spans    []*Span
-	Lines    []*Line
+	lock       sync.Mutex
+	t          testingT
+	Requests   []*Span
+	Spans      []*Span
+	Lines      []*Line
+	traceCount int
+	traceMap   map[string]*traceInfo
+}
+
+type traceInfo struct {
+	spanCount int
+	traceNum  int
+	spans     map[string]int
+}
+
+func (l *TestLogger) setShort(span trace.Bundle) string {
+	ts := span.Trace.GetTraceId().String()
+	if ti, ok := l.traceMap[ts]; ok {
+		ti.spanCount++
+		ti.spans[span.Trace.GetSpanId().String()] = ti.spanCount
+		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
+		l.t.Log("Start span " + short + "=" + span.Trace.HeaderString())
+		return short
+	}
+	l.traceCount++
+	l.traceMap[ts] = &traceInfo{
+		spanCount: 1,
+		traceNum:  l.traceCount,
+		spans: map[string]int{
+			span.Trace.GetSpanId().String(): 1,
+		},
+	}
+	short := fmt.Sprintf("T%d.%d", l.traceCount, 1)
+	l.t.Log("Start span " + short + "=" + span.Trace.HeaderString())
+	return short
 }
 
 type Span struct {
@@ -48,8 +80,7 @@ type Span struct {
 	Lines        []*Line
 	Data         []xop.Thing
 	SpanType     xopconst.SpanType
-	SpanPrefill  []xop.Thing
-	LinePrefill  []xop.Thing
+	short        string
 }
 
 type Line struct {
@@ -66,11 +97,14 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 
 func (l *TestLogger) Close()               {}
 func (l *TestLogger) ReferencesKept() bool { return true }
-func (l *TestLogger) Request(bundle trace.Bundle) xopbase.Request {
+func (l *TestLogger) Request(span trace.Bundle) xopbase.Request {
+	l.lock.Lock()
+	defer l.lock.Unlock()
 	return &Span{
 		testLogger: l,
 		IsRequest:  true,
-		Trace:      bundle,
+		Trace:      span,
+		short:      l.setShort(span),
 	}
 }
 
@@ -83,6 +117,8 @@ func (s *Span) Span(span trace.Bundle) xopbase.Span {
 	defer s.lock.Unlock()
 	n := &Span{
 		testLogger: s.testLogger,
+		Trace:      span,
+		short:      s.testLogger.setShort(span),
 	}
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)
@@ -92,24 +128,6 @@ func (s *Span) Span(span trace.Bundle) xopbase.Span {
 func (s *Span) SpanInfo(spanType xopconst.SpanType, data []xop.Thing) {
 	s.SpanType = spanType
 	s.Data = data
-}
-
-func (s *Span) AddPrefill(data []xop.Thing) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.LinePrefill = append(s.LinePrefill, data...)
-}
-
-func (s *Span) ResetLinePrefill() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.LinePrefill = nil
-}
-
-func (s *Span) ResetPrefil(data []xop.Thing) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	s.LinePrefill = nil
 }
 
 func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
@@ -137,7 +155,7 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 
 func (l Line) Msg(m string) {
 	l.Message = m
-	text := m
+	text := l.Span.short + ": " + m
 	// TODO: replace with higher performance version
 	// TODO: move encoding somewhere else
 	for _, thing := range l.Things.Things {
@@ -150,8 +168,7 @@ func (l Line) Msg(m string) {
 		case xop.BoolType:
 			text += strconv.FormatBool(thing.Any.(bool))
 		case xop.StringType:
-			enc, _ := json.Marshal(thing.String)
-			text += string(enc)
+			text += strconv.Quote(thing.String)
 		case xop.TimeType:
 			text += thing.Any.(time.Time).Format(time.RFC3339)
 		case xop.AnyType:

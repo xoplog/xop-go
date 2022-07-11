@@ -35,12 +35,6 @@ type Span interface {
 	// SpanInfo calls are only made while holding the Flush() lock
 	SpanInfo(xopconst.SpanType, []xop.Thing)
 
-	// AddPrefill adds to what has already been provided for this span.
-	// Calls to AddPrefill will not overlap other calls to AddPrefil or
-	// to ResetLinePrefil.
-	AddPrefill([]xop.Thing)
-	ResetLinePrefill()
-
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
 	// to SpanInfo() or Flush().

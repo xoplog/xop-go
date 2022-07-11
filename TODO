@@ -1,0 +1,34 @@
+
+Replace HexBytes with arrays etc can be used as map keys
+
+Adhere to go spec: Id -> ID
+
+Replace SpanType & AddData 
+
+	Each registered type should be bound to a 
+	specific data type.  Replace Span.AddData & span.SetType
+	something better.
+
+	RegisterSpanType(interface{})
+
+	Hmmm.   AddData(SpanData)
+	type interface {}
+	struct tags:
+		"unique" - map-key-types only, smashes duplicates in an array
+		"index" - these values should be indexed
+		"keep-first" - when given duplicates, keep only the first
+
+Can chaining be done with generics?
+
+	type bot interface{
+		Int(string, int64)
+		Bool(string, bool)
+		New() bot
+	}
+
+	type top interface{
+
+	type Builder[T:any, B:bot] struct {
+		T
+	}
+	func (b Builder[T]) Int8(k string, v int8) Builder[T] 
