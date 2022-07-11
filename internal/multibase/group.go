@@ -88,28 +88,6 @@ func (s Spans) SpanInfo(st xopconst.SpanType, things []xop.Thing) {
 	}
 }
 
-func (s Requests) AddPrefill(things []xop.Thing) {
-	for _, span := range s {
-		span.AddPrefill(things)
-	}
-}
-func (s Spans) AddPrefill(things []xop.Thing) {
-	for _, span := range s {
-		span.AddPrefill(things)
-	}
-}
-
-func (s Requests) ResetLinePrefill() {
-	for _, span := range s {
-		span.ResetLinePrefill()
-	}
-}
-func (s Spans) ResetLinePrefill() {
-	for _, span := range s {
-		span.ResetLinePrefill()
-	}
-}
-
 func (s Requests) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	lines := make(Lines, len(s))
 	for i, span := range s {

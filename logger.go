@@ -313,12 +313,6 @@ func (ll *LogLine) Any(k string, v interface{}) *LogLine {
 // TODO: func (l *Log) AdjustCounter(name string, value float64, )
 // TODO: func (l *Log) Event
 
-func (s *Span) CurrentPrefill() []xop.Thing {
-	c := make([]xop.Thing, len(s.seed.prefill))
-	copy(c, s.seed.prefill)
-	return c
-}
-
 func copyMap(o map[string]interface{}) map[string]interface{} {
 	n := make(map[string]interface{})
 	for k, v := range o {
