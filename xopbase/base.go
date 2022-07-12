@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopconst"
 )
 
@@ -31,9 +30,14 @@ type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
 	Span(span trace.Bundle, descriptionOrName string) Span
 
-	// SpanInfo replaces the span type and span data.
-	// SpanInfo calls are only made while holding the Flush() lock
-	SpanInfo(xopconst.SpanType, []xop.Thing)
+	// IntKey adds an integer that describes the span
+	IntKey(*xopconst.IntAttribute, int64)
+	StrKey(*xopconst.StrAttribute, string)
+	LinkKey(*xopconst.LinkAttribute, trace.Trace)
+	TimeKey(*xopconst.TimeAttribute, trace.Trace)
+	DurationKey(*xopconst.DurationAttribute, trace.Trace)
+	// AnyKey adds a key/value pair to describe the Span.
+	AnyKey(*xopconst.Attribute, interface{})
 
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call

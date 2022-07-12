@@ -25,11 +25,10 @@ type Log struct {
 type Span struct {
 	seed     Seed
 	dataLock sync.Mutex // protects Data & SpanType (can only be held for short periods)
-	data     []xop.Thing
-	spanType xopconst.SpanType
-	log      *Log // back to self
+	log      *Log       // back to self
 	base     xopbase.Span
 	linePool sync.Pool
+	data     spanData
 }
 
 type local struct {
@@ -168,9 +167,9 @@ func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
 // TODO func (l *Log) Zero() like zerolog
 // TODO func (l *Log) One() like onelog (or is Zero() good enough?)
 
-// Done is used to single that a Log, Fork().Wait(), or Step().Wait() is
-// done.  When all of the parts of a request are finished, the log is
-// automatically flushed.
+// Done is used to indicate that a seed.Reqeust(), log.Fork().Wait(), or
+// log.Step().Wait() is done.  When all of the parts of a request are
+// finished, the log is automatically flushed.
 func (l *Log) Done() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
 	if remaining <= 0 {
@@ -210,32 +209,6 @@ func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
 	seed.prefix += "." + strconv.Itoa(counter)
 	return l.newChildLog(seed)
-}
-
-func (l *Log) Request() *Span {
-	return l.request
-}
-
-func (l *Log) Span() *Span {
-	return &l.span
-}
-
-func (s *Span) SetType(spanType xopconst.SpanType) {
-	func() {
-		s.dataLock.Lock()
-		defer s.dataLock.Unlock()
-		s.spanType = spanType
-	}()
-	s.log.setDirty()
-}
-
-func (s *Span) AddData(additionalData ...xop.Thing) {
-	func() {
-		s.dataLock.Lock()
-		defer s.dataLock.Unlock()
-		s.data = append(s.data, additionalData...)
-	}()
-	s.log.setDirty()
 }
 
 func (l *Log) LogThings(level xopconst.Level, msg string, values ...xop.Thing) {
@@ -299,7 +272,7 @@ func (ll LogLine) AnyImmutable(k string, v interface{}) LogLine { ll.line.Any(k,
 
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using
-// github.com/mohae/deepcopy.Copy()
+// https://github.com/mohae/deepcopy 's Copy().
 func (ll *LogLine) Any(k string, v interface{}) *LogLine {
 	if ll.log.shared.ReferencesKept {
 		// TODO: make copy function configurable

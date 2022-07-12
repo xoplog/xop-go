@@ -1,11 +1,21 @@
 package xoplog
 
 import (
+	"os"
 	"time"
 
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 )
+
+// DefaultNamespace sets the namespace for attribute names
+// used to describe spans.  Within a namespace, the use of
+// attribute names should be consistent.  If not specified,
+// the name of the running program (os.Args[0]) is used.
+// A better value is to set the namespace to be name of the
+// code repository.  DefaultNamespace can be overridden in
+// an init() function.
+var DefaultNamespace = os.Args[0]
 
 // Seed is used to create a Log.
 type Seed struct {
