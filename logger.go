@@ -59,7 +59,7 @@ type shared struct {
 
 var DefaultFlushDelay = time.Minute * 5
 
-func (s Seed) Request(description string) *Log {
+func (s Seed) Request(descriptionOrName string) *Log {
 	s = s.Copy()
 	s.traceBundle.Trace.RebuildSetNonZero()
 	log := Log{
@@ -80,7 +80,7 @@ func (s Seed) Request(description string) *Log {
 	log.request = &log.span
 	log.shared.Dirty = append(log.shared.Dirty, &log)
 	log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
-	log.shared.BaseRequest = log.span.seed.baseLoggers.AsOne.Request(log.span.seed.traceBundle)
+	log.shared.BaseRequest = log.span.seed.baseLoggers.AsOne.Request(log.span.seed.traceBundle, descriptionOrName)
 	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
 	log.span.base = log.shared.BaseRequest.(xopbase.Span)
 	return &log

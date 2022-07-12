@@ -11,7 +11,7 @@ import (
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
-	Request(span trace.Bundle) Request
+	Request(span trace.Bundle, description string) Request
 
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
@@ -29,7 +29,7 @@ type Request interface {
 
 type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
-	Span(span trace.Bundle) Span
+	Span(span trace.Bundle, descriptionOrName string) Span
 
 	// SpanInfo replaces the span type and span data.
 	// SpanInfo calls are only made while holding the Flush() lock
