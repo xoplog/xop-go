@@ -9,127 +9,72 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-type spanData struct {
-	intData      []intData
-	strData      []strData
-	anyData      []anyData
-	timeData     []timeData
-	linkData     []linkData
-	durationData []durationData
-}
-
-type intData struct {
-	key   *xopconst.IntAttribute
-	value int64
-}
-
-type strData struct {
-	key   *xopconst.StrAttribute
-	value string
-}
-
-type anyData struct {
-	key   *xopconst.StrAttribute
-	value interface{}
-}
-
-type linkData struct {
-	key   *xopconst.StrAttribute
-	value trace.Trace
-}
-
-type timeData struct {
-	key   *xopconst.TimeAttribute
-	value time.Time
-}
-
-type timeData struct {
-	key   *xopconst.TimeAttribute
-	value time.Time
-}
-
+// Request provides access to the span that describes the overall
+// request. Metadata may be added at the request level.
 func (l *Log) Request() *Span {
 	return l.request
 }
 
+// Request provides access to the current span
+// Metadata may be added at the span level.
 func (l *Log) Span() *Span {
 	return &l.span
 }
 
-func (s *Span) Data() *SpanData {
-	// TODO: PEROFMANCE: use a pool
-	return SpanDataSetter{
-		span: s,
+func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
+func (s *Span) TraceBaggage() trace.Baggage { return s.seed.traceBundle.Baggage }
+func (s *Span) TraceParent() trace.Trace    { return s.seed.traceBundle.TraceParent.Copy() }
+func (s *Span) Trace() trace.Trace          { return s.seed.traceBundle.Trace.Copy() }
+func (s *Span) Bundle() trace.Bundle        { return s.seed.traceBundle.Copy() }
+
+func (s *Span) eft() *Span {
+	s.log.enableFlushTimer()
+	return s
+}
+
+func (s *Span) Int64(k *xopconst.IntAttribute, v int64) *Span {
+	s.base.MetadataInt(k, v)
+	return s.eft()
+}
+func (s *Span) Int8(k *xopconst.IntAttribute, v int8) *Span   { return s.Int64(k, int64(v)) }
+func (s *Span) Int16(k *xopconst.IntAttribute, v int16) *Span { return s.Int64(k, int64(v)) }
+func (s *Span) Int32(k *xopconst.IntAttribute, v int32) *Span { return s.Int64(k, int64(v)) }
+func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span     { return s.Int64(k, int64(v)) }
+
+func (s *Span) Str(k *xopconst.StrAttribute, v string) *Span {
+	s.base.MetadataStr(k, v)
+	return s.eft()
+}
+
+func (s *Span) Bool(k *xopconst.BoolAttribute, v bool) *Span {
+	s.base.MetadataBool(k, v)
+	return s.eft()
+}
+
+func (s *Span) Link(k *xopconst.StrAttribute, v trace.Trace) *Span {
+	s.base.MetadataLink(k, v)
+	return s.eft()
+}
+
+func (s *Span) Time(k *xopconst.StrAttribute, v time.Time) *Span {
+	s.base.MetadataTime(k, v)
+	return s.eft()
+}
+
+func (s *Span) Duration(k *xopconst.StrAttribute, v time.Duration) *Span {
+	s.base.MetadataDuration(k, v)
+	return s.eft()
+}
+
+func (s *Span) AnyImmutable(k *xopconst.StrAttribute, v interface{}) *Span {
+	s.base.MetadataAny(k, v)
+	return s.eft()
+}
+
+func (s *Span) Any(k *xopconst.StrAttribute, v interface{}) *Span {
+	if s.log.shared.ReferencesKept {
+		v = deepcopy.Copy(v)
 	}
-}
-
-type SpanData struct {
-	span *Span
-	data spanData
-}
-
-func (d *SpanData) Int(k *xopconst.IntAttribute, v int) *SpanData {
-	d.data.intData = append(d.data.intData, intData{key: k, value: int64(v)})
-	return d
-}
-
-func (d *SpanData) Int8(k *xopconst.IntAttribute, v int8) *SpanData {
-	d.data.intData = append(d.data.intData, intData{key: k, value: int64(v)})
-	return d
-}
-
-func (d *SpanData) Int16(k *xopconst.IntAttribute, v int16) *SpanData {
-	d.data.intData = append(d.data.intData, intData{key: k, value: int64(v)})
-	return d
-}
-
-func (d *SpanData) Int32(k *xopconst.IntAttribute, v int32) *SpanData {
-	d.data.intData = append(d.data.intData, intData{key: k, value: int64(v)})
-	return d
-}
-
-func (d *SpanData) Int64(k *xopconst.IntAttribute, v int64) *SpanData {
-	d.data.intData = append(d.data.intData, intData{key: k, value: v})
-	return d
-}
-
-func (d *SpanData) Str(k *xopconst.IntAttribute, v string) *SpanData {
-	d.data.strData = append(d.data.strData, strData{key: k, value: v})
-	return d
-}
-
-func (d *SpanData) Any(k *xopconst.IntAttribute, v interface{}) *SpanData {
-	v = deepcopy.Copy(v)
-	d.data.anyData = append(d.data.anyData, strData{key: k, value: v})
-	return d
-}
-
-func (d *SpanData) AnyImmutable(k *xopconst.IntAttribute, v interface{}) *SpanData {
-	d.data.anyData = append(d.data.anyData, strData{key: k, value: v})
-	return d
-}
-
-func (d *SpanData) Link(k *xopconst.LinkAttribute, v trace.Trace) *SpanData {
-	d.data.linkData = append(d.data.linkData, linkData{key: k, value: v})
-	return d
-}
-
-func (d *SpanData) Duration(k *xopconst.DurationAttribute, v time.Duration) *SpanData {
-	d.data.linkData = append(d.data.durationData, durationData{key: k, value: v})
-	return d
-}
-
-func (d *SpanData) Add() {
-	func() {
-		s.dataLock.Lock()
-		defer s.dataLock.Unlock()
-		// !GENERATE!
-		span.data.intData = append(span.data.intData, d.data.intData...)
-		span.data.strData = append(span.data.intData, d.data.strData...)
-		span.data.anyData = append(span.data.intData, d.data.anyData...)
-		span.data.timeData = append(span.data.intData, d.data.timeData...)
-		span.data.linkData = append(span.data.intData, d.data.linkData...)
-		span.data.durationData = append(span.data.intData, d.data.durationData...)
-	}()
-	s.log.setDirty()
+	s.base.MetadataAny(k, v)
+	return s.eft()
 }

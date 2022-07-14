@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
@@ -16,10 +15,11 @@ import (
 )
 
 type Log struct {
-	span    Span
-	request *Span
-	local   local   // one span in a request
-	shared  *shared // shared between spans in a request
+	span     Span
+	request  *Span
+	local    local   // one span in a request
+	shared   *shared // shared between spans in a request
+	buffered bool
 }
 
 type Span struct {
@@ -29,13 +29,13 @@ type Span struct {
 	base     xopbase.Span
 	linePool sync.Pool
 	data     spanData
+	boring   int32 // 0 = boring
 }
 
 type local struct {
 	ForkCounter int32
 	StepCounter int32
 	Created     time.Time
-	InDirty     int32 // in shared.Dirty? 0 = false, 1 = true
 	IsRequest   bool
 }
 
@@ -49,11 +49,6 @@ type shared struct {
 	FlushActive    int32 // 1 == timer is running, 0 = timer is not running
 	BaseRequest    xopbase.Request
 	ReferencesKept bool
-
-	// Dirty holds spans that have modified data and need to be
-	// written or re-written.  It does not not track logs that
-	// need flushing. Protected by request.dataLock.
-	Dirty []*Log
 }
 
 var DefaultFlushDelay = time.Minute * 5
@@ -70,18 +65,19 @@ func (s Seed) Request(descriptionOrName string) *Log {
 			FlushActive: 1,
 		},
 		local: local{
-			InDirty:   1,
 			Created:   time.Now(),
 			IsRequest: true,
 		},
 	}
 	log.span.log = &log
 	log.request = &log.span
-	log.shared.Dirty = append(log.shared.Dirty, &log)
-	log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
 	log.shared.BaseRequest = log.span.seed.baseLoggers.AsOne.Request(log.span.seed.traceBundle, descriptionOrName)
 	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
+	log.buffered = log.span.seed.baseLoggers.AsOne.Buffered()
 	log.span.base = log.shared.BaseRequest.(xopbase.Span)
+	if log.buffered {
+		log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
+	}
 	return &log
 }
 
@@ -91,7 +87,6 @@ func (old *Log) newChildLog(seed Seed) *Log {
 			seed: seed,
 		},
 		local: local{
-			InDirty:   1,
 			Created:   time.Now(),
 			IsRequest: false,
 		},
@@ -99,28 +94,16 @@ func (old *Log) newChildLog(seed Seed) *Log {
 		request: old.request,
 	}
 	log.span.log = log
-	log.request.dataLock.Lock()
-	defer log.request.dataLock.Unlock()
-	log.shared.Dirty = append(log.shared.Dirty, log)
+	log.span.base.Boring(true)
 	return log
 }
 
-func (l *Log) setDirty() {
-	wasInDirty := atomic.SwapInt32(&l.local.InDirty, 1)
-	if wasInDirty == 0 {
-		func() {
-			l.request.dataLock.Lock()
-			defer l.request.dataLock.Unlock()
-			l.shared.Dirty = append(l.shared.Dirty, l)
-		}()
-		l.enableFlushTimer()
-	}
-}
-
 func (l *Log) enableFlushTimer() {
-	was := atomic.SwapInt32(&l.shared.FlushActive, 1)
-	if was == 0 {
-		l.shared.FlushTimer.Reset(l.shared.FlushDelay)
+	if l.buffered {
+		was := atomic.SwapInt32(&l.shared.FlushActive, 1)
+		if was == 0 {
+			l.shared.FlushTimer.Reset(l.shared.FlushDelay)
+		}
 	}
 }
 
@@ -130,36 +113,53 @@ func (l *Log) timerFlush() {
 }
 
 func (l *Log) Flush() {
-	func() {
-		l.shared.FlushLock.Lock()
-		defer l.shared.FlushLock.Unlock()
-		// Stop is is not thread-safe with respect to other calls to Stop
-		l.shared.FlushTimer.Stop()
-		atomic.StoreInt32(&l.shared.FlushActive, 0)
-	}()
-	var dirty []*Log
-	func() {
-		l.request.dataLock.Lock()
-		defer l.request.dataLock.Unlock()
-		dirty = l.shared.Dirty
-		l.shared.Dirty = nil
-		for _, log := range dirty {
-			atomic.StoreInt32(&log.local.InDirty, 0)
-		}
-	}()
-
 	l.shared.FlushLock.Lock()
 	defer l.shared.FlushLock.Unlock()
-	for _, log := range dirty {
-		log.span.base.SpanInfo(log.span.spanType, log.span.data)
-	}
+	// Stop is is not thread-safe with respect to other calls to Stop
+	l.shared.FlushTimer.Stop()
+	atomic.StoreInt32(&l.shared.FlushActive, 0)
 	l.shared.BaseRequest.Flush()
+}
+
+// Marks this request as boring.  Any log at the Alert or
+// Error level will mark this request as not boring.
+func (l *Log) Boring() {
+	requestBoring = atomic.LoadInt32(&l.request.boring)
+	if requestBoring != 0 {
+		return
+	}
+	l.request.base.Boring(true)
+	// There is chance that in the time we were sending that
+	// boring=true, the the request became un-boring. If that
+	// happened, we can't tell if we're currently marked as
+	// boring, so let's make sure we're not boring by sending
+	// a false
+	requestStillBoring = atomic.LoadInt32(&l.request.boring)
+	if requestStillBoring != 0 {
+		l.request.base.Boring(false)
+	}
+	l.enableFlushTimer()
+}
+
+func (l *Log) notBoring() {
+	spanBoring = atomic.AddInt32(&l.span.boring, 1)
+	if spanBoring == 1 {
+		l.span.base.Boring(false)
+		requestBoring = atomic.AddInt32(&l.request.boring, 1)
+		if requestBoring == 1 {
+			l.request.base.Boring(false)
+		}
+		l.enableFlushTimer()
+	}
 }
 
 func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
 	line := l.LogLine(level)
 	xopbase.LineThings(line.line, values)
 	line.Msg(msg)
+	if level >= xopconst.ErrorLevel {
+		l.notBoring()
+	}
 }
 
 // TODO func (l *Log) Zap() like zap
@@ -213,6 +213,9 @@ func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 
 func (l *Log) LogThings(level xopconst.Level, msg string, values ...xop.Thing) {
 	l.log(level, msg, values)
+	if level >= xopconst.ErrorLevel {
+		l.notBoring()
+	}
 }
 
 type LogLine struct {
@@ -244,8 +247,14 @@ func (l *Log) Debug() *LogLine { return l.LogLine(xopconst.DebugLevel) }
 func (l *Log) Trace() *LogLine { return l.LogLine(xopconst.TraceLevel) }
 func (l *Log) Info() *LogLine  { return l.LogLine(xopconst.InfoLevel) }
 func (l *Log) Warn() *LogLine  { return l.LogLine(xopconst.WarnLevel) }
-func (l *Log) Error() *LogLine { return l.LogLine(xopconst.ErrorLevel) }
-func (l *Log) Alert() *LogLine { return l.LogLine(xopconst.AlertLevel) }
+func (l *Log) Error() *LogLine {
+	l.notBoring()
+	return l.LogLine(xopconst.ErrorLevel)
+}
+func (l *Log) Alert() *LogLine {
+	l.notBoring()
+	return l.LogLine(xopconst.AlertLevel)
+}
 
 // TODO: generate these
 // TODO: the rest of the set
@@ -293,9 +302,3 @@ func copyMap(o map[string]interface{}) map[string]interface{} {
 	}
 	return n
 }
-
-func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
-func (s *Span) TraceBaggage() trace.Baggage { return s.seed.traceBundle.Baggage }
-func (s *Span) TraceParent() trace.Trace    { return s.seed.traceBundle.TraceParent.Copy() }
-func (s *Span) Trace() trace.Trace          { return s.seed.traceBundle.Trace.Copy() }
-func (s *Span) Bundle() trace.Bundle        { return s.seed.traceBundle.Copy() }

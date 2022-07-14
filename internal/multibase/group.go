@@ -44,6 +44,15 @@ func (l Loggers) ReferencesKept() bool {
 	return false
 }
 
+func (l Loggers) Buffered() bool {
+	for _, logger := range l {
+		if logger.Buffered() {
+			return true
+		}
+	}
+	return false
+}
+
 func (l Loggers) Close() {
 	for _, logger := range l {
 		logger.Close()

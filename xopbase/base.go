@@ -17,6 +17,11 @@ type Logger interface {
 	// are kept, then xoplog.Log will make copies.
 	ReferencesKept() bool
 
+	// Buffered should return true if the logger buffers output and sends
+	// it when Flush() is called. Even if Buffered() returns false,
+	// Flush() may still be invoked but it doesn't have to do anything.
+	Buffered() bool
+
 	Close()
 }
 
@@ -30,14 +35,16 @@ type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
 	Span(span trace.Bundle, descriptionOrName string) Span
 
-	// IntKey adds an integer that describes the span
-	IntKey(*xopconst.IntAttribute, int64)
-	StrKey(*xopconst.StrAttribute, string)
-	LinkKey(*xopconst.LinkAttribute, trace.Trace)
-	TimeKey(*xopconst.TimeAttribute, trace.Trace)
-	DurationKey(*xopconst.DurationAttribute, trace.Trace)
-	// AnyKey adds a key/value pair to describe the Span.
-	AnyKey(*xopconst.Attribute, interface{})
+	// These all add key/value pairs to describe a span
+	MetadataInt(*xopconst.IntAttribute, int64)
+	MetadataStr(*xopconst.StrAttribute, string)
+	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
+	MetadataTime(*xopconst.TimeAttribute, time.Time)
+	MetadataDuration(*xopconst.DurationAttribute, time.Duration)
+	MetadataAny(*xopconst.Attribute, interface{})
+	MetadataBool(*xopconst.BoolAttribute, bool)
+
+	Boring(bool)
 
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
@@ -79,7 +86,9 @@ type ObjectParts interface {
 	Time(string, time.Time)
 	Error(string, error)
 	Any(string, interface{}) // generally serialized with JSON
-	// TODO: TraceReference(string, trace.Trace)
+	// TODO: Table(string, table)
+	// TODO: URI(string, string)
+	// TODO: Link(string, trace.Trace)
 	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)

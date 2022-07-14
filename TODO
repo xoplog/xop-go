@@ -7,20 +7,19 @@ Get rid of zop.Thing entirely.
 
 Rename "zoplog" -> "zop"
 
-Replace SpanType & AddData 
+Metrics
+	
+	Re-use attribute naming?
 
-	Each registered type should be bound to a 
-	specific data type.  Replace Span.AddData & span.SetType
-	something better.
+	Allow "tags" or some other multi-dimensional naming
 
-	RegisterSpanType(interface{})
+Events
 
-	Hmmm.   AddData(SpanData)
-	type interface {}
-	struct tags:
-		"unique" - map-key-types only, smashes duplicates in an array
-		"index" - these values should be indexed
-		"keep-first" - when given duplicates, keep only the first
+	Gets counted
+
+	Re-use attributes?
+
+	Attach arbitrary data
 
 Can chaining be done with generics?
 
