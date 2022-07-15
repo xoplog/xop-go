@@ -7,7 +7,7 @@ import (
 const (
 	// Open Telemetry puts tracing as lower level than debugging.  Why?
 	// https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/logs/v1/logs.proto
-	// Aside from that, we'll map to their numbers
+	// Aside from that, we'll mostly map to their numbers.
 	DebugLevel Level = 5
 	TraceLevel       = 8 // OTEL "Debug4"
 	InfoLevel        = 9

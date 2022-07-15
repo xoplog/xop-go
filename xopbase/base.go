@@ -44,6 +44,11 @@ type Span interface {
 	MetadataAny(*xopconst.Attribute, interface{})
 	MetadataBool(*xopconst.BoolAttribute, bool)
 
+	// Boring true indicates that a span (or request) is boring.  The
+	// suggested meaning for this is that a boring request that is buffered
+	// can ignore Flush() and never get sent to output.  A boring span
+	// can be un-indexed. Boring requests that do get sent to output can
+	// be marked as boring so that they're dropped at the indexing stage.
 	Boring(bool)
 
 	// Line starts another line of log output.  Span implementations

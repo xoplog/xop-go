@@ -1,9 +1,7 @@
 package testlogger
 
 import (
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -78,17 +76,17 @@ type Span struct {
 	Spans        []*Span
 	RequestLines []*Line
 	Lines        []*Line
-	Data         []xop.Thing
-	SpanType     xopconst.SpanType
 	short        string
 }
 
 type Line struct {
-	Things    xop.Things
 	Level     xopconst.Level
 	Timestamp time.Time
 	Span      *Span
 	Message   string
+	Data      map[string]interface{}
+	Text      string
+	kvText    []string
 }
 
 func (l *TestLogger) WithMe() xoplog.SeedModifier {
@@ -135,58 +133,39 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 		Level:     level,
 		Timestamp: t,
 		Span:      s,
+		Data:      make(map[string]interface{}),
 	}
 	return line
 }
 
-func (l Line) Any(k string, v interface{}) { l.Things.AnyImmutable(k, v) }
-func (l Line) Int(k string, v int64)       { l.Things.Int(k, v) }
-func (l Line) Uint(k string, v uint64)     { l.Things.Uint(k, v) }
-func (l Line) Str(k string, v string)      { l.Things.Str(k, v) }
-func (l Line) Bool(k string, v bool)       { l.Things.Bool(k, v) }
-func (l Line) Error(k string, v error)     { l.Things.Error(k, v) }
-func (l Line) Time(k string, v time.Time)  { l.Things.Time(k, v) }
 func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.Level = level
 	l.Timestamp = t
-	l.Things = xop.Things{}
+	l.kvText = nil
 	l.Message = ""
+	l.Data = make(map[string]interface{})
+	l.Text = ""
+}
+
+func (l Line) Int(k string, v int64)      { l.Any(k, v) }
+func (l Line) Uint(k string, v uint64)    { l.Any(k, v) }
+func (l Line) Str(k string, v string)     { l.Any(k, v) }
+func (l Line) Bool(k string, v bool)      { l.Any(k, v) }
+func (l Line) Error(k string, v error)    { l.Any(k, v) }
+func (l Line) Time(k string, v time.Time) { l.Any(k, v) }
+func (l Line) Any(k string, v interface{}) {
+	l.Data[k] = v
+	l.kvText = append(l.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
 func (l Line) Msg(m string) {
 	l.Message = m
 	text := l.Span.short + ": " + m
-	// TODO: replace with higher performance version
-	// TODO: move encoding somewhere else
-	for _, thing := range l.Things.Things {
-		text += " " + thing.Key + "="
-		switch thing.Type {
-		case xop.IntType:
-			text += strconv.FormatInt(thing.Int, 64)
-		case xop.UintType:
-			text += strconv.FormatUint(thing.Any.(uint64), 64)
-		case xop.BoolType:
-			text += strconv.FormatBool(thing.Any.(bool))
-		case xop.StringType:
-			text += strconv.Quote(thing.String)
-		case xop.TimeType:
-			text += thing.Any.(time.Time).Format(time.RFC3339)
-		case xop.AnyType:
-			enc, err := json.Marshal(thing.Any)
-			if err != nil {
-				text += "???(marshal error:" + err.Error() + ")"
-			} else {
-				text += string(enc)
-			}
-		case xop.ErrorType:
-			text += thing.Any.(error).Error()
-		case xop.UnsetType:
-			fallthrough
-		// TODO: more types?
-		default:
-			text += "???(unknown thing" + strconv.Itoa(int(thing.Type)) + ")"
-		}
+	if len(l.kvText) > 0 {
+		text += " " + string.Join(l.kvText, " ")
+		l.kvText = nil
 	}
+	l.Text = text
 
 	l.Span.testLogger.t.Log(text)
 	l.Span.testLogger.lock.Lock()

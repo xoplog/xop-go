@@ -1,5 +1,5 @@
 
-Replace HexBytes with arrays etc can be used as map keys.  Use go 1.18?
+Replace HexBytes with arrays etc can be used as map keys.  Use go 1.18?  HexBytes8, HexBytes16, HexByte ?
 
 Adhere to go spec: Id -> ID
 

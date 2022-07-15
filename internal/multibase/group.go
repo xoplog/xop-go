@@ -11,7 +11,10 @@ import (
 )
 
 type Loggers []xopbase.Logger
-type Requests []xopbase.Request
+type Requests struct {
+	Spans
+	Requests []xopbase.Request
+}
 type Spans []xopbase.Span
 type Lines []xopbase.Line
 
@@ -28,9 +31,13 @@ func CombineLoggers(loggers []xopbase.Logger) xopbase.Logger {
 }
 
 func (l Loggers) Request(span trace.Bundle, descriptionOrName string) xopbase.Request {
-	r := make(Requests, len(l))
+	r := Requests{
+		Spans:    make(Spans, len(l)),
+		Requests: make([]xopbase.Request, len(l)),
+	}
 	for i, logger := range l {
-		r[i] = logger.Request(span, descriptionOrName)
+		r.Requests[i] = logger.Request(span, descriptionOrName)
+		r.Spans[i] = r.Requests[i].(xopbase.Span)
 	}
 	return r
 }
@@ -61,8 +68,8 @@ func (l Loggers) Close() {
 
 func (s Requests) Flush() {
 	var wg sync.WaitGroup
-	wg.Add(len(s))
-	for _, request := range s {
+	wg.Add(len(s.Requests))
+	for _, request := range s.Requests {
 		go func() {
 			defer wg.Done()
 			request.Flush()
@@ -71,13 +78,6 @@ func (s Requests) Flush() {
 	wg.Wait()
 }
 
-func (s Requests) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
-	spans := make(Spans, len(s))
-	for i, ele := range s {
-		spans[i] = ele.Span(span, descriptionOrName)
-	}
-	return spans
-}
 func (s Spans) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
 	spans := make(Spans, len(s))
 	for i, ele := range s {
@@ -86,24 +86,47 @@ func (s Spans) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
 	return spans
 }
 
-func (s Requests) SpanInfo(st xopconst.SpanType, things []xop.Thing) {
+func (s Spans) MetadataInt(k *xopconst.IntAttribute, v int64) {
 	for _, span := range s {
-		span.SpanInfo(st, things)
+		span.MetadataInt(k, v)
 	}
 }
-func (s Spans) SpanInfo(st xopconst.SpanType, things []xop.Thing) {
+func (s Spans) MetadataStr(k *xopconst.StrAttribute, v string) {
 	for _, span := range s {
-		span.SpanInfo(st, things)
+		span.MetadataStr(k, v)
+	}
+}
+func (s Spans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	for _, span := range s {
+		span.MetadataLink(k, v)
+	}
+}
+func (s Spans) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+	for _, span := range s {
+		span.MetadataTime(k, v)
+	}
+}
+func (s Spans) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
+	for _, span := range s {
+		span.MetadataDuration(k, v)
+	}
+}
+func (s Spans) MetadataAny(k *xopconst.Attribute, v interface{}) {
+	for _, span := range s {
+		span.MetadataAny(k, v)
+	}
+}
+func (s Spans) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+	for _, span := range s {
+		span.MetadataBool(k, v)
+	}
+}
+func (s Spans) Boring(b bool) {
+	for _, span := range s {
+		span.Boring(b)
 	}
 }
 
-func (s Requests) Line(level xopconst.Level, t time.Time) xopbase.Line {
-	lines := make(Lines, len(s))
-	for i, span := range s {
-		lines[i] = span.Line(level, t)
-	}
-	return lines
-}
 func (s Spans) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	lines := make(Lines, len(s))
 	for i, span := range s {
