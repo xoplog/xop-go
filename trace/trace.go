@@ -38,8 +38,8 @@ import (
 // Zipkin has "b3" tracing headers which are an alternative to the W3C headers.
 // Both can be supported.  See [b3](https://github.com/openzipkin/b3-propagation)
 //
-// These headers can be used with
-// [gRPC too](https://github.com/grpc/grpc-go/blob/master/Documentation/grpc-metadata.md)
+// These headers can be used with gRPC too
+// (https://github.com/grpc/grpc-go/blob/master/Documentation/grpc-metadata.md)
 //
 type Trace struct {
 	version HexBytes // 1 byte

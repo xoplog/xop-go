@@ -1,4 +1,3 @@
-// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package testlogger
 
 import (
@@ -19,12 +18,10 @@ type testingT interface {
 	Name() string
 }
 
-var (
-	_ xopbase.Logger  = &TestLogger{}
-	_ xopbase.Request = &Span{}
-	_ xopbase.Span    = &Span{}
-	_ xopbase.Line    = &Line{}
-)
+var _ xopbase.Logger = &TestLogger{}
+var _ xopbase.Request = &Span{}
+var _ xopbase.Span = &Span{}
+var _ xopbase.Line = &Line{}
 
 func New(t testingT) *TestLogger {
 	return &TestLogger{
@@ -176,23 +173,10 @@ func (l Line) Any(k string, v interface{}) {
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
-func (l Line) Bool(k string, v bool)      { l.Any(k, v) }
-func (l Line) Error(k string, v error)    { l.Any(k, v) }
-func (l Line) Int(k string, v int64)      { l.Any(k, v) }
-func (l Line) Str(k string, v string)     { l.Any(k, v) }
-func (l Line) Time(k string, v time.Time) { l.Any(k, v) }
-func (l Line) Uint(k string, v uint64)    { l.Any(k, v) }
+// MACRO BaseData SKIP:Any
+func (l Line) ZZZ(k string, v zzz) { l.Any(k, v) }
 
-func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
-func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
-func (s *Span) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
-	s.Attributes.MetadataDuration(k, v)
-}
-func (s *Span) MetadataInt(k *xopconst.IntAttribute, v int64) { s.Attributes.MetadataInt(k, v) }
-func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
-	s.Attributes.MetadataLink(k, v)
-}
-func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
-func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }
+// MACRO ZZZAttribute
+func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { s.Attributes.MetadataZZZ(k, v) }
 
 // end

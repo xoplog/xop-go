@@ -1,0 +1,115 @@
+package xoputil
+
+import (
+	"time"
+
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xopconst"
+)
+
+func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+	if k.Multiple() {
+		a.Anys[k.Key()] = append(a.Anys[k.Key()], v)
+	} else {
+		a.Any[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.TimesSeen[k.Key()]; ok {
+				if _, ok := seenMap[v.UnixNano()]; ok {
+					return
+				}
+			} else {
+				a.TimesSeen[k.Key()] = make(map[int64]struct{})
+			}
+			a.TimesSeen[k.Key()][v.UnixNano()] = struct{}{}
+		}
+		a.Times[k.Key()] = append(a.Times[k.Key()], v)
+	} else {
+		a.Time[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	// TODO: when trace.Trace can be a map key, let this auto-generate
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.LinksSeen[k.Key()]; ok {
+				if _, ok := seenMap[v.HeaderString()]; ok {
+					return
+				}
+			} else {
+				a.LinksSeen[k.Key()] = make(map[string]struct{})
+			}
+			a.LinksSeen[k.Key()][v.HeaderString()] = struct{}{}
+		}
+		a.Links[k.Key()] = append(a.Links[k.Key()], v)
+	} else {
+		a.Link[k.Key()] = v
+	}
+}
+
+func (a AttributeBuilder) Combine() map[string]interface{} {
+	m := make(map[string]interface{})
+
+	//MACRO ZZZAttribute
+	if len(a.ZZZ) != 0 {
+		for k, v := range a.ZZZ {
+			m[k] = v
+		}
+	}
+	if len(a.ZZZs) != 0 {
+		for k, v := range a.ZZZs {
+			m[k] = v
+		}
+	}
+
+	return m
+}
+
+// Reset is required before using zero-initialized AttributeBuilder
+func (a *AttributeBuilder) Reset() {
+	//MACRO ZZZAttribute
+	a.ZZZ = make(map[string]zzz)
+	a.ZZZs = make(map[string][]zzz)
+
+	//MACRO ZZZAttribute SKIP:Any,Link,Time
+	a.ZZZsSeen = make(map[string]map[zzz]struct{})
+
+	a.LinksSeen = make(map[string]map[string]struct{})
+	a.TimesSeen = make(map[string]map[int64]struct{})
+}
+
+//MACRO ZZZAttribute SKIP:Any,Time,Link
+func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.ZZZsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.ZZZsSeen[k.Key()] = make(map[zzz]struct{})
+			}
+			a.ZZZsSeen[k.Key()][v] = struct{}{}
+		}
+		a.ZZZs[k.Key()] = append(a.ZZZs[k.Key()], v)
+	} else {
+		a.ZZZ[k.Key()] = v
+	}
+}
+
+type AttributeBuilder struct {
+	//MACRO ZZZAttribute
+	ZZZ  map[string]zzz
+	ZZZs map[string][]zzz
+
+	//MACRO ZZZAttribute SKIP:Any,Link,Time
+	ZZZsSeen map[string]map[zzz]struct{}
+
+	LinksSeen map[string]map[string]struct{}
+	TimesSeen map[string]map[int64]struct{}
+}

@@ -1,0 +1,23 @@
+package xopconst
+
+// ParentLink is added automatically by xop in all situations where the information is present
+var ParentLink = Make{Key: "span.parent", Namespace: "xop", Indexed: true, Description: "Parent span"}.LinkAttribute()
+
+var EndpointRoute = Make{Key: "http.route", Namespace: "xop", Indexed: true, Prominence: 10,
+	Description: "HTTP handler route used to handle the request." +
+		" If there are path parameters in the route their generic names should be used," +
+		" eg '/invoice/{number}' or '/invoice/:number' depending on the router used"}.StrAttribute()
+
+var Boring = Make{Key: "boring", Namespace: "xop", Indexed: false, Prominence: 200,
+	Description: "spans are boring if they're an internal span (created by log.Fork() or" +
+		" log.Step()) or they're a request and log.Boring() has been called, and if" +
+		" there have has been nothing logged at the Error or Alert level"}.BoolAttribute()
+
+var SpanType = Make{Key: "span.type", Namespace: "xop", Indexed: true, Prominence: 11,
+	Description: "what kind of span this is.  Often added automatically.  eg: SpanTypeHTTPClientRequest"}.StrAttribute()
+
+const (
+	SpanTypeHTTPServerEndpoint = "endpoint"
+	SpanTypeHTTPClientRequest  = "REST"
+	SpanTypeCronJob            = "cron_job"
+)

@@ -26,11 +26,13 @@ standard for what log fields mean.
 
 ## Alternatives
 
-[Open Tracing](https://github.com/opentracing/opentracing-go)
-[Zipkin](https://github.com/openzipkin/zipkin-go)
-AppDynamics
-Open Telementry
-Datadog
+- [Open Telementry](https://opentelemetry.io/) (which gobbled up 
+[Open Tracing](https://github.com/opentracing/opentracing-go), 
+[OpneCensus](https://opencensus.io/), and 
+[Jaeger](https://www.jaegertracing.io/))
+- [Zipkin](https://github.com/openzipkin/zipkin-go)
+- AppDynamics
+- Datadog
 
 ### other takes
 
