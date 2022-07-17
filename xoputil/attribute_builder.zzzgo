@@ -1,0 +1,89 @@
+package xoputil
+
+import (
+	"time"
+
+	"github.com/muir/xoplog/xopconst"
+)
+
+type AttributeBuilder struct {
+	//MACRO ZZZAttribute
+	ZZZ      map[string]zzz
+	ZZZs     map[string][]zzz
+	ZZZsSeen map[string]map[zzz]struct{}
+}
+
+func NewAttributeBuilder() *AttributeBuilder {
+	return &AttributeBuilder{
+		//MACRO ZZZAttribute
+		ZZZ:      make(map[string]zzz),
+		ZZZs:     make(map[string][]zzz),
+		ZZZsSeen: make(map[string]map[zzz]struct{}),
+	}
+}
+
+func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+	if k.Multiple() {
+		ary = append(ary, v)
+		a.Any[k.Key()] = append(a.Any[k.Key()], v)
+	} else {
+		a.Any[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+	if k.Multiple() {
+		ary = append(ary, v)
+		if k.Distinct() {
+			if seenMap, ok := a.TimesSeen[k.Key()]; ok {
+				if _, ok := seenMap[v.UnixNano()]; ok {
+					return
+				}
+			} else {
+				z.TimesSeen[k.Key()] = make(map[int64]struct{})
+			}
+			z.TimesSeen[k.Key()][v.UnixNano()] = struct{}{}
+		}
+		a.Time[k.Key()] = append(a.Time[k.Key()], v)
+	} else {
+		a.Time[k.Key()] = v
+	}
+}
+
+//MACRO ZZZAttribute SKIP:Any,Time
+func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
+	if k.Multiple() {
+		ary = append(ary, v)
+		if k.Distinct() {
+			if seenMap, ok := a.ZZZsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				z.ZZZsSeen[k.Key()] = make(map[zzz]struct{})
+			}
+			z.ZZZsSeen[k.Key()][v] = struct{}{}
+		}
+		a.ZZZ[k.Key()] = append(a.ZZZ[k.Key()], v)
+	} else {
+		a.ZZZ[k.Key()] = v
+	}
+}
+
+func (a AttributeBuilder) Combine() map[string]interface{} {
+	m := make(map[string]interface{})
+
+	//MACRO ZZZAttribute
+	if len(a.ZZZ) != 0 {
+		for k, v := range a.ZZZ {
+			m[k] = v
+		}
+	}
+	if len(a.ZZZs) != 0 {
+		for k, v := range a.ZZZs {
+			m[k] = v
+		}
+	}
+
+	return m
+}

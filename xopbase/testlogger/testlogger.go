@@ -45,6 +45,49 @@ type traceInfo struct {
 	spans     map[string]int
 }
 
+type Span struct {
+	*zoputil.AttributeBuilder
+	lock         sync.Mutex
+	testLogger   *TestLogger
+	Trace        trace.Bundle
+	IsRequest    bool
+	Parent       *Span
+	Spans        []*Span
+	RequestLines []*Line
+	Lines        []*Line
+	short        string
+	Metadata     map[string]interface{}
+}
+
+type Line struct {
+	Level     xopconst.Level
+	Timestamp time.Time
+	Span      *Span
+	Message   string
+	Data      map[string]interface{}
+	Text      string
+	kvText    []string
+}
+
+func (l *TestLogger) WithMe() xoplog.SeedModifier {
+	return xoplog.WithBaseLogger("testing", l)
+}
+
+func (l *TestLogger) Close()               {}
+func (l *TestLogger) Buffered() bool       { return false }
+func (l *TestLogger) ReferencesKept() bool { return true }
+func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	return &Span{
+		Attributes: zoputil.NewAttributeBuilder(),
+		testLogger: l,
+		IsRequest:  true,
+		Trace:      span,
+		short:      l.setShort(span, name),
+	}
+}
+
 func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	ts := span.Trace.GetTraceId().String()
 	if ti, ok := l.traceMap[ts]; ok {
@@ -67,46 +110,20 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
-type Span struct {
-	lock         sync.Mutex
-	testLogger   *TestLogger
-	Trace        trace.Bundle
-	IsRequest    bool
-	Parent       *Span
-	Spans        []*Span
-	RequestLines []*Line
-	Lines        []*Line
-	short        string
-}
+func (s *Span) Flush()      {}
+func (s *Span) Boring(bool) {}
 
-type Line struct {
-	Level     xopconst.Level
-	Timestamp time.Time
-	Span      *Span
-	Message   string
-	Data      map[string]interface{}
-	Text      string
-	kvText    []string
-}
-
-func (l *TestLogger) WithMe() xoplog.SeedModifier {
-	return xoplog.WithBaseLogger("testing", l)
-}
-
-func (l *TestLogger) Close()               {}
-func (l *TestLogger) ReferencesKept() bool { return true }
-func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-	return &Span{
-		testLogger: l,
-		IsRequest:  true,
-		Trace:      span,
-		short:      l.setShort(span, name),
+func (s *Span) MetadataAny(k *xopconst.Attribute, v interface{}) {
+	_, ok := s.Metadata[k.Key]
+	if !ok && k.Multiple() {
+		s.Metadata[k.Key()] = k.EmptyArray()
+	}
+	if k.Multiple {
+		s.Metadata[k.Key()].Append(v)
+	} else {
+		s.Metadata[k.Key()] = v
 	}
 }
-
-func (l *Span) Flush() {}
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	s.testLogger.lock.Lock()

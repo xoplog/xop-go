@@ -1,6 +1,3 @@
-// This file is generated, DO NOT EDIT
-// It is generated from the corresponding .zzzgo file using zopzzz
-//
 package multibase
 
 import (
@@ -13,24 +10,18 @@ import (
 	"github.com/muir/xoplog/xopconst"
 )
 
-type (
-	Loggers  []xopbase.Logger
-	Requests struct {
-		Spans
-		Requests []xopbase.Request
-	}
-)
-type (
-	Spans []xopbase.Span
-	Lines []xopbase.Line
-)
+type Loggers []xopbase.Logger
+type Requests struct {
+	Spans
+	Requests []xopbase.Request
+}
+type Spans []xopbase.Span
+type Lines []xopbase.Line
 
-var (
-	_ xopbase.Logger  = Loggers{}
-	_ xopbase.Request = Requests{}
-	_ xopbase.Span    = Spans{}
-	_ xopbase.Line    = Lines{}
-)
+var _ xopbase.Logger = Loggers{}
+var _ xopbase.Request = Requests{}
+var _ xopbase.Span = Spans{}
+var _ xopbase.Line = Lines{}
 
 func CombineLoggers(loggers []xopbase.Logger) xopbase.Logger {
 	if len(loggers) == 1 {
@@ -95,45 +86,10 @@ func (s Spans) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
 	return spans
 }
 
-func (s Spans) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+//MACRO ZZZAttribute
+func (s Spans) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	for _, span := range s {
-		span.MetadataAny(k, v)
-	}
-}
-
-func (s Spans) MetadataBool(k *xopconst.BoolAttribute, v bool) {
-	for _, span := range s {
-		span.MetadataBool(k, v)
-	}
-}
-
-func (s Spans) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
-	for _, span := range s {
-		span.MetadataDuration(k, v)
-	}
-}
-
-func (s Spans) MetadataInt(k *xopconst.IntAttribute, v int) {
-	for _, span := range s {
-		span.MetadataInt(k, v)
-	}
-}
-
-func (s Spans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
-	for _, span := range s {
-		span.MetadataLink(k, v)
-	}
-}
-
-func (s Spans) MetadataStr(k *xopconst.StrAttribute, v string) {
-	for _, span := range s {
-		span.MetadataStr(k, v)
-	}
-}
-
-func (s Spans) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
-	for _, span := range s {
-		span.MetadataTime(k, v)
+		span.MetadataZZZ(k, v)
 	}
 }
 
@@ -162,43 +118,36 @@ func (l Lines) Int(k string, v int64) {
 		line.Int(k, v)
 	}
 }
-
 func (l Lines) Str(k string, v string) {
 	for _, line := range l {
 		line.Str(k, v)
 	}
 }
-
 func (l Lines) Bool(k string, v bool) {
 	for _, line := range l {
 		line.Bool(k, v)
 	}
 }
-
 func (l Lines) Uint(k string, v uint64) {
 	for _, line := range l {
 		line.Uint(k, v)
 	}
 }
-
 func (l Lines) Time(k string, v time.Time) {
 	for _, line := range l {
 		line.Time(k, v)
 	}
 }
-
 func (l Lines) Any(k string, v interface{}) {
 	for _, line := range l {
 		line.Any(k, v)
 	}
 }
-
 func (l Lines) Error(k string, v error) {
 	for _, line := range l {
 		line.Error(k, v)
 	}
 }
-
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)

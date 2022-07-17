@@ -28,7 +28,6 @@ type Span struct {
 	log      *Log       // back to self
 	base     xopbase.Span
 	linePool sync.Pool
-	data     spanData
 	boring   int32 // 0 = boring
 }
 
@@ -124,7 +123,7 @@ func (l *Log) Flush() {
 // Marks this request as boring.  Any log at the Alert or
 // Error level will mark this request as not boring.
 func (l *Log) Boring() {
-	requestBoring = atomic.LoadInt32(&l.request.boring)
+	requestBoring := atomic.LoadInt32(&l.request.boring)
 	if requestBoring != 0 {
 		return
 	}
@@ -134,7 +133,7 @@ func (l *Log) Boring() {
 	// happened, we can't tell if we're currently marked as
 	// boring, so let's make sure we're not boring by sending
 	// a false
-	requestStillBoring = atomic.LoadInt32(&l.request.boring)
+	requestStillBoring := atomic.LoadInt32(&l.request.boring)
 	if requestStillBoring != 0 {
 		l.request.base.Boring(false)
 	}
@@ -142,10 +141,10 @@ func (l *Log) Boring() {
 }
 
 func (l *Log) notBoring() {
-	spanBoring = atomic.AddInt32(&l.span.boring, 1)
+	spanBoring := atomic.AddInt32(&l.span.boring, 1)
 	if spanBoring == 1 {
 		l.span.base.Boring(false)
-		requestBoring = atomic.AddInt32(&l.request.boring, 1)
+		requestBoring := atomic.AddInt32(&l.request.boring, 1)
 		if requestBoring == 1 {
 			l.request.base.Boring(false)
 		}

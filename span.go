@@ -51,27 +51,27 @@ func (s *Span) Bool(k *xopconst.BoolAttribute, v bool) *Span {
 	return s.eft()
 }
 
-func (s *Span) Link(k *xopconst.StrAttribute, v trace.Trace) *Span {
+func (s *Span) Link(k *xopconst.LinkAttribute, v trace.Trace) *Span {
 	s.base.MetadataLink(k, v)
 	return s.eft()
 }
 
-func (s *Span) Time(k *xopconst.StrAttribute, v time.Time) *Span {
+func (s *Span) Time(k *xopconst.TimeAttribute, v time.Time) *Span {
 	s.base.MetadataTime(k, v)
 	return s.eft()
 }
 
-func (s *Span) Duration(k *xopconst.StrAttribute, v time.Duration) *Span {
+func (s *Span) Duration(k *xopconst.DurationAttribute, v time.Duration) *Span {
 	s.base.MetadataDuration(k, v)
 	return s.eft()
 }
 
-func (s *Span) AnyImmutable(k *xopconst.StrAttribute, v interface{}) *Span {
+func (s *Span) AnyImmutable(k *xopconst.Attribute, v interface{}) *Span {
 	s.base.MetadataAny(k, v)
 	return s.eft()
 }
 
-func (s *Span) Any(k *xopconst.StrAttribute, v interface{}) *Span {
+func (s *Span) Any(k *xopconst.Attribute, v interface{}) *Span {
 	if s.log.shared.ReferencesKept {
 		v = deepcopy.Copy(v)
 	}

@@ -1,7 +1,6 @@
 package xoplog
 
 import (
-	"os"
 	"time"
 
 	"github.com/muir/xoplog/trace"
