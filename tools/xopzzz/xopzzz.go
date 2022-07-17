@@ -18,12 +18,51 @@ var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
 var macros = map[string]map[string]string{
 	"ZZZAttribute": {
 		"Bool":     "bool",
-		"Int":      "int",
+		"Int":      "int64",
 		"Str":      "string",
 		"Link":     "trace.Trace",
 		"Any":      "interface{}",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
+	},
+	"ints": {
+		"int":   "int",
+		"int8":  "int8",
+		"int16": "int16",
+		"int32": "int32",
+	},
+	"uints": {
+		"uint":   "uint",
+		"uint8":  "uint8",
+		"uint16": "uint16",
+		"uint32": "uint32",
+	},
+	"BaseData": {
+		"Int":  "int64",
+		"Uint": "uint64",
+		"Str":  "string",
+		"Bool": "bool",
+		"Any":  "interface{}",
+		// "Link": "trace.Trace",
+		"Error": "error",
+		"Time":  "time.Time",
+	},
+	"AllData": {
+		"Int":    "int",
+		"Int8":   "int8",
+		"Int16":  "int16",
+		"Int32":  "int32",
+		"Int64":  "int64",
+		"Uint":   "uint",
+		"Uint8":  "uint8",
+		"Uint16": "uint16",
+		"Uint32": "uint32",
+		"Uint64": "uint64",
+		"Str":    "string",
+		"Bool":   "bool",
+		"Any":    "interface{}",
+		// "Link": "trace.Trace",
+		"Error": "error",
 	},
 }
 
@@ -31,9 +70,7 @@ var allLines []string
 var index int
 
 func main() {
-	fmt.Println("// This file is generated, DO NOT EDIT")
-	fmt.Println("// It is generated from the corresponding .zzzgo file using zopzzz")
-	fmt.Println("//")
+	fmt.Println("// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file")
 	var reader = bufio.NewReader(os.Stdin)
 
 	for {

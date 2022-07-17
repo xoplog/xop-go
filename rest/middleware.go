@@ -6,15 +6,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopconst"
 	"github.com/muir/xoplog/xopprop"
 )
-
-var HTTPRequestSpanType = xopconst.RegisterSpanType("xop", "http-request",
-	[]string{"xop:endpoint", "xop:url"},
-	nil,
-	xopconst.AllSpans)
 
 func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
 	route := mux.CurrentRoute(r)
@@ -52,14 +46,9 @@ func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
 	}
 
 	log := parent.Span().Seed(xoplog.WithBundle(bundle)).Request(r.Method + " " + name)
-	log.Span().SetType(HTTPRequestSpanType)
-	log.Span().AddData(
-		xop.NewBuilder().
-			Str("xop:type", "http:endpoint").
-			Str("xop:endpoint", name).
-			Str("xop:url", r.URL.String()).
-			Bool("xop:is-request", true).
-			Things()...)
+	log.Span().Str(xopconst.SpanKind, xopconst.SpanKindClient)
+	log.Span().Str(xopconst.URL, r.URL.String())
+	log.Span().Str(xopconst.SpanType, xopconst.SpanTypeHTTPClientRequest)
 	return log
 }
 

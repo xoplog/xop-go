@@ -1,6 +1,4 @@
-// This file is generated, DO NOT EDIT
-// It is generated from the corresponding .zzzgo file using zopzzz
-//
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package xoplog
 
 import (
@@ -44,6 +42,24 @@ func (s *Span) Int16(k *xopconst.IntAttribute, v int16) *Span { return s.Int64(k
 func (s *Span) Int32(k *xopconst.IntAttribute, v int32) *Span { return s.Int64(k, int64(v)) }
 func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span     { return s.Int64(k, int64(v)) }
 
+// AnyImmutable adds a key/value attribute to the Span.  The provided
+// value must be immutable.
+func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
+	s.base.MetadataAny(k, v)
+	return s.eft()
+}
+
+// Any adds a key/value attribute to the Span.  The provided
+// value may be copied using github.com/mohae/deepcopy if any of the
+// base loggers hold the value instead of immediately serializing it.
+func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
+	if s.log.shared.ReferencesKept {
+		v = deepcopy.Copy(v)
+	}
+	s.base.MetadataAny(k, v)
+	return s.eft()
+}
+
 // Bool adds a bool key/value attribute to the Span
 func (s *Span) Bool(k *xopconst.BoolAttribute, v bool) *Span {
 	s.base.MetadataBool(k, v)
@@ -53,12 +69,6 @@ func (s *Span) Bool(k *xopconst.BoolAttribute, v bool) *Span {
 // Duration adds a time.Duration key/value attribute to the Span
 func (s *Span) Duration(k *xopconst.DurationAttribute, v time.Duration) *Span {
 	s.base.MetadataDuration(k, v)
-	return s.eft()
-}
-
-// Int adds a int key/value attribute to the Span
-func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span {
-	s.base.MetadataInt(k, v)
 	return s.eft()
 }
 
@@ -77,23 +87,5 @@ func (s *Span) Str(k *xopconst.StrAttribute, v string) *Span {
 // Time adds a time.Time key/value attribute to the Span
 func (s *Span) Time(k *xopconst.TimeAttribute, v time.Time) *Span {
 	s.base.MetadataTime(k, v)
-	return s.eft()
-}
-
-// AnyImmutable adds a key/value attribute to the Span.  The provided
-// value must be immutable.
-func (s *Span) AnyImmutable(k *xopconst.Attribute, v interface{}) *Span {
-	s.base.MetadataAny(k, v)
-	return s.eft()
-}
-
-// AnyImmutable adds a key/value attribute to the Span.  The provided
-// value may be copied using github.com/mohae/deepcopy if any of the
-// base loggers hold the value instead of immediately serializing it.
-func (s *Span) Any(k *xopconst.Attribute, v interface{}) *Span {
-	if s.log.shared.ReferencesKept {
-		v = deepcopy.Copy(v)
-	}
-	s.base.MetadataAny(k, v)
 	return s.eft()
 }

@@ -113,41 +113,14 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
-func (l Lines) Int(k string, v int64) {
+// MACRO BaseData
+// ZZZ adds a zzz key/value pair to a line that is in progress
+func (l Lines) ZZZ(k string, v zzz) {
 	for _, line := range l {
-		line.Int(k, v)
+		line.ZZZ(k, v)
 	}
 }
-func (l Lines) Str(k string, v string) {
-	for _, line := range l {
-		line.Str(k, v)
-	}
-}
-func (l Lines) Bool(k string, v bool) {
-	for _, line := range l {
-		line.Bool(k, v)
-	}
-}
-func (l Lines) Uint(k string, v uint64) {
-	for _, line := range l {
-		line.Uint(k, v)
-	}
-}
-func (l Lines) Time(k string, v time.Time) {
-	for _, line := range l {
-		line.Time(k, v)
-	}
-}
-func (l Lines) Any(k string, v interface{}) {
-	for _, line := range l {
-		line.Any(k, v)
-	}
-}
-func (l Lines) Error(k string, v error) {
-	for _, line := range l {
-		line.Error(k, v)
-	}
-}
+
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)

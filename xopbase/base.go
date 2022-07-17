@@ -1,6 +1,4 @@
-// This file is generated, DO NOT EDIT
-// It is generated from the corresponding .zzzgo file using zopzzz
-//
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package xopbase
 
 import (
@@ -45,7 +43,7 @@ type Span interface {
 	// MetadataDuration adds a key/value pair to describe the span.
 	MetadataDuration(*xopconst.DurationAttribute, time.Duration)
 	// MetadataInt adds a key/value pair to describe the span.
-	MetadataInt(*xopconst.IntAttribute, int)
+	MetadataInt(*xopconst.IntAttribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
 	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
 	// MetadataStr adds a key/value pair to describe the span.

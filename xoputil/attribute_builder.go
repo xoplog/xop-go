@@ -1,6 +1,4 @@
-// This file is generated, DO NOT EDIT
-// It is generated from the corresponding .zzzgo file using zopzzz
-//
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package xoputil
 
 import (
@@ -10,60 +8,9 @@ import (
 	"github.com/muir/xoplog/xopconst"
 )
 
-type AttributeBuilder struct {
-	Any           map[string]interface{}
-	Anys          map[string][]interface{}
-	AnysSeen      map[string]map[interface{}]struct{}
-	Bool          map[string]bool
-	Bools         map[string][]bool
-	BoolsSeen     map[string]map[bool]struct{}
-	Duration      map[string]time.Duration
-	Durations     map[string][]time.Duration
-	DurationsSeen map[string]map[time.Duration]struct{}
-	Int           map[string]int
-	Ints          map[string][]int
-	IntsSeen      map[string]map[int]struct{}
-	Link          map[string]trace.Trace
-	Links         map[string][]trace.Trace
-	LinksSeen     map[string]map[trace.Trace]struct{}
-	Str           map[string]string
-	Strs          map[string][]string
-	StrsSeen      map[string]map[string]struct{}
-	Time          map[string]time.Time
-	Times         map[string][]time.Time
-	TimesSeen     map[string]map[time.Time]struct{}
-}
-
-func NewAttributeBuilder() *AttributeBuilder {
-	return &AttributeBuilder{
-		Any:           make(map[string]interface{}),
-		Anys:          make(map[string][]interface{}),
-		AnysSeen:      make(map[string]map[interface{}]struct{}),
-		Bool:          make(map[string]bool),
-		Bools:         make(map[string][]bool),
-		BoolsSeen:     make(map[string]map[bool]struct{}),
-		Duration:      make(map[string]time.Duration),
-		Durations:     make(map[string][]time.Duration),
-		DurationsSeen: make(map[string]map[time.Duration]struct{}),
-		Int:           make(map[string]int),
-		Ints:          make(map[string][]int),
-		IntsSeen:      make(map[string]map[int]struct{}),
-		Link:          make(map[string]trace.Trace),
-		Links:         make(map[string][]trace.Trace),
-		LinksSeen:     make(map[string]map[trace.Trace]struct{}),
-		Str:           make(map[string]string),
-		Strs:          make(map[string][]string),
-		StrsSeen:      make(map[string]map[string]struct{}),
-		Time:          make(map[string]time.Time),
-		Times:         make(map[string][]time.Time),
-		TimesSeen:     make(map[string]map[time.Time]struct{}),
-	}
-}
-
 func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 	if k.Multiple() {
-		ary = append(ary, v)
-		a.Any[k.Key()] = append(a.Any[k.Key()], v)
+		a.Anys[k.Key()] = append(a.Anys[k.Key()], v)
 	} else {
 		a.Any[k.Key()] = v
 	}
@@ -71,115 +18,38 @@ func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) 
 
 func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 	if k.Multiple() {
-		ary = append(ary, v)
 		if k.Distinct() {
 			if seenMap, ok := a.TimesSeen[k.Key()]; ok {
 				if _, ok := seenMap[v.UnixNano()]; ok {
 					return
 				}
 			} else {
-				z.TimesSeen[k.Key()] = make(map[int64]struct{})
+				a.TimesSeen[k.Key()] = make(map[int64]struct{})
 			}
-			z.TimesSeen[k.Key()][v.UnixNano()] = struct{}{}
+			a.TimesSeen[k.Key()][v.UnixNano()] = struct{}{}
 		}
-		a.Time[k.Key()] = append(a.Time[k.Key()], v)
+		a.Times[k.Key()] = append(a.Times[k.Key()], v)
 	} else {
 		a.Time[k.Key()] = v
 	}
 }
 
-func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
-	if k.Multiple() {
-		ary = append(ary, v)
-		if k.Distinct() {
-			if seenMap, ok := a.BoolsSeen[k.Key()]; ok {
-				if _, ok := seenMap[v]; ok {
-					return
-				}
-			} else {
-				z.BoolsSeen[k.Key()] = make(map[bool]struct{})
-			}
-			z.BoolsSeen[k.Key()][v] = struct{}{}
-		}
-		a.Bool[k.Key()] = append(a.Bool[k.Key()], v)
-	} else {
-		a.Bool[k.Key()] = v
-	}
-}
-
-func (a *AttributeBuilder) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
-	if k.Multiple() {
-		ary = append(ary, v)
-		if k.Distinct() {
-			if seenMap, ok := a.DurationsSeen[k.Key()]; ok {
-				if _, ok := seenMap[v]; ok {
-					return
-				}
-			} else {
-				z.DurationsSeen[k.Key()] = make(map[time.Duration]struct{})
-			}
-			z.DurationsSeen[k.Key()][v] = struct{}{}
-		}
-		a.Duration[k.Key()] = append(a.Duration[k.Key()], v)
-	} else {
-		a.Duration[k.Key()] = v
-	}
-}
-
-func (a *AttributeBuilder) MetadataInt(k *xopconst.IntAttribute, v int) {
-	if k.Multiple() {
-		ary = append(ary, v)
-		if k.Distinct() {
-			if seenMap, ok := a.IntsSeen[k.Key()]; ok {
-				if _, ok := seenMap[v]; ok {
-					return
-				}
-			} else {
-				z.IntsSeen[k.Key()] = make(map[int]struct{})
-			}
-			z.IntsSeen[k.Key()][v] = struct{}{}
-		}
-		a.Int[k.Key()] = append(a.Int[k.Key()], v)
-	} else {
-		a.Int[k.Key()] = v
-	}
-}
-
 func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	// TODO: when trace.Trace can be a map key, let this auto-generate
 	if k.Multiple() {
-		ary = append(ary, v)
 		if k.Distinct() {
 			if seenMap, ok := a.LinksSeen[k.Key()]; ok {
-				if _, ok := seenMap[v]; ok {
+				if _, ok := seenMap[v.HeaderString()]; ok {
 					return
 				}
 			} else {
-				z.LinksSeen[k.Key()] = make(map[trace.Trace]struct{})
+				a.LinksSeen[k.Key()] = make(map[string]struct{})
 			}
-			z.LinksSeen[k.Key()][v] = struct{}{}
+			a.LinksSeen[k.Key()][v.HeaderString()] = struct{}{}
 		}
-		a.Link[k.Key()] = append(a.Link[k.Key()], v)
+		a.Links[k.Key()] = append(a.Links[k.Key()], v)
 	} else {
 		a.Link[k.Key()] = v
-	}
-}
-
-func (a *AttributeBuilder) MetadataStr(k *xopconst.StrAttribute, v string) {
-	if k.Multiple() {
-		ary = append(ary, v)
-		if k.Distinct() {
-			if seenMap, ok := a.StrsSeen[k.Key()]; ok {
-				if _, ok := seenMap[v]; ok {
-					return
-				}
-			} else {
-				z.StrsSeen[k.Key()] = make(map[string]struct{})
-			}
-			z.StrsSeen[k.Key()][v] = struct{}{}
-		}
-		a.Str[k.Key()] = append(a.Str[k.Key()], v)
-	} else {
-		a.Str[k.Key()] = v
 	}
 }
 
@@ -258,4 +128,127 @@ func (a AttributeBuilder) Combine() map[string]interface{} {
 	}
 
 	return m
+}
+
+// Reset is required before using zero-initialized AttributeBuilder
+func (a *AttributeBuilder) Reset() {
+	a.Any = make(map[string]interface{})
+	a.Anys = make(map[string][]interface{})
+	a.Bool = make(map[string]bool)
+	a.Bools = make(map[string][]bool)
+	a.Duration = make(map[string]time.Duration)
+	a.Durations = make(map[string][]time.Duration)
+	a.Int = make(map[string]int64)
+	a.Ints = make(map[string][]int64)
+	a.Link = make(map[string]trace.Trace)
+	a.Links = make(map[string][]trace.Trace)
+	a.Str = make(map[string]string)
+	a.Strs = make(map[string][]string)
+	a.Time = make(map[string]time.Time)
+	a.Times = make(map[string][]time.Time)
+
+	a.BoolsSeen = make(map[string]map[bool]struct{})
+	a.DurationsSeen = make(map[string]map[time.Duration]struct{})
+	a.IntsSeen = make(map[string]map[int64]struct{})
+	a.StrsSeen = make(map[string]map[string]struct{})
+
+	a.LinksSeen = make(map[string]map[string]struct{})
+	a.TimesSeen = make(map[string]map[int64]struct{})
+}
+
+func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.BoolsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.BoolsSeen[k.Key()] = make(map[bool]struct{})
+			}
+			a.BoolsSeen[k.Key()][v] = struct{}{}
+		}
+		a.Bools[k.Key()] = append(a.Bools[k.Key()], v)
+	} else {
+		a.Bool[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.DurationsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.DurationsSeen[k.Key()] = make(map[time.Duration]struct{})
+			}
+			a.DurationsSeen[k.Key()][v] = struct{}{}
+		}
+		a.Durations[k.Key()] = append(a.Durations[k.Key()], v)
+	} else {
+		a.Duration[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataInt(k *xopconst.IntAttribute, v int64) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.IntsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.IntsSeen[k.Key()] = make(map[int64]struct{})
+			}
+			a.IntsSeen[k.Key()][v] = struct{}{}
+		}
+		a.Ints[k.Key()] = append(a.Ints[k.Key()], v)
+	} else {
+		a.Int[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataStr(k *xopconst.StrAttribute, v string) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.StrsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.StrsSeen[k.Key()] = make(map[string]struct{})
+			}
+			a.StrsSeen[k.Key()][v] = struct{}{}
+		}
+		a.Strs[k.Key()] = append(a.Strs[k.Key()], v)
+	} else {
+		a.Str[k.Key()] = v
+	}
+}
+
+type AttributeBuilder struct {
+	Any       map[string]interface{}
+	Anys      map[string][]interface{}
+	Bool      map[string]bool
+	Bools     map[string][]bool
+	Duration  map[string]time.Duration
+	Durations map[string][]time.Duration
+	Int       map[string]int64
+	Ints      map[string][]int64
+	Link      map[string]trace.Trace
+	Links     map[string][]trace.Trace
+	Str       map[string]string
+	Strs      map[string][]string
+	Time      map[string]time.Time
+	Times     map[string][]time.Time
+
+	BoolsSeen     map[string]map[bool]struct{}
+	DurationsSeen map[string]map[time.Duration]struct{}
+	IntsSeen      map[string]map[int64]struct{}
+	StrsSeen      map[string]map[string]struct{}
+
+	LinksSeen map[string]map[string]struct{}
+	TimesSeen map[string]map[int64]struct{}
 }

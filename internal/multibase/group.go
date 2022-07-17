@@ -1,6 +1,4 @@
-// This file is generated, DO NOT EDIT
-// It is generated from the corresponding .zzzgo file using zopzzz
-//
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package multibase
 
 import (
@@ -113,7 +111,7 @@ func (s Spans) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) 
 	}
 }
 
-func (s Spans) MetadataInt(k *xopconst.IntAttribute, v int) {
+func (s Spans) MetadataInt(k *xopconst.IntAttribute, v int64) {
 	for _, span := range s {
 		span.MetadataInt(k, v)
 	}
@@ -157,45 +155,52 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
-func (l Lines) Int(k string, v int64) {
-	for _, line := range l {
-		line.Int(k, v)
-	}
-}
-
-func (l Lines) Str(k string, v string) {
-	for _, line := range l {
-		line.Str(k, v)
-	}
-}
-
-func (l Lines) Bool(k string, v bool) {
-	for _, line := range l {
-		line.Bool(k, v)
-	}
-}
-
-func (l Lines) Uint(k string, v uint64) {
-	for _, line := range l {
-		line.Uint(k, v)
-	}
-}
-
-func (l Lines) Time(k string, v time.Time) {
-	for _, line := range l {
-		line.Time(k, v)
-	}
-}
-
+// Any adds a interface{} key/value pair to a line that is in progress
 func (l Lines) Any(k string, v interface{}) {
 	for _, line := range l {
 		line.Any(k, v)
 	}
 }
 
+// Bool adds a bool key/value pair to a line that is in progress
+func (l Lines) Bool(k string, v bool) {
+	for _, line := range l {
+		line.Bool(k, v)
+	}
+}
+
+// Error adds a error key/value pair to a line that is in progress
 func (l Lines) Error(k string, v error) {
 	for _, line := range l {
 		line.Error(k, v)
+	}
+}
+
+// Int adds a int64 key/value pair to a line that is in progress
+func (l Lines) Int(k string, v int64) {
+	for _, line := range l {
+		line.Int(k, v)
+	}
+}
+
+// Str adds a string key/value pair to a line that is in progress
+func (l Lines) Str(k string, v string) {
+	for _, line := range l {
+		line.Str(k, v)
+	}
+}
+
+// Time adds a time.Time key/value pair to a line that is in progress
+func (l Lines) Time(k string, v time.Time) {
+	for _, line := range l {
+		line.Time(k, v)
+	}
+}
+
+// Uint adds a uint64 key/value pair to a line that is in progress
+func (l Lines) Uint(k string, v uint64) {
+	for _, line := range l {
+		line.Uint(k, v)
 	}
 }
 

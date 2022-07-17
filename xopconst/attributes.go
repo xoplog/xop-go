@@ -1,6 +1,4 @@
-// This file is generated, DO NOT EDIT
-// It is generated from the corresponding .zzzgo file using zopzzz
-//
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package xopconst
 
 import (
@@ -18,16 +16,6 @@ import (
 // TODO: UintAttribute?
 // TODO: TableAttribute?
 // TODO: URLAttribute?
-
-type (
-	AnyAttribute      struct{ Attribute }
-	BoolAttribute     struct{ Attribute }
-	DurationAttribute struct{ Attribute }
-	IntAttribute      struct{ Attribute }
-	LinkAttribute     struct{ Attribute }
-	StrAttribute      struct{ Attribute }
-	TimeAttribute     struct{ Attribute }
-)
 
 // Attribute represents an "any" attribute for a span.
 type Attribute struct {
@@ -53,6 +41,7 @@ type Make struct {
 	Description  string // the attribute description
 	Namespace    string // the namespace for this attribute (otherwise DefaultNamespace is used)
 	Indexed      bool   // hint: this attribute should be indexed
+	Prominence   int    // hint: how important is this attribute (lower is more important)
 	Multiple     bool   // keep all values if the attribute is given multiple times
 	Distinct     bool   // when keeping all values, only keep distinct values (not supported for interface{})
 	Ranged       bool   // hint: comparisons between values are meaningful (eg: time, integers)
@@ -179,6 +168,17 @@ func (r Attribute) Multiple() bool            { return r.properties.Multiple }
 func (r Attribute) Ranged() bool              { return r.properties.Ranged }
 func (r Attribute) Locked() bool              { return r.properties.Locked }
 func (r Attribute) Distinct() bool            { return r.properties.Distinct }
+func (r Attribute) Prominence() int           { return r.properties.Prominence }
 func (r Attribute) RegistrationNumber() int   { return r.number }
 func (r Attribute) ExampleValue() interface{} { return r.exampleValue }
 func (r Attribute) TypeName() string          { return r.typeName }
+
+type (
+	AnyAttribute      struct{ Attribute }
+	BoolAttribute     struct{ Attribute }
+	DurationAttribute struct{ Attribute }
+	IntAttribute      struct{ Attribute }
+	LinkAttribute     struct{ Attribute }
+	StrAttribute      struct{ Attribute }
+	TimeAttribute     struct{ Attribute }
+)

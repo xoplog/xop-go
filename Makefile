@@ -8,6 +8,7 @@ GENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
 TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports
 
 all:	$(GENERATED)
+	go build ./...
 
 test:	$(GENERATED)
 	go test ./...
