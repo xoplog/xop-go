@@ -76,23 +76,13 @@ func (a AttributeBuilder) Combine() map[string]interface{} {
 			m[k] = v
 		}
 	}
-	if len(a.Duration) != 0 {
-		for k, v := range a.Duration {
+	if len(a.Int64) != 0 {
+		for k, v := range a.Int64 {
 			m[k] = v
 		}
 	}
-	if len(a.Durations) != 0 {
-		for k, v := range a.Durations {
-			m[k] = v
-		}
-	}
-	if len(a.Int) != 0 {
-		for k, v := range a.Int {
-			m[k] = v
-		}
-	}
-	if len(a.Ints) != 0 {
-		for k, v := range a.Ints {
+	if len(a.Int64s) != 0 {
+		for k, v := range a.Int64s {
 			m[k] = v
 		}
 	}
@@ -136,10 +126,8 @@ func (a *AttributeBuilder) Reset() {
 	a.Anys = make(map[string][]interface{})
 	a.Bool = make(map[string]bool)
 	a.Bools = make(map[string][]bool)
-	a.Duration = make(map[string]time.Duration)
-	a.Durations = make(map[string][]time.Duration)
-	a.Int = make(map[string]int64)
-	a.Ints = make(map[string][]int64)
+	a.Int64 = make(map[string]int64)
+	a.Int64s = make(map[string][]int64)
 	a.Link = make(map[string]trace.Trace)
 	a.Links = make(map[string][]trace.Trace)
 	a.Str = make(map[string]string)
@@ -148,8 +136,7 @@ func (a *AttributeBuilder) Reset() {
 	a.Times = make(map[string][]time.Time)
 
 	a.BoolsSeen = make(map[string]map[bool]struct{})
-	a.DurationsSeen = make(map[string]map[time.Duration]struct{})
-	a.IntsSeen = make(map[string]map[int64]struct{})
+	a.Int64sSeen = make(map[string]map[int64]struct{})
 	a.StrsSeen = make(map[string]map[string]struct{})
 
 	a.LinksSeen = make(map[string]map[string]struct{})
@@ -174,39 +161,21 @@ func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	}
 }
 
-func (a *AttributeBuilder) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
+func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	if k.Multiple() {
 		if k.Distinct() {
-			if seenMap, ok := a.DurationsSeen[k.Key()]; ok {
+			if seenMap, ok := a.Int64sSeen[k.Key()]; ok {
 				if _, ok := seenMap[v]; ok {
 					return
 				}
 			} else {
-				a.DurationsSeen[k.Key()] = make(map[time.Duration]struct{})
+				a.Int64sSeen[k.Key()] = make(map[int64]struct{})
 			}
-			a.DurationsSeen[k.Key()][v] = struct{}{}
+			a.Int64sSeen[k.Key()][v] = struct{}{}
 		}
-		a.Durations[k.Key()] = append(a.Durations[k.Key()], v)
+		a.Int64s[k.Key()] = append(a.Int64s[k.Key()], v)
 	} else {
-		a.Duration[k.Key()] = v
-	}
-}
-
-func (a *AttributeBuilder) MetadataInt(k *xopconst.IntAttribute, v int64) {
-	if k.Multiple() {
-		if k.Distinct() {
-			if seenMap, ok := a.IntsSeen[k.Key()]; ok {
-				if _, ok := seenMap[v]; ok {
-					return
-				}
-			} else {
-				a.IntsSeen[k.Key()] = make(map[int64]struct{})
-			}
-			a.IntsSeen[k.Key()][v] = struct{}{}
-		}
-		a.Ints[k.Key()] = append(a.Ints[k.Key()], v)
-	} else {
-		a.Int[k.Key()] = v
+		a.Int64[k.Key()] = v
 	}
 }
 
@@ -229,25 +198,22 @@ func (a *AttributeBuilder) MetadataStr(k *xopconst.StrAttribute, v string) {
 }
 
 type AttributeBuilder struct {
-	Any       map[string]interface{}
-	Anys      map[string][]interface{}
-	Bool      map[string]bool
-	Bools     map[string][]bool
-	Duration  map[string]time.Duration
-	Durations map[string][]time.Duration
-	Int       map[string]int64
-	Ints      map[string][]int64
-	Link      map[string]trace.Trace
-	Links     map[string][]trace.Trace
-	Str       map[string]string
-	Strs      map[string][]string
-	Time      map[string]time.Time
-	Times     map[string][]time.Time
+	Any    map[string]interface{}
+	Anys   map[string][]interface{}
+	Bool   map[string]bool
+	Bools  map[string][]bool
+	Int64  map[string]int64
+	Int64s map[string][]int64
+	Link   map[string]trace.Trace
+	Links  map[string][]trace.Trace
+	Str    map[string]string
+	Strs   map[string][]string
+	Time   map[string]time.Time
+	Times  map[string][]time.Time
 
-	BoolsSeen     map[string]map[bool]struct{}
-	DurationsSeen map[string]map[time.Duration]struct{}
-	IntsSeen      map[string]map[int64]struct{}
-	StrsSeen      map[string]map[string]struct{}
+	BoolsSeen  map[string]map[bool]struct{}
+	Int64sSeen map[string]map[int64]struct{}
+	StrsSeen   map[string]map[string]struct{}
 
 	LinksSeen map[string]map[string]struct{}
 	TimesSeen map[string]map[int64]struct{}

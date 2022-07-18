@@ -33,14 +33,12 @@ func (s *Span) eft() *Span {
 	return s
 }
 
-func (s *Span) Int64(k *xopconst.IntAttribute, v int64) *Span {
-	s.base.MetadataInt(k, v)
+func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
+	s.base.MetadataInt64(k, v)
 	return s.eft()
 }
-func (s *Span) Int8(k *xopconst.IntAttribute, v int8) *Span   { return s.Int64(k, int64(v)) }
-func (s *Span) Int16(k *xopconst.IntAttribute, v int16) *Span { return s.Int64(k, int64(v)) }
-func (s *Span) Int32(k *xopconst.IntAttribute, v int32) *Span { return s.Int64(k, int64(v)) }
-func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span     { return s.Int64(k, int64(v)) }
+
+func (s *Span) Enum(k xopconst.Enum) *Span { return s.Int64(k.Int64Attribute(), int64(k.Value())) }
 
 // AnyImmutable adds a key/value attribute to the Span.  The provided
 // value must be immutable.
@@ -66,12 +64,6 @@ func (s *Span) Bool(k *xopconst.BoolAttribute, v bool) *Span {
 	return s.eft()
 }
 
-// Duration adds a time.Duration key/value attribute to the Span
-func (s *Span) Duration(k *xopconst.DurationAttribute, v time.Duration) *Span {
-	s.base.MetadataDuration(k, v)
-	return s.eft()
-}
-
 // Link adds a trace.Trace key/value attribute to the Span
 func (s *Span) Link(k *xopconst.LinkAttribute, v trace.Trace) *Span {
 	s.base.MetadataLink(k, v)
@@ -87,5 +79,36 @@ func (s *Span) Str(k *xopconst.StrAttribute, v string) *Span {
 // Time adds a time.Time key/value attribute to the Span
 func (s *Span) Time(k *xopconst.TimeAttribute, v time.Time) *Span {
 	s.base.MetadataTime(k, v)
+	return s.eft()
+}
+
+// should skip Int64
+// Duration adds a time.Duration key/value attribute to the Span
+func (s *Span) Duration(k *xopconst.DurationAttribute, v time.Duration) *Span {
+	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
+	return s.eft()
+}
+
+// Int adds a int key/value attribute to the Span
+func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span {
+	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
+	return s.eft()
+}
+
+// Int16 adds a int16 key/value attribute to the Span
+func (s *Span) Int16(k *xopconst.Int16Attribute, v int16) *Span {
+	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
+	return s.eft()
+}
+
+// Int32 adds a int32 key/value attribute to the Span
+func (s *Span) Int32(k *xopconst.Int32Attribute, v int32) *Span {
+	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
+	return s.eft()
+}
+
+// Int8 adds a int8 key/value attribute to the Span
+func (s *Span) Int8(k *xopconst.Int8Attribute, v int8) *Span {
+	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }

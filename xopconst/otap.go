@@ -6,14 +6,14 @@ package xopconst
 var SpanKind = Make{Key: "span.kind", Namespace: "OTAP", Indexed: true, Prominence: 30,
 	Description: "https://opentelemetry.io/docs/reference/specification/trace/api/#spankind" +
 		" Use one of SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer, SpanKindInternal"}.
-	StrAttribute()
+	EnumAttribute()
 
-const (
-	SpanKindServer   = "SERVER"   // server receiving a request
-	SpanKindClient   = "CLIENT"   // making a request to a server
-	SpanKindProducer = "PRODUCER" // initiates asynchronous request
-	SpanKindConsumer = "CONSUMER" // handles asynchronous request
-	SpanKindInternal = "INTERNAL" // child of one of the above, INTERNAL
+var (
+	SpanKindServer   = SpanKind.Iota("SERVER")   // server receiving a request
+	SpanKindClient   = SpanKind.Iota("CLIENT")   // making a request to a server
+	SpanKindProducer = SpanKind.Iota("PRODUCER") // initiates asynchronous request
+	SpanKindConsumer = SpanKind.Iota("CONSUMER") // handles asynchronous request
+	SpanKindInternal = SpanKind.Iota("INTERNAL") // child of one of the above, INTERNAL
 )
 
 var HTTPMethod = Make{Key: "http.method", Namespace: "OTAP", Indexed: true, Prominence: 10,

@@ -32,14 +32,12 @@ func (s *Span) eft() *Span {
 	return s
 }
 
-func (s *Span) Int64(k *xopconst.IntAttribute, v int64) *Span {
-	s.base.MetadataInt(k, v)
+func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
+	s.base.MetadataInt64(k, v)
 	return s.eft()
 }
-func (s *Span) Int8(k *xopconst.IntAttribute, v int8) *Span   { return s.Int64(k, int64(v)) }
-func (s *Span) Int16(k *xopconst.IntAttribute, v int16) *Span { return s.Int64(k, int64(v)) }
-func (s *Span) Int32(k *xopconst.IntAttribute, v int32) *Span { return s.Int64(k, int64(v)) }
-func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span     { return s.Int64(k, int64(v)) }
+
+func (s *Span) Enum(k xopconst.Enum) *Span { return s.Int64(k.Int64Attribute(), int64(k.Value())) }
 
 // AnyImmutable adds a key/value attribute to the Span.  The provided
 // value must be immutable.
@@ -59,10 +57,18 @@ func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
 	return s.eft()
 }
 
-//MACRO ZZZAttribute SKIP:Any,Int
+//MACRO BaseAttribute SKIP:Any,Int64
 // ZZZ adds a zzz key/value attribute to the Span
 func (s *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
 	s.base.MetadataZZZ(k, v)
+	return s.eft()
+}
+
+// should skip Int64
+// MACRO IntsPlus SKIP:Int64
+// ZZZ adds a zzz key/value attribute to the Span
+func (s *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
+	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }
 

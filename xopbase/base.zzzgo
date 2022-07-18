@@ -35,7 +35,7 @@ type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
 	Span(span trace.Bundle, descriptionOrName string) Span
 
-	// MACRO ZZZAttribute
+	// MACRO BaseAttribute
 	// MetadataZZZ adds a key/value pair to describe the span.
 	MetadataZZZ(*xopconst.ZZZAttribute, zzz)
 

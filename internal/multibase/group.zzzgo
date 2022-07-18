@@ -86,7 +86,7 @@ func (s Spans) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
 	return spans
 }
 
-//MACRO ZZZAttribute
+//MACRO BaseAttribute
 func (s Spans) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	for _, span := range s {
 		span.MetadataZZZ(k, v)

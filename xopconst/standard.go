@@ -14,10 +14,11 @@ var Boring = Make{Key: "boring", Namespace: "xop", Indexed: false, Prominence: 2
 		" there have has been nothing logged at the Error or Alert level"}.BoolAttribute()
 
 var SpanType = Make{Key: "span.type", Namespace: "xop", Indexed: true, Prominence: 11,
-	Description: "what kind of span this is.  Often added automatically.  eg: SpanTypeHTTPClientRequest"}.StrAttribute()
+	Description: "what kind of span this is.  Often added automatically.  eg: SpanTypeHTTPClientRequest"}.
+	EnumAttribute()
 
-const (
-	SpanTypeHTTPServerEndpoint = "endpoint"
-	SpanTypeHTTPClientRequest  = "REST"
-	SpanTypeCronJob            = "cron_job"
+var (
+	SpanTypeHTTPServerEndpoint = SpanType.Iota("endpoint")
+	SpanTypeHTTPClientRequest  = SpanType.Iota("REST")
+	SpanTypeCronJob            = SpanType.Iota("cron_job")
 )

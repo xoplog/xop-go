@@ -105,15 +105,9 @@ func (s Spans) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	}
 }
 
-func (s Spans) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
+func (s Spans) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	for _, span := range s {
-		span.MetadataDuration(k, v)
-	}
-}
-
-func (s Spans) MetadataInt(k *xopconst.IntAttribute, v int64) {
-	for _, span := range s {
-		span.MetadataInt(k, v)
+		span.MetadataInt64(k, v)
 	}
 }
 
