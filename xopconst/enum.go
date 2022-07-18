@@ -10,7 +10,11 @@ const noCounter = -10000000
 
 type EnumAttribute struct {
 	Int64Attribute
-	counter int64 // values for non-counters: 0, noCounter
+}
+
+type IotaEnumAttribute struct {
+	Int64Attribute
+	counter int64
 }
 
 type Enum interface {
@@ -20,10 +24,9 @@ type Enum interface {
 }
 
 type enum struct {
-	Int           int64
-	EnumAttribute *EnumAttribute
-	IntAttribute  *Int64Attribute
-	Str           string
+	Int          int64
+	IntAttribute *Int64Attribute
+	Str          string
 }
 
 var _ Enum = enum{}
@@ -64,14 +67,27 @@ func (s Make) TryTypedEnumAttribute(exampleValue interface{}) (_ *EnumAttribute,
 	return &enumAttribute, nil
 }
 
-func (s Make) EnumAttribute() *EnumAttribute {
+// Iota creates new enums.  It cannotnot be combined with
+// Add, Add64, or TryAddStringer() etc.
+func (e *IotaEnumAttribute) Iota(s string) Enum {
+	old := atomic.AddInt64(&e.counter, 1)
+	e.Attribute.names.Store(old+1, s)
+	return enum{
+		Int:          old + 1,
+		IntAttribute: &e.Int64Attribute,
+		Str:          s,
+	}
+}
+
+func (s Make) EnumAttribute() *IotaEnumAttribute {
 	e, err := s.TryEnumAttribute()
 	if err != nil {
 		panic(err)
 	}
 	return e
 }
-func (s Make) TryEnumAttribute() (_ *EnumAttribute, err error) {
+
+func (s Make) TryEnumAttribute() (_ *IotaEnumAttribute, err error) {
 	attribute := s.attribute(Enum(enum{}), &err, AttributeTypeEnum)
 	if err != nil {
 		return nil, err
@@ -79,7 +95,7 @@ func (s Make) TryEnumAttribute() (_ *EnumAttribute, err error) {
 	intAttribute := Int64Attribute{
 		Attribute: attribute,
 	}
-	enumAttribute := EnumAttribute{
+	enumAttribute := IotaEnumAttribute{
 		Int64Attribute: intAttribute,
 	}
 	return &enumAttribute, nil
@@ -106,54 +122,16 @@ func (e *EnumAttribute) TryAddStringer(v fmt.Stringer) (Enum, error) {
 	if !rv.CanInt() {
 		return nil, fmt.Errorf("cannot add enum, underlying type of %s is not 'int'", t)
 	}
-	return e.TryAdd64(rv.Int(), v.String())
+	return e.Add64(rv.Int(), v.String()), nil
 }
 
-func (e *EnumAttribute) Add(i int, s string) Enum             { return e.Add64(int64(i), s) }
-func (e *EnumAttribute) TryAdd(i int, s string) (Enum, error) { return e.TryAdd64(int64(i), s) }
+func (e *EnumAttribute) Add(i int, s string) Enum { return e.Add64(int64(i), s) }
 
 func (e *EnumAttribute) Add64(i int64, s string) Enum {
-	enum, err := e.TryAdd64(i, s)
-	if err != nil {
-		panic(err)
-	}
-	return enum
-}
-
-func (e *EnumAttribute) TryAdd64(i int64, s string) (Enum, error) {
-	old := atomic.SwapInt64(&e.counter, noCounter)
-	if old != 0 && old != noCounter {
-		return nil, fmt.Errorf("invalid combination of Iota and Add, found when adding %d/%s", i, s)
-	}
 	e.Attribute.names.Store(i, s)
 	return enum{
-		Int:           i,
-		EnumAttribute: e,
-		IntAttribute:  &e.Int64Attribute,
-		Str:           s,
-	}, nil
-}
-
-func (e *EnumAttribute) TryIota(s string) (Enum, error) {
-	old := atomic.AddInt64(&e.counter, 1)
-	if old < 0 {
-		return nil, fmt.Errorf("invalid combination of Iota and Add, found when adding %s", s)
+		Int:          i,
+		IntAttribute: &e.Int64Attribute,
+		Str:          s,
 	}
-	e.Attribute.names.Store(old+1, s)
-	return enum{
-		Int:           old + 1,
-		EnumAttribute: e,
-		IntAttribute:  &e.Int64Attribute,
-		Str:           s,
-	}, nil
-}
-
-// Iota creates new enums.  It cannotnot be combined with
-// Add, Add64, or TryAddStringer() etc.
-func (e *EnumAttribute) Iota(s string) Enum {
-	enum, err := e.TryIota(s)
-	if err != nil {
-		panic(err)
-	}
-	return enum
 }
