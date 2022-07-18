@@ -25,6 +25,8 @@ type Attribute struct {
 	exampleValue interface{}
 	reflectType  reflect.Type
 	typeName     string
+	subType      AttributeType
+	names        sync.Map // key:int64 values:string used for enums
 }
 
 // DefaultNamespace sets the namespace for attribute names
@@ -61,64 +63,56 @@ var (
 
 // Can't use MACRO for these since default values are needed
 
-func (s Make) DurationAttribute() *DurationAttribute {
-	return &DurationAttribute{Attribute: s.attribute(time.Duration(0), nil)}
-}
-
-func (s Make) TryDurationAttribute() (_ *DurationAttribute, err error) {
-	return &DurationAttribute{Attribute: s.attribute(time.Duration(0), &err)}, err
-}
-
 func (s Make) LinkAttribute() *LinkAttribute {
-	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, nil)}
+	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, nil, AttributeTypeLink)}
 }
 
 func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
-	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err)}, err
+	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err, AttributeTypeLink)}, err
 }
 
 func (s Make) StrAttribute() *StrAttribute {
-	return &StrAttribute{Attribute: s.attribute("", nil)}
+	return &StrAttribute{Attribute: s.attribute("", nil, AttributeTypeStr)}
 }
 
 func (s Make) TryStrAttribute() (_ *StrAttribute, err error) {
-	return &StrAttribute{Attribute: s.attribute("", &err)}, err
-}
-
-func (s Make) IntAttribute() *IntAttribute {
-	return &IntAttribute{Attribute: s.attribute(int(0), nil)}
-}
-
-func (s Make) TryIntAttribute() (_ *IntAttribute, err error) {
-	return &IntAttribute{Attribute: s.attribute(int(0), &err)}, err
+	return &StrAttribute{Attribute: s.attribute("", &err, AttributeTypeStr)}, err
 }
 
 func (s Make) BoolAttribute() *BoolAttribute {
-	return &BoolAttribute{Attribute: s.attribute(false, nil)}
+	return &BoolAttribute{Attribute: s.attribute(false, nil, AttributeTypeBool)}
 }
 
 func (s Make) TryBoolAttribute() (_ *BoolAttribute, err error) {
-	return &BoolAttribute{Attribute: s.attribute(false, &err)}, err
+	return &BoolAttribute{Attribute: s.attribute(false, &err, AttributeTypeBool)}, err
 }
 
 func (s Make) TimeAttribute() *TimeAttribute {
-	return &TimeAttribute{Attribute: s.attribute(time.Time{}, nil)}
+	return &TimeAttribute{Attribute: s.attribute(time.Time{}, nil, AttributeTypeEnum)}
 }
 
 func (s Make) TryTimeAttribute() (_ *TimeAttribute, err error) {
-	return &TimeAttribute{Attribute: s.attribute(time.Time{}, &err)}, err
+	return &TimeAttribute{Attribute: s.attribute(time.Time{}, &err, AttributeTypeEnum)}, err
 }
 
 func (s Make) AnyAttribute(exampleValue interface{}) *AnyAttribute {
-	return &AnyAttribute{Attribute: s.attribute(exampleValue, nil)}
+	return &AnyAttribute{Attribute: s.attribute(exampleValue, nil, AttributeTypeAny)}
 }
 
 func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err error) {
-	return &AnyAttribute{Attribute: s.attribute(exampleValue, &err)}, err
+	return &AnyAttribute{Attribute: s.attribute(exampleValue, &err, AttributeTypeAny)}, err
 }
 
-func (s Make) attribute(exampleValue interface{}, ep *error) Attribute {
-	a, err := s.make(exampleValue)
+func (s Make) Int64Attribute() *Int64Attribute {
+	return &Int64Attribute{Attribute: s.attribute(int64(0), nil, AttributeTypeInt64)}
+}
+
+func (s Make) TryInt64Attribute() (_ *Int64Attribute, err error) {
+	return &Int64Attribute{Attribute: s.attribute(int64(0), &err, AttributeTypeInt64)}, err
+}
+
+func (s Make) attribute(exampleValue interface{}, ep *error, subType AttributeType) Attribute {
+	a, err := s.make(exampleValue, subType)
 	if err != nil {
 		if ep == nil {
 			panic(err)
@@ -128,7 +122,7 @@ func (s Make) attribute(exampleValue interface{}, ep *error) Attribute {
 	return a
 }
 
-func (s Make) make(exampleValue interface{}) (Attribute, error) {
+func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, error) {
 	lock.Lock()
 	defer lock.Unlock()
 	if prior, ok := registeredNames[s.Key]; ok {
@@ -142,6 +136,7 @@ func (s Make) make(exampleValue interface{}) (Attribute, error) {
 		exampleValue: exampleValue,
 		reflectType:  reflect.TypeOf(exampleValue),
 		typeName:     fmt.Sprintf("%T", exampleValue),
+		subType:      subType,
 	}
 	jsonKey, err := json.Marshal(s.Key)
 	if err != nil {
@@ -172,13 +167,119 @@ func (r Attribute) Prominence() int           { return r.properties.Prominence }
 func (r Attribute) RegistrationNumber() int   { return r.number }
 func (r Attribute) ExampleValue() interface{} { return r.exampleValue }
 func (r Attribute) TypeName() string          { return r.typeName }
+func (r Attribute) SubType() AttributeType    { return r.subType }
 
-type (
-	AnyAttribute      struct{ Attribute }
-	BoolAttribute     struct{ Attribute }
-	DurationAttribute struct{ Attribute }
-	IntAttribute      struct{ Attribute }
-	LinkAttribute     struct{ Attribute }
-	StrAttribute      struct{ Attribute }
-	TimeAttribute     struct{ Attribute }
+// EnumName only provides non-empty answers when SubType() == AttributeTypeEnum
+func (r Attribute) EnumName(v int64) string {
+	if n, ok := r.names.Load(v); ok {
+		return n.(string)
+	}
+	return ""
+}
+
+func (s Make) DurationAttribute() *DurationAttribute {
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(time.Duration(0), nil, AttributeTypeDuration)}}
+}
+
+func (s Make) TryDurationAttribute() (_ *DurationAttribute, err error) {
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(time.Duration(0), &err, AttributeTypeDuration)}}, err
+}
+
+func (s Make) IntAttribute() *IntAttribute {
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(int(0), nil, AttributeTypeInt)}}
+}
+
+func (s Make) TryIntAttribute() (_ *IntAttribute, err error) {
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(int(0), &err, AttributeTypeInt)}}, err
+}
+
+func (s Make) Int16Attribute() *Int16Attribute {
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(int16(0), nil, AttributeTypeInt16)}}
+}
+
+func (s Make) TryInt16Attribute() (_ *Int16Attribute, err error) {
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(int16(0), &err, AttributeTypeInt16)}}, err
+}
+
+func (s Make) Int32Attribute() *Int32Attribute {
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(int32(0), nil, AttributeTypeInt32)}}
+}
+
+func (s Make) TryInt32Attribute() (_ *Int32Attribute, err error) {
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(int32(0), &err, AttributeTypeInt32)}}, err
+}
+
+func (s Make) Int8Attribute() *Int8Attribute {
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(int8(0), nil, AttributeTypeInt8)}}
+}
+
+func (s Make) TryInt8Attribute() (_ *Int8Attribute, err error) {
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(int8(0), &err, AttributeTypeInt8)}}, err
+}
+
+type AttributeType int
+
+const (
+	AttributeTypeUnknown AttributeType = iota
+	AttributeTypeAny
+	AttributeTypeBool
+	AttributeTypeDuration
+	AttributeTypeEnum
+	AttributeTypeInt
+	AttributeTypeInt16
+	AttributeTypeInt32
+	AttributeTypeInt64
+	AttributeTypeInt8
+	AttributeTypeLink
+	AttributeTypeStr
+	AttributeTypeTime
 )
+
+// DurationAttribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type DurationAttribute struct{ Int64Attribute }
+
+// IntAttribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type IntAttribute struct{ Int64Attribute }
+
+// Int16Attribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type Int16Attribute struct{ Int64Attribute }
+
+// Int32Attribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type Int32Attribute struct{ Int64Attribute }
+
+// Int8Attribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type Int8Attribute struct{ Int64Attribute }
+
+// AnyAttribute represents an attribute key that can be used
+// with interface{} values.
+type AnyAttribute struct{ Attribute }
+
+// BoolAttribute represents an attribute key that can be used
+// with bool values.
+type BoolAttribute struct{ Attribute }
+
+// Int64Attribute represents an attribute key that can be used
+// with int64 values.
+type Int64Attribute struct{ Attribute }
+
+// LinkAttribute represents an attribute key that can be used
+// with trace.Trace values.
+type LinkAttribute struct{ Attribute }
+
+// StrAttribute represents an attribute key that can be used
+// with string values.
+type StrAttribute struct{ Attribute }
+
+// TimeAttribute represents an attribute key that can be used
+// with time.Time values.
+type TimeAttribute struct{ Attribute }

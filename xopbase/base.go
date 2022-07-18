@@ -40,10 +40,8 @@ type Span interface {
 	MetadataAny(*xopconst.AnyAttribute, interface{})
 	// MetadataBool adds a key/value pair to describe the span.
 	MetadataBool(*xopconst.BoolAttribute, bool)
-	// MetadataDuration adds a key/value pair to describe the span.
-	MetadataDuration(*xopconst.DurationAttribute, time.Duration)
-	// MetadataInt adds a key/value pair to describe the span.
-	MetadataInt(*xopconst.IntAttribute, int64)
+	// MetadataInt64 adds a key/value pair to describe the span.
+	MetadataInt64(*xopconst.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
 	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
 	// MetadataStr adds a key/value pair to describe the span.

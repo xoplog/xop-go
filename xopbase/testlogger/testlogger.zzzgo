@@ -176,7 +176,7 @@ func (l Line) Any(k string, v interface{}) {
 // MACRO BaseData SKIP:Any
 func (l Line) ZZZ(k string, v zzz) { l.Any(k, v) }
 
-// MACRO ZZZAttribute
+// MACRO BaseAttribute
 func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { s.Attributes.MetadataZZZ(k, v) }
 
 // end

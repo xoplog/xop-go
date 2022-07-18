@@ -18,24 +18,46 @@ var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
 var macros = map[string]map[string]string{
 	"ZZZAttribute": {
 		"Bool":     "bool",
-		"Int":      "int64",
+		"Int64":    "int64",
+		"Int32":    "int32",
+		"Int16":    "int16",
+		"Int8":     "int8",
+		"Int":      "int",
 		"Str":      "string",
 		"Link":     "trace.Trace",
 		"Any":      "interface{}",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
+		"Enum":     "xopconst.Enum",
 	},
-	"ints": {
-		"int":   "int",
-		"int8":  "int8",
-		"int16": "int16",
-		"int32": "int32",
+	"BaseAttribute": {
+		"Bool":  "bool",
+		"Int64": "int64",
+		"Str":   "string",
+		"Link":  "trace.Trace",
+		"Any":   "interface{}",
+		"Time":  "time.Time",
 	},
-	"uints": {
-		"uint":   "uint",
-		"uint8":  "uint8",
-		"uint16": "uint16",
-		"uint32": "uint32",
+	"IntsPlus": {
+		"Int":      "int",
+		"Int8":     "int8",
+		"Int16":    "int16",
+		"Int32":    "int32",
+		"Int64":    "int64",
+		"Duration": "time.Duration",
+	},
+	"Ints": {
+		"Int":   "int",
+		"Int8":  "int8",
+		"Int16": "int16",
+		"Int32": "int32",
+		"Int64": "int64",
+	},
+	"Uints": {
+		"Uint":   "uint",
+		"Uint8":  "uint8",
+		"Uint16": "uint16",
+		"Uint32": "uint32",
 	},
 	"BaseData": {
 		"Int":  "int64",
@@ -63,6 +85,11 @@ var macros = map[string]map[string]string{
 		"Any":    "interface{}",
 		// "Link": "trace.Trace",
 		"Error": "error",
+	},
+	"HexBytes": {
+		"HexBytes1":  "HexBytes1",
+		"HexBytes8":  "HexBytes8",
+		"HexBytes16": "HexBytes16",
 	},
 }
 
@@ -107,6 +134,10 @@ func macroExpand(indent string, macro string, skipList string) {
 			panic(fmt.Errorf("indent RE did not match on line %d: '%s'", index+1, line))
 		}
 		if (indent != "" && len(i[1]) < len(indent)) || line == "\n" || line == "\r\n" {
+			index--
+			break
+		}
+		if macroRE.MatchString(line) {
 			index--
 			break
 		}

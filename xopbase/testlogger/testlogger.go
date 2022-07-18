@@ -185,10 +185,7 @@ func (l Line) Uint(k string, v uint64)    { l.Any(k, v) }
 
 func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
 func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
-func (s *Span) MetadataDuration(k *xopconst.DurationAttribute, v time.Duration) {
-	s.Attributes.MetadataDuration(k, v)
-}
-func (s *Span) MetadataInt(k *xopconst.IntAttribute, v int64) { s.Attributes.MetadataInt(k, v) }
+func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64)   { s.Attributes.MetadataInt64(k, v) }
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.Attributes.MetadataLink(k, v)
 }

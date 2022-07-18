@@ -55,7 +55,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 func (a AttributeBuilder) Combine() map[string]interface{} {
 	m := make(map[string]interface{})
 
-	//MACRO ZZZAttribute
+	//MACRO BaseAttribute
 	if len(a.ZZZ) != 0 {
 		for k, v := range a.ZZZ {
 			m[k] = v
@@ -72,18 +72,18 @@ func (a AttributeBuilder) Combine() map[string]interface{} {
 
 // Reset is required before using zero-initialized AttributeBuilder
 func (a *AttributeBuilder) Reset() {
-	//MACRO ZZZAttribute
+	//MACRO BaseAttribute
 	a.ZZZ = make(map[string]zzz)
 	a.ZZZs = make(map[string][]zzz)
 
-	//MACRO ZZZAttribute SKIP:Any,Link,Time
+	//MACRO BaseAttribute SKIP:Any,Link,Time
 	a.ZZZsSeen = make(map[string]map[zzz]struct{})
 
 	a.LinksSeen = make(map[string]map[string]struct{})
 	a.TimesSeen = make(map[string]map[int64]struct{})
 }
 
-//MACRO ZZZAttribute SKIP:Any,Time,Link
+//MACRO BaseAttribute SKIP:Any,Time,Link
 func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	if k.Multiple() {
 		if k.Distinct() {
@@ -103,11 +103,11 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 }
 
 type AttributeBuilder struct {
-	//MACRO ZZZAttribute
+	//MACRO BaseAttribute
 	ZZZ  map[string]zzz
 	ZZZs map[string][]zzz
 
-	//MACRO ZZZAttribute SKIP:Any,Link,Time
+	//MACRO BaseAttribute SKIP:Any,Link,Time
 	ZZZsSeen map[string]map[zzz]struct{}
 
 	LinksSeen map[string]map[string]struct{}
