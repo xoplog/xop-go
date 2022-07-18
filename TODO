@@ -1,5 +1,7 @@
 Move DefaultNamespase to Seed, make required
 
+For enums from OTEL, generate them from the protobuf constants.
+
 Use ZSON for main transport?  https://www.brimdata.io/blog/unmarshal-interface/
 
 new EnumAttribute where each value also implies the key. 
