@@ -209,7 +209,7 @@ work being done.  Breaking the work into spans is an exercise for the programmer
 Arbitrary names are supported for tagging log lines. For attributes to be displayed
 specially in front-ends, they need to follow standards. Standard attribute groups are
 pre-registered as structs. These can be shared between organizations by contributing
-them to the [Xop repository](https://github.com/muir/xoplog/zoptag).
+them to the [Xop repository](https://github.com/muir/xoplog/xoptag).
 
 The data associated with spans, traces, and requests must come from pre-registered
 tag structs.

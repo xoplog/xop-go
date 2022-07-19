@@ -14,8 +14,12 @@ var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+SKIP:(\S+))?\s*$`)
 var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
 var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
+var packageRE = regexp.MustCompile(`^package (\w+)`)
 
 var macros = map[string]map[string]string{
+	// ZZZAttribute are the span-attributes in the main logger.  These
+	// turn into Span methods like Span.BoolAttribute() and a corresponding
+	// xopconst.BoolAttribute type.
 	"ZZZAttribute": {
 		"Bool":     "bool",
 		"Int64":    "int64",
@@ -30,6 +34,8 @@ var macros = map[string]map[string]string{
 		"Duration": "time.Duration",
 		"Enum":     "xopconst.Enum",
 	},
+	// BaseAttributes are the span decorators that base loggers must
+	// implement.  These turn into things like Base.MetadataBool()
 	"BaseAttribute": {
 		"Bool":  "bool",
 		"Int64": "int64",
@@ -37,6 +43,7 @@ var macros = map[string]map[string]string{
 		"Link":  "trace.Trace",
 		"Any":   "interface{}",
 		"Time":  "time.Time",
+		"Enum":  "xopconst.Enum",
 	},
 	"IntsPlus": {
 		"Int":      "int",
@@ -95,6 +102,7 @@ var macros = map[string]map[string]string{
 
 var allLines []string
 var index int
+var currentPackage string
 
 func main() {
 	fmt.Println("// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file")
@@ -116,6 +124,9 @@ func main() {
 		if m := macroRE.FindStringSubmatch(line); m != nil {
 			macroExpand(m[1], m[2], m[3])
 			continue
+		}
+		if m := packageRE.FindStringSubmatch(line); m != nil {
+			currentPackage = m[1]
 		}
 		fmt.Print(line)
 	}
@@ -158,9 +169,13 @@ func macroExpand(indent string, macro string, skipList string) {
 		if _, ok := skips[name]; ok {
 			continue
 		}
+		typ := m[name]
+		if currentPackage != "" {
+			typ = strings.TrimPrefix(typ, currentPackage+".")
+		}
 		replMap := map[string]string{
 			"ZZZ": name,
-			"zzz": m[name],
+			"zzz": typ,
 		}
 		for _, line := range lines {
 			rewritten := zzzRE.ReplaceAllStringFunc(line, func(s string) string {

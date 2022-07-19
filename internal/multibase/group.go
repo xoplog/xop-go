@@ -105,6 +105,12 @@ func (s Spans) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	}
 }
 
+func (s Spans) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	for _, span := range s {
+		span.MetadataEnum(k, v)
+	}
+}
+
 func (s Spans) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	for _, span := range s {
 		span.MetadataInt64(k, v)

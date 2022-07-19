@@ -1,8 +1,6 @@
 package xoplog
 
 import (
-	"time"
-
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xopconst"
 
@@ -37,10 +35,20 @@ func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
 	return s.eft()
 }
 
-func (s *Span) Enum(k xopconst.Enum) *Span { return s.Int64(k.Int64Attribute(), int64(k.Value())) }
+// EmbeddedEnum adds a kev/value attribute to the Span.  The key and the value
+// are bundled together: the key is derrived from the type of the Enum.
+// Alternatively, use xopconst.KeyedEnumAttribute() to create functions
+// to add enum key/value pairs where the key and value are specified
+// separately.
+func (s *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
+	return s.Enum(kv.EnumAttribute(), kv)
+}
 
 // AnyImmutable adds a key/value attribute to the Span.  The provided
 // value must be immutable.
+// While the AnyAttribute has an expectation
+// for the type of the value, that type may or may not be checked depending
+// on the base logger being used.
 func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 	s.base.MetadataAny(k, v)
 	return s.eft()
@@ -49,6 +57,9 @@ func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 // Any adds a key/value attribute to the Span.  The provided
 // value may be copied using github.com/mohae/deepcopy if any of the
 // base loggers hold the value instead of immediately serializing it.
+// While the AnyAttribute has an expectation
+// for the type of the value, that type may or may not be checked depending
+// on the base logger being used.
 func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
 	if s.log.shared.ReferencesKept {
 		v = deepcopy.Copy(v)
@@ -71,4 +82,3 @@ func (s *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }
-
