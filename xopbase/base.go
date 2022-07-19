@@ -40,6 +40,8 @@ type Span interface {
 	MetadataAny(*xopconst.AnyAttribute, interface{})
 	// MetadataBool adds a key/value pair to describe the span.
 	MetadataBool(*xopconst.BoolAttribute, bool)
+	// MetadataEnum adds a key/value pair to describe the span.
+	MetadataEnum(*xopconst.EnumAttribute, xopconst.Enum)
 	// MetadataInt64 adds a key/value pair to describe the span.
 	MetadataInt64(*xopconst.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.

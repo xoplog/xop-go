@@ -11,9 +11,9 @@ Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
 
 Adhere to go spec: Id -> ID
 
-Get rid of zop.Thing entirely.
+Get rid of xop.Thing entirely.
 
-Rename "zoplog" -> "zop"
+Rename "xoplog" -> "xop"
 
 Figure out a way to enforce limited vocabulary on select Attributes and Data elements
 

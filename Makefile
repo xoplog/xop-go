@@ -4,13 +4,15 @@ GOPATH ?= ${GOHOME}
 GOBIN ?= ${GOPATH}/bin
 
 ZZZGO = $(wildcard *.zzzgo */*.zzzgo */*/*.zzzgo)
-GENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
-TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports
+ZZZGENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
+TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports ${GOBIN}/enumer
 
-all:	$(GENERATED)
+all:	$(ZZZGENERATED) 
+	go generate ./...
 	go build ./...
 
-test:	$(GENERATED)
+test:	$(ZZZGENERATED)
+	go generate ./...
 	go test ./...
 
 ${GOBIN}/gofumpt:;
@@ -18,6 +20,9 @@ ${GOBIN}/gofumpt:;
 
 ${GOBIN}/goimports:;
 	go install golang.org/x/tools/cmd/goimports@latest
+
+${GOBIN}/enumer:;
+	go install github.com/dmarkham/enumer@latest
 
 %.go : %.zzzgo tools/xopzzz/xopzzz.go $(TOOLS) Makefile
 	go run tools/xopzzz/xopzzz.go < $< > $@.tmp

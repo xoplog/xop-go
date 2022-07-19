@@ -76,6 +76,16 @@ func (a AttributeBuilder) Combine() map[string]interface{} {
 			m[k] = v
 		}
 	}
+	if len(a.Enum) != 0 {
+		for k, v := range a.Enum {
+			m[k] = v
+		}
+	}
+	if len(a.Enums) != 0 {
+		for k, v := range a.Enums {
+			m[k] = v
+		}
+	}
 	if len(a.Int64) != 0 {
 		for k, v := range a.Int64 {
 			m[k] = v
@@ -126,6 +136,8 @@ func (a *AttributeBuilder) Reset() {
 	a.Anys = make(map[string][]interface{})
 	a.Bool = make(map[string]bool)
 	a.Bools = make(map[string][]bool)
+	a.Enum = make(map[string]xopconst.Enum)
+	a.Enums = make(map[string][]xopconst.Enum)
 	a.Int64 = make(map[string]int64)
 	a.Int64s = make(map[string][]int64)
 	a.Link = make(map[string]trace.Trace)
@@ -136,6 +148,7 @@ func (a *AttributeBuilder) Reset() {
 	a.Times = make(map[string][]time.Time)
 
 	a.BoolsSeen = make(map[string]map[bool]struct{})
+	a.EnumsSeen = make(map[string]map[xopconst.Enum]struct{})
 	a.Int64sSeen = make(map[string]map[int64]struct{})
 	a.StrsSeen = make(map[string]map[string]struct{})
 
@@ -158,6 +171,24 @@ func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 		a.Bools[k.Key()] = append(a.Bools[k.Key()], v)
 	} else {
 		a.Bool[k.Key()] = v
+	}
+}
+
+func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.EnumsSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.EnumsSeen[k.Key()] = make(map[xopconst.Enum]struct{})
+			}
+			a.EnumsSeen[k.Key()][v] = struct{}{}
+		}
+		a.Enums[k.Key()] = append(a.Enums[k.Key()], v)
+	} else {
+		a.Enum[k.Key()] = v
 	}
 }
 
@@ -202,6 +233,8 @@ type AttributeBuilder struct {
 	Anys   map[string][]interface{}
 	Bool   map[string]bool
 	Bools  map[string][]bool
+	Enum   map[string]xopconst.Enum
+	Enums  map[string][]xopconst.Enum
 	Int64  map[string]int64
 	Int64s map[string][]int64
 	Link   map[string]trace.Trace
@@ -212,6 +245,7 @@ type AttributeBuilder struct {
 	Times  map[string][]time.Time
 
 	BoolsSeen  map[string]map[bool]struct{}
+	EnumsSeen  map[string]map[xopconst.Enum]struct{}
 	Int64sSeen map[string]map[int64]struct{}
 	StrsSeen   map[string]map[string]struct{}
 

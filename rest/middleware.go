@@ -46,8 +46,8 @@ func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
 	}
 
 	log := parent.Span().Seed(xoplog.WithBundle(bundle)).Request(r.Method + " " + name)
-	log.Span().Enum(xopconst.SpanKindClient)
-	log.Span().Enum(xopconst.SpanTypeHTTPClientRequest)
+	log.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
+	log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
 	log.Span().Str(xopconst.URL, r.URL.String())
 	return log
 }

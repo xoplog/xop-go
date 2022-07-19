@@ -15,7 +15,7 @@ var Boring = Make{Key: "boring", Namespace: "xop", Indexed: false, Prominence: 2
 
 var SpanType = Make{Key: "span.type", Namespace: "xop", Indexed: true, Prominence: 11,
 	Description: "what kind of span this is.  Often added automatically.  eg: SpanTypeHTTPClientRequest"}.
-	EnumAttribute()
+	EmbeddedEnumAttribute()
 
 var (
 	SpanTypeHTTPServerEndpoint = SpanType.Iota("endpoint")
