@@ -19,7 +19,7 @@ const (
 	SpanKindInternal                     // INTERNAL
 )
 
-func (e SpanKindEnum) Int64() int64 { return int64(e) }
+func (i SpanKindEnum) Int64() int64 { return int64(i) }
 
 var HTTPMethod = Make{Key: "http.method", Namespace: "OTAP", Indexed: true, Prominence: 10,
 	Description: "HTTP request method"}.StrAttribute()
