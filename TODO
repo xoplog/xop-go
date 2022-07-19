@@ -9,6 +9,9 @@ new EnumAttribute where each value also implies the key.
 Replace HexBytes with arrays etc can be used as map keys.  Use go 1.18?  HexBytes8, HexBytes16, HexByte ?
 Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
 
+Use generics to make type-safe Enum span attributes: can't do it as a method on Span, but can
+do it as a function. 
+
 Adhere to go spec: Id -> ID
 
 Get rid of xop.Thing entirely.
@@ -16,6 +19,7 @@ Get rid of xop.Thing entirely.
 Rename "xoplog" -> "xop"
 
 Figure out a way to enforce limited vocabulary on select Attributes and Data elements
+
 
 Metrics
 	
