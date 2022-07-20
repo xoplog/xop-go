@@ -12,7 +12,7 @@ import (
 
 func Log(log xoplog.Log) *rest.RequestOpts {
 	var step *xoplog.Log
-	var farSideSpan trace.HexBytes
+	var farSideSpan trace.HexBytes8
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
 			step = log.Step(o.Description,

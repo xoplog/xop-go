@@ -1,0 +1,56 @@
+package trace
+
+import (
+	"encoding/hex"
+	"strings"
+)
+
+// MACRO HexBytes
+type ZZZ struct {
+	b [zzz]byte
+	s string
+}
+
+// MACRO HexBytes
+func NewZZZ() ZZZ {
+	return ZZZ{
+		s: strings.Repeat("0", zzz*2),
+	}
+}
+
+
+// MACRO HexBytes
+var zeroZZZ = ZZZ{}
+
+// MACRO HexBytes
+func (x ZZZ) IsZero() bool   { return x.b == zeroZZZ.b }
+func (x ZZZ) String() string { return x.s }
+func (x ZZZ) Bytes() []byte  { return x.b[:] }
+func (x *ZZZ) SetBytes(b []byte) {
+	setBytes(x.b[:], b)
+	x.s = hex.EncodeToString(x.b[:])
+}
+
+// MACRO HexBytes
+func (x *ZZZ) SetString(s string) {
+	setBytesFromString(x.b[:], s)
+	x.s = hex.EncodeToString(x.b[:])
+}
+
+// MACRO HexBytes
+func (x *ZZZ) SetZero() {
+	x.b = [zzz]byte{}
+	x.s = hex.EncodeToString(x.b[:])
+}
+
+// MACRO HexBytes
+func (x *ZZZ) SetRandom() {
+	randomBytesNotAllZero(x.b[:])
+	x.s = hex.EncodeToString(x.b[:])
+}
+
+// MACRO HexBytes
+func (x ZZZ) Copy() ZZZ {
+	return x
+}
+
