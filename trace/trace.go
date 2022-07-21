@@ -22,7 +22,7 @@ import (
 // it's not clear what part should be stored in a database and what part should be
 // searchable.  Proper log/trace database structure clearly needs at least two
 // fields, but if you're adding a trace column to other tables to use to reference
-// why a row was updated, what should you use?  TraceId+RequestId as hex?  That's
+// why a row was updated, what should you use?  TraceID+RequestID as hex?  That's
 // 49 bytes if you include a dash and a terminator.  That's often going to be more than
 // the rest of the row.  Or store two fields.  In hex or as bytes?
 //
@@ -47,30 +47,30 @@ type Trace struct {
 	// This is an identifier that should flow through all aspects of a
 	// request.  It's mandated by W3C and is useful when there are logs
 	// missing and the parent ids can't be tied together
-	traceId HexBytes // 16 bytes
+	traceID HexBytes // 16 bytes
 
 	// This is the recevied "parent-id" field.
 	// TODO: add methods and propagate
-	parentId HexBytes // 8 bytes
+	parentID HexBytes // 8 bytes
 
 	// This is the "parent-id" field in the header.  The W3C spec name for this
 	// causes confusion.  It's also considered the "span-id".
-	spanId HexBytes // 8 bytes
+	spanID HexBytes // 8 bytes
 
 	flags HexBytes // 1 byte
 
-	headerString  string // version + traceId + spanId + flags
-	traceIdString string // traceId + spanId
+	headerString  string // version + traceID + spanID + flags
+	traceIDString string // traceID + spanID
 }
 
 func (t Trace) Copy() Trace {
 	return Trace{
 		version:       t.version.Copy(),
-		traceId:       t.traceId.Copy(),
-		spanId:        t.spanId.Copy(),
+		traceID:       t.traceID.Copy(),
+		spanID:        t.spanID.Copy(),
 		flags:         t.flags.Copy(),
 		headerString:  t.headerString,
-		traceIdString: t.traceIdString,
+		traceIDString: t.traceIDString,
 	}
 }
 
@@ -82,23 +82,23 @@ type HexBytes struct {
 func NewTrace() Trace {
 	return Trace{
 		version: NewHexBytes(1),
-		traceId: NewHexBytes(16),
-		spanId:  NewHexBytes(8),
+		traceID: NewHexBytes(16),
+		spanID:  NewHexBytes(8),
 		flags:   NewHexBytes(1),
 	}
 }
 
 func (t *Trace) Version() *HexBytes  { return &t.version }
-func (t *Trace) TraceId() *HexBytes  { return &t.traceId }
-func (t *Trace) SpanId() *HexBytes   { return &t.spanId }
+func (t *Trace) TraceID() *HexBytes  { return &t.traceID }
+func (t *Trace) SpanID() *HexBytes   { return &t.spanID }
 func (t *Trace) Flags() *HexBytes    { return &t.flags }
-func (t *Trace) RandomizeSpanId()    { t.spanId.SetRandom() }
+func (t *Trace) RandomizeSpanID()    { t.spanID.SetRandom() }
 func (t Trace) GetVersion() HexBytes { return t.version }
-func (t Trace) GetTraceId() HexBytes { return t.traceId }
-func (t Trace) GetSpanId() HexBytes  { return t.traceId }
+func (t Trace) GetTraceID() HexBytes { return t.traceID }
+func (t Trace) GetSpanID() HexBytes  { return t.traceID }
 func (t Trace) GetFlags() HexBytes   { return t.flags }
-func (t Trace) IsZero() bool         { return t.traceId.IsZero() }
-func (t Trace) IdString() string     { return t.traceIdString }
+func (t Trace) IsZero() bool         { return t.traceID.IsZero() }
+func (t Trace) IDString() string     { return t.traceIDString }
 func (t Trace) HeaderString() string { return t.headerString }
 
 func NewHexBytes(length int) HexBytes {
@@ -108,11 +108,11 @@ func NewHexBytes(length int) HexBytes {
 	}
 }
 
-func NewSpanId() HexBytes {
+func NewSpanID() HexBytes {
 	return NewHexBytes(8)
 }
 
-func NewTraceId() HexBytes {
+func NewTraceID() HexBytes {
 	return NewHexBytes(8)
 }
 
@@ -190,19 +190,19 @@ func setBytes(dest []byte, b []byte) {
 }
 
 func (t *Trace) RebuildSetNonZero() {
-	if t.traceId.IsZero() {
-		t.traceId.SetRandom()
+	if t.traceID.IsZero() {
+		t.traceID.SetRandom()
 	}
-	if t.spanId.IsZero() {
-		t.spanId.SetRandom()
+	if t.spanID.IsZero() {
+		t.spanID.SetRandom()
 	}
 	t.rebuild()
 }
 
 func (t *Trace) rebuild() {
 	t.headerString = t.version.String() +
-		"-" + t.traceId.String() +
-		"-" + t.spanId.String() +
+		"-" + t.traceID.String() +
+		"-" + t.spanID.String() +
 		"-" + t.flags.String()
-	t.traceIdString = t.traceId.String() + "/" + t.spanId.String()
+	t.traceIDString = t.traceID.String() + "/" + t.spanID.String()
 }

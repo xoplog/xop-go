@@ -16,11 +16,11 @@ func SetByTraceParentHeader(b *trace.Bundle, h string) {
 	b.TraceParent.Version().SetString(splits[0])
 	b.Trace.Version().SetBytes(b.TraceParent.Version().Bytes())
 
-	b.TraceParent.TraceId().SetString(splits[1])
-	b.Trace.TraceId().SetBytes(b.TraceParent.TraceId().Bytes())
+	b.TraceParent.TraceID().SetString(splits[1])
+	b.Trace.TraceID().SetBytes(b.TraceParent.TraceID().Bytes())
 
-	b.TraceParent.SpanId().SetString(splits[2])
-	b.Trace.SpanId().SetRandom()
+	b.TraceParent.SpanID().SetString(splits[2])
+	b.Trace.SpanID().SetRandom()
 
 	b.TraceParent.Flags().SetString(splits[3])
 	b.Trace.Flags().SetBytes(b.TraceParent.Flags().Bytes())
@@ -38,15 +38,15 @@ func SetByB3Header(b *trace.Bundle, h string) {
 	if len(splits) != 4 {
 		return
 	}
-	b.TraceParent.TraceId().SetString(splits[0])
+	b.TraceParent.TraceID().SetString(splits[0])
 	b.Trace.Version().SetBytes(b.TraceParent.Version().Bytes())
 
-	b.Trace.SpanId().SetString(splits[1])
+	b.Trace.SpanID().SetString(splits[1])
 
 	b.TraceParent.Flags().SetString(splits[2])
 	b.Trace.Flags().SetBytes(b.TraceParent.Flags().Bytes())
 
-	b.TraceParent.SpanId().SetString(splits[3])
+	b.TraceParent.SpanID().SetString(splits[3])
 }
 
 // X-B3-Sampled
@@ -60,19 +60,19 @@ func SetByB3Sampled(b *trace.Bundle, h string) {
 	return
 }
 
-// X-B3-ParentSpanId
+// X-B3-ParentSpanID
 // Implies parent trace id is the same as my trace id
-func SetByB3ParentSpanId(b *trace.Bundle, h string) {
-	b.TraceParent.SpanId().SetString(h)
-	if b.TraceParent.SpanId().IsZero() {
-		b.TraceParent.TraceId().SetZero()
+func SetByB3ParentSpanID(b *trace.Bundle, h string) {
+	b.TraceParent.SpanID().SetString(h)
+	if b.TraceParent.SpanID().IsZero() {
+		b.TraceParent.TraceID().SetZero()
 	} else {
-		b.TraceParent.TraceId().SetBytes(b.Trace.TraceId().Bytes())
+		b.TraceParent.TraceID().SetBytes(b.Trace.TraceID().Bytes())
 	}
-	if b.Trace.TraceId().IsZero() {
-		b.Trace.TraceId().SetRandom()
+	if b.Trace.TraceID().IsZero() {
+		b.Trace.TraceID().SetRandom()
 	}
-	if b.Trace.SpanId().IsZero() {
-		b.Trace.SpanId().SetRandom()
+	if b.Trace.SpanID().IsZero() {
+		b.Trace.SpanID().SetRandom()
 	}
 }

@@ -65,7 +65,7 @@ func (t *Things) AnyImmutable(k string, v interface{}) {
 // TODO: func (t *Things) SubObject(string) SubObject
 // TODO: func (t *Things) Encoded(name string, elementName string, encoder Encoder, data interface{})
 // TODO: func (t *Things) PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
-// TODO: func (t *Things) ExternalReference(name string, itemId string, storageId string)
+// TODO: func (t *Things) ExternalReference(name string, itemID string, storageID string)
 // TODO: func (t *Things) PreEncodedText(name string, elementName string, mimeType string, data string)
 
 type Builder struct {

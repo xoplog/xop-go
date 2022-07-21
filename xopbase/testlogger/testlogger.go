@@ -94,10 +94,10 @@ func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 }
 
 func (l *TestLogger) setShort(span trace.Bundle, name string) string {
-	ts := span.Trace.GetTraceId().String()
+	ts := span.Trace.GetTraceID().String()
 	if ti, ok := l.traceMap[ts]; ok {
 		ti.spanCount++
-		ti.spans[span.Trace.GetSpanId().String()] = ti.spanCount
+		ti.spans[span.Trace.GetSpanID().String()] = ti.spanCount
 		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
 		l.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
 		return short
@@ -107,7 +107,7 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 		spanCount: 1,
 		traceNum:  l.traceCount,
 		spans: map[string]int{
-			span.Trace.GetSpanId().String(): 1,
+			span.Trace.GetSpanID().String(): 1,
 		},
 	}
 	short := fmt.Sprintf("T%d.%d", l.traceCount, 1)

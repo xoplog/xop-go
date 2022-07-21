@@ -31,12 +31,12 @@ func Log(log xoplog.Log) *rest.RequestOpts {
 				r.Header.Set("state", step.Span().TraceState().String())
 			}
 			if step.Config().UseB3 {
-				farSideSpan = trace.NewSpanId()
+				farSideSpan = trace.NewSpanID()
 				r.Header.Set("b3",
-					step.Span().Trace().GetTraceId().String()+"-"+
+					step.Span().Trace().GetTraceID().String()+"-"+
 						farSideSpan.String()+"-"+
 						step.Span().Trace().GetFlags().String()[1:2]+"-"+
-						step.Span().Trace().GetSpanId().String())
+						step.Span().Trace().GetSpanID().String())
 			}
 			return nil
 		}).

@@ -1,18 +1,14 @@
-Move DefaultNamespase to Seed, make required
 
 For enums from OTEL, generate them from the protobuf constants.
 
 Use ZSON for main transport?  https://www.brimdata.io/blog/unmarshal-interface/
-
-new EnumAttribute where each value also implies the key. 
+Use BSON for main transport?
 
 Replace HexBytes with arrays etc can be used as map keys.  Use go 1.18?  HexBytes8, HexBytes16, HexByte ?
 Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
 
 Use generics to make type-safe Enum span attributes: can't do it as a method on Span, but can
 do it as a function. 
-
-Adhere to go spec: Id -> ID
 
 Get rid of xop.Thing entirely.
 
