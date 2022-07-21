@@ -300,7 +300,7 @@ func (ll *LogLine) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *LogLine {
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.
-func (ll LogLine) AnyImmutable(k string, v interface{}) LogLine { ll.line.Any(k, v); return ll }
+func (ll *LogLine) AnyImmutable(k string, v interface{}) *LogLine { ll.line.Any(k, v); return ll }
 
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using

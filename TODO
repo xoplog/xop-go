@@ -30,6 +30,9 @@ Add tests:
 Base loggers:
 	Console to io.Writer
 	JSON to io.Writer
+	Gateway into Jaeger
+	Gateway into Open Telementry
+	Stream send to server (need to write server !)
 
 Round out the kinds of things that can be logged:
 	Tables
