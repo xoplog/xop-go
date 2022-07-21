@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 )
@@ -155,6 +154,12 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
+func (l Lines) SetAsPrefill(m string) {
+	for _, line := range l {
+		line.SetAsPrefill(m)
+	}
+}
+
 func (l Lines) Template(m string) {
 	for _, line := range l {
 		line.Template(m)
@@ -164,12 +169,6 @@ func (l Lines) Template(m string) {
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)
-	}
-}
-
-func (l Lines) Things(things []xop.Thing) {
-	for _, line := range l {
-		xopbase.LineThings(line, things)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 
@@ -75,6 +74,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
 	log.buffered = log.span.seed.baseLoggers.AsOne.Buffered()
 	log.span.base = log.shared.BaseRequest.(xopbase.Span)
+	s.sendPrefill(&log) // before turning on the timer so as to not create a race
 	if log.buffered {
 		log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
 	}
@@ -95,6 +95,7 @@ func (old *Log) newChildLog(seed Seed) *Log {
 	}
 	log.span.log = log
 	log.span.base.Boring(true)
+	seed.sendPrefill(log)
 	return log
 }
 
@@ -153,15 +154,6 @@ func (l *Log) notBoring() {
 	}
 }
 
-func (l *Log) log(level xopconst.Level, msg string, values []xop.Thing) {
-	line := l.LogLine(level)
-	xopbase.LineThings(line.line, values)
-	line.Msg(msg)
-	if level >= xopconst.ErrorLevel {
-		l.notBoring()
-	}
-}
-
 // TODO func (l *Log) Zap() like zap
 // TODO func (l *Log) Sugar() like zap.Sugar
 // TODO func (l *Log) Zero() like zerolog
@@ -209,13 +201,6 @@ func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
 	seed.prefix += "." + strconv.Itoa(counter)
 	return l.newChildLog(seed)
-}
-
-func (l *Log) LogThings(level xopconst.Level, msg string, values ...xop.Thing) {
-	l.log(level, msg, values)
-	if level >= xopconst.ErrorLevel {
-		l.notBoring()
-	}
 }
 
 type LogLine struct {
