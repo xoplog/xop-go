@@ -23,26 +23,26 @@ func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
 		xopprop.SetByB3Header(&bundle, b3)
 	} else if tp := r.Header.Get("traceparent"); tp != "" {
 		xopprop.SetByTraceParentHeader(&bundle, tp)
-	} else if b3TraceId := r.Header.Get("X-B3-TraceId"); b3TraceId != "" {
-		bundle.Trace.TraceId().SetString(b3TraceId)
-		if b3ParentSpanId := r.Header.Get("X-B3-ParentSpanId"); b3ParentSpanId != "" {
-			xopprop.SetByB3ParentSpanId(&bundle, b3ParentSpanId)
+	} else if b3TraceID := r.Header.Get("X-B3-TraceId"); b3TraceID != "" {
+		bundle.Trace.TraceID().SetString(b3TraceID)
+		if b3ParentSpanID := r.Header.Get("X-B3-ParentSpanId"); b3ParentSpanID != "" {
+			xopprop.SetByB3ParentSpanID(&bundle, b3ParentSpanID)
 		} else {
 			// Uh oh, no parent span id
 			bundle.TraceParent = trace.NewTrace()
 		}
-		if b3SpanId := r.Header.Get("X-B3-SpanId"); b3SpanId != "" {
-			bundle.Trace.SpanId().SetString(b3SpanId)
+		if b3SpanID := r.Header.Get("X-B3-SpanId"); b3SpanID != "" {
+			bundle.Trace.SpanID().SetString(b3SpanID)
 		} else {
-			bundle.Trace.SpanId().SetRandom()
+			bundle.Trace.SpanID().SetRandom()
 		}
 
 		if b3Sampling := r.Header.Get("X-B3-Sampled"); b3Sampling != "" {
 			xopprop.SetByB3Sampled(&bundle, b3Sampling)
 		}
 	} else {
-		bundle.Trace.TraceId().SetRandom()
-		bundle.Trace.SpanId().SetRandom()
+		bundle.Trace.TraceID().SetRandom()
+		bundle.Trace.SpanID().SetRandom()
 	}
 
 	log := parent.Span().Seed(xoplog.WithBundle(bundle)).Request(r.Method + " " + name)

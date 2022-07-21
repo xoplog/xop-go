@@ -94,9 +94,9 @@ var macros = map[string]map[string]string{
 		"Error": "error",
 	},
 	"HexBytes": {
-		"HexBytes1":  "HexBytes1",
-		"HexBytes8":  "HexBytes8",
-		"HexBytes16": "HexBytes16",
+		"HexBytes1":  "1",
+		"HexBytes8":  "8",
+		"HexBytes16": "16",
 	},
 }
 

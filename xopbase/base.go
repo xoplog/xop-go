@@ -65,7 +65,7 @@ type Span interface {
 }
 
 type Line interface {
-	// TODO: ExternalReference(name string, itemId string, storageId string)
+	// TODO: ExternalReference(name string, itemID string, storageID string)
 	// TODO: Guage()
 	// TODO: Event()
 

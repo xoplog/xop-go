@@ -3,7 +3,6 @@ package trace
 import (
 	"encoding/hex"
 	"math/rand"
-	"strings"
 )
 
 // TraceState represents W3C tracing headers.
@@ -22,7 +21,7 @@ import (
 // it's not clear what part should be stored in a database and what part should be
 // searchable.  Proper log/trace database structure clearly needs at least two
 // fields, but if you're adding a trace column to other tables to use to reference
-// why a row was updated, what should you use?  TraceId+RequestId as hex?  That's
+// why a row was updated, what should you use?  TraceID+RequestID as hex?  That's
 // 49 bytes if you include a dash and a terminator.  That's often going to be more than
 // the rest of the row.  Or store two fields.  In hex or as bytes?
 //
@@ -42,113 +41,67 @@ import (
 // (https://github.com/grpc/grpc-go/blob/master/Documentation/grpc-metadata.md)
 //
 type Trace struct {
-	version HexBytes // 1 byte
+	version HexBytes1
 
 	// This is an identifier that should flow through all aspects of a
 	// request.  It's mandated by W3C and is useful when there are logs
 	// missing and the parent ids can't be tied together
-	traceId HexBytes // 16 bytes
+	traceID HexBytes16
 
 	// This is the recevied "parent-id" field.
 	// TODO: add methods and propagate
-	parentId HexBytes // 8 bytes
+	parentID HexBytes8
 
 	// This is the "parent-id" field in the header.  The W3C spec name for this
 	// causes confusion.  It's also considered the "span-id".
-	spanId HexBytes // 8 bytes
+	spanID HexBytes8
 
-	flags HexBytes // 1 byte
+	flags HexBytes1
 
-	headerString  string // version + traceId + spanId + flags
-	traceIdString string // traceId + spanId
+	headerString  string // version + traceID + spanID + flags
+	traceIDString string // traceID + spanID
 }
 
 func (t Trace) Copy() Trace {
 	return Trace{
 		version:       t.version.Copy(),
-		traceId:       t.traceId.Copy(),
-		spanId:        t.spanId.Copy(),
+		traceID:       t.traceID.Copy(),
+		spanID:        t.spanID.Copy(),
 		flags:         t.flags.Copy(),
 		headerString:  t.headerString,
-		traceIdString: t.traceIdString,
+		traceIDString: t.traceIDString,
 	}
-}
-
-type HexBytes struct {
-	b []byte
-	s string
 }
 
 func NewTrace() Trace {
 	return Trace{
-		version: NewHexBytes(1),
-		traceId: NewHexBytes(16),
-		spanId:  NewHexBytes(8),
-		flags:   NewHexBytes(1),
+		version: NewHexBytes1(),
+		traceID: NewHexBytes16(),
+		spanID:  NewHexBytes8(),
+		flags:   NewHexBytes1(),
 	}
 }
 
-func (t *Trace) Version() *HexBytes  { return &t.version }
-func (t *Trace) TraceId() *HexBytes  { return &t.traceId }
-func (t *Trace) SpanId() *HexBytes   { return &t.spanId }
-func (t *Trace) Flags() *HexBytes    { return &t.flags }
-func (t *Trace) RandomizeSpanId()    { t.spanId.SetRandom() }
-func (t Trace) GetVersion() HexBytes { return t.version }
-func (t Trace) GetTraceId() HexBytes { return t.traceId }
-func (t Trace) GetSpanId() HexBytes  { return t.traceId }
-func (t Trace) GetFlags() HexBytes   { return t.flags }
-func (t Trace) IsZero() bool         { return t.traceId.IsZero() }
-func (t Trace) IdString() string     { return t.traceIdString }
-func (t Trace) HeaderString() string { return t.headerString }
+func (t *Trace) Version() *HexBytes1   { return &t.version }
+func (t *Trace) TraceID() *HexBytes16  { return &t.traceID }
+func (t *Trace) SpanID() *HexBytes8    { return &t.spanID }
+func (t *Trace) Flags() *HexBytes1     { return &t.flags }
+func (t *Trace) RandomizeSpanID()      { t.spanID.SetRandom() }
+func (t Trace) GetVersion() HexBytes1  { return t.version }
+func (t Trace) GetTraceID() HexBytes16 { return t.traceID }
+func (t Trace) GetSpanID() HexBytes8   { return t.spanID }
+func (t Trace) GetFlags() HexBytes1    { return t.flags }
+func (t Trace) IsZero() bool           { return t.traceID.IsZero() }
+func (t Trace) IDString() string       { return t.traceIDString }
+func (t Trace) HeaderString() string   { return t.headerString }
 
-func NewHexBytes(length int) HexBytes {
-	return HexBytes{
-		b: make([]byte, length),
-		s: strings.Repeat("0", length*2),
-	}
+func NewSpanID() HexBytes8 {
+	return NewHexBytes8()
 }
 
-func NewSpanId() HexBytes {
-	return NewHexBytes(8)
+func NewTraceID() HexBytes16 {
+	return NewHexBytes16()
 }
-
-func NewTraceId() HexBytes {
-	return NewHexBytes(8)
-}
-
-func (x HexBytes) IsZero() bool   { return allZero(x.b) }
-func (x HexBytes) String() string { return x.s }
-func (x HexBytes) Bytes() []byte  { return x.b }
-func (x *HexBytes) SetBytes(b []byte) {
-	setBytes(x.b, b)
-	x.s = hex.EncodeToString(x.b)
-}
-
-func (x *HexBytes) SetString(s string) {
-	setBytesFromString(x.b, s)
-	x.s = hex.EncodeToString(x.b)
-}
-
-func (x *HexBytes) SetZero() {
-	setBytes(x.b, zeroBytes)
-	x.s = hex.EncodeToString(x.b)
-}
-
-func (x *HexBytes) SetRandom() {
-	randomBytesNotAllZero(x.b)
-	x.s = hex.EncodeToString(x.b)
-}
-
-func (x HexBytes) Copy() HexBytes {
-	b := make([]byte, len(x.b))
-	copy(b, x.b)
-	return HexBytes{
-		b: b,
-		s: x.s,
-	}
-}
-
-var zeroBytes = make([]byte, 16)
 
 func randomBytesNotAllZero(byts []byte) {
 	if len(byts) == 0 {
@@ -171,6 +124,8 @@ func allZero(byts []byte) bool {
 	return true
 }
 
+var zeroBytes = make([]byte, 16)
+
 func setBytesFromString(dest []byte, h string) {
 	b, err := hex.DecodeString(h)
 	if err != nil {
@@ -190,19 +145,19 @@ func setBytes(dest []byte, b []byte) {
 }
 
 func (t *Trace) RebuildSetNonZero() {
-	if t.traceId.IsZero() {
-		t.traceId.SetRandom()
+	if t.traceID.IsZero() {
+		t.traceID.SetRandom()
 	}
-	if t.spanId.IsZero() {
-		t.spanId.SetRandom()
+	if t.spanID.IsZero() {
+		t.spanID.SetRandom()
 	}
 	t.rebuild()
 }
 
 func (t *Trace) rebuild() {
 	t.headerString = t.version.String() +
-		"-" + t.traceId.String() +
-		"-" + t.spanId.String() +
+		"-" + t.traceID.String() +
+		"-" + t.spanID.String() +
 		"-" + t.flags.String()
-	t.traceIdString = t.traceId.String() + "/" + t.spanId.String()
+	t.traceIDString = t.traceID.String() + "/" + t.spanID.String()
 }

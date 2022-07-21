@@ -98,6 +98,6 @@ func (s Seed) Trace() trace.Bundle {
 
 func (s Seed) SubSpan() Seed {
 	s.traceBundle = s.traceBundle.Copy()
-	s.traceBundle.Trace.RandomizeSpanId()
+	s.traceBundle.Trace.RandomizeSpanID()
 	return s
 }
