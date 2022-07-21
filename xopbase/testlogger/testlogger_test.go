@@ -20,6 +20,7 @@ func TestLogMethods(t *testing.T) {
 	log.Alert().Msg("basic alert message")
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
+	log.Info().Str("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 	lines := tlog.FindLines(testlogger.MessageEquals("basic debug message"))
 	if assert.NotEmpty(t, lines, "found some") {
 		assert.True(t, !lines[0].Timestamp.Before(start), "time seq")
@@ -27,4 +28,7 @@ func TestLogMethods(t *testing.T) {
 		assert.Equal(t, xopconst.DebugLevel, lines[0].Level, "level")
 	}
 	assert.Equal(t, 1, tlog.CountLines(testlogger.MessageEquals("basic alert message")), "count alert")
+	assert.Equal(t, 1, tlog.CountLines(testlogger.TextContains("a test")), "count a test")
+	assert.Equal(t, 1, tlog.CountLines(testlogger.TextContains("a test bar")), "count a test foo")
+	assert.Equal(t, 1, tlog.CountLines(testlogger.TextContains("a test bar with 38")), "count a test foo with 38")
 }

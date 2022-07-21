@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
@@ -236,6 +237,18 @@ func (l *Log) LogLine(level xopconst.Level) *LogLine {
 	}
 }
 
+// Template is an alternative to Msg() sends a log line.  Template
+// is a string that uses "{name}" substitutions from the data already
+// sent with the line to format that data for human consumption.
+// Template is expected to be more expensive than Msg so it should
+// be used somewhat sparingly.  Data elements do not have to be
+// consumed by the template.
+func (ll *LogLine) Template(template string) {
+	ll.line.Template(template)
+	ll.log.span.linePool.Put(ll)
+	ll.log.enableFlushTimer()
+}
+
 func (ll *LogLine) Msg(msg string) {
 	ll.line.Msg(msg)
 	ll.log.span.linePool.Put(ll)
@@ -257,26 +270,37 @@ func (l *Log) Alert() *LogLine {
 
 // TODO: generate these
 // TODO: the rest of the set
-func (ll *LogLine) Msgf(msg string, v ...interface{})   { ll.Msg(fmt.Sprintf(msg, v...)) }
-func (ll *LogLine) Msgs(v ...interface{})               { ll.Msg(fmt.Sprint(v...)) }
-func (ll *LogLine) Int(k string, v int) *LogLine        { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int8(k string, v int8) *LogLine      { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int16(k string, v int16) *LogLine    { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int32(k string, v int32) *LogLine    { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int64(k string, v int64) *LogLine    { ll.line.Int(k, v); return ll }
-func (ll *LogLine) Uint(k string, v uint) *LogLine      { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint8(k string, v uint8) *LogLine    { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint16(k string, v uint16) *LogLine  { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint32(k string, v uint32) *LogLine  { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint64(k string, v uint64) *LogLine  { ll.line.Uint(k, v); return ll }
-func (ll *LogLine) Str(k string, v string) *LogLine     { ll.line.Str(k, v); return ll }
-func (ll *LogLine) Bool(k string, v bool) *LogLine      { ll.line.Bool(k, v); return ll }
-func (ll *LogLine) Time(k string, v time.Time) *LogLine { ll.line.Time(k, v); return ll }
-func (ll *LogLine) Error(k string, v error) *LogLine    { ll.line.Error(k, v); return ll }
+func (ll *LogLine) Msgf(msg string, v ...interface{})           { ll.Msg(fmt.Sprintf(msg, v...)) }
+func (ll *LogLine) Msgs(v ...interface{})                       { ll.Msg(fmt.Sprint(v...)) }
+func (ll *LogLine) Int(k string, v int) *LogLine                { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int8(k string, v int8) *LogLine              { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int16(k string, v int16) *LogLine            { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int32(k string, v int32) *LogLine            { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int64(k string, v int64) *LogLine            { ll.line.Int(k, v); return ll }
+func (ll *LogLine) Uint(k string, v uint) *LogLine              { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint8(k string, v uint8) *LogLine            { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint16(k string, v uint16) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint32(k string, v uint32) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint64(k string, v uint64) *LogLine          { ll.line.Uint(k, v); return ll }
+func (ll *LogLine) Str(k string, v string) *LogLine             { ll.line.Str(k, v); return ll }
+func (ll *LogLine) Bool(k string, v bool) *LogLine              { ll.line.Bool(k, v); return ll }
+func (ll *LogLine) Time(k string, v time.Time) *LogLine         { ll.line.Time(k, v); return ll }
+func (ll *LogLine) Error(k string, v error) *LogLine            { ll.line.Error(k, v); return ll }
+func (ll *LogLine) Link(k string, v trace.Trace) *LogLine       { ll.line.Link(k, v); return ll }
+func (ll *LogLine) Duration(k string, v time.Duration) *LogLine { ll.line.Duration(k, v); return ll }
+
+func (ll *LogLine) EmbeddedEnum(k xopconst.EmbeddedEnum) *LogLine {
+	return ll.Enum(k.EnumAttribute(), k)
+}
+
+func (ll *LogLine) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *LogLine {
+	ll.line.Enum(k, v)
+	return ll
+}
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.
-func (ll LogLine) AnyImmutable(k string, v interface{}) LogLine { ll.line.Any(k, v); return ll }
+func (ll *LogLine) AnyImmutable(k string, v interface{}) *LogLine { ll.line.Any(k, v); return ll }
 
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using

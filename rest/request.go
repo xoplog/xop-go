@@ -1,13 +1,21 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/muir/rest"
 	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopconst"
+)
+
+var (
+	errorTemplate = fmt.Sprintf("{description} FAILED {%s}: {error}", xopconst.HTTPMethod.Key())
+	template      = fmt.Sprintf("{%s} {description} {%s} {%s}",
+		xopconst.HTTPStatusCode.Key(),
+		xopconst.HTTPMethod.Key(),
+		xopconst.URL.Key())
 )
 
 func Log(log xoplog.Log) *rest.RequestOpts {
@@ -15,14 +23,11 @@ func Log(log xoplog.Log) *rest.RequestOpts {
 	var farSideSpan trace.HexBytes8
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
-			step = log.Step(o.Description,
-				xoplog.WithData(xop.NewBuilder().
-					Str("xop:type", "http.request").
-					Str("xop:url", r.URL.String()).
-					Str("xop:method", r.Method).
-					Bool("xop:is-request", false).
-					Things()...),
-			)
+			step = log.Step(o.Description)
+			step.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
+			step.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
+			step.Span().Str(xopconst.URL, r.URL.String())
+			step.Span().Str(xopconst.HTTPMethod, r.Method)
 			r.Header.Set("traceparent", step.Span().Trace().HeaderString())
 			if !step.Span().TraceBaggage().IsZero() {
 				r.Header.Set("baggage", step.Span().TraceBaggage().String())
@@ -41,32 +46,39 @@ func Log(log xoplog.Log) *rest.RequestOpts {
 			return nil
 		}).
 		DoAfter(func(result rest.Result) rest.Result {
-			fields := make([]xop.Thing, 0, 20)
-			fields = append(fields,
-				xop.Str("type", "http.request"),
-				xop.Str("url", result.Request.URL.String()),
-				xop.Str("method", result.Request.Method))
-			// TODO: xop.Duration("duration", time.Now().Sub(startTime)))
+			var line *xoplog.LogLine
+			if result.Error != nil {
+				line = step.Error()
+			} else {
+				line = step.Info()
+			}
+
+			line = line.Str(xopconst.HTTPMethod.Key(), result.Request.Method).
+				Str(xopconst.URL.Key(), result.Request.URL.String()).
+				Str("description", result.Options.Description)
 
 			if result.Error != nil {
-				fields = append(fields, xop.Error("error", result.Error))
+				line = line.Error("error", result.Error)
+				line.Template(errorTemplate)
 			} else {
-				fields = append(fields, xop.Int("http.status", result.Response.StatusCode))
+				line = line.Int(xopconst.HTTPStatusCode.Key(), result.Response.StatusCode)
 				tr := result.Response.Header.Get("traceresponse")
 				if tr != "" {
-					fields = append(fields, xop.Str("traceresponse", tr))
+					line = line.Str(xopconst.TraceResponse.Key(), tr)
 				}
 				if !farSideSpan.IsZero() {
-					fields = append(fields, xop.Str("b3.spanid", farSideSpan.String()))
+					// TODO: standard name?
+					// TODO: use Link()
+					line = line.Str("b3.spanid", farSideSpan.String())
 				}
 				if result.DecodeTarget != nil {
-					fields = append(fields, xop.Any("response", result.DecodeTarget))
+					line = line.Any("response.data", result.DecodeTarget)
 				}
 				if result.Options.HasData {
-					fields = append(fields, xop.Any("request", result.Options.Data))
+					line = line.Any("request.data", result.Options.Data)
 				}
+				line.Template(template)
 			}
-			step.LogThings(xopconst.InfoLevel, result.Options.Description, fields...)
 			return result
 		})
 }

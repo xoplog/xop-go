@@ -155,6 +155,30 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
+func (l Lines) Template(m string) {
+	for _, line := range l {
+		line.Template(m)
+	}
+}
+
+func (l Lines) Msg(m string) {
+	for _, line := range l {
+		line.Msg(m)
+	}
+}
+
+func (l Lines) Things(things []xop.Thing) {
+	for _, line := range l {
+		xopbase.LineThings(line, things)
+	}
+}
+
+func (l Lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	for _, line := range l {
+		line.Enum(k, v)
+	}
+}
+
 // Any adds a interface{} key/value pair to a line that is in progress
 func (l Lines) Any(k string, v interface{}) {
 	for _, line := range l {
@@ -169,6 +193,13 @@ func (l Lines) Bool(k string, v bool) {
 	}
 }
 
+// Duration adds a time.Duration key/value pair to a line that is in progress
+func (l Lines) Duration(k string, v time.Duration) {
+	for _, line := range l {
+		line.Duration(k, v)
+	}
+}
+
 // Error adds a error key/value pair to a line that is in progress
 func (l Lines) Error(k string, v error) {
 	for _, line := range l {
@@ -180,6 +211,13 @@ func (l Lines) Error(k string, v error) {
 func (l Lines) Int(k string, v int64) {
 	for _, line := range l {
 		line.Int(k, v)
+	}
+}
+
+// Link adds a trace.Trace key/value pair to a line that is in progress
+func (l Lines) Link(k string, v trace.Trace) {
+	for _, line := range l {
+		line.Link(k, v)
 	}
 }
 
@@ -201,17 +239,5 @@ func (l Lines) Time(k string, v time.Time) {
 func (l Lines) Uint(k string, v uint64) {
 	for _, line := range l {
 		line.Uint(k, v)
-	}
-}
-
-func (l Lines) Msg(m string) {
-	for _, line := range l {
-		line.Msg(m)
-	}
-}
-
-func (l Lines) Things(things []xop.Thing) {
-	for _, line := range l {
-		xopbase.LineThings(line, things)
 	}
 }

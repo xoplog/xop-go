@@ -63,6 +63,9 @@ type Line interface {
 	// may not be used for anything else unless Recycle is called.
 	Msg(string)
 
+	// Template may only be called once.  It is an alternative to Msg.
+	Template(string)
+
 	// Recycle starts the line ready to use again.
 	Recycle(xopconst.Level, time.Time)
 }
@@ -86,9 +89,10 @@ type ObjectParts interface {
 	Time(string, time.Time)
 	Error(string, error)
 	Any(string, interface{}) // generally serialized with JSON
+	Enum(*xopconst.EnumAttribute, xopconst.Enum)
+	Link(string, trace.Trace)
+	Duration(string, time.Duration)
 	// TODO: Table(string, table)
-	// TODO: URI(string, string)
-	// TODO: Link(string, trace.Trace)
 	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
