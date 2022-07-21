@@ -155,6 +155,12 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
+func (l Lines) Template(m string) {
+	for _, line := range l {
+		line.Template(m)
+	}
+}
+
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)

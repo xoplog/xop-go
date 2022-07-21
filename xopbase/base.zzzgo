@@ -63,6 +63,9 @@ type Line interface {
 	// may not be used for anything else unless Recycle is called.
 	Msg(string)
 
+	// Template may only be called once.  It is an alternative to Msg.
+	Template(string)
+
 	// Recycle starts the line ready to use again.
 	Recycle(xopconst.Level, time.Time)
 }

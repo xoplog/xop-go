@@ -237,6 +237,18 @@ func (l *Log) LogLine(level xopconst.Level) *LogLine {
 	}
 }
 
+// Template is an alternative to Msg() sends a log line.  Template
+// is a string that uses "{name}" substitutions from the data already
+// sent with the line to format that data for human consumption.
+// Template is expected to be more expensive than Msg so it should
+// be used somewhat sparingly.  Data elements do not have to be
+// consumed by the template.
+func (ll *LogLine) Template(template string) {
+	ll.line.Template(template)
+	ll.log.span.linePool.Put(ll)
+	ll.log.enableFlushTimer()
+}
+
 func (ll *LogLine) Msg(msg string) {
 	ll.line.Msg(msg)
 	ll.log.span.linePool.Put(ll)

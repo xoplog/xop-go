@@ -1,10 +1,20 @@
 package testlogger
 
+import (
+	"strings"
+)
+
 type LinePredicate func(*Line) bool
 
 func MessageEquals(msg string) LinePredicate {
 	return func(line *Line) bool {
 		return line.Message == msg
+	}
+}
+
+func TextContains(msg string) LinePredicate {
+	return func(line *Line) bool {
+		return strings.Contains(line.Text, msg)
 	}
 }
 

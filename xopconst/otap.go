@@ -37,3 +37,6 @@ var HTTPHost = Make{Key: "http.host", Namespace: "OTAP", Indexed: true, Prominen
 
 var HTTPStatusCode = Make{Key: "http.status_code", Namespace: "OTAP", Indexed: true, Prominence: 5,
 	Description: "HTTP response status code"}.IntAttribute()
+
+var TraceResponse = Make{Key: "http.response.header.traceresponse", Namespace: "OTAP", Indexed: true, Prominence: 50,
+	Description: "Response 'traceresponse' heeader received"}.StrAttribute()

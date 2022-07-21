@@ -1,3 +1,4 @@
+Should Template() be a line starter rather than an ender?
 
 For enums from OTEL, generate them from the protobuf constants.
 
@@ -16,6 +17,10 @@ Rename "xoplog" -> "xop"
 Figure out a way to enforce limited vocabulary on select Attributes and Data elements
 
 Line attributes
+
+Build a key/value table of the templates seen.
+See https://github.com/dgraph-io/ristretto for possible techniques
+Number the templates
 
 Add tests:
 	Span attributes

@@ -3,6 +3,7 @@ package testlogger
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -70,6 +71,7 @@ type Line struct {
 	Message   string
 	Data      map[string]interface{}
 	Text      string
+	Tmpl      string
 	kvText    []string
 }
 
@@ -149,11 +151,12 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.Timestamp = t
 	l.kvText = nil
 	l.Message = ""
+	l.Tmpl = ""
 	l.Data = make(map[string]interface{})
 	l.Text = ""
 }
 
-func (l Line) Msg(m string) {
+func (l *Line) Msg(m string) {
 	l.Message = m
 	text := l.Span.short + ": " + m
 	if len(l.kvText) > 0 {
@@ -161,7 +164,33 @@ func (l Line) Msg(m string) {
 		l.kvText = nil
 	}
 	l.Text = text
+	l.send(text)
+}
 
+var templateRE = regexp.MustCompile(`\{.+?\}`)
+
+func (l *Line) Template(m string) {
+	l.Tmpl = m
+	used := make(map[string]struct{})
+	text := l.Span.short + ": " +
+		templateRE.ReplaceAllStringFunc(m, func(k string) string {
+			k = k[1 : len(k)-1]
+			if v, ok := l.Data[k]; ok {
+				used[k] = struct{}{}
+				return fmt.Sprint(v)
+			}
+			return "''"
+		})
+	for k, v := range l.Data {
+		if _, ok := used[k]; !ok {
+			text += " " + k + "=" + fmt.Sprint(v)
+		}
+	}
+	l.Text = text
+	l.send(text)
+}
+
+func (l Line) send(text string) {
 	l.Span.testLogger.t.Log(text)
 	l.Span.testLogger.lock.Lock()
 	defer l.Span.testLogger.lock.Unlock()
@@ -171,24 +200,24 @@ func (l Line) Msg(m string) {
 	l.Span.Lines = append(l.Span.Lines, &l)
 }
 
-func (l Line) Any(k string, v interface{}) {
+func (l *Line) Any(k string, v interface{}) {
 	l.Data[k] = v
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
-func (l Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (l *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	l.Data[k.Key()] = v.String()
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
 }
 
-func (l Line) Bool(k string, v bool)              { l.Any(k, v) }
-func (l Line) Duration(k string, v time.Duration) { l.Any(k, v) }
-func (l Line) Error(k string, v error)            { l.Any(k, v) }
-func (l Line) Int(k string, v int64)              { l.Any(k, v) }
-func (l Line) Link(k string, v trace.Trace)       { l.Any(k, v) }
-func (l Line) Str(k string, v string)             { l.Any(k, v) }
-func (l Line) Time(k string, v time.Time)         { l.Any(k, v) }
-func (l Line) Uint(k string, v uint64)            { l.Any(k, v) }
+func (l *Line) Bool(k string, v bool)              { l.Any(k, v) }
+func (l *Line) Duration(k string, v time.Duration) { l.Any(k, v) }
+func (l *Line) Error(k string, v error)            { l.Any(k, v) }
+func (l *Line) Int(k string, v int64)              { l.Any(k, v) }
+func (l *Line) Link(k string, v trace.Trace)       { l.Any(k, v) }
+func (l *Line) Str(k string, v string)             { l.Any(k, v) }
+func (l *Line) Time(k string, v time.Time)         { l.Any(k, v) }
+func (l *Line) Uint(k string, v uint64)            { l.Any(k, v) }
 
 func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
 func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
