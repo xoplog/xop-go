@@ -176,6 +176,11 @@ func (l Line) Any(k string, v interface{}) {
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
+func (l Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	l.Data[k.Key()] = v.String()
+	l.kvText = append(l.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
+}
+
 func (l Line) Bool(k string, v bool)      { l.Any(k, v) }
 func (l Line) Error(k string, v error)    { l.Any(k, v) }
 func (l Line) Int(k string, v int64)      { l.Any(k, v) }

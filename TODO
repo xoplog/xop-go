@@ -9,7 +9,7 @@ Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
 Use generics to make type-safe Enum span attributes: can't do it as a method on Span, but can
 do it as a function. 
 
-Get rid of xop.Thing entirely.
+Get rid of xop.Thing entirely?
 
 Rename "xoplog" -> "xop"
 
@@ -25,6 +25,10 @@ Add tests:
 Base loggers:
 	Console to io.Writer
 	JSON to io.Writer
+
+Round out the kinds of things that can be logged:
+	Tables
+	Pre-encoded data
 
 Allow base loggers to resources (span attribute tracking, JSON formatting)
 

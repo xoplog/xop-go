@@ -10,9 +10,9 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-// Request provides access to the span that describes the overall
+// ThisRequest provides access to the span that describes the overall
 // request. Metadata may be added at the request level.
-func (l *Log) Request() *Span {
+func (l *Log) ThisRequest() *Span {
 	return l.request
 }
 

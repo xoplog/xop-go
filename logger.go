@@ -273,6 +273,14 @@ func (ll *LogLine) Str(k string, v string) *LogLine     { ll.line.Str(k, v); ret
 func (ll *LogLine) Bool(k string, v bool) *LogLine      { ll.line.Bool(k, v); return ll }
 func (ll *LogLine) Time(k string, v time.Time) *LogLine { ll.line.Time(k, v); return ll }
 func (ll *LogLine) Error(k string, v error) *LogLine    { ll.line.Error(k, v); return ll }
+func (ll *LogLine) EmbeddedEnum(k xopconst.EmbeddedEnum) *LogLine {
+	return ll.Enum(k.EnumAttribute(), k)
+}
+
+func (ll *LogLine) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *LogLine {
+	ll.line.Enum(k, v)
+	return ll
+}
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.

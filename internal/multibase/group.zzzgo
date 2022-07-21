@@ -113,14 +113,6 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
-// MACRO BaseData
-// ZZZ adds a zzz key/value pair to a line that is in progress
-func (l Lines) ZZZ(k string, v zzz) {
-	for _, line := range l {
-		line.ZZZ(k, v)
-	}
-}
-
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)
@@ -130,5 +122,19 @@ func (l Lines) Msg(m string) {
 func (l Lines) Things(things []xop.Thing) {
 	for _, line := range l {
 		xopbase.LineThings(line, things)
+	}
+}
+
+func (l Lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	for _, line := range l {
+		line.Enum(k, v)
+	}
+}
+
+// MACRO BaseData
+// ZZZ adds a zzz key/value pair to a line that is in progress
+func (l Lines) ZZZ(k string, v zzz) {
+	for _, line := range l {
+		line.ZZZ(k, v)
 	}
 }
