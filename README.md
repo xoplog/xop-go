@@ -1,5 +1,7 @@
 # xop - Golang structured log generation combined with tracing (Cross Obserability Platform)
 
+[![GoDoc](https://godoc.org/github.com/muir/xoplog?status.png)](https://pkg.go.dev/github.com/muir/xoplog)
+
 # Development status
 
 In development, not ready for use.
