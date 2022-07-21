@@ -180,6 +180,7 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.Text = ""
 }
 
+// TODO: test SetAsPrefill
 func (l *Line) SetAsPrefill(m string) {
 	l.Span.prefill.Store(l)
 }

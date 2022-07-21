@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 )
@@ -31,12 +30,6 @@ func (s Seed) Copy() Seed {
 		n.prefillData = make([]func(xopbase.Line), len(s.prefillData))
 		copy(n.prefillData, s.prefillData)
 	}
-	return n
-}
-
-func copyFields(from []xop.Thing) []xop.Thing {
-	n := make([]xop.Thing, len(from))
-	copy(n, from)
 	return n
 }
 
@@ -111,9 +104,11 @@ func (s Seed) sendPrefill(log *Log) {
 	line.SetAsPrefill(s.prefillMsg)
 }
 
-// WithAnyPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithAnyPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Any()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithAnyPrefill(k string, v interface{}) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -122,9 +117,11 @@ func WithAnyPrefill(k string, v interface{}) SeedModifier {
 	}
 }
 
-// WithBoolPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithBoolPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Bool()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithBoolPrefill(k string, v bool) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -133,9 +130,11 @@ func WithBoolPrefill(k string, v bool) SeedModifier {
 	}
 }
 
-// WithDurationPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithDurationPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Duration()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithDurationPrefill(k string, v time.Duration) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -144,9 +143,11 @@ func WithDurationPrefill(k string, v time.Duration) SeedModifier {
 	}
 }
 
-// WithErrorPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithErrorPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Error()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithErrorPrefill(k string, v error) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -155,9 +156,11 @@ func WithErrorPrefill(k string, v error) SeedModifier {
 	}
 }
 
-// WithIntPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithIntPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Int()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithIntPrefill(k string, v int64) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -166,9 +169,11 @@ func WithIntPrefill(k string, v int64) SeedModifier {
 	}
 }
 
-// WithLinkPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithLinkPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Link()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithLinkPrefill(k string, v trace.Trace) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -177,9 +182,11 @@ func WithLinkPrefill(k string, v trace.Trace) SeedModifier {
 	}
 }
 
-// WithStrPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithStrPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Str()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithStrPrefill(k string, v string) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -188,9 +195,11 @@ func WithStrPrefill(k string, v string) SeedModifier {
 	}
 }
 
-// WithTimePrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithTimePrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Time()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithTimePrefill(k string, v time.Time) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
@@ -199,9 +208,11 @@ func WithTimePrefill(k string, v time.Time) SeedModifier {
 	}
 }
 
-// WithUintPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithUintPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.Uint()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithUintPrefill(k string, v uint64) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {

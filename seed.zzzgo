@@ -6,6 +6,7 @@ import (
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
+	"github.com/muir/xoplog/xopconst"
 )
 
 // Seed is used to create a Log.
@@ -29,12 +30,6 @@ func (s Seed) Copy() Seed {
 		n.prefillData = make([]func(xopbase.Line), len(s.prefillData))
 		copy(n.prefillData, s.prefillData)
 	}
-	return n
-}
-
-func copyFields(from []xop.Thing) []xop.Thing {
-	n := make([]xop.Thing, len(from))
-	copy(n, from)
 	return n
 }
 
@@ -110,9 +105,11 @@ func (s Seed) sendPrefill(log *Log) {
 }
 
 // MACRO BaseData
-// WithZZZPrefill adds key/value pairs that will be included with
-// all log lines in this span.  If there are no log lines in the
-// span then this data will not be logged at all.
+// WithZZZPrefill adds a key/value pair that will be included as part
+// of every log line in this span.  If there are no log lines in the
+// span then this data will not be logged at all. Use Span.ZZZ()
+// to add a span-level key/value pair that is logged once (with the
+// span).
 func WithZZZPrefill(k string, v zzz) SeedModifier {
 	return func(s *Seed) {
 		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
