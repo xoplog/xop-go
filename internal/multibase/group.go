@@ -187,6 +187,13 @@ func (l Lines) Bool(k string, v bool) {
 	}
 }
 
+// Duration adds a time.Duration key/value pair to a line that is in progress
+func (l Lines) Duration(k string, v time.Duration) {
+	for _, line := range l {
+		line.Duration(k, v)
+	}
+}
+
 // Error adds a error key/value pair to a line that is in progress
 func (l Lines) Error(k string, v error) {
 	for _, line := range l {
@@ -198,6 +205,13 @@ func (l Lines) Error(k string, v error) {
 func (l Lines) Int(k string, v int64) {
 	for _, line := range l {
 		line.Int(k, v)
+	}
+}
+
+// Link adds a trace.Trace key/value pair to a line that is in progress
+func (l Lines) Link(k string, v trace.Trace) {
+	for _, line := range l {
+		line.Link(k, v)
 	}
 }
 

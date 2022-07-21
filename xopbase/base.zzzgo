@@ -87,9 +87,9 @@ type ObjectParts interface {
 	Error(string, error)
 	Any(string, interface{}) // generally serialized with JSON
 	Enum(*xopconst.EnumAttribute, xopconst.Enum)
+	Link(string, trace.Trace)
+	Duration(string, time.Duration)
 	// TODO: Table(string, table)
-	// TODO: URI(string, string)
-	// TODO: Link(string, trace.Trace)
 	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)

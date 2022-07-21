@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
@@ -257,22 +258,25 @@ func (l *Log) Alert() *LogLine {
 
 // TODO: generate these
 // TODO: the rest of the set
-func (ll *LogLine) Msgf(msg string, v ...interface{})   { ll.Msg(fmt.Sprintf(msg, v...)) }
-func (ll *LogLine) Msgs(v ...interface{})               { ll.Msg(fmt.Sprint(v...)) }
-func (ll *LogLine) Int(k string, v int) *LogLine        { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int8(k string, v int8) *LogLine      { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int16(k string, v int16) *LogLine    { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int32(k string, v int32) *LogLine    { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int64(k string, v int64) *LogLine    { ll.line.Int(k, v); return ll }
-func (ll *LogLine) Uint(k string, v uint) *LogLine      { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint8(k string, v uint8) *LogLine    { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint16(k string, v uint16) *LogLine  { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint32(k string, v uint32) *LogLine  { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint64(k string, v uint64) *LogLine  { ll.line.Uint(k, v); return ll }
-func (ll *LogLine) Str(k string, v string) *LogLine     { ll.line.Str(k, v); return ll }
-func (ll *LogLine) Bool(k string, v bool) *LogLine      { ll.line.Bool(k, v); return ll }
-func (ll *LogLine) Time(k string, v time.Time) *LogLine { ll.line.Time(k, v); return ll }
-func (ll *LogLine) Error(k string, v error) *LogLine    { ll.line.Error(k, v); return ll }
+func (ll *LogLine) Msgf(msg string, v ...interface{})           { ll.Msg(fmt.Sprintf(msg, v...)) }
+func (ll *LogLine) Msgs(v ...interface{})                       { ll.Msg(fmt.Sprint(v...)) }
+func (ll *LogLine) Int(k string, v int) *LogLine                { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int8(k string, v int8) *LogLine              { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int16(k string, v int16) *LogLine            { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int32(k string, v int32) *LogLine            { ll.line.Int(k, int64(v)); return ll }
+func (ll *LogLine) Int64(k string, v int64) *LogLine            { ll.line.Int(k, v); return ll }
+func (ll *LogLine) Uint(k string, v uint) *LogLine              { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint8(k string, v uint8) *LogLine            { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint16(k string, v uint16) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint32(k string, v uint32) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
+func (ll *LogLine) Uint64(k string, v uint64) *LogLine          { ll.line.Uint(k, v); return ll }
+func (ll *LogLine) Str(k string, v string) *LogLine             { ll.line.Str(k, v); return ll }
+func (ll *LogLine) Bool(k string, v bool) *LogLine              { ll.line.Bool(k, v); return ll }
+func (ll *LogLine) Time(k string, v time.Time) *LogLine         { ll.line.Time(k, v); return ll }
+func (ll *LogLine) Error(k string, v error) *LogLine            { ll.line.Error(k, v); return ll }
+func (ll *LogLine) Link(k string, v trace.Trace) *LogLine       { ll.line.Link(k, v); return ll }
+func (ll *LogLine) Duration(k string, v time.Duration) *LogLine { ll.line.Duration(k, v); return ll }
+
 func (ll *LogLine) EmbeddedEnum(k xopconst.EmbeddedEnum) *LogLine {
 	return ll.Enum(k.EnumAttribute(), k)
 }

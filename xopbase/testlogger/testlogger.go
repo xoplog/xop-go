@@ -181,12 +181,14 @@ func (l Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
 }
 
-func (l Line) Bool(k string, v bool)      { l.Any(k, v) }
-func (l Line) Error(k string, v error)    { l.Any(k, v) }
-func (l Line) Int(k string, v int64)      { l.Any(k, v) }
-func (l Line) Str(k string, v string)     { l.Any(k, v) }
-func (l Line) Time(k string, v time.Time) { l.Any(k, v) }
-func (l Line) Uint(k string, v uint64)    { l.Any(k, v) }
+func (l Line) Bool(k string, v bool)              { l.Any(k, v) }
+func (l Line) Duration(k string, v time.Duration) { l.Any(k, v) }
+func (l Line) Error(k string, v error)            { l.Any(k, v) }
+func (l Line) Int(k string, v int64)              { l.Any(k, v) }
+func (l Line) Link(k string, v trace.Trace)       { l.Any(k, v) }
+func (l Line) Str(k string, v string)             { l.Any(k, v) }
+func (l Line) Time(k string, v time.Time)         { l.Any(k, v) }
+func (l Line) Uint(k string, v uint64)            { l.Any(k, v) }
 
 func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
 func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }

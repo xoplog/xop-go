@@ -22,3 +22,16 @@ var (
 	SpanTypeHTTPClientRequest  = SpanType.Iota("REST")
 	SpanTypeCronJob            = SpanType.Iota("cron_job")
 )
+
+/*
+XXX
+var LineType = Make{Key: "line.type", Namespace: "xop", Indexed: false, Prominence: 30,
+	Description: "what kind of log line this is.  Often added automatically."}.
+	EmbeddedEnumAttribute()
+
+var (
+	LineTypeDefault = SpanType.Iota("line") // omitted
+	LineTypeRequest = SpanType.Iota("REST")
+	LineTypeTable   = SpanType.Iota("table")
+)
+*/
