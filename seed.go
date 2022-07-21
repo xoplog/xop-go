@@ -15,7 +15,6 @@ type Seed struct {
 	prefill        []xop.Thing
 	prefillChanged bool
 	description    string
-	data           []xop.Thing
 	baseLoggers    baseLoggers
 	flushDelay     time.Duration
 }
@@ -24,7 +23,6 @@ func (s Seed) Copy() Seed {
 	n := s
 	n.prefill = copyFields(s.prefill)
 	n.baseLoggers = s.baseLoggers.Copy()
-	n.data = nil
 	n.traceBundle = s.traceBundle.Copy()
 	return n
 }
@@ -83,12 +81,6 @@ func WithPrefill(fields ...xop.Thing) SeedModifier {
 	return func(s *Seed) {
 		s.prefill = fields
 		s.prefillChanged = true
-	}
-}
-
-func WithData(fields ...xop.Thing) SeedModifier {
-	return func(s *Seed) {
-		s.data = fields
 	}
 }
 

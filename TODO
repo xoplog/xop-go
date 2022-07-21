@@ -15,6 +15,20 @@ Rename "xoplog" -> "xop"
 
 Figure out a way to enforce limited vocabulary on select Attributes and Data elements
 
+Line attributes
+
+Add tests:
+	Span attributes
+	Structued lines
+	All todos
+
+Base loggers:
+	Console to io.Writer
+	JSON to io.Writer
+
+Allow base loggers to resources (span attribute tracking, JSON formatting)
+
+Pull in speed hacks from phuslog
 
 Metrics
 	

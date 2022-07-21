@@ -15,14 +15,11 @@ func Log(log xoplog.Log) *rest.RequestOpts {
 	var farSideSpan trace.HexBytes8
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
-			step = log.Step(o.Description,
-				xoplog.WithData(xop.NewBuilder().
-					Str("xop:type", "http.request").
-					Str("xop:url", r.URL.String()).
-					Str("xop:method", r.Method).
-					Bool("xop:is-request", false).
-					Things()...),
-			)
+			step = log.Step(o.Description)
+			step.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
+			step.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
+			step.Span().Str(xopconst.URL, r.URL.String())
+			step.Span().Str(xopconst.HTTPMethod, r.Method)
 			r.Header.Set("traceparent", step.Span().Trace().HeaderString())
 			if !step.Span().TraceBaggage().IsZero() {
 				r.Header.Set("baggage", step.Span().TraceBaggage().String())
