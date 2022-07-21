@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/muir/xoplog"
@@ -62,6 +63,7 @@ type Span struct {
 	Lines        []*Line
 	short        string
 	Metadata     map[string]interface{}
+	prefill      atomic.Value
 }
 
 type Line struct {
@@ -136,12 +138,34 @@ func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	return n
 }
 
+func (s *Span) GetPrefill() *Line {
+	p := s.prefill.Load()
+	if p == nil {
+		return nil
+	}
+	return p.(*Line)
+}
+
 func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	line := &Line{
 		Level:     level,
 		Timestamp: t,
 		Span:      s,
 		Data:      make(map[string]interface{}),
+	}
+	p := s.GetPrefill()
+	if p != nil {
+		if len(p.Data) != 0 {
+			for k, v := range p.Data {
+				line.Data[k] = v
+			}
+		}
+		if len(p.kvText) != 0 {
+			line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
+			copy(line.kvText, p.kvText)
+		}
+		line.Tmpl = p.Tmpl
+		line.Message = p.Message
 	}
 	return line
 }
@@ -156,9 +180,13 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.Text = ""
 }
 
+func (l *Line) SetAsPrefill(m string) {
+	l.Span.prefill.Store(l)
+}
+
 func (l *Line) Msg(m string) {
-	l.Message = m
-	text := l.Span.short + ": " + m
+	l.Message += m
+	text := l.Span.short + ": " + l.Message
 	if len(l.kvText) > 0 {
 		text += " " + strings.Join(l.kvText, " ")
 		l.kvText = nil
@@ -170,10 +198,10 @@ func (l *Line) Msg(m string) {
 var templateRE = regexp.MustCompile(`\{.+?\}`)
 
 func (l *Line) Template(m string) {
-	l.Tmpl = m
+	l.Tmpl += m
 	used := make(map[string]struct{})
 	text := l.Span.short + ": " +
-		templateRE.ReplaceAllStringFunc(m, func(k string) string {
+		templateRE.ReplaceAllStringFunc(l.Tmpl, func(k string) string {
 			k = k[1 : len(k)-1]
 			if v, ok := l.Data[k]; ok {
 				used[k] = struct{}{}

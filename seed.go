@@ -1,3 +1,4 @@
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 package xoplog
 
 import (
@@ -5,25 +6,31 @@ import (
 
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xop"
+	"github.com/muir/xoplog/xopbase"
+	"github.com/muir/xoplog/xopconst"
 )
 
 // Seed is used to create a Log.
 type Seed struct {
-	config         Config
-	traceBundle    trace.Bundle
-	prefix         string
-	prefill        []xop.Thing
-	prefillChanged bool
-	description    string
-	baseLoggers    baseLoggers
-	flushDelay     time.Duration
+	config      Config
+	traceBundle trace.Bundle
+	prefix      string
+	prefillMsg  string
+	prefillData []func(xopbase.Line)
+	description string
+	baseLoggers baseLoggers
+	flushDelay  time.Duration
 }
 
 func (s Seed) Copy() Seed {
 	n := s
-	n.prefill = copyFields(s.prefill)
 	n.baseLoggers = s.baseLoggers.Copy()
 	n.traceBundle = s.traceBundle.Copy()
+	n.prefillMsg = s.prefillMsg
+	if s.prefillData != nil {
+		n.prefillData = make([]func(xopbase.Line), len(s.prefillData))
+		copy(n.prefillData, s.prefillData)
+	}
 	return n
 }
 
@@ -70,17 +77,16 @@ func WithTrace(trace trace.Trace) SeedModifier {
 	}
 }
 
-func WithMorePrefill(fields ...xop.Thing) SeedModifier {
+func WithNoPrefill() SeedModifier {
 	return func(s *Seed) {
-		s.prefillChanged = true
-		s.prefill = append(s.prefill, fields...)
+		s.prefillData = nil
+		s.prefillMsg = ""
 	}
 }
 
-func WithPrefill(fields ...xop.Thing) SeedModifier {
+func WithPrefillText(m string) SeedModifier {
 	return func(s *Seed) {
-		s.prefill = fields
-		s.prefillChanged = true
+		s.prefillMsg = m
 	}
 }
 
@@ -92,4 +98,114 @@ func (s Seed) SubSpan() Seed {
 	s.traceBundle = s.traceBundle.Copy()
 	s.traceBundle.Trace.RandomizeSpanID()
 	return s
+}
+
+func (s Seed) sendPrefill(log *Log) {
+	if s.prefillData == nil && s.prefillMsg == "" {
+		return
+	}
+	line := log.span.base.Line(xopconst.InfoLevel, time.Now())
+	for _, f := range s.prefillData {
+		f(line)
+	}
+	line.SetAsPrefill(s.prefillMsg)
+}
+
+// WithAnyPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithAnyPrefill(k string, v interface{}) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Any(k, v)
+		})
+	}
+}
+
+// WithBoolPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithBoolPrefill(k string, v bool) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Bool(k, v)
+		})
+	}
+}
+
+// WithDurationPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithDurationPrefill(k string, v time.Duration) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Duration(k, v)
+		})
+	}
+}
+
+// WithErrorPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithErrorPrefill(k string, v error) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Error(k, v)
+		})
+	}
+}
+
+// WithIntPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithIntPrefill(k string, v int64) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Int(k, v)
+		})
+	}
+}
+
+// WithLinkPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithLinkPrefill(k string, v trace.Trace) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Link(k, v)
+		})
+	}
+}
+
+// WithStrPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithStrPrefill(k string, v string) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Str(k, v)
+		})
+	}
+}
+
+// WithTimePrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithTimePrefill(k string, v time.Time) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Time(k, v)
+		})
+	}
+}
+
+// WithUintPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithUintPrefill(k string, v uint64) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.Uint(k, v)
+		})
+	}
 }

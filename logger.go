@@ -75,6 +75,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
 	log.buffered = log.span.seed.baseLoggers.AsOne.Buffered()
 	log.span.base = log.shared.BaseRequest.(xopbase.Span)
+	s.sendPrefill(&log) // before turning on the timer so as to not create a race
 	if log.buffered {
 		log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
 	}
@@ -95,6 +96,7 @@ func (old *Log) newChildLog(seed Seed) *Log {
 	}
 	log.span.log = log
 	log.span.base.Boring(true)
+	seed.sendPrefill(log)
 	return log
 }
 

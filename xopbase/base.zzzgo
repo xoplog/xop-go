@@ -66,6 +66,12 @@ type Line interface {
 	// Template may only be called once.  It is an alternative to Msg.
 	Template(string)
 
+	// SetAsPrefill may only be called once.  It is an alternative to Msg.
+	// Whatever is in the line becomes part of every following line.
+	// This will only be used right when a Span is created and thus
+	// locking should not be required.
+	SetAsPrefill(string)
+
 	// Recycle starts the line ready to use again.
 	Recycle(xopconst.Level, time.Time)
 }

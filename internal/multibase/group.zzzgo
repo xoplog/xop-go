@@ -113,6 +113,12 @@ func (l Lines) Recycle(level xopconst.Level, t time.Time) {
 	}
 }
 
+func (l Lines) SetAsPrefill(m string) {
+	for _, line := range l {
+		line.SetAsPrefill(m)
+	}
+}
+
 func (l Lines) Template(m string) {
 	for _, line := range l {
 		line.Template(m)

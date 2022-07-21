@@ -1,0 +1,122 @@
+package xoplog
+
+import (
+	"time"
+
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xop"
+	"github.com/muir/xoplog/xopbase"
+)
+
+// Seed is used to create a Log.
+type Seed struct {
+	config      Config
+	traceBundle trace.Bundle
+	prefix      string
+	prefillMsg  string
+	prefillData []func(xopbase.Line)
+	description string
+	baseLoggers baseLoggers
+	flushDelay  time.Duration
+}
+
+func (s Seed) Copy() Seed {
+	n := s
+	n.baseLoggers = s.baseLoggers.Copy()
+	n.traceBundle = s.traceBundle.Copy()
+	n.prefillMsg = s.prefillMsg
+	if s.prefillData != nil {
+		n.prefillData = make([]func(xopbase.Line), len(s.prefillData))
+		copy(n.prefillData, s.prefillData)
+	}
+	return n
+}
+
+func copyFields(from []xop.Thing) []xop.Thing {
+	n := make([]xop.Thing, len(from))
+	copy(n, from)
+	return n
+}
+
+type SeedModifier func(*Seed)
+
+func NewSeed(mods ...SeedModifier) Seed {
+	seed := &Seed{
+		config: Config{
+			FlushDelay: DefaultFlushDelay,
+		},
+		traceBundle: trace.NewBundle(),
+	}
+	seed.rebuildAsOne()
+	return seed.applyMods(mods)
+}
+
+func (s *Span) Seed(mods ...SeedModifier) Seed {
+	seed := s.seed.Copy()
+	return seed.applyMods(mods)
+}
+
+func (s Seed) applyMods(mods []SeedModifier) Seed {
+	for _, mod := range mods {
+		mod(&s)
+	}
+	return s
+}
+
+func WithBundle(bundle trace.Bundle) SeedModifier {
+	return func(s *Seed) {
+		s.traceBundle = bundle
+	}
+}
+
+func WithTrace(trace trace.Trace) SeedModifier {
+	return func(s *Seed) {
+		s.traceBundle.Trace = trace
+	}
+}
+
+func WithNoPrefill() SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = nil
+		s.prefillMsg = ""
+	}
+}
+
+func WithPrefillText(m string) SeedModifier {
+	return func(s *Seed) {
+		s.prefillMsg = m
+	}
+}
+
+func (s Seed) Trace() trace.Bundle {
+	return s.traceBundle
+}
+
+func (s Seed) SubSpan() Seed {
+	s.traceBundle = s.traceBundle.Copy()
+	s.traceBundle.Trace.RandomizeSpanID()
+	return s
+}
+
+func (s Seed) sendPrefill(log *Log) {
+	if s.prefillData == nil && s.prefillMsg == "" {
+		return
+	}
+	line := log.span.base.Line(xopconst.InfoLevel, time.Now())
+	for _, f := range s.prefillData {
+		f(line)
+	}
+	line.SetAsPrefill(s.prefillMsg)
+}
+
+// MACRO BaseData
+// WithZZZPrefill adds key/value pairs that will be included with
+// all log lines in this span.  If there are no log lines in the
+// span then this data will not be logged at all.
+func WithZZZPrefill(k string, v zzz) SeedModifier {
+	return func(s *Seed) {
+		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+			line.ZZZ(k, v)
+		})
+	}
+}
