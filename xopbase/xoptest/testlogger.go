@@ -1,4 +1,5 @@
-package testlogger
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+package xoptest
 
 import (
 	"fmt"
@@ -20,10 +21,12 @@ type testingT interface {
 	Name() string
 }
 
-var _ xopbase.Logger = &TestLogger{}
-var _ xopbase.Request = &Span{}
-var _ xopbase.Span = &Span{}
-var _ xopbase.Line = &Line{}
+var (
+	_ xopbase.Logger  = &TestLogger{}
+	_ xopbase.Request = &Span{}
+	_ xopbase.Span    = &Span{}
+	_ xopbase.Line    = &Line{}
+)
 
 func New(t testingT) *TestLogger {
 	return &TestLogger{
@@ -152,7 +155,7 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	}
 	p := s.GetPrefill()
 	if p != nil {
-		if len(p.Data) != 0{
+		if len(p.Data) != 0 {
 			for k, v := range p.Data {
 				line.Data[k] = v
 			}
@@ -177,7 +180,7 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.Text = ""
 }
 
-// TODO: test SetAsPrefill 
+// TODO: test SetAsPrefill
 func (l *Line) SetAsPrefill(m string) {
 	l.Span.prefill.Store(l)
 }
@@ -236,10 +239,25 @@ func (l *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
 }
 
-// MACRO BaseData SKIP:Any
-func (l *Line) ZZZ(k string, v zzz) { l.Any(k, v) }
+func (l *Line) Bool(k string, v bool)              { l.Any(k, v) }
+func (l *Line) Duration(k string, v time.Duration) { l.Any(k, v) }
+func (l *Line) Error(k string, v error)            { l.Any(k, v) }
+func (l *Line) Int(k string, v int64)              { l.Any(k, v) }
+func (l *Line) Link(k string, v trace.Trace)       { l.Any(k, v) }
+func (l *Line) Str(k string, v string)             { l.Any(k, v) }
+func (l *Line) Time(k string, v time.Time)         { l.Any(k, v) }
+func (l *Line) Uint(k string, v uint64)            { l.Any(k, v) }
 
-// MACRO BaseAttribute
-func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { s.Attributes.MetadataZZZ(k, v) }
+func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
+func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
+func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	s.Attributes.MetadataEnum(k, v)
+}
+func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes.MetadataInt64(k, v) }
+func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	s.Attributes.MetadataLink(k, v)
+}
+func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
+func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }
 
 // end

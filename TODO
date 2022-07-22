@@ -7,6 +7,14 @@ Use BSON for main transport?
 
 Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
 
+Add stack to error & alert logs.
+
+Add timetamps to logs.  How?
+
+Add caller to logs when wanted.
+
+Figure out how baseloggers can share resources with each other.
+
 Use generics to make type-safe Enum span attributes: can't do it as a method on Span, but can
 do it as a function. 
 
@@ -31,6 +39,12 @@ Base loggers:
 	Gateway into Jaeger
 	Gateway into Open Telementry
 	Stream send to server (need to write server !)
+	Gateways to other loggers so that xoplog can be used by libraries:
+		logur
+		zerolog
+		onelog
+		zap
+		standard "log"
 
 Round out the kinds of things that can be logged:
 	Tables

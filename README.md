@@ -15,16 +15,29 @@ have full identifiers.  If you give each part of dealing with a request inside
 a single server, lots of different spans, then how can you quickly reference the
 request-level span from one the sub-spans or one of the other requests that 
 is a child of the main request.  There is no standard way to distinguish a span
-that is simply a separate thread of execution or one that is a fully separate
-request.
-
-The thing that is most broken are back (parent) references.  Since the parent
-references will all normally share the same trace-id, if everything is stored by
-trace-id, then lookups should still be fast and excessive indexes won't be
-a problem.
+that is simply a separate thread of execution or one that is a related
+request on a different server.
 
 The format of logs isn't easy to extend because there are is no meta-level or
-standard for what log fields mean.
+standard for what log fields mean.  The closest for this is the naming semantics
+that are included in the Open Telementry project.
+
+Once the logs are generated, good logging systems tag each line with trance and
+span identifiers, but the logs are still stored, searched, and dispalyed as
+lines.  Most of the value comes from the context of the log so recording them
+as lines removes misses the point.
+
+Another issue with most structured loggers is that they over-collect details that
+don't matter and un-invest in how the logs are presented.  The extra details are
+sometimes useful, but they increase the cost to process and store the logs.  More
+importantly, they can clutter the display so that it has lots of data but does
+not present much information.
+
+The standard model does not lend itself to experimentation with what kinds of things
+are logged and how they're presented.  At [BlueOwl](https://www.blueowl.xyz), we
+discovered that logging tables was very valuable.  We had support for displaying
+tables in our log viewer.  For some very complicated bugs, displaying tables in the
+logs was instrumental in finding the problem.
 
 ## Alternatives
 
@@ -211,10 +224,18 @@ work being done.  Breaking the work into spans is an exercise for the programmer
 Arbitrary names are supported for tagging log lines. For attributes to be displayed
 specially in front-ends, they need to follow standards. Standard attribute groups are
 pre-registered as structs. These can be shared between organizations by contributing
-them to the [Xop repository](https://github.com/muir/xoplog/xoptag).
+them to the [Xop repository](https://github.com/muir/xoplog/xopconst).
+
+The following names are reserved:
+
+- `text`.  Used for the text of a log line.
+- `time`.  Used for the timestamp of the log event, if included.
+- `stack`.  Used for stacktraces when errors or alerts are logged.
+- `span`.  Used for the span-id of log lines for some base loggers.
+- `caller`.  Used to indicate the immediate caller (file & line) when that's desired.
 
 The data associated with spans, traces, and requests must come from pre-registered
-tag structs.
+keys.
 
 ## Other systems
 

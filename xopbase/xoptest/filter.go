@@ -1,4 +1,4 @@
-package testlogger
+package xoptest
 
 import (
 	"strings"
