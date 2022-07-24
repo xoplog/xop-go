@@ -1,6 +1,7 @@
 package xopjson
 
 import (
+	"encoding/json"
 	"sync/atomic"
 	"time"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 	"github.com/muir/xoplog/xoputil"
+
+	"github.com/phuslu/fasttime"
 )
 
 const maxBufferToKeep = 1024 * 10
@@ -22,10 +25,10 @@ type Option func(*Logger)
 type timeOption int
 
 const (
-	noTime timeOption = iota
+	epochTime timeOption = iota
 	strftimeTime
 	timeTime
-	epochTime
+	unixNano
 )
 
 type DurationOption int
@@ -45,7 +48,7 @@ type AsynchronousWriter interface {
 }
 
 type Logger struct {
-	writer              AsynchronousWriter
+	writer         AsynchronousWriter
 	timeOption     timeOption
 	timeFormat     string
 	framesAtLevel  map[xopconst.Level]int
@@ -77,6 +80,7 @@ type Line struct {
 	timestamp  time.Time
 	span       *Span
 	prefillLen int
+	encoder    *json.Encoder
 }
 
 func WithUncheckedKeys(b bool) Option {
@@ -171,7 +175,8 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 		span:      s,
 	}
 	l.dataBuffer.FastKeys = s.logger.fastKeys
-	l.getPrefill()
+	l.encoder = json.NewEncoder(&l.dataBuffer)
+	l.start(level, t)
 	return l
 }
 
@@ -179,16 +184,18 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.level = level
 	l.timestamp = t
 	l.dataBuffer.Reset()
-	l.getPrefill()
+	l.start(level, t)
 }
 
-func (l *Line) getPrefill() {
+func (l *Line) start(level xopconst.Level, t time.Time) {
 	l.dataBuffer.Byte('{') // }
 	prefill := l.span.getPrefill()
 	l.prefillLen = len(prefill.data)
 	if prefill != nil {
 		l.dataBuffer.Append(prefill.data)
 	}
+	l.Int("level", int64(level))
+	l.Time("time", t)
 }
 
 func (l *Line) SetAsPrefill(m string) {
@@ -222,7 +229,8 @@ func (l *Line) Msg(m string) {
 
 func (l *Line) reclaimMemory() {
 	if len(l.dataBuffer.B) > maxBufferToKeep {
-		l.dataBuffer = xoputil.JBuilder{FastKeys:l.span.logger.fastKeys}
+		l.dataBuffer = xoputil.JBuilder{FastKeys: l.span.logger.fastKeys}
+		l.encoder = json.NewEncoder(&l.dataBuffer)
 	}
 }
 
@@ -240,17 +248,53 @@ func (l *Line) Template(m string) {
 }
 
 func (l *Line) Any(k string, v interface{}) {
-	// XXX
+	l.dataBuffer.Key(k)
+	before := len(l.dataBuffer.B)
+	err := l.encoder.Encode(v)
+	if err != nil {
+		l.dataBuffer.B = l.dataBuffer.B[:before]
+		l.span.logger.errorFunc(err)
+		l.Error("encode:"+k, err)
+	} else {
+		// remove \n added by json.Encoder.Encode.  So helpful!
+		if l.dataBuffer.B[len(l.dataBuffer.B)-1] == '\n' {
+			l.dataBuffer.B = l.dataBuffer.B[:len(l.dataBuffer.B)-1]
+		}
+	}
 }
 
 func (l *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
-	// XXX
+	// TODO: send dictionary and numbers
+	l.Int(k.Key(), v.Int64())
 }
 
-func (l *Line) Time(k string, v time.Time) { // XXX
+func (l *Line) Time(k string, t time.Time) {
+	switch l.span.logger.timeOption {
+	case strftimeTime:
+		l.dataBuffer.Key(k)
+		l.dataBuffer.Byte('"')
+		l.dataBuffer.B = fasttime.AppendStrftime(l.dataBuffer.B, l.span.logger.timeFormat, t)
+		l.dataBuffer.Byte('"')
+	case timeTime:
+		l.dataBuffer.Key(k)
+		l.dataBuffer.Byte('"')
+		l.dataBuffer.B = t.AppendFormat(l.dataBuffer.B, l.span.logger.timeFormat)
+		l.dataBuffer.Byte('"')
+	case epochTime:
+		l.dataBuffer.Key(k)
+		l.dataBuffer.Float64(float64(t.UnixNano()) / 1000000000.0) // TODO good enough?
+	case unixNano:
+		l.dataBuffer.Key(k)
+		l.dataBuffer.Int64(t.UnixNano())
+	}
 }
 
-func (l *Line) Link(k string, v trace.Trace) { // XXX
+func (l *Line) Link(k string, v trace.Trace) {
+	// TODO: is this the right format for links?
+	l.dataBuffer.Key(k)
+	l.dataBuffer.Append([]byte(`{"xop.link":"`))
+	l.dataBuffer.AppendString(v.HeaderString())
+	l.dataBuffer.Append([]byte(`"}`))
 }
 
 func (l *Line) Bool(k string, v bool) {

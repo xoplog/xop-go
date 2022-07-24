@@ -1,6 +1,7 @@
 package xoputil
 
 import (
+	"io"
 	"strconv"
 )
 
@@ -8,6 +9,8 @@ type JBuilder struct {
 	B        []byte
 	FastKeys bool
 }
+
+var _ io.Writer = &JBuilder{}
 
 // Comma adds a comma if a comma is needed based
 // on what's already in the JBuilder: if the previous
@@ -24,16 +27,21 @@ func (b *JBuilder) Comma() {
 	b.B = append(b.B, ',')
 }
 
-func (b *JBuilder) Byte(v byte) {
+func (b *JBuilder) Byte(v byte) { // XXX rename: AppendByte
 	b.B = append(b.B, v)
 }
 
-func (b *JBuilder) Append(v []byte) {
+func (b *JBuilder) Append(v []byte) { // XXX rename: AppendBytes
 	b.B = append(b.B, v...)
 }
 
 func (b *JBuilder) AppendString(v string) {
 	b.B = append(b.B, v...)
+}
+
+func (b *JBuilder) Write(v []byte) (int, error) {
+	b.B = append(b.B, v...)
+	return len(v), nil
 }
 
 func (b *JBuilder) Reset() {
