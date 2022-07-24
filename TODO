@@ -10,6 +10,8 @@ Should Template() be a line starter rather than an ender?
 
 For enums from OTEL, generate them from the protobuf constants.
 
+Drop the makefile in favor of more sophisticated use of generics  See example of enumer in zitadel/oidc
+
 Use ZSON for main transport?  https://www.brimdata.io/blog/unmarshal-interface/
 Use BSON for main transport?
 

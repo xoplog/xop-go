@@ -111,6 +111,7 @@ var currentPackage string
 
 func main() {
 	fmt.Println("// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file")
+	fmt.Println("") // prevent above comment from becoming a package comment
 	var reader = bufio.NewReader(os.Stdin)
 
 	for {
