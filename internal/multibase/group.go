@@ -72,6 +72,24 @@ func (l Loggers) Close() {
 	}
 }
 
+func (l Loggers) StackFramesWanted() map[xopconst.Level]int {
+	combined := make(map[xopconst.Level]int)
+	for _, logger := range l {
+		for level, frames := range logger.StackFramesWanted() {
+			if frames > combined[level] {
+				combined[level] = frames
+			}
+		}
+	}
+	return combined
+}
+
+func (l Loggers) SetErrorReporter(f func(error)) {
+	for _, logger := range l {
+		logger.SetErrorReporter(f)
+	}
+}
+
 func (s Requests) Flush() {
 	var wg sync.WaitGroup
 	wg.Add(len(s.Requests))
@@ -122,6 +140,12 @@ func (s Spans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	}
 }
 
+func (s Spans) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
+	for _, span := range s {
+		span.MetadataNumber(k, v)
+	}
+}
+
 func (s Spans) MetadataStr(k *xopconst.StrAttribute, v string) {
 	for _, span := range s {
 		span.MetadataStr(k, v)
@@ -169,6 +193,12 @@ func (l Lines) Template(m string) {
 func (l Lines) Msg(m string) {
 	for _, line := range l {
 		line.Msg(m)
+	}
+}
+
+func (l Lines) Static(m string) {
+	for _, line := range l {
+		line.Static(m)
 	}
 }
 

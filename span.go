@@ -89,6 +89,12 @@ func (s *Span) Link(k *xopconst.LinkAttribute, v trace.Trace) *Span {
 	return s.eft()
 }
 
+// Number adds a float64 key/value attribute to the Span
+func (s *Span) Number(k *xopconst.NumberAttribute, v float64) *Span {
+	s.base.MetadataNumber(k, v)
+	return s.eft()
+}
+
 // Str adds a string key/value attribute to the Span
 func (s *Span) Str(k *xopconst.StrAttribute, v string) *Span {
 	s.base.MetadataStr(k, v)

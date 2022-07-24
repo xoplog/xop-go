@@ -195,7 +195,9 @@ func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
 
 // Step creates a new log that does not need to be terminated -- it
 // represents the continued execution of the current log bug doing
-// something that is different and should be in a fresh span.
+// something that is different and should be in a fresh span. The expectation
+// is that there is a parent log that is creating various sub-logs using
+// Step over and over as it does different things.
 func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 	seed := l.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
@@ -228,6 +230,10 @@ func (l *Log) LogLine(level xopconst.Level) *LogLine {
 // Template is expected to be more expensive than Msg so it should
 // be used somewhat sparingly.  Data elements do not have to be
 // consumed by the template.
+//
+// The names used for "{name}" substitutions are restricted: they may
+// not include any characters that would be escapsed in a JSON string.
+// No double quote.  No linefeed.  No backslash.  Etc.
 func (ll *LogLine) Template(template string) {
 	ll.line.Template(template)
 	ll.log.span.linePool.Put(ll)

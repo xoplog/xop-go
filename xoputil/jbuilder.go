@@ -5,7 +5,8 @@ import (
 )
 
 type JBuilder struct {
-	B []byte
+	B        []byte
+	FastKeys bool
 }
 
 // Comma adds a comma if a comma is needed based
@@ -23,10 +24,26 @@ func (b *JBuilder) Comma() {
 	b.B = append(b.B, ',')
 }
 
+func (b *JBuilder) Byte(v byte) {
+	b.B = append(b.B, v)
+}
+
+func (b *JBuilder) Append(v []byte) {
+	b.B = append(b.B, v...)
+}
+
+func (b *JBuilder) AppendString(v string) {
+	b.B = append(b.B, v...)
+}
+
+func (b *JBuilder) Reset() {
+	b.B = b.B[:0]
+}
+
 // String adds a JSON-encoded string
-func (b *JBuilder) String(s string) {
+func (b *JBuilder) String(v string) {
 	b.B = append(b.B, '"')
-	b.string(s)
+	b.string(v)
 	b.B = append(b.B, '"')
 }
 
@@ -44,4 +61,32 @@ func (b *JBuilder) Int64(i int64) {
 
 func (b *JBuilder) Bool(v bool) {
 	b.B = strconv.AppendBool(b.B, v)
+}
+
+// Key() calls Comma() and then adds " k " :
+// It skips checking if the key needs escape if FastKeys
+// is true.
+func (b *JBuilder) Key(v string) {
+	if b.FastKeys {
+		b.UncheckedKey(v)
+	} else {
+		b.Comma()
+		b.String(v)
+		b.B = append(b.B, ':')
+	}
+}
+
+func (b *JBuilder) UncheckedKey(v string) {
+	b.Comma()
+	b.B = append(b.B, '"')
+	b.B = append(b.B, v...)
+	b.B = append(b.B, '"', ':')
+}
+
+// UncheckedString does not check to see if the string
+// has any characters in it that would need JSON escaping.
+func (b *JBuilder) UncheckedString(v string) {
+	b.B = append(b.B, '"')
+	b.B = append(b.B, v...)
+	b.B = append(b.B, '"')
 }

@@ -4,16 +4,20 @@ import (
 	"sync/atomic"
 )
 
+//go:generate enumer -type=Level -linecomment -json -sql
+
 const (
 	// Open Telemetry puts tracing as lower level than debugging.  Why?
 	// https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/logs/v1/logs.proto
 	// Aside from that, we'll mostly map to their numbers.
-	DebugLevel Level = 5
-	TraceLevel       = 8 // OTEL "Debug4"
-	InfoLevel        = 9
-	WarnLevel        = 13
-	ErrorLevel       = 17
-	AlertLevel       = 20 // OTEL "Error4"
+	// TraceLevel is OTEL's "Debug4"
+	// AlertLevel is OTEL's "Error4"
+	DebugLevel Level = 5  // debug
+	TraceLevel Level = 8  // trace
+	InfoLevel  Level = 9  // info
+	WarnLevel  Level = 13 // warn
+	ErrorLevel Level = 17 // error
+	AlertLevel Level = 20 // alert
 )
 
 type Level int32

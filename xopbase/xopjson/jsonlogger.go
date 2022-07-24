@@ -2,7 +2,6 @@
 package xopjson
 
 import (
-	"io"
 	"sync/atomic"
 	"time"
 
@@ -32,13 +31,31 @@ const (
 	epochTime
 )
 
+type DurationOption int
+
+const (
+	AsNanos   DurationOption = iota // int64(duration)
+	AsMillis                        // int64(duration / time.Milliscond)
+	AsSeconds                       // int64(duration / time.Second)
+	AsString                        // duration.String()
+)
+
+type AsynchronousWriter interface {
+	Write([]byte) (int, error)
+	Flush() error
+	Close() error
+	Buffered() bool
+}
+
 type Logger struct {
-	w             io.Writer
-	timeOption    timeOption
-	timeFormat    string
-	callers       int
-	withGoroutine bool
-	flusher       func()
+	writer         AsynchronousWriter
+	timeOption     timeOption
+	timeFormat     string
+	framesAtLevel  map[xopconst.Level]int
+	withGoroutine  bool
+	fastKeys       bool
+	durationFormat DurationOption
+	errorFunc      func(error)
 }
 
 type Request struct {
@@ -46,7 +63,7 @@ type Request struct {
 }
 
 type prefill struct {
-	data string
+	data []byte
 	msg  string
 }
 
@@ -62,7 +79,16 @@ type Line struct {
 	level      xopconst.Level
 	timestamp  time.Time
 	span       *Span
+	prefillLen int
 }
+
+func WithUncheckedKeys(b bool) Option {
+	return func(l *Logger) {
+		l.fastKeys = b
+	}
+}
+
+// TODO: allow custom error formats
 
 // WithStrftime adds a timestamp to each log line.  See
 // https://github.com/phuslu/fasttime for the supported
@@ -74,17 +100,15 @@ func WithStrftime(format string) Option {
 	}
 }
 
-func WithCallersAtLevel(logLevel xopconst.Level, framesWanted int) Option {
+func WithDuration(durationFormat DurationOption) Option {
 	return func(l *Logger) {
-		l.callers = levels
+		l.durationFormat = durationFormat
 	}
 }
 
-// WithFlusher should be used if the io.Writer is buffering it's output
-// and can be flushed.
-func WithFlusher(flusher func() Option) {
+func WithCallersAtLevel(logLevel xopconst.Level, framesWanted int) Option {
 	return func(l *Logger) {
-		l.flusher = flusher
+		l.framesAtLevel[logLevel] = framesWanted
 	}
 }
 
@@ -94,9 +118,10 @@ func WithGoroutineID(b bool) Option {
 	}
 }
 
-func New(w io.Writer, opts ...Option) *Logger {
+func New(w AsynchronousWriter, opts ...Option) *Logger {
 	logger := &Logger{
-		writer: w,
+		writer:        w,
+		framesAtLevel: make(map[xopconst.Level]int),
 	}
 	for _, f := range opts {
 		f(logger)
@@ -104,29 +129,34 @@ func New(w io.Writer, opts ...Option) *Logger {
 	return logger
 }
 
-func (l *Logger) Close()         {}
-func (l *Logger) Buffered() bool { return l.flusher != nil }
+func (l *Logger) Buffered() bool                            { return l.writer.Buffered() }
+func (l *Logger) ReferencesKept() bool                      { return false }
+func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevel }
+func (l *Logger) SetErrorReporter(reporter func(error))     { l.errorFunc = reporter }
 
-func (l *Logger) ReferencesKept() bool { return false }
+func (l *Logger) Close() {
+	err := l.writer.Close()
+	if err != nil {
+		l.errorFunc(err)
+	}
+}
 
 func (l *Logger) Request(span trace.Bundle, name string) xopbase.Request {
 	s := &Span{
 		logger: l,
 	}
-	s.Attributes.Reset()
+	s.attributes.Reset()
 	return s
 }
 
 func (s *Span) Flush() {
-	if s.logger.flusher != nil {
-		s.logger.flusher()
-	}
+	s.logger.writer.Flush()
 }
 
 func (s *Span) Boring(bool) {} // TODO
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
-	return l.Request(span, name)
+	return s.logger.Request(span, name)
 }
 
 func (s *Span) getPrefill() *prefill {
@@ -143,6 +173,7 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 		timestamp: t,
 		span:      s,
 	}
+	l.dataBuffer.FastKeys = s.logger.fastKeys
 	l.getPrefill()
 	return l
 }
@@ -152,55 +183,62 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.timestamp = t
 	l.dataBuffer.Reset()
 	l.getPrefill()
-	return l
 }
 
 func (l *Line) getPrefill() {
-	l.prefill = s.GetPrefill()
-	_, _ = l.dataBuffer.WriteByte('{') // }
-	if l.prefill != nil {
-		l.dataBuffer.Write(l.prefill.data)
+	l.dataBuffer.Byte('{') // }
+	prefill := l.span.getPrefill()
+	l.prefillLen = len(prefill.data)
+	if prefill != nil {
+		l.dataBuffer.Append(prefill.data)
 	}
 }
 
 func (l *Line) SetAsPrefill(m string) {
-	skip := 1
-	if l.prefill != nil {
-		// don't include the prefill for _this_ line in the new prefill
-		skip += len(l.prefill.data)
-	}
+	skip := 1 + l.prefillLen
 	prefill := prefill{
 		msg:  m,
-		data: l.dataBuffer.String()[skip:],
+		data: make([]byte, len(l.dataBuffer.B)-skip),
 	}
-	l.Span.prefill.Store(prefill)
+	copy(prefill.data, l.dataBuffer.B[skip:])
+	l.span.prefill.Store(prefill)
 	// this Line will not be recycled so destory its buffers
 	l.reclaimMemory()
 }
 
+func (l *Line) Static(m string) {
+	l.Msg(m) // TODO
+}
+
 func (l *Line) Msg(m string) {
 	l.dataBuffer.Comma()
-	_, _ = l.dataBuffer.WriteString(`"msg":`)
+	l.dataBuffer.Append([]byte(`"msg":`))
 	l.dataBuffer.String(m)
 	// {
-	_, _ = l.dataBuffer.WriteByte("}")
-	_, _ = l.span.logger.Write(l.dataBuffer.Bytes())
+	l.dataBuffer.Byte('}')
+	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
+	if err != nil {
+		l.span.logger.errorFunc(err)
+	}
 	l.reclaimMemory()
 }
 
 func (l *Line) reclaimMemory() {
-	if l.databuffer.Len() > maxBufferToKeep {
-		l.dataBuffer = xoputil.JBuffer{}
+	if len(l.dataBuffer.B) > maxBufferToKeep {
+		l.dataBuffer = xoputil.JBuilder{FastKeys: l.span.logger.fastKeys}
 	}
 }
 
 func (l *Line) Template(m string) {
 	l.dataBuffer.Comma()
-	_, _ = l.dataBuffer.WriteString(`"xop":"template","msg":`)
+	l.dataBuffer.AppendString(`"xop":"template","msg":`)
 	l.dataBuffer.String(m)
 	// {
-	_, _ = l.dataBuffer.WriteByte("}")
-	_, _ = l.span.logger.Write(l.dataBuffer.Bytes())
+	l.dataBuffer.Byte('}')
+	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
+	if err != nil {
+		l.span.logger.errorFunc(err)
+	}
 	l.reclaimMemory()
 }
 
@@ -219,50 +257,65 @@ func (l *Line) Link(k string, v trace.Trace) { // XXX
 }
 
 func (l *Line) Bool(k string, v bool) {
-	l.dataBuffer.Comma()
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"')
-	l.dataBuffer.Buf = append(l.databuffer.Buf, k...)
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"', ':')
+	l.dataBuffer.Key(k)
 	l.dataBuffer.Bool(v)
 }
 
-func (l *Line) Int64(k string, v int64) {
-	l.dataBuffer.Comma()
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"')
-	l.dataBuffer.Buf = append(l.databuffer.Buf, k...)
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"', ':')
+func (l *Line) Int(k string, v int64) {
+	l.dataBuffer.Key(k)
 	l.dataBuffer.Int64(v)
 }
 
+func (l *Line) Uint(k string, v uint64) {
+	l.dataBuffer.Key(k)
+	l.dataBuffer.Uint64(v)
+}
+
 func (l *Line) Str(k string, v string) {
-	l.dataBuffer.Comma()
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"')
-	l.dataBuffer.Buf = append(l.databuffer.Buf, k...)
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"', ':')
+	l.dataBuffer.Key(k)
 	l.dataBuffer.String(v)
 }
 
-func (l *Line) Number(k string, v string) {
-	l.dataBuffer.Comma()
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"')
-	l.dataBuffer.Buf = append(l.databuffer.Buf, k...)
-	l.dataBuffer.Buf = append(l.databuffer.Buf, '"', ':')
+func (l *Line) Number(k string, v float64) {
+	l.dataBuffer.Key(k)
 	l.dataBuffer.Float64(v)
 }
 
-func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
-func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
-func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
-	s.Attributes.MetadataEnum(k, v)
+func (l *Line) Duration(k string, v time.Duration) {
+	l.dataBuffer.Key(k)
+	switch l.span.logger.durationFormat {
+	case AsNanos:
+		l.dataBuffer.Int64(int64(v / time.Nanosecond))
+	case AsMillis:
+		l.dataBuffer.Int64(int64(v / time.Millisecond))
+	case AsSeconds:
+		l.dataBuffer.Int64(int64(v / time.Second))
+	case AsString:
+		fallthrough
+	default:
+		l.dataBuffer.UncheckedString(v.String())
+	}
 }
-func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes.MetadataInt64(k, v) }
+
+// TODO: allow custom formats
+func (l *Line) Error(k string, v error) {
+	l.dataBuffer.Key(k)
+	l.dataBuffer.String(v.Error())
+}
+
+func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.attributes.MetadataAny(k, v) }
+func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.attributes.MetadataBool(k, v) }
+func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	s.attributes.MetadataEnum(k, v)
+}
+func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.attributes.MetadataInt64(k, v) }
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
-	s.Attributes.MetadataLink(k, v)
+	s.attributes.MetadataLink(k, v)
 }
 func (s *Span) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
-	s.Attributes.MetadataNumber(k, v)
+	s.attributes.MetadataNumber(k, v)
 }
-func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
-func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }
+func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.attributes.MetadataStr(k, v) }
+func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.attributes.MetadataTime(k, v) }
 
 // end

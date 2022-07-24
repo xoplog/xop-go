@@ -22,6 +22,19 @@ type Logger interface {
 	// Flush() may still be invoked but it doesn't have to do anything.
 	Buffered() bool
 
+	// StackFramesWanted returns the number of stack frames wanted for
+	// each logging level.  Base loggers may be provided with more or 
+	// fewer frames than they requested.  It is presumed that higher logging
+	// levels want more frames than lower levels, so only increases are
+	// allowed as the severity increases.
+	StackFramesWanted() map[xopconst.Level]int // XXX implement
+
+	// SetErrorReported will always be called before any other method. If a
+	// base logger encounters an error, it may use the provided function to
+	// report it.  The base logger cannot assume that execution will stop.
+	// The base logger may not panic.
+	SetErrorReporter(func(error)) // XXX implement
+
 	Close()
 }
 
@@ -71,6 +84,11 @@ type Line interface {
 	// This will only be used right when a Span is created and thus
 	// locking should not be required.
 	SetAsPrefill(string)
+
+	// Static is the same as Msg, but it hints that the supplied string is
+	// constant rather than something generated.  Since it's static, base
+	// loggers may keep them a dictionary and send entry numbers.
+	Static(string)
 
 	// Recycle starts the line ready to use again.
 	Recycle(xopconst.Level, time.Time)

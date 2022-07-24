@@ -81,9 +81,11 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 	return xoplog.WithBaseLogger("testing", l)
 }
 
-func (l *TestLogger) Close()               {}
-func (l *TestLogger) Buffered() bool       { return false }
-func (l *TestLogger) ReferencesKept() bool { return true }
+func (l *TestLogger) Close()                                    {}
+func (l *TestLogger) Buffered() bool                            { return false }
+func (l *TestLogger) ReferencesKept() bool                      { return true }
+func (l *TestLogger) SetErrorReporter(func(error))              {}
+func (l *TestLogger) StackFramesWanted() map[xopconst.Level]int { return nil }
 func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -185,6 +187,10 @@ func (l *Line) SetAsPrefill(m string) {
 	l.Span.prefill.Store(l)
 }
 
+func (l *Line) Static(m string) {
+	l.Msg(m)
+}
+
 func (l *Line) Msg(m string) {
 	l.Message += m
 	text := l.Span.short + ": " + l.Message
@@ -256,6 +262,9 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes.MetadataInt64(k, v) }
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.Attributes.MetadataLink(k, v)
+}
+func (s *Span) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
+	s.Attributes.MetadataNumber(k, v)
 }
 func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
 func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }

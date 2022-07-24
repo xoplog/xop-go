@@ -81,6 +81,8 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 func (l *TestLogger) Close()               {}
 func (l *TestLogger) Buffered() bool       { return false }
 func (l *TestLogger) ReferencesKept() bool { return true }
+func (l *TestLogger) SetErrorReporter(func(error)) { }
+func (l *TestLogger) StackFramesWanted() map[xopconst.Level]int { return nil } 
 func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -180,6 +182,10 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 // TODO: test SetAsPrefill 
 func (l *Line) SetAsPrefill(m string) {
 	l.Span.prefill.Store(l)
+}
+
+func (l *Line) Static(m string) {
+	l.Msg(m)
 }
 
 func (l *Line) Msg(m string) {

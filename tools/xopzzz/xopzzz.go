@@ -22,6 +22,8 @@ var macros = map[string]map[string]string{
 	// xopconst.BoolAttribute type.
 	"ZZZAttribute": {
 		"Bool":     "bool",
+		"Number":   "float64", // XXX add
+		"Float32":  "float32", // XXX add
 		"Int64":    "int64",
 		"Int32":    "int32",
 		"Int16":    "int16",
@@ -37,13 +39,14 @@ var macros = map[string]map[string]string{
 	// BaseAttributes are the span decorators that base loggers must
 	// implement.  These turn into things like Base.MetadataBool()
 	"BaseAttribute": {
-		"Bool":  "bool",
-		"Int64": "int64",
-		"Str":   "string",
-		"Link":  "trace.Trace",
-		"Any":   "interface{}",
-		"Time":  "time.Time",
-		"Enum":  "xopconst.Enum",
+		"Bool":   "bool",
+		"Number": "float64",
+		"Int64":  "int64",
+		"Str":    "string",
+		"Link":   "trace.Trace",
+		"Any":    "interface{}",
+		"Time":   "time.Time",
+		"Enum":   "xopconst.Enum",
 	},
 	"IntsPlus": {
 		"Int":      "int",

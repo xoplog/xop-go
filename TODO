@@ -1,3 +1,11 @@
+Consider replacing SeedModifier with a seed modifier type...
+	Instead of
+		log.Step(...SeedModifier)
+		and functions that produce SeedModifier
+	have:
+		log.Step(func(SeedModifier))
+		and methods on SeedModifier that directly write to the seed
+
 Should Template() be a line starter rather than an ender?
 
 For enums from OTEL, generate them from the protobuf constants.
@@ -53,6 +61,7 @@ Round out the kinds of things that can be logged:
 Allow base loggers to resources (span attribute tracking, JSON formatting)
 
 Pull in speed hacks from phuslog
+Or maybe https://github.com/francoispqt/gojay (but then it would only be as fast a onelog)
 
 Metrics
 	

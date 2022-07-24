@@ -216,7 +216,6 @@ A "span" is a linear portion of the processing required to handle a request.  A 
 not include multiple threads of execution.  Span should represent a logical component to of the
 work being done.  Breaking the work into spans is an exercise for the programmer.
 
-
 # Naming
 
 ## Name registry
@@ -226,18 +225,47 @@ specially in front-ends, they need to follow standards. Standard attribute group
 pre-registered as structs. These can be shared between organizations by contributing
 them to the [Xop repository](https://github.com/muir/xoplog/xopconst).
 
-The following names are reserved:
+The following names are reserved.  What happens if they're used is undefined and up
+to the individual base loggers.
 
-- `text`.  Used for the text of a log line.
+- `xop`.  Used to indicate the kind of item begin emitted in a stream of objects. Empty for lines, `span` for spans.  `enum` to establish enum -> string mappings.  `chunk` for things broken up because they're too big.  `template` for lines that need template expansion.
+- `msg`.  Used for the text of a log line.
 - `time`.  Used for the timestamp of the log event, if included.
 - `stack`.  Used for stacktraces when errors or alerts are logged.
 - `span`.  Used for the span-id of log lines for some base loggers.
 - `caller`.  Used to indicate the immediate caller (file & line) when that's desired.
+- `level`.  The log level (debug, trace, info, warn, error, alert)
 
 The data associated with spans, traces, and requests must come from pre-registered
 keys.
 
+# Philosphy
+
+## Log less
+
+Do not log details that don't materialy add to the value of the log
+
+## Log more
+
+Use logs as a narritive of what's going on in the program so that when
+you look at the logs, you can follow along with what's going on.
+
+## Defer work
+
+Most logs won't be looked at.  Ever.  When possilbe defer the work of assembling the log
+to when it viewed.
+
 ## Other systems
+
+This logger is inspired by a proprietary logger at [BlueOwl](https://blueowl.xyz);
+[onelog](https://github.com/francoispqt/onelog);
+[phuslog](https://github.com/phuslu/log);
+[zap](https://github.com/uber-go/zap);
+[zerolog](https://github.com/rs/zerolog);
+[Open Telementry](https://opentelemetry.io);
+and
+[Jaeger](https://www.jaegertracing.io/).
+
 
 ### Open Telementry
 
