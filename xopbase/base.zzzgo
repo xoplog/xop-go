@@ -12,6 +12,15 @@ import (
 type Logger interface {
 	Request(span trace.Bundle, description string) Request
 
+	Close()
+}
+
+type Request interface {
+	Span
+
+	// Flush calls are single-threaded 
+	Flush()
+
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
 	// are kept, then xoplog.Log will make copies.
@@ -29,19 +38,13 @@ type Logger interface {
 	// allowed as the severity increases.
 	StackFramesWanted() map[xopconst.Level]int 
 
-	// SetErrorReported will always be called before any other method. If a
-	// base logger encounters an error, it may use the provided function to
+	// SetErrorReported will always be called before any other method on the
+	// Request.
+	//
+	// If a base logger encounters an error, it may use the provided function to
 	// report it.  The base logger cannot assume that execution will stop.
 	// The base logger may not panic.
 	SetErrorReporter(func(error)) // XXX implement
-
-	Close()
-}
-
-type Request interface {
-	// Calls to Flush are single-threaded along with calls to SpanInfo
-	Flush()
-	Span
 }
 
 type Span interface {

@@ -38,9 +38,7 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
-		config: Config{
-			FlushDelay: DefaultFlushDelay,
-		},
+		config:      DefaultConfig,
 		traceBundle: trace.NewBundle(),
 	}
 	seed.rebuildAsOne()

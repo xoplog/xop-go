@@ -24,12 +24,14 @@ type Log struct {
 }
 
 type Span struct {
-	seed     Seed
-	dataLock sync.Mutex // protects Data & SpanType (can only be held for short periods)
-	log      *Log       // back to self
-	base     xopbase.Span
-	linePool sync.Pool
-	boring   int32 // 0 = boring
+	seed              Seed
+	dataLock          sync.Mutex // protects Data & SpanType (can only be held for short periods)
+	log               *Log       // back to self
+	base              xopbase.Span
+	linePool          sync.Pool
+	boring            int32 // 0 = boring
+	referencesKept    bool
+	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
 }
 
 type local struct {
@@ -41,18 +43,14 @@ type local struct {
 
 // shared is common between the loggers that share a search index
 type shared struct {
-	FlushLock         sync.Mutex // protects Flush() (can be held for a longish period)
-	RefCount          int32
-	UnflushedLogs     int32
-	FlushTimer        *time.Timer
-	FlushDelay        time.Duration
-	FlushActive       int32 // 1 == timer is running, 0 = timer is not running
-	BaseRequest       xopbase.Request
-	ReferencesKept    bool
-	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
+	FlushLock     sync.Mutex // protects Flush() (can be held for a longish period)
+	RefCount      int32
+	UnflushedLogs int32
+	FlushTimer    *time.Timer
+	FlushDelay    time.Duration
+	FlushActive   int32 // 1 == timer is running, 0 = timer is not running
+	BaseRequest   xopbase.Request
 }
-
-var DefaultFlushDelay = time.Minute * 5
 
 func (s Seed) Request(descriptionOrName string) *Log {
 	s = s.Copy()
@@ -73,18 +71,23 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	log.span.log = &log
 	log.request = &log.span
 	log.shared.BaseRequest = log.span.seed.baseLoggers.AsOne.Request(log.span.seed.traceBundle, descriptionOrName)
+	log.shared.BaseRequest.SetErrorReporter(s.config.ErrorReporter)
 	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
 	log.buffered = log.span.seed.baseLoggers.AsOne.Buffered()
 	log.span.base = log.shared.BaseRequest.(xopbase.Span)
 	log.setStackFramesWanted()
 	s.sendPrefill(&log) // before turning on the timer so as to not create a race
 	if log.buffered {
-		log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
+		log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
 	}
 	return &log
 }
 
 func (old *Log) newChildLog(seed Seed) *Log {
+	// XXX if base loggers have been added
+	// then these new loggers need to have a request
+	// created.  This suggests that multi/group needs
+	// to be MUCH more flexible.
 	log := &Log{
 		span: Span{
 			seed: seed,
@@ -194,7 +197,7 @@ func (l *Log) Wait() *Log {
 	}
 	// This indicates a bug in the code that is using the logger.
 	l.Warn().Msg("Too many calls to log.Done()") // TODO: allow user to provide error maker
-	l.shared.FlushTimer.Reset(DefaultFlushDelay)
+	l.shared.FlushTimer.Reset(l.span.seed.config.FlushDelay)
 	return l
 }
 

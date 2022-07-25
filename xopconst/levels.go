@@ -20,6 +20,8 @@ const (
 	AlertLevel Level = 20 // alert
 )
 
+const MaxLevel = AlertLevel
+
 type Level int32
 
 func (level *Level) AtomicLoad() Level {
