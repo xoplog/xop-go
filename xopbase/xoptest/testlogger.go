@@ -149,7 +149,7 @@ func (s *Span) GetPrefill() *Line {
 	return p.(*Line)
 }
 
-func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
+func (s *Span) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line {
 	line := &Line{
 		Level:     level,
 		Timestamp: t,
@@ -173,7 +173,7 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	return line
 }
 
-func (l *Line) Recycle(level xopconst.Level, t time.Time) {
+func (l *Line) Recycle(level xopconst.Level, t time.Time, _ []uintptr) {
 	l.Level = level
 	l.Timestamp = t
 	l.kvText = nil

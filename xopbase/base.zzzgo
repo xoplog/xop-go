@@ -27,7 +27,7 @@ type Logger interface {
 	// fewer frames than they requested.  It is presumed that higher logging
 	// levels want more frames than lower levels, so only increases are
 	// allowed as the severity increases.
-	StackFramesWanted() map[xopconst.Level]int // XXX implement
+	StackFramesWanted() map[xopconst.Level]int 
 
 	// SetErrorReported will always be called before any other method. If a
 	// base logger encounters an error, it may use the provided function to
@@ -61,8 +61,10 @@ type Span interface {
 
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
-	// to SpanInfo() or Flush().
-	Line(xopconst.Level, time.Time) Line
+	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
+	// The number of stack frames could be more or less than was requested
+	// by StackFramesWanted().
+	Line(xopconst.Level, time.Time, []uintptr) Line
 }
 
 type Line interface {
@@ -91,7 +93,7 @@ type Line interface {
 	Static(string)
 
 	// Recycle starts the line ready to use again.
-	Recycle(xopconst.Level, time.Time)
+	Recycle(xopconst.Level, time.Time, []uintptr)
 }
 
 type SubObject interface {

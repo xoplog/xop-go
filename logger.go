@@ -2,6 +2,7 @@ package xoplog
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -40,14 +41,15 @@ type local struct {
 
 // shared is common between the loggers that share a search index
 type shared struct {
-	FlushLock      sync.Mutex // protects Flush() (can be held for a longish period)
-	RefCount       int32
-	UnflushedLogs  int32
-	FlushTimer     *time.Timer
-	FlushDelay     time.Duration
-	FlushActive    int32 // 1 == timer is running, 0 = timer is not running
-	BaseRequest    xopbase.Request
-	ReferencesKept bool
+	FlushLock         sync.Mutex // protects Flush() (can be held for a longish period)
+	RefCount          int32
+	UnflushedLogs     int32
+	FlushTimer        *time.Timer
+	FlushDelay        time.Duration
+	FlushActive       int32 // 1 == timer is running, 0 = timer is not running
+	BaseRequest       xopbase.Request
+	ReferencesKept    bool
+	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
 }
 
 var DefaultFlushDelay = time.Minute * 5
@@ -74,6 +76,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
 	log.buffered = log.span.seed.baseLoggers.AsOne.Buffered()
 	log.span.base = log.shared.BaseRequest.(xopbase.Span)
+	log.setStackFramesWanted()
 	s.sendPrefill(&log) // before turning on the timer so as to not create a race
 	if log.buffered {
 		log.shared.FlushTimer = time.AfterFunc(DefaultFlushDelay, log.timerFlush)
@@ -154,6 +157,17 @@ func (l *Log) notBoring() {
 	}
 }
 
+func (l *Log) setStackFramesWanted() {
+	wanted := l.span.seed.baseLoggers.AsOne.StackFramesWanted()
+	var minFrames int
+	for _, level := range xopconst.LevelValues() {
+		if wanted[level] > minFrames {
+			minFrames = wanted[level]
+		}
+		l.shared.stackFramesWanted[level] = minFrames
+	}
+}
+
 // TODO func (l *Log) Zap() like zap
 // TODO func (l *Log) Sugar() like zap.Sugar
 // TODO func (l *Log) Zero() like zerolog
@@ -208,19 +222,43 @@ func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 type LogLine struct {
 	log  *Log
 	line xopbase.Line
+	pc   []uintptr
 }
 
-func (l *Log) LogLine(level xopconst.Level) *LogLine {
+func (l *Log) logLine(level xopconst.Level) *LogLine {
 	recycled := l.span.linePool.Get()
+	var ll *LogLine
 	if recycled != nil {
 		// TODO: try using LogLine instead of *LogLine
-		ll := recycled.(*LogLine)
-		ll.line.Recycle(level, time.Now())
+		ll = recycled.(*LogLine)
+		if l.shared.stackFramesWanted[level] == 0 {
+			if ll.pc != nil {
+				ll.pc = ll.pc[:0]
+			}
+		} else {
+			if ll.pc == nil {
+				ll.pc = make([]uintptr, l.shared.stackFramesWanted[level],
+					l.shared.stackFramesWanted[xopconst.AlertLevel])
+			} else {
+				ll.pc = ll.pc[:cap(ll.pc)]
+			}
+			n := runtime.Callers(3, ll.pc)
+			ll.pc = ll.pc[:n]
+		}
+		ll.line.Recycle(level, time.Now(), ll.pc)
 		return ll
+	}
+	var pc []uintptr
+	if l.shared.stackFramesWanted[level] != 0 {
+		pc = make([]uintptr, l.shared.stackFramesWanted[level],
+			l.shared.stackFramesWanted[xopconst.AlertLevel])
+		n := runtime.Callers(3, pc)
+		pc = pc[:n]
 	}
 	return &LogLine{
 		log:  l,
-		line: l.span.base.Line(level, time.Now()),
+		pc:   pc,
+		line: l.span.base.Line(level, time.Now(), pc),
 	}
 }
 
@@ -246,10 +284,11 @@ func (ll *LogLine) Msg(msg string) {
 	ll.log.enableFlushTimer()
 }
 
-func (l *Log) Debug() *LogLine { return l.LogLine(xopconst.DebugLevel) }
-func (l *Log) Trace() *LogLine { return l.LogLine(xopconst.TraceLevel) }
-func (l *Log) Info() *LogLine  { return l.LogLine(xopconst.InfoLevel) }
-func (l *Log) Warn() *LogLine  { return l.LogLine(xopconst.WarnLevel) }
+func (l *Log) LogLine(level xopconst.Level) *LogLine { return l.logLine(level) }
+func (l *Log) Debug() *LogLine                       { return l.logLine(xopconst.DebugLevel) }
+func (l *Log) Trace() *LogLine                       { return l.logLine(xopconst.TraceLevel) }
+func (l *Log) Info() *LogLine                        { return l.logLine(xopconst.InfoLevel) }
+func (l *Log) Warn() *LogLine                        { return l.logLine(xopconst.WarnLevel) }
 func (l *Log) Error() *LogLine {
 	l.notBoring()
 	return l.LogLine(xopconst.ErrorLevel)

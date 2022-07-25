@@ -98,7 +98,7 @@ func (s Seed) sendPrefill(log *Log) {
 	if s.prefillData == nil && s.prefillMsg == "" {
 		return
 	}
-	line := log.span.base.Line(xopconst.InfoLevel, time.Now())
+	line := log.span.base.Line(xopconst.InfoLevel, time.Now(), nil)
 	for _, f := range s.prefillData {
 		f(line)
 	}

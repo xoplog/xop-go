@@ -27,11 +27,11 @@ func (b *JBuilder) Comma() {
 	b.B = append(b.B, ',')
 }
 
-func (b *JBuilder) Byte(v byte) { // XXX rename: AppendByte
+func (b *JBuilder) AppendByte(v byte) {
 	b.B = append(b.B, v)
 }
 
-func (b *JBuilder) Append(v []byte) { // XXX rename: AppendBytes
+func (b *JBuilder) AppendBytes(v []byte) {
 	b.B = append(b.B, v...)
 }
 
@@ -39,6 +39,7 @@ func (b *JBuilder) AppendString(v string) {
 	b.B = append(b.B, v...)
 }
 
+// Write allows JBuilder to be an io.Writer
 func (b *JBuilder) Write(v []byte) (int, error) {
 	b.B = append(b.B, v...)
 	return len(v), nil
@@ -51,7 +52,7 @@ func (b *JBuilder) Reset() {
 // String adds a JSON-encoded string
 func (b *JBuilder) String(v string) {
 	b.B = append(b.B, '"')
-	b.string(v)
+	b.StringBody(v)
 	b.B = append(b.B, '"')
 }
 

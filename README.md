@@ -241,6 +241,11 @@ keys.
 
 # Philosphy
 
+Xop is opinionated.  It gently nudges in certain directions.  Perhaps
+the biggest nudge is that there is no support for generating
+logs outside of a span.  There is no default logger.  There is no
+global logger.
+
 ## Log less
 
 Do not log details that don't materialy add to the value of the log
@@ -249,6 +254,19 @@ Do not log details that don't materialy add to the value of the log
 
 Use logs as a narritive of what's going on in the program so that when
 you look at the logs, you can follow along with what's going on.
+
+## Always log in context
+
+Logs are best viewed in context: without without needing to search
+and correlate, you should know how you go to the point of the log line
+you're looking at.  This means the line itself needs less detail
+and it contributes to the context of the lines around it.
+
+## No log.Fatal
+
+Panic should be caught and logged.  If panic is caught, `log.Fatal()` 
+is not needed and is even redundant as it would problaby panic itself
+causing multiple `log.Alert()` for the same event.
 
 ## Defer work
 

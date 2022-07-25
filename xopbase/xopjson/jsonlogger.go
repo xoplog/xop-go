@@ -4,6 +4,8 @@ package xopjson
 
 import (
 	"encoding/json"
+	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +17,10 @@ import (
 	"github.com/phuslu/fasttime"
 )
 
-const maxBufferToKeep = 1024 * 10
+const (
+	maxBufferToKeep = 1024 * 10
+	minBuffer       = 1024
+)
 
 var (
 	_ xopbase.Logger  = &Logger{}
@@ -52,14 +57,15 @@ type AsynchronousWriter interface {
 }
 
 type Logger struct {
-	writer         AsynchronousWriter
-	timeOption     timeOption
-	timeFormat     string
-	framesAtLevel  map[xopconst.Level]int
-	withGoroutine  bool
-	fastKeys       bool
-	durationFormat DurationOption
-	errorFunc      func(error)
+	writer           AsynchronousWriter
+	timeOption       timeOption
+	timeFormat       string
+	framesAtLevelMap map[xopconst.Level]int
+	framesAtLevel    [xopconst.AlertLevel]int
+	withGoroutine    bool
+	fastKeys         bool
+	durationFormat   DurationOption
+	errorFunc        func(error)
 }
 
 type Request struct {
@@ -113,6 +119,7 @@ func WithDuration(durationFormat DurationOption) Option {
 
 func WithCallersAtLevel(logLevel xopconst.Level, framesWanted int) Option {
 	return func(l *Logger) {
+		l.framesAtLevelMap[logLevel] = framesWanted
 		l.framesAtLevel[logLevel] = framesWanted
 	}
 }
@@ -125,8 +132,8 @@ func WithGoroutineID(b bool) Option {
 
 func New(w AsynchronousWriter, opts ...Option) *Logger {
 	logger := &Logger{
-		writer:        w,
-		framesAtLevel: make(map[xopconst.Level]int),
+		writer:           w,
+		framesAtLevelMap: make(map[xopconst.Level]int),
 	}
 	for _, f := range opts {
 		f(logger)
@@ -136,7 +143,7 @@ func New(w AsynchronousWriter, opts ...Option) *Logger {
 
 func (l *Logger) Buffered() bool                            { return l.writer.Buffered() }
 func (l *Logger) ReferencesKept() bool                      { return false }
-func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevel }
+func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevelMap }
 func (l *Logger) SetErrorReporter(reporter func(error))     { l.errorFunc = reporter }
 
 func (l *Logger) Close() {
@@ -172,34 +179,64 @@ func (s *Span) getPrefill() *prefill {
 	return p.(*prefill)
 }
 
-func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
+func (s *Span) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	l := &Line{
 		level:     level,
 		timestamp: t,
 		span:      s,
+		dataBuffer: xoputil.JBuilder{
+			B:        make([]byte, 0, minBuffer),
+			FastKeys: s.logger.fastKeys,
+		},
 	}
-	l.dataBuffer.FastKeys = s.logger.fastKeys
 	l.encoder = json.NewEncoder(&l.dataBuffer)
-	l.start(level, t)
+	l.start(level, t, pc)
 	return l
 }
 
-func (l *Line) Recycle(level xopconst.Level, t time.Time) {
+func (l *Line) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
 	l.level = level
 	l.timestamp = t
 	l.dataBuffer.Reset()
-	l.start(level, t)
+	l.start(level, t, pc)
 }
 
-func (l *Line) start(level xopconst.Level, t time.Time) {
-	l.dataBuffer.Byte('{') // }
+func (l *Line) start(level xopconst.Level, t time.Time, pc []uintptr) {
+	l.dataBuffer.AppendByte('{') // }
 	prefill := l.span.getPrefill()
 	l.prefillLen = len(prefill.data)
 	if prefill != nil {
-		l.dataBuffer.Append(prefill.data)
+		l.dataBuffer.AppendBytes(prefill.data)
 	}
+	l.dataBuffer.Comma()
+	l.dataBuffer.AppendByte('{')
 	l.Int("level", int64(level))
 	l.Time("time", t)
+	if l.span.logger.framesAtLevel[level] > 0 && len(pc) > 0 {
+		n := l.span.logger.framesAtLevel[level]
+		if n > len(pc) {
+			n = len(pc)
+		}
+		frames := runtime.CallersFrames(pc[:n])
+		l.dataBuffer.AppendBytes([]byte(`"stack":[`))
+		for {
+			frame, more := frames.Next()
+			if !strings.Contains(frame.File, "runtime/") {
+				break
+			}
+			l.dataBuffer.Comma()
+			l.dataBuffer.AppendByte('"')
+			l.dataBuffer.StringBody(frame.File)
+			l.dataBuffer.AppendByte(':')
+			l.dataBuffer.Int64(int64(frame.Line))
+			l.dataBuffer.AppendByte('"')
+			if !more {
+				break
+			}
+		}
+		l.dataBuffer.AppendByte(']')
+	}
+	l.dataBuffer.AppendByte('}')
 }
 
 func (l *Line) SetAsPrefill(m string) {
@@ -220,10 +257,10 @@ func (l *Line) Static(m string) {
 
 func (l *Line) Msg(m string) {
 	l.dataBuffer.Comma()
-	l.dataBuffer.Append([]byte(`"msg":`))
+	l.dataBuffer.AppendBytes([]byte(`"msg":`))
 	l.dataBuffer.String(m)
 	// {
-	l.dataBuffer.Byte('}')
+	l.dataBuffer.AppendByte('}')
 	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
 	if err != nil {
 		l.span.logger.errorFunc(err)
@@ -233,7 +270,10 @@ func (l *Line) Msg(m string) {
 
 func (l *Line) reclaimMemory() {
 	if len(l.dataBuffer.B) > maxBufferToKeep {
-		l.dataBuffer = xoputil.JBuilder{FastKeys: l.span.logger.fastKeys}
+		l.dataBuffer = xoputil.JBuilder{
+			B:        make([]byte, 0, minBuffer),
+			FastKeys: l.span.logger.fastKeys,
+		}
 		l.encoder = json.NewEncoder(&l.dataBuffer)
 	}
 }
@@ -243,7 +283,7 @@ func (l *Line) Template(m string) {
 	l.dataBuffer.AppendString(`"xop":"template","msg":`)
 	l.dataBuffer.String(m)
 	// {
-	l.dataBuffer.Byte('}')
+	l.dataBuffer.AppendByte('}')
 	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
 	if err != nil {
 		l.span.logger.errorFunc(err)
@@ -276,14 +316,14 @@ func (l *Line) Time(k string, t time.Time) {
 	switch l.span.logger.timeOption {
 	case strftimeTime:
 		l.dataBuffer.Key(k)
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendByte('"')
 		l.dataBuffer.B = fasttime.AppendStrftime(l.dataBuffer.B, l.span.logger.timeFormat, t)
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendByte('"')
 	case timeTime:
 		l.dataBuffer.Key(k)
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendByte('"')
 		l.dataBuffer.B = t.AppendFormat(l.dataBuffer.B, l.span.logger.timeFormat)
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendByte('"')
 	case epochTime:
 		l.dataBuffer.Key(k)
 		l.dataBuffer.Float64(float64(t.UnixNano()) / 1000000000.0) // TODO good enough?
@@ -296,9 +336,9 @@ func (l *Line) Time(k string, t time.Time) {
 func (l *Line) Link(k string, v trace.Trace) {
 	// TODO: is this the right format for links?
 	l.dataBuffer.Key(k)
-	l.dataBuffer.Append([]byte(`{"xop.link":"`))
+	l.dataBuffer.AppendBytes([]byte(`{"xop.link":"`))
 	l.dataBuffer.AppendString(v.HeaderString())
-	l.dataBuffer.Append([]byte(`"}`))
+	l.dataBuffer.AppendBytes([]byte(`"}`))
 }
 
 func (l *Line) Bool(k string, v bool) {

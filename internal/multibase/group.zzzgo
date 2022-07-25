@@ -117,17 +117,17 @@ func (s Spans) Boring(b bool) {
 	}
 }
 
-func (s Spans) Line(level xopconst.Level, t time.Time) xopbase.Line {
+func (s Spans) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	lines := make(Lines, len(s))
 	for i, span := range s {
-		lines[i] = span.Line(level, t)
+		lines[i] = span.Line(level, t, pc)
 	}
 	return lines
 }
 
-func (l Lines) Recycle(level xopconst.Level, t time.Time) {
+func (l Lines) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
 	for _, line := range l {
-		line.Recycle(level, t)
+		line.Recycle(level, t, pc)
 	}
 }
 

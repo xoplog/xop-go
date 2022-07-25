@@ -6,16 +6,25 @@ Consider replacing SeedModifier with a seed modifier type...
 		log.Step(func(SeedModifier))
 		and methods on SeedModifier that directly write to the seed
 
+Should xop attributes in a line be bundled into a sub-object?
+
 Should Template() be a line starter rather than an ender?
 
 For enums from OTEL, generate them from the protobuf constants.
 
 Drop the makefile in favor of more sophisticated use of generics  See example of enumer in zitadel/oidc
 
+Add Object(func(*BaseType))
+Add Pairs(k, v, k, v, ...)
+
 Use ZSON for main transport?  https://www.brimdata.io/blog/unmarshal-interface/
 Use BSON for main transport?
 
 Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
+
+Write panic trappers.  Should log the panic and flush.
+defer TrapPanic().ReturnError(&err)
+defer TrapPanic().Rethrow()
 
 Add stack to error & alert logs.
 
