@@ -14,6 +14,18 @@ import (
 type Logger interface {
 	Request(span trace.Bundle, description string) Request
 
+	// ID returns a unique id for this instance of a logger.  This
+	// is used to prevent duplicate Requets from being created when
+	// additional loggers to added to an ongoing Request.
+	ID() string
+
+	// StackFramesWanted returns the number of stack frames wanted for
+	// each logging level.  Base loggers may be provided with more or
+	// fewer frames than they requested.  It is presumed that higher logging
+	// levels want more frames than lower levels, so only increases are
+	// allowed as the severity increases.
+	StackFramesWanted() map[xopconst.Level]int
+
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
 	// are kept, then xoplog.Log will make copies.
@@ -24,26 +36,22 @@ type Logger interface {
 	// Flush() may still be invoked but it doesn't have to do anything.
 	Buffered() bool
 
-	// StackFramesWanted returns the number of stack frames wanted for
-	// each logging level.  Base loggers may be provided with more or
-	// fewer frames than they requested.  It is presumed that higher logging
-	// levels want more frames than lower levels, so only increases are
-	// allowed as the severity increases.
-	StackFramesWanted() map[xopconst.Level]int
-
-	// SetErrorReported will always be called before any other method. If a
-	// base logger encounters an error, it may use the provided function to
-	// report it.  The base logger cannot assume that execution will stop.
-	// The base logger may not panic.
-	SetErrorReporter(func(error)) // XXX implement
-
 	Close()
 }
 
 type Request interface {
-	// Calls to Flush are single-threaded along with calls to SpanInfo
-	Flush()
 	Span
+
+	// Flush calls are single-threaded
+	Flush()
+
+	// SetErrorReported will always be called before any other method on the
+	// Request.
+	//
+	// If a base logger encounters an error, it may use the provided function to
+	// report it.  The base logger cannot assume that execution will stop.
+	// The base logger may not panic.
+	SetErrorReporter(func(error))
 }
 
 type Span interface {
@@ -79,7 +87,10 @@ type Span interface {
 	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
 	// The number of stack frames could be more or less than was requested
 	// by StackFramesWanted().
-	Line(xopconst.Level, time.Time, []uintptr) Line
+	Line(xopconst.Level, time.Time, string, []uintptr) Line
+
+	// ID must return the same string as the Logger it came from
+	ID() string
 }
 
 type Line interface {
@@ -108,7 +119,7 @@ type Line interface {
 	Static(string)
 
 	// Recycle starts the line ready to use again.
-	Recycle(xopconst.Level, time.Time, []uintptr)
+	Recycle(xopconst.Level, time.Time, string, []uintptr)
 }
 
 type SubObject interface {

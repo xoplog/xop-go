@@ -18,7 +18,7 @@ type Seed struct {
 	prefillMsg  string
 	prefillData []func(xopbase.Line)
 	description string
-	baseLoggers baseLoggers
+	loggers     loggers
 	flushDelay  time.Duration
 }
 

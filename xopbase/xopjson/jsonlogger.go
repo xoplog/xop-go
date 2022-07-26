@@ -14,6 +14,7 @@ import (
 	"github.com/muir/xoplog/xopconst"
 	"github.com/muir/xoplog/xoputil"
 
+	"github.com/google/uuid"
 	"github.com/phuslu/fasttime"
 )
 
@@ -66,6 +67,7 @@ type Logger struct {
 	fastKeys         bool
 	durationFormat   DurationOption
 	errorFunc        func(error)
+	id               uuid.UUID
 }
 
 type Request struct {
@@ -134,6 +136,7 @@ func New(w AsynchronousWriter, opts ...Option) *Logger {
 	logger := &Logger{
 		writer:           w,
 		framesAtLevelMap: make(map[xopconst.Level]int),
+		id:               uuid.New(),
 	}
 	for _, f := range opts {
 		f(logger)
@@ -141,6 +144,7 @@ func New(w AsynchronousWriter, opts ...Option) *Logger {
 	return logger
 }
 
+func (l *Logger) ID() string                                { return l.id.String() }
 func (l *Logger) Buffered() bool                            { return l.writer.Buffered() }
 func (l *Logger) ReferencesKept() bool                      { return false }
 func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevelMap }
@@ -166,6 +170,7 @@ func (s *Span) Flush() {
 }
 
 func (s *Span) Boring(bool) {} // TODO
+func (s *Span) ID() string  { return s.logger.id.String() }
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	return s.logger.Request(span, name)

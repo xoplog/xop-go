@@ -16,22 +16,22 @@ import (
 )
 
 type Log struct {
-	span     Span
-	request  *Span
-	local    local   // one span in a request
-	shared   *shared // shared between spans in a request
-	buffered bool
+	span              Span
+	request           *Span
+	local             local                        // one span in a request
+	shared            *shared                      // shared between spans in a request
+	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
+	buffered          bool
+	referencesKept    bool
 }
 
 type Span struct {
-	seed              Seed
-	dataLock          sync.Mutex // protects Data & SpanType (can only be held for short periods)
-	log               *Log       // back to self
-	base              xopbase.Span
-	linePool          sync.Pool
-	boring            int32 // 0 = boring
-	referencesKept    bool
-	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
+	seed     Seed
+	dataLock sync.Mutex // protects Data & SpanType (can only be held for short periods)
+	log      *Log       // back to self
+	base     xopbase.Span
+	linePool sync.Pool
+	boring   int32 // 0 = boring
 }
 
 type local struct {
@@ -44,12 +44,14 @@ type local struct {
 // shared is common between the loggers that share a search index
 type shared struct {
 	FlushLock     sync.Mutex // protects Flush() (can be held for a longish period)
+	FlusherLock   sync.RWMutex
 	RefCount      int32
 	UnflushedLogs int32
 	FlushTimer    *time.Timer
 	FlushDelay    time.Duration
-	FlushActive   int32 // 1 == timer is running, 0 = timer is not running
-	BaseRequest   xopbase.Request
+	FlushActive   int32                      // 1 == timer is running, 0 = timer is not running
+	Flushers      map[string]xopbase.Request // key is xopbase.Logger.ID()
+	Description   string
 }
 
 func (s Seed) Request(descriptionOrName string) *Log {
@@ -62,6 +64,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 		shared: &shared{
 			RefCount:    1,
 			FlushActive: 1,
+			Description: descriptionOrName,
 		},
 		local: local{
 			Created:   time.Now(),
@@ -70,24 +73,22 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	}
 	log.span.log = &log
 	log.request = &log.span
-	log.shared.BaseRequest = log.span.seed.baseLoggers.AsOne.Request(log.span.seed.traceBundle, descriptionOrName)
-	log.shared.BaseRequest.SetErrorReporter(s.config.ErrorReporter)
-	log.shared.ReferencesKept = log.span.seed.baseLoggers.AsOne.ReferencesKept()
-	log.buffered = log.span.seed.baseLoggers.AsOne.Buffered()
-	log.span.base = log.shared.BaseRequest.(xopbase.Span)
+	combinedBaseRequest, flushers := log.span.seed.loggers.AsOne.RequestAndFlushers(log.span.seed.traceBundle, descriptionOrName)
+	log.shared.Flushers = flushers
+	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
+	log.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
+	log.buffered = log.span.seed.loggers.AsOne.Buffered()
+	log.span.base = combinedBaseRequest.(xopbase.Span)
 	log.setStackFramesWanted()
 	s.sendPrefill(&log) // before turning on the timer so as to not create a race
 	if log.buffered {
+		// XXX always create?
 		log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
 	}
 	return &log
 }
 
-func (old *Log) newChildLog(seed Seed) *Log {
-	// XXX if base loggers have been added
-	// then these new loggers need to have a request
-	// created.  This suggests that multi/group needs
-	// to be MUCH more flexible.
+func (old *Log) newChildLog(seed Seed, description string) *Log {
 	log := &Log{
 		span: Span{
 			seed: seed,
@@ -99,7 +100,59 @@ func (old *Log) newChildLog(seed Seed) *Log {
 		shared:  old.shared,
 		request: old.request,
 	}
+
 	log.span.log = log
+	log.span.base = old.span.base.Span(seed.traceBundle, description)
+	if len(seed.loggers.Added) == 0 && len(seed.loggers.Removed) == 0 {
+		log.buffered = old.buffered
+		log.referencesKept = old.referencesKept
+		log.stackFramesWanted = old.stackFramesWanted
+	} else {
+		spanSet := make(map[string]xopbase.Span)
+		if baseSpans, ok := log.span.base.(baseSpans); ok {
+			for _, baseSpan := range baseSpans {
+				spanSet[baseSpan.ID()] = baseSpan
+			}
+		}
+		for _, removed := range seed.loggers.Removed {
+			delete(spanSet, removed.Base.ID())
+		}
+		for _, added := range seed.loggers.Added {
+			id := added.Base.ID()
+			if _, ok := spanSet[id]; ok {
+				continue
+			}
+			if func() bool {
+				log.shared.FlusherLock.RLock()
+				defer log.shared.FlusherLock.RUnlock()
+				_, ok := log.shared.Flushers[id]
+				return ok
+			}() {
+				continue
+			}
+			req := added.Base.Request(log.request.seed.traceBundle, log.shared.Description)
+			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
+			func() {
+				log.shared.FlusherLock.Lock()
+				defer log.shared.FlusherLock.Unlock()
+				log.shared.Flushers[id] = req
+			}()
+		}
+		if len(spanSet) == 1 {
+			for _, baseSpan := range spanSet {
+				log.span.base = baseSpan
+			}
+		} else {
+			spans := make(baseSpans, 0, len(spanSet))
+			for _, baseSpan := range spanSet {
+				spans = append(spans, baseSpan)
+			}
+			log.span.base = spans
+		}
+		log.buffered = log.span.seed.loggers.AsOne.Buffered()
+		log.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
+		log.setStackFramesWanted()
+	}
 	log.span.base.Boring(true)
 	seed.sendPrefill(log)
 	return log
@@ -120,12 +173,21 @@ func (l *Log) timerFlush() {
 }
 
 func (l *Log) Flush() {
+	flushers := func() baseRequests {
+		l.shared.FlusherLock.RLock()
+		defer l.shared.FlusherLock.RUnlock()
+		requests := make(baseRequests, 0, len(l.shared.flushers))
+		for _, req := range l.shared.flushers {
+			requests = append(requests, req)
+		}
+		return requests
+	}()
 	l.shared.FlushLock.Lock()
 	defer l.shared.FlushLock.Unlock()
 	// Stop is is not thread-safe with respect to other calls to Stop
 	l.shared.FlushTimer.Stop()
 	atomic.StoreInt32(&l.shared.FlushActive, 0)
-	l.shared.BaseRequest.Flush()
+	flushers.Flush()
 }
 
 // Marks this request as boring.  Any log at the Alert or
@@ -161,7 +223,7 @@ func (l *Log) notBoring() {
 }
 
 func (l *Log) setStackFramesWanted() {
-	wanted := l.span.seed.baseLoggers.AsOne.StackFramesWanted()
+	wanted := l.span.seed.loggers.AsOne.StackFramesWanted()
 	var minFrames int
 	for _, level := range xopconst.LevelValues() {
 		if wanted[level] > minFrames {
@@ -207,7 +269,7 @@ func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
 	seed := l.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.ForkCounter, 1))
 	seed.prefix += "." + base26(counter)
-	return l.newChildLog(seed)
+	return l.newChildLog(seed, msg)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -219,7 +281,7 @@ func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 	seed := l.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
 	seed.prefix += "." + strconv.Itoa(counter)
-	return l.newChildLog(seed)
+	return l.newChildLog(seed, msg)
 }
 
 type LogLine struct {

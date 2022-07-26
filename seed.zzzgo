@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xop"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 )
@@ -17,7 +16,7 @@ type Seed struct {
 	prefillMsg  string
 	prefillData []func(xopbase.Line)
 	description string
-	baseLoggers baseLoggers
+	loggers     loggers
 	flushDelay  time.Duration
 }
 
@@ -37,7 +36,7 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
-		config: DefaultConfig,
+		config:      DefaultConfig,
 		traceBundle: trace.NewBundle(),
 	}
 	seed.rebuildAsOne()
