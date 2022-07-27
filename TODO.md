@@ -87,7 +87,7 @@
 
 - Events
 
- - Gets counted
- - Re-use attributes?
- - Attach arbitrary data
+ 1. Gets counted
+ 1. Re-use attributes?
+ 1. Attach arbitrary data
 
