@@ -71,7 +71,7 @@
 
 # Not build ready 
 
-- Base loggers:
+1. Base loggers:
 
  - Console to io.Writer
  - JSON to io.Writer
@@ -80,7 +80,7 @@
  - Stream send to server (need to write server !)
  - Gateways to other loggers so that xoplog can be used by libraries:
 
-- Metrics
+1. Metrics
 
  - Re-use attribute naming?
  - Allow "tags" or some other multi-dimensional naming
