@@ -87,7 +87,7 @@ type Span interface {
 	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
 	// The number of stack frames could be more or less than was requested
 	// by StackFramesWanted().
-	Line(xopconst.Level, time.Time, string, []uintptr) Line
+	Line(xopconst.Level, time.Time, []uintptr) Line
 
 	// ID must return the same string as the Logger it came from
 	ID() string
@@ -119,7 +119,7 @@ type Line interface {
 	Static(string)
 
 	// Recycle starts the line ready to use again.
-	Recycle(xopconst.Level, time.Time, string, []uintptr)
+	Recycle(xopconst.Level, time.Time, []uintptr)
 }
 
 type SubObject interface {

@@ -73,7 +73,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	}
 	log.span.log = &log
 	log.request = &log.span
-	combinedBaseRequest, flushers := log.span.seed.loggers.AsOne.RequestAndFlushers(log.span.seed.traceBundle, descriptionOrName)
+	combinedBaseRequest, flushers := log.span.seed.loggers.AsOne.StartRequests(log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
 	log.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
@@ -154,6 +154,7 @@ func (old *Log) newChildLog(seed Seed, description string) *Log {
 		log.setStackFramesWanted()
 	}
 	log.span.base.Boring(true)
+	log.span.Str(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode)
 	seed.sendPrefill(log)
 	return log
 }
@@ -173,11 +174,11 @@ func (l *Log) timerFlush() {
 }
 
 func (l *Log) Flush() {
-	flushers := func() baseRequests {
+	flushers := func() []xopbase.Request {
 		l.shared.FlusherLock.RLock()
 		defer l.shared.FlusherLock.RUnlock()
-		requests := make(baseRequests, 0, len(l.shared.flushers))
-		for _, req := range l.shared.flushers {
+		requests := make([]xopbase.Request, 0, len(l.shared.Flushers))
+		for _, req := range l.shared.Flushers {
 			requests = append(requests, req)
 		}
 		return requests
@@ -187,7 +188,15 @@ func (l *Log) Flush() {
 	// Stop is is not thread-safe with respect to other calls to Stop
 	l.shared.FlushTimer.Stop()
 	atomic.StoreInt32(&l.shared.FlushActive, 0)
-	flushers.Flush()
+	var wg sync.WaitGroup
+	wg.Add(len(flushers))
+	for _, flusher := range flushers {
+		go func(flusher xopbase.Request) {
+			defer wg.Done()
+			flusher.Flush()
+		}(flusher)
+	}
+	wg.Wait()
 }
 
 // Marks this request as boring.  Any log at the Alert or
@@ -229,7 +238,7 @@ func (l *Log) setStackFramesWanted() {
 		if wanted[level] > minFrames {
 			minFrames = wanted[level]
 		}
-		l.shared.stackFramesWanted[level] = minFrames
+		l.stackFramesWanted[level] = minFrames
 	}
 }
 
@@ -268,7 +277,7 @@ func (l *Log) Wait() *Log {
 func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
 	seed := l.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.ForkCounter, 1))
-	seed.prefix += "." + base26(counter)
+	seed.spanSequenceCode += "." + base26(counter)
 	return l.newChildLog(seed, msg)
 }
 
@@ -280,7 +289,7 @@ func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
 func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
 	seed := l.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
-	seed.prefix += "." + strconv.Itoa(counter)
+	seed.spanSequenceCode += "." + strconv.Itoa(counter)
 	return l.newChildLog(seed, msg)
 }
 
@@ -296,14 +305,14 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 	if recycled != nil {
 		// TODO: try using LogLine instead of *LogLine
 		ll = recycled.(*LogLine)
-		if l.shared.stackFramesWanted[level] == 0 {
+		if l.stackFramesWanted[level] == 0 {
 			if ll.pc != nil {
 				ll.pc = ll.pc[:0]
 			}
 		} else {
 			if ll.pc == nil {
-				ll.pc = make([]uintptr, l.shared.stackFramesWanted[level],
-					l.shared.stackFramesWanted[xopconst.AlertLevel])
+				ll.pc = make([]uintptr, l.stackFramesWanted[level],
+					l.stackFramesWanted[xopconst.AlertLevel])
 			} else {
 				ll.pc = ll.pc[:cap(ll.pc)]
 			}
@@ -314,9 +323,9 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 		return ll
 	}
 	var pc []uintptr
-	if l.shared.stackFramesWanted[level] != 0 {
-		pc = make([]uintptr, l.shared.stackFramesWanted[level],
-			l.shared.stackFramesWanted[xopconst.AlertLevel])
+	if l.stackFramesWanted[level] != 0 {
+		pc = make([]uintptr, l.stackFramesWanted[level],
+			l.stackFramesWanted[xopconst.AlertLevel])
 		n := runtime.Callers(3, pc)
 		pc = pc[:n]
 	}
@@ -401,7 +410,7 @@ func (ll *LogLine) AnyImmutable(k string, v interface{}) *LogLine { ll.line.Any(
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
 func (ll *LogLine) Any(k string, v interface{}) *LogLine {
-	if ll.log.shared.ReferencesKept {
+	if ll.log.referencesKept {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
 	}

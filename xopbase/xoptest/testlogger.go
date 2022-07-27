@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xopbase"
@@ -32,6 +33,7 @@ var (
 func New(t testingT) *TestLogger {
 	return &TestLogger{
 		t:        t,
+		id:       t.Name() + "-" + uuid.New().String(),
 		traceMap: make(map[string]*traceInfo),
 	}
 }
@@ -44,6 +46,7 @@ type TestLogger struct {
 	Lines      []*Line
 	traceCount int
 	traceMap   map[string]*traceInfo
+	id         string
 }
 
 type traceInfo struct {
@@ -82,6 +85,7 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 	return xoplog.WithBaseLogger("testing", l)
 }
 
+func (l *TestLogger) ID() string                                { return l.id }
 func (l *TestLogger) Close()                                    {}
 func (l *TestLogger) Buffered() bool                            { return false }
 func (l *TestLogger) ReferencesKept() bool                      { return true }
@@ -122,8 +126,10 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
-func (s *Span) Flush()      {}
-func (s *Span) Boring(bool) {}
+func (s *Span) Flush()                       {}
+func (s *Span) Boring(bool)                  {}
+func (s *Span) ID() string                   { return s.testLogger.id }
+func (s *Span) SetErrorReporter(func(error)) {}
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	s.testLogger.lock.Lock()

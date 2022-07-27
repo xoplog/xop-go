@@ -10,19 +10,19 @@ import (
 
 // Seed is used to create a Log.
 type Seed struct {
-	config      Config
-	traceBundle trace.Bundle
-	prefix      string
-	prefillMsg  string
-	prefillData []func(xopbase.Line)
-	description string
-	loggers     loggers
-	flushDelay  time.Duration
+	config           Config
+	traceBundle      trace.Bundle
+	spanSequenceCode string
+	prefillMsg       string
+	prefillData      []func(xopbase.Line)
+	description      string
+	loggers          loggers
+	flushDelay       time.Duration
 }
 
 func (s Seed) Copy() Seed {
 	n := s
-	n.baseLoggers = s.baseLoggers.Copy()
+	n.loggers = s.loggers.Copy()
 	n.traceBundle = s.traceBundle.Copy()
 	n.prefillMsg = s.prefillMsg
 	if s.prefillData != nil {

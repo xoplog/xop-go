@@ -66,7 +66,6 @@ type Logger struct {
 	withGoroutine    bool
 	fastKeys         bool
 	durationFormat   DurationOption
-	errorFunc        func(error)
 	id               uuid.UUID
 }
 
@@ -84,6 +83,7 @@ type Span struct {
 	trace      trace.Bundle
 	logger     *Logger
 	prefill    atomic.Value
+	errorFunc  func(error)
 }
 
 type Line struct {
@@ -148,13 +148,10 @@ func (l *Logger) ID() string                                { return l.id.String
 func (l *Logger) Buffered() bool                            { return l.writer.Buffered() }
 func (l *Logger) ReferencesKept() bool                      { return false }
 func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevelMap }
-func (l *Logger) SetErrorReporter(reporter func(error))     { l.errorFunc = reporter }
 
 func (l *Logger) Close() {
-	err := l.writer.Close()
-	if err != nil {
-		l.errorFunc(err)
-	}
+	// no place to report errors
+	_ = l.writer.Close()
 }
 
 func (l *Logger) Request(span trace.Bundle, name string) xopbase.Request {
@@ -169,8 +166,9 @@ func (s *Span) Flush() {
 	s.logger.writer.Flush()
 }
 
-func (s *Span) Boring(bool) {} // TODO
-func (s *Span) ID() string  { return s.logger.id.String() }
+func (s *Span) Boring(bool)                           {} // TODO
+func (s *Span) ID() string                            { return s.logger.id.String() }
+func (s *Span) SetErrorReporter(reporter func(error)) { s.errorFunc = reporter }
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	return s.logger.Request(span, name)
@@ -268,7 +266,7 @@ func (l *Line) Msg(m string) {
 	l.dataBuffer.AppendByte('}')
 	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
 	if err != nil {
-		l.span.logger.errorFunc(err)
+		l.span.errorFunc(err)
 	}
 	l.reclaimMemory()
 }
@@ -291,7 +289,7 @@ func (l *Line) Template(m string) {
 	l.dataBuffer.AppendByte('}')
 	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
 	if err != nil {
-		l.span.logger.errorFunc(err)
+		l.span.errorFunc(err)
 	}
 	l.reclaimMemory()
 }
@@ -302,7 +300,7 @@ func (l *Line) Any(k string, v interface{}) {
 	err := l.encoder.Encode(v)
 	if err != nil {
 		l.dataBuffer.B = l.dataBuffer.B[:before]
-		l.span.logger.errorFunc(err)
+		l.span.errorFunc(err)
 		l.Error("encode:"+k, err)
 	} else {
 		// remove \n added by json.Encoder.Encode.  So helpful!

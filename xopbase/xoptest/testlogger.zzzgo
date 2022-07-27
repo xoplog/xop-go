@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xopbase"
@@ -28,6 +29,7 @@ var _ xopbase.Line = &Line{}
 func New(t testingT) *TestLogger {
 	return &TestLogger{
 		t:        t,
+		id:       t.Name() + "-" + uuid.New().String(),
 		traceMap: make(map[string]*traceInfo),
 	}
 }
@@ -40,6 +42,7 @@ type TestLogger struct {
 	Lines      []*Line
 	traceCount int
 	traceMap   map[string]*traceInfo
+	id string
 }
 
 type traceInfo struct {
@@ -78,11 +81,12 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 	return xoplog.WithBaseLogger("testing", l)
 }
 
-func (l *TestLogger) Close()               {}
-func (l *TestLogger) Buffered() bool       { return false }
-func (l *TestLogger) ReferencesKept() bool { return true }
-func (l *TestLogger) SetErrorReporter(func(error)) { }
-func (l *TestLogger) StackFramesWanted() map[xopconst.Level]int { return nil } 
+func (l *TestLogger) ID() string                                { return l.id }
+func (l *TestLogger) Close()                                    {}
+func (l *TestLogger) Buffered() bool                            { return false }
+func (l *TestLogger) ReferencesKept() bool                      { return true }
+func (l *TestLogger) SetErrorReporter(func(error))              {}
+func (l *TestLogger) StackFramesWanted() map[xopconst.Level]int { return nil }
 func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -120,6 +124,8 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 
 func (s *Span) Flush()      {}
 func (s *Span) Boring(bool) {}
+func (s *Span) ID() string  { return s.testLogger.id }
+func (s *Span) SetErrorReporter(func(error)) { }
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	s.testLogger.lock.Lock()
@@ -154,7 +160,7 @@ func (s *Span) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line
 	}
 	p := s.GetPrefill()
 	if p != nil {
-		if len(p.Data) != 0{
+		if len(p.Data) != 0 {
 			for k, v := range p.Data {
 				line.Data[k] = v
 			}
@@ -179,7 +185,7 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time, _ []uintptr) {
 	l.Text = ""
 }
 
-// TODO: test SetAsPrefill 
+// TODO: test SetAsPrefill
 func (l *Line) SetAsPrefill(m string) {
 	l.Span.prefill.Store(l)
 }

@@ -68,7 +68,7 @@ func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
 func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
-	if s.log.shared.ReferencesKept {
+	if s.log.referencesKept {
 		v = deepcopy.Copy(v)
 	}
 	s.base.MetadataAny(k, v)

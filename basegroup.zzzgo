@@ -75,12 +75,6 @@ func (l baseLoggers) StackFramesWanted() map[xopconst.Level]int {
 	return combined
 }
 
-func (l baseLoggers) SetErrorReporter(f func(error)) {
-	for _, logger := range l {
-		logger.SetErrorReporter(f)
-	}
-}
-
 func (s baseRequests) SetErrorReporter(f func(error)) {
 	for _, request := range s.baseRequests {
 		request.SetErrorReporter(f)
@@ -117,17 +111,17 @@ func (s baseSpans) Boring(b bool) {
 	}
 }
 
-func (s baseSpans) Line(level xopconst.Level, t time.Time, forkPrefix string, pc []uintptr) xopbase.Line {
+func (s baseSpans) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	lines := make(lines, len(s))
 	for i, span := range s {
-		lines[i] = span.Line(level, t, forkPrefix, pc)
+		lines[i] = span.Line(level, t, pc)
 	}
 	return lines
 }
 
-func (l lines) Recycle(level xopconst.Level, t time.Time, forkPrefix string, pc []uintptr) {
+func (l lines) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
 	for _, line := range l {
-		line.Recycle(level, t, forkPrefix, pc)
+		line.Recycle(level, t, pc)
 	}
 }
 
