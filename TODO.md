@@ -38,8 +38,8 @@
 
     ```go
     type Table interface{
-	Header() []string
-	Rows() [][]string
+        Header() []string
+        Rows() [][]string
     }
     ````
 
