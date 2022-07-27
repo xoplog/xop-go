@@ -1,11 +1,32 @@
 package xoplog
 
-import "time"
+import (
+	golog "log"
+	"time"
+)
 
 type Config struct {
 	UseB3      bool // Zipkin
 	FlushDelay time.Duration
-	// TODO: Errorf func(msg string, v ...interface{})
+
+	// ErrorReporter provides a way to choose the behavior
+	// for when underlying log functions throw an error.
+	// Generally speaking, needing to check errors when
+	// generating logs is a non-starter because the cost is
+	// too high.  It would discourage logging.  That said,
+	// there is a an error, we don't want to completely
+	// ignore it.
+	//
+	// TODO: If ErrorReporter is called too frequently,
+	// it will automatically be throttled
+	ErrorReporter func(error)
+}
+
+var DefaultConfig = Config{
+	FlushDelay: time.Minute * 5,
+	ErrorReporter: func(err error) {
+		golog.Print("Error from zop", err)
+	},
 }
 
 type ConfigModifier func(*Config)

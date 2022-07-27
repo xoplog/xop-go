@@ -1,24 +1,25 @@
 package xoplog
 
 import (
-	"github.com/muir/xoplog/internal/multibase"
 	"github.com/muir/xoplog/xopbase"
 	"github.com/muir/xoplog/xopconst"
 )
 
-type baseLoggers struct {
-	AsOne   xopbase.Logger
-	List    []baseLogger
-	Removed []baseLogger
+type loggers struct {
+	AsOne    baseLoggers
+	Flushers baseRequests
+	List     []baseLogger
+	Removed  []baseLogger
+	Added    []baseLogger
 }
 
 type baseLogger struct {
-	Name     string
+	Name     string // XXX don't need anymore
 	Base     xopbase.Logger
-	MinLevel xopconst.Level
+	MinLevel xopconst.Level // XXX is this used anywhere?  Put where useful
 }
 
-func (s baseLoggers) Copy() baseLoggers {
+func (s loggers) Copy() loggers {
 	n := make([]baseLogger, len(s.List))
 	for i, bl := range s.List {
 		n[i] = baseLogger{
@@ -26,22 +27,24 @@ func (s baseLoggers) Copy() baseLoggers {
 			Base: bl.Base,
 		}
 	}
-	return baseLoggers{
-		AsOne: s.AsOne,
-		List:  n,
+	return loggers{
+		AsOne:    s.AsOne,
+		Flushers: s.Flushers,
+		List:     n,
+		// Added & Removed are not included
 	}
 }
 
 func WithoutBaseLogger(name string) SeedModifier {
 	return func(s *Seed) {
-		for i, baseLogger := range s.baseLoggers.List {
+		for i, baseLogger := range s.loggers.List {
 			if baseLogger.Name == name {
-				s.baseLoggers.Removed = append(s.baseLoggers.Removed, baseLogger)
-				if i < len(s.baseLoggers.List)-1 {
-					s.baseLoggers.List[i], s.baseLoggers.List[len(s.baseLoggers.List)-1] =
-						s.baseLoggers.List[len(s.baseLoggers.List)-1], s.baseLoggers.List[i]
+				s.loggers.Removed = append(s.loggers.Removed, baseLogger)
+				if i < len(s.loggers.List)-1 {
+					s.loggers.List[i], s.loggers.List[len(s.loggers.List)-1] =
+						s.loggers.List[len(s.loggers.List)-1], s.loggers.List[i]
 				}
-				s.baseLoggers.List = s.baseLoggers.List[:len(s.baseLoggers.List)-1]
+				s.loggers.List = s.loggers.List[:len(s.loggers.List)-1]
 				s.rebuildAsOne()
 			}
 		}
@@ -49,19 +52,20 @@ func WithoutBaseLogger(name string) SeedModifier {
 }
 
 func (s *Seed) rebuildAsOne() {
-	loggers := make([]xopbase.Logger, len(s.baseLoggers.List))
-	for i, baseLogger := range s.baseLoggers.List {
-		loggers[i] = baseLogger.Base
+	s.loggers.AsOne = make(baseLoggers, len(s.loggers.List))
+	for i, baseLogger := range s.loggers.List {
+		s.loggers.AsOne[i] = baseLogger.Base
 	}
-	s.baseLoggers.AsOne = multibase.CombineLoggers(loggers)
 }
 
 func WithBaseLogger(name string, logger xopbase.Logger) SeedModifier {
 	return func(s *Seed) {
-		s.baseLoggers.List = append(s.baseLoggers.List, baseLogger{
+		baseLogger := baseLogger{
 			Name: name,
 			Base: logger,
-		})
+		}
+		s.loggers.List = append(s.loggers.List, baseLogger)
+		s.loggers.Added = append(s.loggers.Added, baseLogger)
 		s.rebuildAsOne()
 	}
 }

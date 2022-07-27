@@ -1,4 +1,5 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package trace
 
 import (

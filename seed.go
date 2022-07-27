@@ -1,4 +1,5 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xoplog
 
 import (
@@ -11,19 +12,19 @@ import (
 
 // Seed is used to create a Log.
 type Seed struct {
-	config      Config
-	traceBundle trace.Bundle
-	prefix      string
-	prefillMsg  string
-	prefillData []func(xopbase.Line)
-	description string
-	baseLoggers baseLoggers
-	flushDelay  time.Duration
+	config           Config
+	traceBundle      trace.Bundle
+	spanSequenceCode string
+	prefillMsg       string
+	prefillData      []func(xopbase.Line)
+	description      string
+	loggers          loggers
+	flushDelay       time.Duration
 }
 
 func (s Seed) Copy() Seed {
 	n := s
-	n.baseLoggers = s.baseLoggers.Copy()
+	n.loggers = s.loggers.Copy()
 	n.traceBundle = s.traceBundle.Copy()
 	n.prefillMsg = s.prefillMsg
 	if s.prefillData != nil {
@@ -37,9 +38,7 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
-		config: Config{
-			FlushDelay: DefaultFlushDelay,
-		},
+		config:      DefaultConfig,
 		traceBundle: trace.NewBundle(),
 	}
 	seed.rebuildAsOne()
@@ -97,7 +96,7 @@ func (s Seed) sendPrefill(log *Log) {
 	if s.prefillData == nil && s.prefillMsg == "" {
 		return
 	}
-	line := log.span.base.Line(xopconst.InfoLevel, time.Now())
+	line := log.span.base.Line(xopconst.InfoLevel, time.Now(), nil)
 	for _, f := range s.prefillData {
 		f(line)
 	}

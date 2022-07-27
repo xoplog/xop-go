@@ -1,4 +1,6 @@
-package testlogger
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
+package xoptest
 
 import (
 	"fmt"
@@ -8,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/muir/xoplog"
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xopbase"
@@ -20,14 +23,17 @@ type testingT interface {
 	Name() string
 }
 
-var _ xopbase.Logger = &TestLogger{}
-var _ xopbase.Request = &Span{}
-var _ xopbase.Span = &Span{}
-var _ xopbase.Line = &Line{}
+var (
+	_ xopbase.Logger  = &TestLogger{}
+	_ xopbase.Request = &Span{}
+	_ xopbase.Span    = &Span{}
+	_ xopbase.Line    = &Line{}
+)
 
 func New(t testingT) *TestLogger {
 	return &TestLogger{
 		t:        t,
+		id:       t.Name() + "-" + uuid.New().String(),
 		traceMap: make(map[string]*traceInfo),
 	}
 }
@@ -40,6 +46,7 @@ type TestLogger struct {
 	Lines      []*Line
 	traceCount int
 	traceMap   map[string]*traceInfo
+	id         string
 }
 
 type traceInfo struct {
@@ -78,9 +85,12 @@ func (l *TestLogger) WithMe() xoplog.SeedModifier {
 	return xoplog.WithBaseLogger("testing", l)
 }
 
-func (l *TestLogger) Close()               {}
-func (l *TestLogger) Buffered() bool       { return false }
-func (l *TestLogger) ReferencesKept() bool { return true }
+func (l *TestLogger) ID() string                                { return l.id }
+func (l *TestLogger) Close()                                    {}
+func (l *TestLogger) Buffered() bool                            { return false }
+func (l *TestLogger) ReferencesKept() bool                      { return true }
+func (l *TestLogger) SetErrorReporter(func(error))              {}
+func (l *TestLogger) StackFramesWanted() map[xopconst.Level]int { return nil }
 func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -116,8 +126,10 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
-func (s *Span) Flush()      {}
-func (s *Span) Boring(bool) {}
+func (s *Span) Flush()                       {}
+func (s *Span) Boring(bool)                  {}
+func (s *Span) ID() string                   { return s.testLogger.id }
+func (s *Span) SetErrorReporter(func(error)) {}
 
 func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	s.testLogger.lock.Lock()
@@ -143,7 +155,7 @@ func (s *Span) GetPrefill() *Line {
 	return p.(*Line)
 }
 
-func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
+func (s *Span) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line {
 	line := &Line{
 		Level:     level,
 		Timestamp: t,
@@ -152,7 +164,7 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	}
 	p := s.GetPrefill()
 	if p != nil {
-		if len(p.Data) != 0{
+		if len(p.Data) != 0 {
 			for k, v := range p.Data {
 				line.Data[k] = v
 			}
@@ -167,7 +179,7 @@ func (s *Span) Line(level xopconst.Level, t time.Time) xopbase.Line {
 	return line
 }
 
-func (l *Line) Recycle(level xopconst.Level, t time.Time) {
+func (l *Line) Recycle(level xopconst.Level, t time.Time, _ []uintptr) {
 	l.Level = level
 	l.Timestamp = t
 	l.kvText = nil
@@ -177,9 +189,13 @@ func (l *Line) Recycle(level xopconst.Level, t time.Time) {
 	l.Text = ""
 }
 
-// TODO: test SetAsPrefill 
+// TODO: test SetAsPrefill
 func (l *Line) SetAsPrefill(m string) {
 	l.Span.prefill.Store(l)
+}
+
+func (l *Line) Static(m string) {
+	l.Msg(m)
 }
 
 func (l *Line) Msg(m string) {
@@ -236,10 +252,28 @@ func (l *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	l.kvText = append(l.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
 }
 
-// MACRO BaseData SKIP:Any
-func (l *Line) ZZZ(k string, v zzz) { l.Any(k, v) }
+func (l *Line) Bool(k string, v bool)              { l.Any(k, v) }
+func (l *Line) Duration(k string, v time.Duration) { l.Any(k, v) }
+func (l *Line) Error(k string, v error)            { l.Any(k, v) }
+func (l *Line) Int(k string, v int64)              { l.Any(k, v) }
+func (l *Line) Link(k string, v trace.Trace)       { l.Any(k, v) }
+func (l *Line) Str(k string, v string)             { l.Any(k, v) }
+func (l *Line) Time(k string, v time.Time)         { l.Any(k, v) }
+func (l *Line) Uint(k string, v uint64)            { l.Any(k, v) }
 
-// MACRO BaseAttribute
-func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { s.Attributes.MetadataZZZ(k, v) }
+func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
+func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
+func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	s.Attributes.MetadataEnum(k, v)
+}
+func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes.MetadataInt64(k, v) }
+func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	s.Attributes.MetadataLink(k, v)
+}
+func (s *Span) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
+	s.Attributes.MetadataNumber(k, v)
+}
+func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
+func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }
 
 // end

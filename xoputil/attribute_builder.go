@@ -1,4 +1,5 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xoputil
 
 import (
@@ -106,6 +107,16 @@ func (a AttributeBuilder) Combine() map[string]interface{} {
 			m[k] = v
 		}
 	}
+	if len(a.Number) != 0 {
+		for k, v := range a.Number {
+			m[k] = v
+		}
+	}
+	if len(a.Numbers) != 0 {
+		for k, v := range a.Numbers {
+			m[k] = v
+		}
+	}
 	if len(a.Str) != 0 {
 		for k, v := range a.Str {
 			m[k] = v
@@ -142,6 +153,8 @@ func (a *AttributeBuilder) Reset() {
 	a.Int64s = make(map[string][]int64)
 	a.Link = make(map[string]trace.Trace)
 	a.Links = make(map[string][]trace.Trace)
+	a.Number = make(map[string]float64)
+	a.Numbers = make(map[string][]float64)
 	a.Str = make(map[string]string)
 	a.Strs = make(map[string][]string)
 	a.Time = make(map[string]time.Time)
@@ -150,6 +163,7 @@ func (a *AttributeBuilder) Reset() {
 	a.BoolsSeen = make(map[string]map[bool]struct{})
 	a.EnumsSeen = make(map[string]map[xopconst.Enum]struct{})
 	a.Int64sSeen = make(map[string]map[int64]struct{})
+	a.NumbersSeen = make(map[string]map[float64]struct{})
 	a.StrsSeen = make(map[string]map[string]struct{})
 
 	a.LinksSeen = make(map[string]map[string]struct{})
@@ -210,6 +224,24 @@ func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	}
 }
 
+func (a *AttributeBuilder) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
+	if k.Multiple() {
+		if k.Distinct() {
+			if seenMap, ok := a.NumbersSeen[k.Key()]; ok {
+				if _, ok := seenMap[v]; ok {
+					return
+				}
+			} else {
+				a.NumbersSeen[k.Key()] = make(map[float64]struct{})
+			}
+			a.NumbersSeen[k.Key()][v] = struct{}{}
+		}
+		a.Numbers[k.Key()] = append(a.Numbers[k.Key()], v)
+	} else {
+		a.Number[k.Key()] = v
+	}
+}
+
 func (a *AttributeBuilder) MetadataStr(k *xopconst.StrAttribute, v string) {
 	if k.Multiple() {
 		if k.Distinct() {
@@ -229,25 +261,28 @@ func (a *AttributeBuilder) MetadataStr(k *xopconst.StrAttribute, v string) {
 }
 
 type AttributeBuilder struct {
-	Any    map[string]interface{}
-	Anys   map[string][]interface{}
-	Bool   map[string]bool
-	Bools  map[string][]bool
-	Enum   map[string]xopconst.Enum
-	Enums  map[string][]xopconst.Enum
-	Int64  map[string]int64
-	Int64s map[string][]int64
-	Link   map[string]trace.Trace
-	Links  map[string][]trace.Trace
-	Str    map[string]string
-	Strs   map[string][]string
-	Time   map[string]time.Time
-	Times  map[string][]time.Time
+	Any     map[string]interface{}
+	Anys    map[string][]interface{}
+	Bool    map[string]bool
+	Bools   map[string][]bool
+	Enum    map[string]xopconst.Enum
+	Enums   map[string][]xopconst.Enum
+	Int64   map[string]int64
+	Int64s  map[string][]int64
+	Link    map[string]trace.Trace
+	Links   map[string][]trace.Trace
+	Number  map[string]float64
+	Numbers map[string][]float64
+	Str     map[string]string
+	Strs    map[string][]string
+	Time    map[string]time.Time
+	Times   map[string][]time.Time
 
-	BoolsSeen  map[string]map[bool]struct{}
-	EnumsSeen  map[string]map[xopconst.Enum]struct{}
-	Int64sSeen map[string]map[int64]struct{}
-	StrsSeen   map[string]map[string]struct{}
+	BoolsSeen   map[string]map[bool]struct{}
+	EnumsSeen   map[string]map[xopconst.Enum]struct{}
+	Int64sSeen  map[string]map[int64]struct{}
+	NumbersSeen map[string]map[float64]struct{}
+	StrsSeen    map[string]map[string]struct{}
 
 	LinksSeen map[string]map[string]struct{}
 	TimesSeen map[string]map[int64]struct{}

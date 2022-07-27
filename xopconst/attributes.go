@@ -1,4 +1,5 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xopconst
 
 import (
@@ -225,12 +226,14 @@ const (
 	AttributeTypeBool
 	AttributeTypeDuration
 	AttributeTypeEnum
+	AttributeTypeFloat32
 	AttributeTypeInt
 	AttributeTypeInt16
 	AttributeTypeInt32
 	AttributeTypeInt64
 	AttributeTypeInt8
 	AttributeTypeLink
+	AttributeTypeNumber
 	AttributeTypeStr
 	AttributeTypeTime
 )
@@ -268,6 +271,10 @@ type AnyAttribute struct{ Attribute }
 // with bool values.
 type BoolAttribute struct{ Attribute }
 
+// Float32Attribute represents an attribute key that can be used
+// with float32 values.
+type Float32Attribute struct{ Attribute }
+
 // Int64Attribute represents an attribute key that can be used
 // with int64 values.
 type Int64Attribute struct{ Attribute }
@@ -275,6 +282,10 @@ type Int64Attribute struct{ Attribute }
 // LinkAttribute represents an attribute key that can be used
 // with trace.Trace values.
 type LinkAttribute struct{ Attribute }
+
+// NumberAttribute represents an attribute key that can be used
+// with float64 values.
+type NumberAttribute struct{ Attribute }
 
 // StrAttribute represents an attribute key that can be used
 // with string values.

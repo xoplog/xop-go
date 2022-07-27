@@ -1,4 +1,5 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xopbase
 
 import (
@@ -12,6 +13,18 @@ import (
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
 	Request(span trace.Bundle, description string) Request
+
+	// ID returns a unique id for this instance of a logger.  This
+	// is used to prevent duplicate Requets from being created when
+	// additional loggers to added to an ongoing Request.
+	ID() string
+
+	// StackFramesWanted returns the number of stack frames wanted for
+	// each logging level.  Base loggers may be provided with more or
+	// fewer frames than they requested.  It is presumed that higher logging
+	// levels want more frames than lower levels, so only increases are
+	// allowed as the severity increases.
+	StackFramesWanted() map[xopconst.Level]int
 
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
@@ -27,9 +40,18 @@ type Logger interface {
 }
 
 type Request interface {
-	// Calls to Flush are single-threaded along with calls to SpanInfo
-	Flush()
 	Span
+
+	// Flush calls are single-threaded
+	Flush()
+
+	// SetErrorReported will always be called before any other method on the
+	// Request.
+	//
+	// If a base logger encounters an error, it may use the provided function to
+	// report it.  The base logger cannot assume that execution will stop.
+	// The base logger may not panic.
+	SetErrorReporter(func(error))
 }
 
 type Span interface {
@@ -46,6 +68,8 @@ type Span interface {
 	MetadataInt64(*xopconst.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
 	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
+	// MetadataNumber adds a key/value pair to describe the span.
+	MetadataNumber(*xopconst.NumberAttribute, float64)
 	// MetadataStr adds a key/value pair to describe the span.
 	MetadataStr(*xopconst.StrAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
@@ -60,8 +84,13 @@ type Span interface {
 
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
-	// to SpanInfo() or Flush().
-	Line(xopconst.Level, time.Time) Line
+	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
+	// The number of stack frames could be more or less than was requested
+	// by StackFramesWanted().
+	Line(xopconst.Level, time.Time, []uintptr) Line
+
+	// ID must return the same string as the Logger it came from
+	ID() string
 }
 
 type Line interface {
@@ -84,8 +113,13 @@ type Line interface {
 	// locking should not be required.
 	SetAsPrefill(string)
 
+	// Static is the same as Msg, but it hints that the supplied string is
+	// constant rather than something generated.  Since it's static, base
+	// loggers may keep them a dictionary and send entry numbers.
+	Static(string)
+
 	// Recycle starts the line ready to use again.
-	Recycle(xopconst.Level, time.Time)
+	Recycle(xopconst.Level, time.Time, []uintptr)
 }
 
 type SubObject interface {

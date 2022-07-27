@@ -1,0 +1,171 @@
+package xoplog
+
+import (
+	"sync"
+	"time"
+
+	"github.com/muir/xoplog/trace"
+	"github.com/muir/xoplog/xopbase"
+	"github.com/muir/xoplog/xopconst"
+)
+
+type baseLoggers []xopbase.Logger
+type baseRequests struct {
+	baseSpans
+	baseRequests []xopbase.Request
+}
+type baseSpans []xopbase.Span
+type lines []xopbase.Line
+
+var _ xopbase.Request = baseRequests{}
+var _ xopbase.Span = baseSpans{}
+var _ xopbase.Line = lines{}
+
+func (l baseLoggers) StartRequests(span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
+	if len(l) == 1 {
+		req := l[0].Request(span, descriptionOrName)
+		return req, map[string]xopbase.Request{l[0].ID(): req}
+	}
+	m := make(map[string]xopbase.Request)
+	r := baseRequests{
+		baseSpans:    make(baseSpans, 0, len(l)),
+		baseRequests: make([]xopbase.Request, 0, len(l)),
+	}
+	for _, logger := range l {
+		id := logger.ID()
+		if _, ok := m[id]; ok {
+			// duplicate!
+			continue
+		}
+		req := logger.Request(span, descriptionOrName)
+		r.baseRequests = append(r.baseRequests, req)
+		r.baseSpans = append(r.baseSpans, req.(xopbase.Span))
+		m[id] = req
+	}
+	return r, m
+}
+
+func (l baseLoggers) ReferencesKept() bool {
+	for _, logger := range l {
+		if logger.ReferencesKept() {
+			return true
+		}
+	}
+	return false
+}
+
+func (l baseLoggers) Buffered() bool {
+	for _, logger := range l {
+		if logger.Buffered() {
+			return true
+		}
+	}
+	return false
+}
+
+func (l baseLoggers) StackFramesWanted() map[xopconst.Level]int {
+	combined := make(map[xopconst.Level]int)
+	for _, logger := range l {
+		for level, frames := range logger.StackFramesWanted() {
+			if frames > combined[level] {
+				combined[level] = frames
+			}
+		}
+	}
+	return combined
+}
+
+func (s baseRequests) SetErrorReporter(f func(error)) {
+	for _, request := range s.baseRequests {
+		request.SetErrorReporter(f)
+	}
+}
+
+func (s baseRequests) Flush() {
+	var wg sync.WaitGroup
+	wg.Add(len(s.baseRequests))
+	for _, request := range s.baseRequests {
+		go func() {
+			defer wg.Done()
+			request.Flush()
+		}()
+	}
+	wg.Wait()
+}
+
+func (s baseSpans) Span(span trace.Bundle, descriptionOrName string) xopbase.Span {
+	baseSpans := make(baseSpans, len(s))
+	for i, ele := range s {
+		baseSpans[i] = ele.Span(span, descriptionOrName)
+	}
+	return baseSpans
+}
+
+func (s baseSpans) ID() string {
+	panic("this is not expected to be called")
+}
+
+func (s baseSpans) Boring(b bool) {
+	for _, span := range s {
+		span.Boring(b)
+	}
+}
+
+func (s baseSpans) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+	lines := make(lines, len(s))
+	for i, span := range s {
+		lines[i] = span.Line(level, t, pc)
+	}
+	return lines
+}
+
+func (l lines) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
+	for _, line := range l {
+		line.Recycle(level, t, pc)
+	}
+}
+
+func (l lines) SetAsPrefill(m string) {
+	for _, line := range l {
+		line.SetAsPrefill(m)
+	}
+}
+
+func (l lines) Template(m string) {
+	for _, line := range l {
+		line.Template(m)
+	}
+}
+
+func (l lines) Msg(m string) {
+	for _, line := range l {
+		line.Msg(m)
+	}
+}
+
+func (l lines) Static(m string) {
+	for _, line := range l {
+		line.Static(m)
+	}
+}
+
+func (l lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	for _, line := range l {
+		line.Enum(k, v)
+	}
+}
+
+// MACRO BaseData
+// ZZZ adds a zzz key/value pair to a line that is in progress
+func (l lines) ZZZ(k string, v zzz) {
+	for _, line := range l {
+		line.ZZZ(k, v)
+	}
+}
+
+//MACRO BaseAttribute
+func (s baseSpans) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
+	for _, span := range s {
+		span.MetadataZZZ(k, v)
+	}
+}
