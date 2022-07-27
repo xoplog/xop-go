@@ -1,6 +1,6 @@
 # xop - Golang structured log generation combined with tracing (Cross Obserability Platform)
 
-[![GoDoc](https://godoc.org/github.com/muir/xoplog?status.png)](https://pkg.go.dev/github.com/muir/xoplog)
+[![GoDoc](https://godoc.org/github.com/muir/xop-go?status.png)](https://pkg.go.dev/github.com/muir/xop-go)
 
 # Development status
 
@@ -230,7 +230,7 @@ become []bytes.
 Arbitrary names are supported for tagging log lines. For attributes to be displayed
 specially in front-ends, they need to follow standards. Standard attribute groups are
 pre-registered as structs. These can be shared between organizations by contributing
-them to the [Xop repository](https://github.com/muir/xoplog/xopconst).
+them to the [Xop repository](https://github.com/muir/xop-go/xopconst).
 
 The following names are reserved.  What happens if they're used is undefined and up
 to the individual base loggers.

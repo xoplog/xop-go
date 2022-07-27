@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/muir/rest"
-	"github.com/muir/xop"
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/xopconst"
+	"github.com/muir/xop-go"
+	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopconst"
 )
 
 var (

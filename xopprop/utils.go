@@ -3,7 +3,7 @@ package xopprop
 import (
 	"strings"
 
-	"github.com/muir/xop/trace"
+	"github.com/muir/xop-go/trace"
 )
 
 // "traceparent" header

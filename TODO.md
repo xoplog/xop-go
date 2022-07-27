@@ -57,8 +57,6 @@
 - Use generics to make type-safe Enum span attributes: can't do it as a method on Span, but can
   do it as a function.
 
-- Rename "xoplog" -> "xop"
-
 - All todos in code
 
 - Add tests:

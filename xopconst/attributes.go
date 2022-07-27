@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/muir/xop/trace"
+	"github.com/muir/xop-go/trace"
 )
 
 // TODO: PERFORMANCE: pre-allocate blocks of 128 Attributes to provide better locality of reference when using these
