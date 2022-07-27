@@ -1,8 +1,8 @@
 package xop
 
 import (
-	"github.com/muir/xop/xopbase"
-	"github.com/muir/xop/xopconst"
+	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xopconst"
 )
 
 type loggers struct {

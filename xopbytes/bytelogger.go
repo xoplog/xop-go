@@ -1,7 +1,7 @@
 package xopbytes
 
 import (
-	"github.com/muir/xop/trace"
+	"github.com/muir/xop-go/trace"
 )
 
 type BytesWriter interface {

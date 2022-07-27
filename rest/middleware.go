@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/muir/xop"
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/xopconst"
-	"github.com/muir/xop/xopprop"
+	"github.com/muir/xop-go"
+	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopprop"
 )
 
 func makeChildSpan(parent xop.Log, r *http.Request) *xop.Log {

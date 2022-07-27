@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xop/trace"
-	"github.com/muir/xop/xopbase"
-	"github.com/muir/xop/xopconst"
+	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xopconst"
 
 	"github.com/mohae/deepcopy"
 )
