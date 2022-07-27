@@ -1,13 +1,13 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-package xoplog
+package xop
 
 import (
 	"time"
 
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopbase"
-	"github.com/muir/xoplog/xopconst"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopbase"
+	"github.com/muir/xop/xopconst"
 )
 
 // Seed is used to create a Log.

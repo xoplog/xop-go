@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopbase"
-	"github.com/muir/xoplog/xopbytes"
-	"github.com/muir/xoplog/xopconst"
-	"github.com/muir/xoplog/xoputil"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopbase"
+	"github.com/muir/xop/xopbytes"
+	"github.com/muir/xop/xopconst"
+	"github.com/muir/xop/xoputil"
 
 	"github.com/google/uuid"
 	"github.com/phuslu/fasttime"

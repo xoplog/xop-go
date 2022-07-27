@@ -5,8 +5,8 @@ package xopbase
 import (
 	"time"
 
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopconst"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopconst"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
@@ -28,7 +28,7 @@ type Logger interface {
 
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
-	// are kept, then xoplog.Log will make copies.
+	// are kept, then xop.Log will make copies.
 	ReferencesKept() bool
 
 	// Buffered should return true if the logger buffers output and sends

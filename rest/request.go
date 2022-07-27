@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/muir/rest"
-	"github.com/muir/xoplog"
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopconst"
+	"github.com/muir/xop"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopconst"
 )
 
 var (
@@ -18,8 +18,8 @@ var (
 		xopconst.URL.Key())
 )
 
-func Log(log xoplog.Log) *rest.RequestOpts {
-	var step *xoplog.Log
+func Log(log xop.Log) *rest.RequestOpts {
+	var step *xop.Log
 	var farSideSpan trace.HexBytes8
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
@@ -46,7 +46,7 @@ func Log(log xoplog.Log) *rest.RequestOpts {
 			return nil
 		}).
 		DoAfter(func(result rest.Result) rest.Result {
-			var line *xoplog.LogLine
+			var line *xop.LogLine
 			if result.Error != nil {
 				line = step.Error()
 			} else {

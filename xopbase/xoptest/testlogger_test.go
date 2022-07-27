@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/muir/xoplog"
-	"github.com/muir/xoplog/xopbase/xoptest"
-	"github.com/muir/xoplog/xopconst"
+	"github.com/muir/xop"
+	"github.com/muir/xop/xopbase/xoptest"
+	"github.com/muir/xop/xopconst"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,7 +14,7 @@ import (
 func TestLogMethods(t *testing.T) {
 	start := time.Now()
 	tlog := xoptest.New(t)
-	log := xoplog.NewSeed(tlog.WithMe()).Request(t.Name())
+	log := xop.NewSeed(tlog.WithMe()).Request(t.Name())
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
 	log.Alert().Msg("basic alert message")

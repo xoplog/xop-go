@@ -12,13 +12,13 @@ type EnumAttribute struct{ Attribute }
 
 // EmbeddedEnumAttribute is a type of enum set that can be added
 // onto from multiple places.  For example, SpanType is a
-// IotaEnumAttribute and consumers of the xoplog can add additional
+// IotaEnumAttribute and consumers of the xop can add additional
 // values to the enum.  Values must be kept distinct.
 type EmbeddedEnumAttribute struct{ EnumAttribute }
 
 // IotaEnumAttribute is a type of enum set that can be added
 // onto from multiple places.  For example, SpanType is a
-// IotaEnumAttribute and consumers of the xoplog can add additional
+// IotaEnumAttribute and consumers of the xop can add additional
 // values to the enum.  Values are automatically kept distinct.
 type IotaEnumAttribute struct {
 	EnumAttribute
