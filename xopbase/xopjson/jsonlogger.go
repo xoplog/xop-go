@@ -11,6 +11,7 @@ import (
 
 	"github.com/muir/xoplog/trace"
 	"github.com/muir/xoplog/xopbase"
+	"github.com/muir/xoplog/xopbytes"
 	"github.com/muir/xoplog/xopconst"
 	"github.com/muir/xoplog/xoputil"
 
@@ -50,15 +51,8 @@ const (
 	AsString                        // duration.String()
 )
 
-type AsynchronousWriter interface {
-	Write([]byte) (int, error)
-	Flush() error
-	Close() error
-	Buffered() bool
-}
-
 type Logger struct {
-	writer           AsynchronousWriter
+	writer           xopbytes.BytesWriter
 	timeOption       timeOption
 	timeFormat       string
 	framesAtLevelMap map[xopconst.Level]int
@@ -80,6 +74,7 @@ type prefill struct {
 
 type Span struct {
 	attributes xoputil.AttributeBuilder
+	writer     xopbytes.BytesRequest
 	trace      trace.Bundle
 	logger     *Logger
 	prefill    atomic.Value
@@ -132,11 +127,11 @@ func WithGoroutineID(b bool) Option {
 	}
 }
 
-func New(w AsynchronousWriter, opts ...Option) *Logger {
+func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	logger := &Logger{
 		writer:           w,
-		framesAtLevelMap: make(map[xopconst.Level]int),
 		id:               uuid.New(),
+		framesAtLevelMap: make(map[xopconst.Level]int),
 	}
 	for _, f := range opts {
 		f(logger)
@@ -150,29 +145,34 @@ func (l *Logger) ReferencesKept() bool                      { return false }
 func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevelMap }
 
 func (l *Logger) Close() {
-	// no place to report errors
-	_ = l.writer.Close()
+	l.writer.Close()
 }
 
 func (l *Logger) Request(span trace.Bundle, name string) xopbase.Request {
 	s := &Span{
 		logger: l,
+		writer: l.writer.Request(span),
 	}
 	s.attributes.Reset()
 	return s
 }
 
+func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
+	n := &Span{
+		logger: s.logger,
+		writer: s.writer,
+	}
+	n.attributes.Reset()
+	return n
+}
+
 func (s *Span) Flush() {
-	s.logger.writer.Flush()
+	s.writer.Flush()
 }
 
 func (s *Span) Boring(bool)                           {} // TODO
 func (s *Span) ID() string                            { return s.logger.id.String() }
 func (s *Span) SetErrorReporter(reporter func(error)) { s.errorFunc = reporter }
-
-func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
-	return s.logger.Request(span, name)
-}
 
 func (s *Span) getPrefill() *prefill {
 	p := s.prefill.Load()
@@ -264,7 +264,7 @@ func (l *Line) Msg(m string) {
 	l.dataBuffer.String(m)
 	// {
 	l.dataBuffer.AppendByte('}')
-	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
+	_, err := l.span.writer.Write(l.dataBuffer.B)
 	if err != nil {
 		l.span.errorFunc(err)
 	}
@@ -287,7 +287,7 @@ func (l *Line) Template(m string) {
 	l.dataBuffer.String(m)
 	// {
 	l.dataBuffer.AppendByte('}')
-	_, err := l.span.logger.writer.Write(l.dataBuffer.B)
+	_, err := l.span.writer.Write(l.dataBuffer.B)
 	if err != nil {
 		l.span.errorFunc(err)
 	}
