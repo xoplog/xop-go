@@ -66,6 +66,7 @@
   - subspans
   - Span attributes
   - Structued lines
+  - JSON logger
 
 - gateway loggers:
 
@@ -80,16 +81,27 @@
   - gateway to zap
   - gateway to phuslog
 
+- Base loggers
+
+  - Console (emphasis on readable, but still retains full data)
+
+- Bytes writers 
+
+  - to console
+  - to io.Writer (same as console?)
+
 # Not build ready 
 
 - Base loggers:
 
-  - Console to io.Writer
-  - JSON to io.Writer
+  Not ready because APIs should be more solid first
+
   - Gateway into Jaeger
   - Gateway into Open Telementry
-  - Stream send to server (need to write server !)
-  - Gateways to other loggers so that xoplog can be used by libraries:
+
+- Bytes writers:
+
+  - send to server (need to design server)
 
 - Metrics
 
