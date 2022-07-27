@@ -16,8 +16,9 @@
 
 - Should Template() be a line starter rather than an ender?
 
-- Use ZSON for main transport?  https://www.brimdata.io/blog/unmarshal-interface/
- Use BSON for main transport?
+- Use ZSON for main transport?  
+  https://www.brimdata.io/blog/unmarshal-interface/
+  Use BSON for main transport?
 
 - Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
 
@@ -33,10 +34,10 @@
 
 - Round out the kinds of things that can be logged:
 
- - Tables
- - Pre-encoded data
- - Add Object(func(*BaseType))
- - Add Pairs(k, v, k, v, ...)
+  - Tables
+  - Pre-encoded data
+  - Add Object(func(*BaseType))
+  - Add Pairs(k, v, k, v, ...)
 
 - Write panic trappers.  Should log the panic and flush.
 
@@ -53,21 +54,23 @@
 - All todos in code
 
 - Add tests:
-	Span attributes
-	Structued lines
+
+  - subspans
+  - Span attributes
+  - Structued lines
 
 - gateway loggers:
 
- Each should have a single func that bundles the baselogger into
- a logger.  The idea being to make xop a good choice for libraries
- that may not know what the project logger is.
+  Each should have a single func that bundles the baselogger into
+  a logger.  The idea being to make xop a good choice for libraries
+  that may not know what the project logger is.
 
- - gateway to standard "log"
- - gateway to logur
- - gateway to onelog
- - gateway to zerolog
- - gateway to zap
- - gateway to phuslog
+  - gateway to standard "log"
+  - gateway to logur
+  - gateway to onelog
+  - gateway to zerolog
+  - gateway to zap
+  - gateway to phuslog
 
 # Not build ready 
 
