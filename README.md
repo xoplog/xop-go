@@ -216,6 +216,13 @@ A "span" is a linear portion of the processing required to handle a request.  A 
 not include multiple threads of execution.  Span should represent a logical component to of the
 work being done.  Breaking the work into spans is an exercise for the programmer.
 
+A "logger" is something that is used throughout code to generate log lines and spans.
+
+A "base logger" is the layer below that the "logger" uses to send output to different systems.
+
+A "bytes logger" is an optional layer below "base logger" that works with logs that have already
+become []bytes.
+
 # Naming
 
 ## Name registry
