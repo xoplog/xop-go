@@ -71,23 +71,23 @@
 
 # Not build ready 
 
-1. Base loggers:
+- Base loggers:
 
- - Console to io.Writer
- - JSON to io.Writer
- - Gateway into Jaeger
- - Gateway into Open Telementry
- - Stream send to server (need to write server !)
- - Gateways to other loggers so that xoplog can be used by libraries:
+  - Console to io.Writer
+  - JSON to io.Writer
+  - Gateway into Jaeger
+  - Gateway into Open Telementry
+  - Stream send to server (need to write server !)
+  - Gateways to other loggers so that xoplog can be used by libraries:
 
-1. Metrics
+- Metrics
 
- - Re-use attribute naming?
- - Allow "tags" or some other multi-dimensional naming
+  - Re-use attribute naming?
+  - Allow "tags" or some other multi-dimensional naming
 
-1. Events
+- Events
 
- - Gets counted
- -  Re-use attributes?
- - Attach arbitrary data
+  - Gets counted
+  - Re-use attributes?
+  - Attach arbitrary data
 
