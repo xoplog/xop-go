@@ -5,8 +5,8 @@ package xoputil
 import (
 	"time"
 
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopconst"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopconst"
 )
 
 func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {

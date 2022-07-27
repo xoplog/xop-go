@@ -1,4 +1,4 @@
-package xoplog
+package xop
 
 import (
 	"strconv"

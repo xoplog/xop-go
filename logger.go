@@ -1,4 +1,4 @@
-package xoplog
+package xop
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopbase"
-	"github.com/muir/xoplog/xopconst"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopbase"
+	"github.com/muir/xop/xopconst"
 
 	"github.com/mohae/deepcopy"
 )

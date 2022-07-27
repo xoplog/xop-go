@@ -4,13 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/muir/xoplog"
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopconst"
-	"github.com/muir/xoplog/xopprop"
+	"github.com/muir/xop"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopconst"
+	"github.com/muir/xop/xopprop"
 )
 
-func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
+func makeChildSpan(parent xop.Log, r *http.Request) *xop.Log {
 	route := mux.CurrentRoute(r)
 	name := route.GetName()
 	if name == "" {
@@ -45,14 +45,14 @@ func makeChildSpan(parent xoplog.Log, r *http.Request) *xoplog.Log {
 		bundle.Trace.SpanID().SetRandom()
 	}
 
-	log := parent.Span().Seed(xoplog.WithBundle(bundle)).Request(r.Method + " " + name)
+	log := parent.Span().Seed(xop.WithBundle(bundle)).Request(r.Method + " " + name)
 	log.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
 	log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
 	log.Span().Str(xopconst.URL, r.URL.String())
 	return log
 }
 
-func ParentLogMiddleware(parentLog xoplog.Log) func(http.HandlerFunc) http.HandlerFunc {
+func ParentLogMiddleware(parentLog xop.Log) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -65,8 +65,8 @@ func ParentLogMiddleware(parentLog xoplog.Log) func(http.HandlerFunc) http.Handl
 }
 
 // MakeLogInjector is compatible with https://github.com/muir/nject/nvelope
-func MakeLogInjector(parentLog xoplog.Log) func(func(*xoplog.Log), *http.Request) {
-	return func(inner func(*xoplog.Log), r *http.Request) {
+func MakeLogInjector(parentLog xop.Log) func(func(*xop.Log), *http.Request) {
+	return func(inner func(*xop.Log), r *http.Request) {
 		log := makeChildSpan(parentLog, r)
 		defer log.Done()
 		inner(log)

@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/muir/xoplog"
-	"github.com/muir/xoplog/trace"
-	"github.com/muir/xoplog/xopbase"
-	"github.com/muir/xoplog/xopconst"
-	"github.com/muir/xoplog/xoputil"
+	"github.com/muir/xop"
+	"github.com/muir/xop/trace"
+	"github.com/muir/xop/xopbase"
+	"github.com/muir/xop/xopconst"
+	"github.com/muir/xop/xoputil"
 )
 
 type testingT interface {
@@ -81,8 +81,8 @@ type Line struct {
 	kvText    []string
 }
 
-func (l *TestLogger) WithMe() xoplog.SeedModifier {
-	return xoplog.WithBaseLogger("testing", l)
+func (l *TestLogger) WithMe() xop.SeedModifier {
+	return xop.WithBaseLogger("testing", l)
 }
 
 func (l *TestLogger) ID() string                                { return l.id }
