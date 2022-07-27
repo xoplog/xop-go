@@ -85,9 +85,9 @@
  - Re-use attribute naming?
  - Allow "tags" or some other multi-dimensional naming
 
-- Events
+1. Events
 
- 1. Gets counted
- 1. Re-use attributes?
- 1. Attach arbitrary data
+ - Gets counted
+ -  Re-use attributes?
+ - Attach arbitrary data
 
