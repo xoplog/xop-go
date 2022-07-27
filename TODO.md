@@ -34,7 +34,15 @@
 
 - Round out the kinds of things that can be logged:
 
-  - Tables
+  - Tables 
+
+    ```go
+    type Table interface{
+	Header() []string
+	Rows() [][]string
+    }
+    ````
+
   - Pre-encoded data
   - Add Object(func(*BaseType))
   - Add Pairs(k, v, k, v, ...)
