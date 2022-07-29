@@ -1,0 +1,104 @@
+package xop
+
+import (
+	"strconv"
+	"sync/atomic"
+	"time"
+
+	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xopconst"
+)
+
+type Sub struct {
+	settings LogSettings
+	log      *Log
+}
+
+type LogSettings struct {
+	prefillMsg      string
+	prefillData     []func(xopbase.Line)
+	minimumLogLevel Level
+}
+
+func (l *Log) Sub() *Sub {
+	return &Settings{
+		settings: l.settings,
+		log:      l,
+	}
+}
+
+func (s *Sub) Log() *Log {
+}
+
+// Fork creates a new Log that does not need to be terminated because
+// it is assumed to be done with the current log is finished.
+func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
+	seed := s.log.span.Seed(mods...).SubSpan()
+	counter := int(atomic.AddInt32(&s.log.local.ForkCounter, 1))
+	seed.spanSequenceCode += "." + base26(counter)
+	return l.newChildLog(seed, s.settings, msg)
+}
+
+// Step creates a new log that does not need to be terminated -- it
+// represents the continued execution of the current log but doing
+// something that is different and should be in a fresh span. The expectation
+// is that there is a parent log that is creating various sub-logs using
+// Step over and over as it does different things.
+func (s *Sub) Step(msg string, mods ...SeedModifier) *Log {
+	seed := s.log.span.Seed(mods...).SubSpan()
+	counter := int(atomic.AddInt32(&s.log.local.StepCounter, 1))
+	seed.spanSequenceCode += "." + strconv.Itoa(counter)
+	return s.log.newChildLog(seed, s.settings, msg)
+}
+
+func (s *Sub) Level(level xopconst.Level) *Sub {
+	s.settings.Level(level)
+	return s
+}
+
+func (s *LogSettings) Level(level xopconst.Level) {
+	s.minimumLoggingLevel = level
+}
+
+func (s *Sub) PrefillText(m string) *Sub {
+	s.settings.PrefillText(m)
+	return s
+}
+
+func (s *LogSettings) PrefillText(m string) {
+	s.prefillMsg = m
+}
+
+func (s *Sub) NoPrefill() *Sub {
+	s.settings.NoPrefill()
+	return s
+}
+
+func (s *LogSettings) NoPrefill() {
+	s.settings.prefillData = nil
+	s.settings.prefillMsg = ""
+}
+
+func (s Seed) sendPrefill(log *Log) {
+	if s.prefillData == nil && s.prefillMsg == "" {
+		return
+	}
+	line := log.span.base.Line(xopconst.InfoLevel, time.Now(), nil)
+	for _, f := range s.prefillData {
+		f(line)
+	}
+	line.SetAsPrefill(s.prefillMsg)
+}
+
+// MACRO BaseData
+// ZZZPrefill is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (s *Sub) ZZZPrefill(k string, v zzz) *Sub {
+	s.settings.ZZZPrefill(k, v)
+	return s
+}
+func (s *LogSettings) ZZZPrefill() {
+	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+		line.ZZZ(k, v)
+	})
+}

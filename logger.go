@@ -16,17 +16,18 @@ import (
 )
 
 type Log struct {
-	span              Span
+	span              *Span // XXX changed to ptr
 	request           *Span
 	local             local                        // one span in a request
 	shared            *shared                      // shared between spans in a request
 	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
 	buffered          bool
 	referencesKept    bool
+	settings          LogSettings // XXX added
 }
 
 type Span struct {
-	seed     Seed
+	seed     SpanSeed
 	dataLock sync.Mutex // protects Data & SpanType (can only be held for short periods)
 	log      *Log       // back to self
 	base     xopbase.Span
@@ -270,27 +271,6 @@ func (l *Log) Wait() *Log {
 	l.Warn().Msg("Too many calls to log.Done()") // TODO: allow user to provide error maker
 	l.shared.FlushTimer.Reset(l.span.seed.config.FlushDelay)
 	return l
-}
-
-// Fork creates a new Log that does not need to be terminated because
-// it is assumed to be done with the current log is finished.
-func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
-	seed := l.span.Seed(mods...).SubSpan()
-	counter := int(atomic.AddInt32(&l.local.ForkCounter, 1))
-	seed.spanSequenceCode += "." + base26(counter)
-	return l.newChildLog(seed, msg)
-}
-
-// Step creates a new log that does not need to be terminated -- it
-// represents the continued execution of the current log but doing
-// something that is different and should be in a fresh span. The expectation
-// is that there is a parent log that is creating various sub-logs using
-// Step over and over as it does different things.
-func (l *Log) Step(msg string, mods ...SeedModifier) *Log {
-	seed := l.span.Seed(mods...).SubSpan()
-	counter := int(atomic.AddInt32(&l.local.StepCounter, 1))
-	seed.spanSequenceCode += "." + strconv.Itoa(counter)
-	return l.newChildLog(seed, msg)
 }
 
 type LogLine struct {
