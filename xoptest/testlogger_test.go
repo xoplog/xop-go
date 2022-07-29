@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopbase/xoptest"
 	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xoptest"
 
 	"github.com/stretchr/testify/assert"
 )

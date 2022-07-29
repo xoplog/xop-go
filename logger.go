@@ -282,7 +282,7 @@ func (l *Log) Fork(msg string, mods ...SeedModifier) *Log {
 }
 
 // Step creates a new log that does not need to be terminated -- it
-// represents the continued execution of the current log bug doing
+// represents the continued execution of the current log but doing
 // something that is different and should be in a fresh span. The expectation
 // is that there is a parent log that is creating various sub-logs using
 // Step over and over as it does different things.
@@ -372,8 +372,6 @@ func (l *Log) Alert() *LogLine {
 	return l.LogLine(xopconst.AlertLevel)
 }
 
-// TODO: generate these
-// TODO: the rest of the set
 func (ll *LogLine) Msgf(msg string, v ...interface{})           { ll.Msg(fmt.Sprintf(msg, v...)) }
 func (ll *LogLine) Msgs(v ...interface{})                       { ll.Msg(fmt.Sprint(v...)) }
 func (ll *LogLine) Int(k string, v int) *LogLine                { ll.line.Int(k, int64(v)); return ll }
