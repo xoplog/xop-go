@@ -12,17 +12,23 @@ import (
 	"github.com/muir/xop-go/xopconst"
 )
 
+// Sub holds an ephermal state of a log being tranformed to a new log.
 type Sub struct {
 	settings LogSettings
 	log      *Log
 }
 
 type LogSettings struct {
-	prefillMsg      string
-	prefillData     []func(xopbase.Line)
-	minimumLogLevel Level
+	prefillMsg        string
+	prefillData       []func(xopbase.Line)
+	minimumLogLevel   xopconst.Level
+	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
 }
 
+// Sub is the first step in creating a sub-Log from the current log.
+// Sub allows log settings to be modified.  The returned value must
+// be used.  It is used by a call to sub.Log(), sub.Fork(), or
+// sub.Step().
 func (l *Log) Sub() *Sub {
 	return &Settings{
 		settings: l.settings,
@@ -30,16 +36,14 @@ func (l *Log) Sub() *Sub {
 	}
 }
 
-func (s *Sub) Log() *Log {
-}
-
 // Fork creates a new Log that does not need to be terminated because
-// it is assumed to be done with the current log is finished.
+// it is assumed to be done with the current log is finished.  The new log
+// has its own span.
 func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 	seed := s.log.span.Seed(mods...).SubSpan()
-	counter := int(atomic.AddInt32(&s.log.local.ForkCounter, 1))
+	counter := int(atomic.AddInt32(&s.log.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter)
-	return l.newChildLog(seed, s.settings, msg)
+	return l.newChildLog(seed.spanSeed, msg, s.settings)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -49,17 +53,46 @@ func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 // Step over and over as it does different things.
 func (s *Sub) Step(msg string, mods ...SeedModifier) *Log {
 	seed := s.log.span.Seed(mods...).SubSpan()
-	counter := int(atomic.AddInt32(&s.log.local.StepCounter, 1))
+	counter := int(atomic.AddInt32(&s.log.span.stepCounter, 1))
 	seed.spanSequenceCode += "." + strconv.Itoa(counter)
-	return s.log.newChildLog(seed, s.settings, msg)
+	return s.log.newChildLog(seed.spanSeed, msg, s.settings)
 }
 
-func (s *Sub) Level(level xopconst.Level) *Sub {
+// StackFrames sets the number of stack frames to include at
+// a logging level.  Levels above the given level will be set to
+// get least this many.  Levels below the given level will be set
+// to receive at most this many.
+func (s *Sub) StackFrames(level xopconst.Level, count int) *Sub {
+	s.settings.StackFrames(level, count)
+	return s
+}
+
+// StackFrames sets the number of stack frames to include at
+// a logging level.  Levels above the given level will be set to
+// get least this many.  Levels below the given level will be set
+// to receive at most this many.
+func (s *LogSettings) StackFrames(level xopconst.Level, count int) {
+	for _, l := range xopconst.AllLevels() {
+		current := s.stackFramesWanted[l]
+		if l <= level && current > level {
+			s.stackFramesWanted = count
+		}
+		if l >= level && current < level {
+			s.stackFramesWanted = count
+		}
+	}
+}
+
+// MinLevel sets the minimum logging level below which logs will
+// be discarded.  The default is that no logs are discarded.
+func (s *Sub) MinLevel(level xopconst.Level) *Sub {
 	s.settings.Level(level)
 	return s
 }
 
-func (s *LogSettings) Level(level xopconst.Level) {
+// MinLevel sets the minimum logging level below which logs will
+// be discarded.  The default is that no logs are discarded.
+func (s *LogSettings) MinLevel(level xopconst.Level) {
 	s.minimumLoggingLevel = level
 }
 
@@ -82,21 +115,21 @@ func (s *LogSettings) NoPrefill() {
 	s.settings.prefillMsg = ""
 }
 
-func (s Seed) sendPrefill(log *Log) {
-	if s.prefillData == nil && s.prefillMsg == "" {
-		return
+func (l *Log) sendPrefill() xopbase.Prefilled {
+	if s.settings.prefillData == nil && s.settings.prefillMsg == "" {
+		l.prefilled = log.span.base.NoPrefill()
 	}
-	line := log.span.base.Line(xopconst.InfoLevel, time.Now(), nil)
-	for _, f := range s.prefillData {
+	line := log.span.base.StartPrefill()
+	for _, f := range l.settings.prefillData {
 		f(line)
 	}
-	line.SetAsPrefill(s.prefillMsg)
+	l.prefilled = line.PrefillComplete()
 }
 
-// AnyPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) AnyPrefill(k string, v interface{}) *Sub {
-	s.settings.AnyPrefill(k, v)
+func (s *Sub) PrefillAny(k string, v interface{}) *Sub {
+	s.settings.PrefillAny(k, v)
 	return s
 }
 
@@ -106,10 +139,10 @@ func (s *LogSettings) AnyPrefill() {
 	})
 }
 
-// BoolPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillBool is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) BoolPrefill(k string, v bool) *Sub {
-	s.settings.BoolPrefill(k, v)
+func (s *Sub) PrefillBool(k string, v bool) *Sub {
+	s.settings.PrefillBool(k, v)
 	return s
 }
 
@@ -119,10 +152,10 @@ func (s *LogSettings) BoolPrefill() {
 	})
 }
 
-// DurationPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillDuration is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) DurationPrefill(k string, v time.Duration) *Sub {
-	s.settings.DurationPrefill(k, v)
+func (s *Sub) PrefillDuration(k string, v time.Duration) *Sub {
+	s.settings.PrefillDuration(k, v)
 	return s
 }
 
@@ -132,10 +165,10 @@ func (s *LogSettings) DurationPrefill() {
 	})
 }
 
-// ErrorPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillError is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) ErrorPrefill(k string, v error) *Sub {
-	s.settings.ErrorPrefill(k, v)
+func (s *Sub) PrefillError(k string, v error) *Sub {
+	s.settings.PrefillError(k, v)
 	return s
 }
 
@@ -145,10 +178,10 @@ func (s *LogSettings) ErrorPrefill() {
 	})
 }
 
-// IntPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillInt is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) IntPrefill(k string, v int64) *Sub {
-	s.settings.IntPrefill(k, v)
+func (s *Sub) PrefillInt(k string, v int64) *Sub {
+	s.settings.PrefillInt(k, v)
 	return s
 }
 
@@ -158,10 +191,10 @@ func (s *LogSettings) IntPrefill() {
 	})
 }
 
-// LinkPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillLink is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) LinkPrefill(k string, v trace.Trace) *Sub {
-	s.settings.LinkPrefill(k, v)
+func (s *Sub) PrefillLink(k string, v trace.Trace) *Sub {
+	s.settings.PrefillLink(k, v)
 	return s
 }
 
@@ -171,10 +204,10 @@ func (s *LogSettings) LinkPrefill() {
 	})
 }
 
-// StrPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillStr is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) StrPrefill(k string, v string) *Sub {
-	s.settings.StrPrefill(k, v)
+func (s *Sub) PrefillStr(k string, v string) *Sub {
+	s.settings.PrefillStr(k, v)
 	return s
 }
 
@@ -184,10 +217,10 @@ func (s *LogSettings) StrPrefill() {
 	})
 }
 
-// TimePrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillTime is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) TimePrefill(k string, v time.Time) *Sub {
-	s.settings.TimePrefill(k, v)
+func (s *Sub) PrefillTime(k string, v time.Time) *Sub {
+	s.settings.PrefillTime(k, v)
 	return s
 }
 
@@ -197,10 +230,10 @@ func (s *LogSettings) TimePrefill() {
 	})
 }
 
-// UintPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillUint is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) UintPrefill(k string, v uint64) *Sub {
-	s.settings.UintPrefill(k, v)
+func (s *Sub) PrefillUint(k string, v uint64) *Sub {
+	s.settings.PrefillUint(k, v)
 	return s
 }
 

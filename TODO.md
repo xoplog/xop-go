@@ -94,6 +94,21 @@
   - gateway to zap
   - gateway to phuslog
 
+- emulation
+
+  To help the transition to xop, write emulation packages
+  that provide an interface on top of zop that looks like other popular 
+  loggers
+
+  `log.Zap().Info("msg", xopzap.String("uri", uri))`
+
+  - zap
+  - zap sugar
+  - onelog
+  - zerolog
+  - logur
+  - standard "log"
+
 - Base loggers
 
   - Console (emphasis on readable, but still retains full data)
@@ -102,6 +117,17 @@
 
   - to console
   - to io.Writer (same as console?)
+
+- Add CI
+
+  Gitlab actions.  
+
+  - Example in libschema for combining coverage from multiple source
+
+- Add benchmarking
+
+  - Example in phuslog for adjusting readme.  
+  - Also in zap, onelog, zerolog
 
 # Not build ready 
 

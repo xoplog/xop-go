@@ -17,13 +17,6 @@ type Logger interface {
 	// additional loggers to added to an ongoing Request.
 	ID() string
 
-	// StackFramesWanted returns the number of stack frames wanted for
-	// each logging level.  Base loggers may be provided with more or
-	// fewer frames than they requested.  It is presumed that higher logging
-	// levels want more frames than lower levels, so only increases are
-	// allowed as the severity increases.
-	StackFramesWanted() map[xopconst.Level]int
-
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
 	// are kept, then xop.Log will make copies.
@@ -70,12 +63,6 @@ type Span interface {
 	// ID must return the same string as the Logger it came from
 	ID() string
 
-	// SetAsPrefill may only be called once.  It is an alternative to Msg.
-	// Whatever is in the line becomes part of every following line.
-	// This will only be used right when a Span is created and thus
-	// locking should not be required.
-	SetAsPrefill(string) Prefill
-
 	// TODO: Guage()
 	// TODO: Event()
 
@@ -84,18 +71,16 @@ type Span interface {
 	NoPrefill() Prefilled
 }
 
-type Prefilling {
+type Prefilling interface {
 	ObjectParts
-	
-	PrefillComplete() Prefilled 
+
+	PrefillComplete() Prefilled
 }
 
-type Prefilled {
+type Prefilled interface {
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
 	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
-	// The number of stack frames could be more or less than was requested
-	// by StackFramesWanted().
 	Line(xopconst.Level, time.Time, []uintptr) Line
 }
 
@@ -126,7 +111,7 @@ type ObjectParts interface {
 	Enum(*xopconst.EnumAttribute, xopconst.Enum)
 	Link(string, trace.Trace)
 	Duration(string, time.Duration)
-	// TODO: split the above off as "BasicObjectParts" 
+	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
 	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
@@ -147,4 +132,3 @@ type Encoder interface {
 	ProducesText() bool
 	Encode(elementName string, data interface{}) ([]byte, error)
 }
-

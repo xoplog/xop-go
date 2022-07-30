@@ -5,13 +5,12 @@ import (
 
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
 )
 
 // Seed is used to create a Log.
 type Seed struct {
 	spanSeed
-	settings LogSetting
+	settings LogSettings
 }
 
 type spanSeed struct {
@@ -39,15 +38,20 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
+		spanSeed: spanSeed{
 		config:      DefaultConfig,
 		traceBundle: trace.NewBundle(),
+		},
 	}
 	seed.rebuildAsOne()
 	return seed.applyMods(mods)
 }
 
 func (s *Span) Seed(mods ...SeedModifier) Seed {
-	seed := s.seed.Copy()
+	seed := Seed{
+		spanSeed: s.spanSeed.Copy(),
+		settings: s.log.settings,
+	}
 	return seed.applyMods(mods)
 }
 
@@ -85,4 +89,3 @@ func (s Seed) SubSpan() Seed {
 	s.traceBundle.Trace.RandomizeSpanID()
 	return s
 }
-

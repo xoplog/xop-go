@@ -3,7 +3,6 @@ package xop
 import (
 	"fmt"
 	"runtime"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,30 +15,23 @@ import (
 )
 
 type Log struct {
-	span              *Span // XXX changed to ptr
-	request           *Span
-	local             local                        // one span in a request
-	shared            *shared                      // shared between spans in a request
-	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
-	buffered          bool
-	referencesKept    bool
-	settings          LogSettings // XXX added
+	request   *span
+	span      *span
+	shared    *shared     // shared between spans in a request
+	settings  LogSettings // XXX added
+	prefilled xopbase.Prefilled
 }
 
-type Span struct {
-	seed     SpanSeed
-	dataLock sync.Mutex // protects Data & SpanType (can only be held for short periods)
-	log      *Log       // back to self
-	base     xopbase.Span
-	linePool sync.Pool
-	boring   int32 // 0 = boring
-}
-
-type local struct {
-	ForkCounter int32
-	StepCounter int32
-	Created     time.Time
-	IsRequest   bool
+type span struct {
+	seed           spanSeed
+	dataLock       sync.Mutex // protects Data & SpanType (can only be held for short periods)
+	base           xopbase.Span
+	linePool       sync.Pool
+	boring         int32 // 0 = boring
+	buffered       bool
+	referencesKept bool
+	forkCounter    int32
+	stepCounter    int32
 }
 
 // shared is common between the loggers that share a search index
@@ -59,55 +51,60 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	s = s.Copy()
 	s.traceBundle.Trace.RebuildSetNonZero()
 	log := Log{
-		span: Span{
-			seed: s,
+		span: &span{
+			seed: s.spanSeed,
 		},
 		shared: &shared{
 			RefCount:    1,
 			FlushActive: 1,
 			Description: descriptionOrName,
 		},
-		local: local{
-			Created:   time.Now(),
-			IsRequest: true,
-		},
+		settings: s.settings,
 	}
-	log.span.log = &log
-	log.request = &log.span
+	log.request = log.span
 	combinedBaseRequest, flushers := log.span.seed.loggers.AsOne.StartRequests(log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
-	log.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
-	log.buffered = log.span.seed.loggers.AsOne.Buffered()
+	log.span.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
+	log.span.buffered = log.span.seed.loggers.AsOne.Buffered()
 	log.span.base = combinedBaseRequest.(xopbase.Span)
-	log.setStackFramesWanted()
-	s.sendPrefill(&log) // before turning on the timer so as to not create a race
-	if log.buffered {
+	log.sendPrefill()
+	if log.span.buffered {
 		// XXX always create?
 		log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
 	}
 	return &log
 }
 
-func (old *Log) newChildLog(seed Seed, description string) *Log {
+// Log creates a new Log that does not need to be terminated because
+// it is assumed to be done with the current log is finished.  The new log
+// shares a span with its parent log. It can have different settings from its
+// parent log.
+func (s *Sub) Log() *Log {
 	log := &Log{
-		span: Span{
-			seed: seed,
+		span:     s.log.span,
+		shared:   s.log.shared,
+		request:  s.log.request,
+		settings: s.settings,
+	}
+	log.sendPrefill()
+	return log
+}
+
+func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogSettings) *Log {
+	log := &Log{
+		span: &span{
+			seed: spanSeed,
 		},
-		local: local{
-			Created:   time.Now(),
-			IsRequest: false,
-		},
-		shared:  old.shared,
-		request: old.request,
+		shared:   old.shared,
+		request:  old.request,
+		settings: settings,
 	}
 
-	log.span.log = log
-	log.span.base = old.span.base.Span(seed.traceBundle, description)
-	if len(seed.loggers.Added) == 0 && len(seed.loggers.Removed) == 0 {
-		log.buffered = old.buffered
-		log.referencesKept = old.referencesKept
-		log.stackFramesWanted = old.stackFramesWanted
+	log.span.base = old.span.base.Span(spanSeed.traceBundle, description)
+	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {
+		log.span.buffered = old.span.buffered
+		log.span.referencesKept = old.span.referencesKept
 	} else {
 		spanSet := make(map[string]xopbase.Span)
 		if baseSpans, ok := log.span.base.(baseSpans); ok {
@@ -115,10 +112,10 @@ func (old *Log) newChildLog(seed Seed, description string) *Log {
 				spanSet[baseSpan.ID()] = baseSpan
 			}
 		}
-		for _, removed := range seed.loggers.Removed {
+		for _, removed := range spanSeed.loggers.Removed {
 			delete(spanSet, removed.Base.ID())
 		}
-		for _, added := range seed.loggers.Added {
+		for _, added := range spanSeed.loggers.Added {
 			id := added.Base.ID()
 			if _, ok := spanSet[id]; ok {
 				continue
@@ -150,18 +147,17 @@ func (old *Log) newChildLog(seed Seed, description string) *Log {
 			}
 			log.span.base = spans
 		}
-		log.buffered = log.span.seed.loggers.AsOne.Buffered()
-		log.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
-		log.setStackFramesWanted()
+		log.span.buffered = log.span.seed.loggers.AsOne.Buffered()
+		log.span.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
 	}
 	log.span.base.Boring(true)
-	log.span.Str(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode)
-	seed.sendPrefill(log)
+	log.Span().Str(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // XXX improve  (not efficient)
+	log.sendPrefill()
 	return log
 }
 
 func (l *Log) enableFlushTimer() {
-	if l.buffered {
+	if l.span.buffered {
 		was := atomic.SwapInt32(&l.shared.FlushActive, 1)
 		if was == 0 {
 			l.shared.FlushTimer.Reset(l.shared.FlushDelay)
@@ -232,22 +228,6 @@ func (l *Log) notBoring() {
 	}
 }
 
-func (l *Log) setStackFramesWanted() {
-	wanted := l.span.seed.loggers.AsOne.StackFramesWanted()
-	var minFrames int
-	for _, level := range xopconst.LevelValues() {
-		if wanted[level] > minFrames {
-			minFrames = wanted[level]
-		}
-		l.stackFramesWanted[level] = minFrames
-	}
-}
-
-// TODO func (l *Log) Zap() like zap
-// TODO func (l *Log) Sugar() like zap.Sugar
-// TODO func (l *Log) Zero() like zerolog
-// TODO func (l *Log) One() like onelog (or is Zero() good enough?)
-
 // Done is used to indicate that a seed.Reqeust(), log.Fork().Wait(), or
 // log.Step().Wait() is done.  When all of the parts of a request are
 // finished, the log is automatically flushed.
@@ -285,34 +265,33 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 	if recycled != nil {
 		// TODO: try using LogLine instead of *LogLine
 		ll = recycled.(*LogLine)
-		if l.stackFramesWanted[level] == 0 {
+		if l.settings.stackFramesWanted[level] == 0 {
 			if ll.pc != nil {
 				ll.pc = ll.pc[:0]
 			}
 		} else {
 			if ll.pc == nil {
-				ll.pc = make([]uintptr, l.stackFramesWanted[level],
-					l.stackFramesWanted[xopconst.AlertLevel])
+				ll.pc = make([]uintptr, l.settings.stackFramesWanted[level],
+					l.settings.stackFramesWanted[xopconst.AlertLevel])
 			} else {
 				ll.pc = ll.pc[:cap(ll.pc)]
 			}
 			n := runtime.Callers(3, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
-		ll.line.Recycle(level, time.Now(), ll.pc)
 		return ll
 	}
 	var pc []uintptr
-	if l.stackFramesWanted[level] != 0 {
-		pc = make([]uintptr, l.stackFramesWanted[level],
-			l.stackFramesWanted[xopconst.AlertLevel])
+	if l.settings.stackFramesWanted[level] != 0 {
+		pc = make([]uintptr, l.settings.stackFramesWanted[level],
+			l.settings.stackFramesWanted[xopconst.AlertLevel])
 		n := runtime.Callers(3, pc)
 		pc = pc[:n]
 	}
 	return &LogLine{
 		log:  l,
 		pc:   pc,
-		line: l.span.base.Line(level, time.Now(), pc),
+		line: l.prefilled.Line(level, time.Now(), pc),
 	}
 }
 
@@ -388,7 +367,7 @@ func (ll *LogLine) AnyImmutable(k string, v interface{}) *LogLine { ll.line.Any(
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
 func (ll *LogLine) Any(k string, v interface{}) *LogLine {
-	if ll.log.referencesKept {
+	if ll.log.span.referencesKept {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
 	}

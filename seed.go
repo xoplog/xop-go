@@ -11,11 +11,11 @@ import (
 
 // Seed is used to create a Log.
 type Seed struct {
-	SpanSeed
-	LogSetting
+	spanSeed
+	settings LogSettings
 }
 
-type SpanSeed struct {
+type spanSeed struct {
 	traceBundle      trace.Bundle
 	spanSequenceCode string
 	description      string
@@ -40,15 +40,20 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
-		config:      DefaultConfig,
-		traceBundle: trace.NewBundle(),
+		spanSeed: spanSeed{
+			config:      DefaultConfig,
+			traceBundle: trace.NewBundle(),
+		},
 	}
 	seed.rebuildAsOne()
 	return seed.applyMods(mods)
 }
 
 func (s *Span) Seed(mods ...SeedModifier) Seed {
-	seed := s.seed.Copy()
+	seed := Seed{
+		spanSeed: s.spanSeed.Copy(),
+		settings: s.log.settings,
+	}
 	return seed.applyMods(mods)
 }
 

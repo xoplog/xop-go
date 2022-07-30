@@ -9,17 +9,23 @@ import (
 	"github.com/muir/xop-go/xopconst"
 )
 
+// Sub holds an ephermal state of a log being tranformed to a new log.
 type Sub struct {
 	settings LogSettings
 	log      *Log
 }
 
 type LogSettings struct {
-	prefillMsg      string
-	prefillData     []func(xopbase.Line)
-	minimumLogLevel Level
+	prefillMsg        string
+	prefillData       []func(xopbase.Line)
+	minimumLogLevel   xopconst.Level
+	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed 
 }
 
+// Sub is the first step in creating a sub-Log from the current log.
+// Sub allows log settings to be modified.  The returned value must
+// be used.  It is used by a call to sub.Log(), sub.Fork(), or
+// sub.Step().
 func (l *Log) Sub() *Sub {
 	return &Settings{
 		settings: l.settings,
@@ -27,16 +33,14 @@ func (l *Log) Sub() *Sub {
 	}
 }
 
-func (s *Sub) Log() *Log {
-}
-
 // Fork creates a new Log that does not need to be terminated because
-// it is assumed to be done with the current log is finished.
+// it is assumed to be done with the current log is finished.  The new log
+// has its own span.
 func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 	seed := s.log.span.Seed(mods...).SubSpan()
-	counter := int(atomic.AddInt32(&s.log.local.ForkCounter, 1))
+	counter := int(atomic.AddInt32(&s.log.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter)
-	return l.newChildLog(seed, s.settings, msg)
+	return l.newChildLog(seed.spanSeed, msg, s.settings)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -46,17 +50,46 @@ func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 // Step over and over as it does different things.
 func (s *Sub) Step(msg string, mods ...SeedModifier) *Log {
 	seed := s.log.span.Seed(mods...).SubSpan()
-	counter := int(atomic.AddInt32(&s.log.local.StepCounter, 1))
+	counter := int(atomic.AddInt32(&s.log.span.stepCounter, 1))
 	seed.spanSequenceCode += "." + strconv.Itoa(counter)
-	return s.log.newChildLog(seed, s.settings, msg)
+	return s.log.newChildLog(seed.spanSeed, msg, s.settings)
 }
 
-func (s *Sub) Level(level xopconst.Level) *Sub {
+// StackFrames sets the number of stack frames to include at
+// a logging level.  Levels above the given level will be set to
+// get least this many.  Levels below the given level will be set
+// to receive at most this many.
+func (s *Sub) StackFrames(level xopconst.Level, count int) *Sub {
+	s.settings.StackFrames(level, count)
+	return s
+}
+
+// StackFrames sets the number of stack frames to include at
+// a logging level.  Levels above the given level will be set to
+// get least this many.  Levels below the given level will be set
+// to receive at most this many.
+func (s *LogSettings) StackFrames(level xopconst.Level, count int) {
+	for _, l := range xopconst.AllLevels() {
+		current := s.stackFramesWanted[l]
+		if l <= level && current > level {
+			s.stackFramesWanted = count
+		}
+		if l >= level && current < level {
+			s.stackFramesWanted = count
+		}
+	}
+}
+
+// MinLevel sets the minimum logging level below which logs will
+// be discarded.  The default is that no logs are discarded.
+func (s *Sub) MinLevel(level xopconst.Level) *Sub {
 	s.settings.Level(level)
 	return s
 }
 
-func (s *LogSettings) Level(level xopconst.Level) {
+// MinLevel sets the minimum logging level below which logs will
+// be discarded.  The default is that no logs are discarded.
+func (s *LogSettings) MinLevel(level xopconst.Level) {
 	s.minimumLoggingLevel = level
 }
 
@@ -79,22 +112,22 @@ func (s *LogSettings) NoPrefill() {
 	s.settings.prefillMsg = ""
 }
 
-func (s Seed) sendPrefill(log *Log) {
-	if s.prefillData == nil && s.prefillMsg == "" {
-		return
+func (l *Log) sendPrefill() xopbase.Prefilled {
+	if s.settings.prefillData == nil && s.settings.prefillMsg == "" {
+		l.prefilled = log.span.base.NoPrefill()
 	}
-	line := log.span.base.Line(xopconst.InfoLevel, time.Now(), nil)
-	for _, f := range s.prefillData {
+	line := log.span.base.StartPrefill()
+	for _, f := range l.settings.prefillData {
 		f(line)
 	}
-	line.SetAsPrefill(s.prefillMsg)
+		l.prefilled = line.PrefillComplete()
 }
 
 // MACRO BaseData
-// ZZZPrefill is not threadsafe with respect to other calls on the same *Sub.
+// PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) ZZZPrefill(k string, v zzz) *Sub {
-	s.settings.ZZZPrefill(k, v)
+func (s *Sub) PrefillZZZ(k string, v zzz) *Sub {
+	s.settings.PrefillZZZ(k, v)
 	return s
 }
 func (s *LogSettings) ZZZPrefill() {

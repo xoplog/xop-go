@@ -16,10 +16,14 @@ type baseRequests struct {
 }
 type baseSpans []xopbase.Span
 type lines []xopbase.Line
+type prefilleds []xopbase.Prefilled
+type prefillings []xopbase.Prefilling
 
 var _ xopbase.Request = baseRequests{}
 var _ xopbase.Span = baseSpans{}
 var _ xopbase.Line = lines{}
+var _ xopbase.Prefilled = prefilleds{}
+var _ xopbase.Prefilling = prefillings{}
 
 func (l baseLoggers) StartRequests(span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
@@ -63,18 +67,6 @@ func (l baseLoggers) Buffered() bool {
 	return false
 }
 
-func (l baseLoggers) StackFramesWanted() map[xopconst.Level]int {
-	combined := make(map[xopconst.Level]int)
-	for _, logger := range l {
-		for level, frames := range logger.StackFramesWanted() {
-			if frames > combined[level] {
-				combined[level] = frames
-			}
-		}
-	}
-	return combined
-}
-
 func (s baseRequests) SetErrorReporter(f func(error)) {
 	for _, request := range s.baseRequests {
 		request.SetErrorReporter(f)
@@ -111,24 +103,36 @@ func (s baseSpans) Boring(b bool) {
 	}
 }
 
-func (s baseSpans) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
-	lines := make(lines, len(s))
+func (s baseSpans) NoPrefill() xopbase.Prefilled {
+	prefilled := make(prefilleds, len(s))
 	for i, span := range s {
-		lines[i] = span.Line(level, t, pc)
+		prefilled[i] = span.NoPrefill()
+	}
+	return prefilled
+}
+
+func (s baseSpans) StartPrefill() xopbase.Prefilling {
+	prefilling := make(prefillings, len(s))
+	for i, span := range s {
+		prefilling[i] = span.StartPrefill()
+	}
+	return prefilling
+}
+
+func (p prefillings) PrefillComplete() xopbase.Prefilled {
+	prefilled := make(prefilleds, len(p))
+	for i, prefilling := range p {
+		prefilled[i] = prefilling.PrefillComplete()
+	}
+	return prefilled
+}
+
+func (p prefilleds) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+	lines := make(lines, len(p))
+	for i, prefilled := range p {
+		lines[i] = prefilled.Line(level, t, pc)
 	}
 	return lines
-}
-
-func (l lines) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
-	for _, line := range l {
-		line.Recycle(level, t, pc)
-	}
-}
-
-func (l lines) SetAsPrefill(m string) {
-	for _, line := range l {
-		line.SetAsPrefill(m)
-	}
 }
 
 func (l lines) Template(m string) {
@@ -155,8 +159,20 @@ func (l lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	}
 }
 
+func (p prefillings) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	for _, prefilling := range p {
+		prefilling.Enum(k, v)
+	}
+}
+
 // MACRO BaseData
-// ZZZ adds a zzz key/value pair to a line that is in progress
+func (p prefillings) ZZZ(k string, v zzz) {
+	for _, prefilling := range p {
+		prefilling.ZZZ(k, v)
+	}
+}
+
+// MACRO BaseData
 func (l lines) ZZZ(k string, v zzz) {
 	for _, line := range l {
 		line.ZZZ(k, v)

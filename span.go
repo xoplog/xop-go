@@ -11,16 +11,27 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
+type Span struct {
+	*span
+	log *Log
+}
+
 // Request provides access to the span that describes the overall
 // request. Metadata may be added at the request level.
 func (l *Log) Request() *Span {
-	return l.request
+	return Span{
+		span: l.request,
+		log:  l,
+	}
 }
 
 // Request provides access to the current span
 // Metadata may be added at the span level.
 func (l *Log) Span() *Span {
-	return &l.span
+	return Span{
+		span: l.span,
+		log:  l,
+	}
 }
 
 func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
@@ -34,6 +45,8 @@ func (s *Span) eft() *Span {
 	return s
 }
 
+// Int64 adds a int64 key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
 	s.base.MetadataInt64(k, v)
 	return s.eft()
@@ -44,6 +57,7 @@ func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
 // Alternatively, use xopconst.KeyedEnumAttribute() to create functions
 // to add enum key/value pairs where the key and value are specified
 // separately.
+// The return value does not need to be used.
 func (s *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
 	return s.Enum(kv.EnumAttribute(), kv)
 }
@@ -56,6 +70,7 @@ func (s *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
 // While the AnyAttribute has an expectation
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
+// The return value does not need to be used.
 func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 	s.base.MetadataAny(k, v)
 	return s.eft()
@@ -67,6 +82,7 @@ func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 // While the AnyAttribute has an expectation
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
+// The return value does not need to be used.
 func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
 	if s.log.referencesKept {
 		v = deepcopy.Copy(v)
@@ -75,68 +91,79 @@ func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
 	return s.eft()
 }
 
-// Bool adds a bool key/value attribute to the current Span
+// Bool adds a bool key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Bool(k *xopconst.BoolAttribute, v bool) *Span {
 	s.base.MetadataBool(k, v)
 	return s.eft()
 }
 
-// Enum adds a xopconst.Enum key/value attribute to the current Span
+// Enum adds a xopconst.Enum key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *Span {
 	s.base.MetadataEnum(k, v)
 	return s.eft()
 }
 
-// Link adds a trace.Trace key/value attribute to the current Span
+// Link adds a trace.Trace key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Link(k *xopconst.LinkAttribute, v trace.Trace) *Span {
 	s.base.MetadataLink(k, v)
 	return s.eft()
 }
 
-// Number adds a float64 key/value attribute to the current Span
+// Number adds a float64 key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Number(k *xopconst.NumberAttribute, v float64) *Span {
 	s.base.MetadataNumber(k, v)
 	return s.eft()
 }
 
-// Str adds a string key/value attribute to the current Span
+// Str adds a string key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Str(k *xopconst.StrAttribute, v string) *Span {
 	s.base.MetadataStr(k, v)
 	return s.eft()
 }
 
-// Time adds a time.Time key/value attribute to the current Span
+// Time adds a time.Time key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Time(k *xopconst.TimeAttribute, v time.Time) *Span {
 	s.base.MetadataTime(k, v)
 	return s.eft()
 }
 
 // should skip Int64
-// Duration adds a time.Duration key/value attribute to the current Span
+// Duration adds a time.Duration key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Duration(k *xopconst.DurationAttribute, v time.Duration) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }
 
-// Int adds a int key/value attribute to the current Span
+// Int adds a int key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Int(k *xopconst.IntAttribute, v int) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }
 
-// Int16 adds a int16 key/value attribute to the current Span
+// Int16 adds a int16 key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Int16(k *xopconst.Int16Attribute, v int16) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }
 
-// Int32 adds a int32 key/value attribute to the current Span
+// Int32 adds a int32 key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Int32(k *xopconst.Int32Attribute, v int32) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
 }
 
-// Int8 adds a int8 key/value attribute to the current Span
+// Int8 adds a int8 key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Int8(k *xopconst.Int8Attribute, v int8) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
