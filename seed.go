@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopbase"
 )
 
 // Seed is used to create a Log.
@@ -24,15 +23,10 @@ type spanSeed struct {
 	flushDelay       time.Duration
 }
 
-func (s Seed) Copy() Seed {
+func (s spanSeed) Copy() spanSeed {
 	n := s
 	n.loggers = s.loggers.Copy()
 	n.traceBundle = s.traceBundle.Copy()
-	n.prefillMsg = s.prefillMsg
-	if s.prefillData != nil {
-		n.prefillData = make([]func(xopbase.Line), len(s.prefillData))
-		copy(n.prefillData, s.prefillData)
-	}
 	return n
 }
 
@@ -51,8 +45,8 @@ func NewSeed(mods ...SeedModifier) Seed {
 
 func (s *Span) Seed(mods ...SeedModifier) Seed {
 	seed := Seed{
-		spanSeed: s.spanSeed.Copy(),
-		settings: s.log.settings,
+		spanSeed: s.seed.Copy(),
+		settings: s.log.settings.Copy(),
 	}
 	return seed.applyMods(mods)
 }
@@ -78,7 +72,7 @@ func WithTrace(trace trace.Trace) SeedModifier {
 
 func WithAdjustments(f func(*LogSettings)) SeedModifier {
 	return func(s *Seed) {
-		f(&seed.LogSettings)
+		f(&s.settings)
 	}
 }
 

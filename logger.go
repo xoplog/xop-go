@@ -14,17 +14,26 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
+type on struct {
+	Span Span
+	span span
+}
+
 type Log struct {
-	request   *span
-	span      *span
+	request   *Span
+	span      *Span
 	shared    *shared     // shared between spans in a request
 	settings  LogSettings // XXX added
 	prefilled xopbase.Prefilled
 }
 
+type Span struct {
+	*span
+	log *Log
+}
+
 type span struct {
 	seed           spanSeed
-	dataLock       sync.Mutex // protects Data & SpanType (can only be held for short periods)
 	base           xopbase.Span
 	linePool       sync.Pool
 	boring         int32 // 0 = boring
@@ -48,20 +57,33 @@ type shared struct {
 }
 
 func (s Seed) Request(descriptionOrName string) *Log {
-	s = s.Copy()
 	s.traceBundle.Trace.RebuildSetNonZero()
-	log := Log{
-		span: &span{
-			seed: s.spanSeed,
+
+	type singleAlloc struct {
+		Log    Log
+		shared shared
+		Span   Span
+		span   span
+	}
+	alloc := singleAlloc{
+		Log: Log{
+			settings: s.settings.Copy(),
 		},
-		shared: &shared{
+		span: span{
+			seed: s.spanSeed.Copy(),
+		},
+		shared: shared{
 			RefCount:    1,
 			FlushActive: 1,
 			Description: descriptionOrName,
 		},
-		settings: s.settings,
 	}
-	log.request = log.span
+	alloc.Span.span = &alloc.span
+	alloc.Log.span = &alloc.Span
+	alloc.Log.request = &alloc.Span
+	alloc.Log.shared = &alloc.shared
+	log := &alloc.Log
+
 	combinedBaseRequest, flushers := log.span.seed.loggers.AsOne.StartRequests(log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
@@ -73,7 +95,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 		// XXX always create?
 		log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
 	}
-	return &log
+	return log
 }
 
 // Log creates a new Log that does not need to be terminated because
@@ -81,25 +103,45 @@ func (s Seed) Request(descriptionOrName string) *Log {
 // shares a span with its parent log. It can have different settings from its
 // parent log.
 func (s *Sub) Log() *Log {
-	log := &Log{
-		span:     s.log.span,
-		shared:   s.log.shared,
-		request:  s.log.request,
-		settings: s.settings,
+	type singleAlloc struct {
+		Log  Log
+		Span Span
 	}
+	alloc := singleAlloc{
+		Log: Log{
+			shared:   s.log.shared,
+			request:  s.log.request,
+			settings: s.settings,
+		},
+		Span: Span{
+			span: s.log.span.span,
+		},
+	}
+	alloc.Log.span = &alloc.Span
+	log := &alloc.Log
 	log.sendPrefill()
 	return log
 }
 
 func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogSettings) *Log {
-	log := &Log{
-		span: &span{
+	type singleAlloc struct {
+		Log  Log
+		Span Span
+		span span
+	}
+	alloc := singleAlloc{
+		Log: Log{
+			shared:   old.shared,
+			request:  old.request,
+			settings: settings,
+		},
+		span: span{
 			seed: spanSeed,
 		},
-		shared:   old.shared,
-		request:  old.request,
-		settings: settings,
 	}
+	alloc.Span.span = &alloc.span
+	alloc.Log.span = &alloc.Span
+	log := &alloc.Log
 
 	log.span.base = old.span.base.Span(spanSeed.traceBundle, description)
 	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {

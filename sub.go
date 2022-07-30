@@ -20,9 +20,18 @@ type Sub struct {
 
 type LogSettings struct {
 	prefillMsg        string
-	prefillData       []func(xopbase.Line)
+	prefillData       []func(xopbase.Prefilling)
 	minimumLogLevel   xopconst.Level
 	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
+}
+
+func (settings LogSettings) Copy() LogSettings {
+	if settings.prefillData != nil {
+		n := make([]func(xopbase.Prefilling), len(settings.prefillData))
+		copy(n, settings.prefillData)
+		settings.prefillData = n
+	}
+	return settings
 }
 
 // Sub is the first step in creating a sub-Log from the current log.
@@ -30,8 +39,8 @@ type LogSettings struct {
 // be used.  It is used by a call to sub.Log(), sub.Fork(), or
 // sub.Step().
 func (l *Log) Sub() *Sub {
-	return &Settings{
-		settings: l.settings,
+	return &Sub{
+		settings: l.settings.Copy(),
 		log:      l,
 	}
 }

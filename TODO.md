@@ -129,6 +129,15 @@
   - Example in phuslog for adjusting readme.  
   - Also in zap, onelog, zerolog
 
+- Performmance
+
+  - Use sync.Pool agressively to reuse data things
+  - Improve upon sync.Pool
+
+     Rebuild https://github.com/Workiva/go-datastructures/blob/master/queue/ring.go to be
+     "LossyPool" that queues upto 32 items (tossing any extra) and returning immedately if
+     there aren't any availble.  Use generics so no casting is needed.
+
 # Not build ready 
 
 - Base loggers:

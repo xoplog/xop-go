@@ -11,27 +11,16 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-type Span struct {
-	*span
-	log *Log
-}
-
 // Request provides access to the span that describes the overall
 // request. Metadata may be added at the request level.
 func (l *Log) Request() *Span {
-	return Span{
-		span: l.request,
-		log:  l,
-	}
+	return l.request
 }
 
 // Request provides access to the current span
 // Metadata may be added at the span level.
 func (l *Log) Span() *Span {
-	return Span{
-		span: l.span,
-		log:  l,
-	}
+	return l.span
 }
 
 func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
@@ -84,7 +73,7 @@ func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 // on the base logger being used.
 // The return value does not need to be used.
 func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
-	if s.log.referencesKept {
+	if s.log.span.span.referencesKept {
 		v = deepcopy.Copy(v)
 	}
 	s.base.MetadataAny(k, v)
