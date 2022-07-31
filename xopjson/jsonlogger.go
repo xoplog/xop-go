@@ -82,14 +82,15 @@ type Prefilling struct {
 
 type Prefilled struct {
 	data          []byte
-	preencodedMsg []byte
+	preEncodedMsg []byte
 	span          *Span
 }
 
 type Line struct {
 	Builder
-	level     xopconst.Level
-	timestamp time.Time
+	level                xopconst.Level
+	timestamp            time.Time
+	prefillMsgPreEncoded []byte
 }
 
 type Builder struct {
@@ -130,9 +131,8 @@ func WithGoroutineID(b bool) Option {
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	logger := &Logger{
-		writer:           w,
-		id:               uuid.New(),
-		framesAtLevelMap: make(map[xopconst.Level]int),
+		writer: w,
+		id:     uuid.New(),
 	}
 	for _, f := range opts {
 		f(logger)
@@ -200,35 +200,37 @@ func (s *Span) StartPrefill() xopbase.Prefilling {
 
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	prefilled := &Prefilled{
-		data: make([]byte, len(p.Builder.databuffer.B)),
-		msg:  m,
+		data: make([]byte, len(p.Builder.dataBuffer.B)),
 		span: p.Builder.span,
 	}
-	copy(prefilled.data, p.Builder.databuffer.B)
+	copy(prefilled.data, p.Builder.dataBuffer.B)
+	if len(m) > 0 {
+		msgBuffer := xoputil.JBuilder{
+			B: make([]byte, len(m)), // alloc-per-prefill
+		}
+		msgBuffer.StringBody(m)
+		prefilled.preEncodedMsg = msgBuffer.B
+	}
 	return prefilled
 }
 
 func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	l := &Line{
-		Builder:      p.span.builder(),
-		level:        level,
-		timestamp:    t,
-		prefilledMsg: p.msg,
+		Builder:              p.span.builder(),
+		level:                level,
+		timestamp:            t,
+		prefillMsgPreEncoded: p.preEncodedMsg,
 	}
 	l.dataBuffer.AppendByte('{') // }
 	if len(p.data) != 0 {
-		l.dataBuffer.AppendBytes(prefill.data)
+		l.dataBuffer.AppendBytes(p.data)
 	}
 	l.dataBuffer.Comma()
 	l.dataBuffer.AppendByte('{')
 	l.Int("level", int64(level))
 	l.Time("time", t)
 	if len(pc) > 0 {
-		n := l.span.logger.framesAtLevel[level]
-		if n > len(pc) {
-			n = len(pc)
-		}
-		frames := runtime.CallersFrames(pc[:n])
+		frames := runtime.CallersFrames(pc)
 		l.dataBuffer.AppendBytes([]byte(`"stack":[`))
 		for {
 			frame, more := frames.Next()
@@ -248,6 +250,7 @@ func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 		l.dataBuffer.AppendByte(']')
 	}
 	l.dataBuffer.AppendByte('}')
+	return l
 }
 
 func (l *Line) Static(m string) {
@@ -257,8 +260,8 @@ func (l *Line) Static(m string) {
 func (l *Line) Msg(m string) {
 	l.dataBuffer.Comma()
 	l.dataBuffer.AppendBytes([]byte(`"msg":"`))
-	if len(l.prefillMsgPreencoded) != 0 {
-		l.dataBuffer.AppendBytes(l.prefillMsgPreencoded)
+	if len(l.prefillMsgPreEncoded) != 0 {
+		l.dataBuffer.AppendBytes(l.prefillMsgPreEncoded)
 	}
 	l.dataBuffer.StringBody(m)
 	// {
@@ -293,18 +296,18 @@ func (l *Line) Template(m string) {
 	l.reclaimMemory()
 }
 
-func (l *Line) Any(k string, v interface{}) {
-	l.dataBuffer.Key(k)
-	before := len(l.dataBuffer.B)
-	err := l.encoder.Encode(v)
+func (b *Builder) Any(k string, v interface{}) {
+	b.dataBuffer.Key(k)
+	before := len(b.dataBuffer.B)
+	err := b.encoder.Encode(v)
 	if err != nil {
-		l.dataBuffer.B = l.dataBuffer.B[:before]
-		l.span.errorFunc(err)
-		l.Error("encode:"+k, err)
+		b.dataBuffer.B = b.dataBuffer.B[:before]
+		b.span.errorFunc(err)
+		b.Error("encode:"+k, err)
 	} else {
 		// remove \n added by json.Encoder.Encode.  So helpful!
-		if l.dataBuffer.B[len(l.dataBuffer.B)-1] == '\n' {
-			l.dataBuffer.B = l.dataBuffer.B[:len(l.dataBuffer.B)-1]
+		if b.dataBuffer.B[len(b.dataBuffer.B)-1] == '\n' {
+			b.dataBuffer.B = b.dataBuffer.B[:len(b.dataBuffer.B)-1]
 		}
 	}
 }
@@ -368,7 +371,7 @@ func (b *Builder) Number(k string, v float64) {
 	b.dataBuffer.Float64(v)
 }
 
-func (l *Builder) Duration(k string, v time.Duration) {
+func (b *Builder) Duration(k string, v time.Duration) {
 	b.dataBuffer.Key(k)
 	switch b.span.logger.durationFormat {
 	case AsNanos:

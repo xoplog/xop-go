@@ -25,6 +25,17 @@ type LogSettings struct {
 	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
 }
 
+// DefaultSettings are the settings that are used if no setting changes
+// are made. Debug logs are excluded. Alert and Error level log lines
+// get stack traces.
+var DefaultSettings = func() LogSettings {
+	var settings LogSettings
+	settings.stackFramesWanted[xopconst.AlertLevel] = 20
+	settings.stackFramesWanted[xopconst.ErrorLevel] = 10
+	settings.minimumLogLevel = xopconst.TraceLevel
+	return settings
+}()
+
 func (settings LogSettings) Copy() LogSettings {
 	if settings.prefillData != nil {
 		n := make([]func(xopbase.Prefilling), len(settings.prefillData))
@@ -132,7 +143,7 @@ func (l *Log) sendPrefill() {
 	for _, f := range l.settings.prefillData {
 		f(prefilling)
 	}
-	l.prefilled = prefilling.PrefillComplete()
+	l.prefilled = prefilling.PrefillComplete(l.settings.prefillMsg)
 }
 
 // PrefillAny is used to set a data element that is included on every log

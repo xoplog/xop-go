@@ -81,9 +81,9 @@ type Span interface {
 	// TODO: Guage()
 	// TODO: Event()
 
-	StartPrefill() Prefilling
-
 	NoPrefill() Prefilled
+
+	StartPrefill() Prefilling
 }
 
 type Prefilling interface {

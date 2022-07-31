@@ -38,6 +38,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 			config:      DefaultConfig,
 			traceBundle: trace.NewBundle(),
 		},
+		settings: DefaultSettings,
 	}
 	seed.rebuildAsOne()
 	return seed.applyMods(mods)

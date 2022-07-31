@@ -321,6 +321,7 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 			n := runtime.Callers(3, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
+		ll.line = l.prefilled.Line(level, time.Now(), ll.pc)
 		return ll
 	}
 	var pc []uintptr

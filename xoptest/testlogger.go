@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,10 +23,12 @@ type testingT interface {
 }
 
 var (
-	_ xopbase.Logger  = &TestLogger{}
-	_ xopbase.Request = &Span{}
-	_ xopbase.Span    = &Span{}
-	_ xopbase.Line    = &Line{}
+	_ xopbase.Logger     = &TestLogger{}
+	_ xopbase.Request    = &Span{}
+	_ xopbase.Span       = &Span{}
+	_ xopbase.Prefilling = &Prefilling{}
+	_ xopbase.Prefilled  = &Prefilled{}
+	_ xopbase.Line       = &Line{}
 )
 
 func New(t testingT) *TestLogger {
@@ -67,30 +68,43 @@ type Span struct {
 	Lines        []*Line
 	short        string
 	Metadata     map[string]interface{}
-	prefill      atomic.Value
+}
+
+type Prefilling struct {
+	Builder
+}
+
+type Builder struct {
+	Data   map[string]interface{}
+	Span   *Span
+	kvText []string
+}
+
+type Prefilled struct {
+	Data   map[string]interface{}
+	Span   *Span
+	Msg    string
+	kvText []string
 }
 
 type Line struct {
+	Builder
 	Level     xopconst.Level
 	Timestamp time.Time
-	Span      *Span
 	Message   string
-	Data      map[string]interface{}
 	Text      string
 	Tmpl      string
-	kvText    []string
 }
 
 func (l *TestLogger) WithMe() xop.SeedModifier {
 	return xop.WithBaseLogger("testing", l)
 }
 
-func (l *TestLogger) ID() string                                { return l.id }
-func (l *TestLogger) Close()                                    {}
-func (l *TestLogger) Buffered() bool                            { return false }
-func (l *TestLogger) ReferencesKept() bool                      { return true }
-func (l *TestLogger) SetErrorReporter(func(error))              {}
-func (l *TestLogger) StackFramesWanted() map[xopconst.Level]int { return nil }
+func (l *TestLogger) ID() string                   { return l.id }
+func (l *TestLogger) Close()                       {}
+func (l *TestLogger) Buffered() bool               { return false }
+func (l *TestLogger) ReferencesKept() bool         { return true }
+func (l *TestLogger) SetErrorReporter(func(error)) {}
 func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -147,51 +161,50 @@ func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	return n
 }
 
-func (s *Span) GetPrefill() *Line {
-	p := s.prefill.Load()
-	if p == nil {
-		return nil
+func (s *Span) NoPrefill() xopbase.Prefilled {
+	return &Prefilled{
+		Span: s,
 	}
-	return p.(*Line)
 }
 
-func (s *Span) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line {
+func (s *Span) StartPrefill() xopbase.Prefilling {
+	return &Prefilling{
+		Builder: Builder{
+			Data: make(map[string]interface{}),
+			Span: s,
+		},
+	}
+}
+
+func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
+	return &Prefilled{
+		Data:   p.Data,
+		Span:   p.Span,
+		kvText: p.kvText,
+		Msg:    m,
+	}
+}
+
+func (p *Prefilled) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line {
+	// TODO: stack traces
 	line := &Line{
+		Builder: Builder{
+			Data: make(map[string]interface{}),
+			Span: p.Span,
+		},
 		Level:     level,
 		Timestamp: t,
-		Span:      s,
-		Data:      make(map[string]interface{}),
 	}
-	p := s.GetPrefill()
-	if p != nil {
-		if len(p.Data) != 0 {
-			for k, v := range p.Data {
-				line.Data[k] = v
-			}
-		}
-		if len(p.kvText) != 0 {
-			line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
-			copy(line.kvText, p.kvText)
-		}
-		line.Tmpl = p.Tmpl
-		line.Message = p.Message
+	for k, v := range p.Data {
+		line.Data[k] = v
 	}
+	if len(p.kvText) != 0 {
+		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
+		copy(line.kvText, p.kvText)
+	}
+	line.Tmpl = p.Msg
+	line.Message = p.Msg
 	return line
-}
-
-func (l *Line) Recycle(level xopconst.Level, t time.Time, _ []uintptr) {
-	l.Level = level
-	l.Timestamp = t
-	l.kvText = nil
-	l.Message = ""
-	l.Tmpl = ""
-	l.Data = make(map[string]interface{})
-	l.Text = ""
-}
-
-// TODO: test SetAsPrefill
-func (l *Line) SetAsPrefill(m string) {
-	l.Span.prefill.Store(l)
 }
 
 func (l *Line) Static(m string) {
@@ -242,24 +255,24 @@ func (l Line) send(text string) {
 	l.Span.Lines = append(l.Span.Lines, &l)
 }
 
-func (l *Line) Any(k string, v interface{}) {
-	l.Data[k] = v
-	l.kvText = append(l.kvText, fmt.Sprintf("%s=%+v", k, v))
+func (b *Builder) Any(k string, v interface{}) {
+	b.Data[k] = v
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
-func (l *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
-	l.Data[k.Key()] = v.String()
-	l.kvText = append(l.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
+func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	b.Data[k.Key()] = v.String()
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
 }
 
-func (l *Line) Bool(k string, v bool)              { l.Any(k, v) }
-func (l *Line) Duration(k string, v time.Duration) { l.Any(k, v) }
-func (l *Line) Error(k string, v error)            { l.Any(k, v) }
-func (l *Line) Int(k string, v int64)              { l.Any(k, v) }
-func (l *Line) Link(k string, v trace.Trace)       { l.Any(k, v) }
-func (l *Line) Str(k string, v string)             { l.Any(k, v) }
-func (l *Line) Time(k string, v time.Time)         { l.Any(k, v) }
-func (l *Line) Uint(k string, v uint64)            { l.Any(k, v) }
+func (b *Builder) Bool(k string, v bool)              { b.Any(k, v) }
+func (b *Builder) Duration(k string, v time.Duration) { b.Any(k, v) }
+func (b *Builder) Error(k string, v error)            { b.Any(k, v) }
+func (b *Builder) Int(k string, v int64)              { b.Any(k, v) }
+func (b *Builder) Link(k string, v trace.Trace)       { b.Any(k, v) }
+func (b *Builder) Str(k string, v string)             { b.Any(k, v) }
+func (b *Builder) Time(k string, v time.Time)         { b.Any(k, v) }
+func (b *Builder) Uint(k string, v uint64)            { b.Any(k, v) }
 
 func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
 func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }

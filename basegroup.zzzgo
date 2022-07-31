@@ -119,10 +119,10 @@ func (s baseSpans) StartPrefill() xopbase.Prefilling {
 	return prefilling
 }
 
-func (p prefillings) PrefillComplete() xopbase.Prefilled {
+func (p prefillings) PrefillComplete(m string) xopbase.Prefilled {
 	prefilled := make(prefilleds, len(p))
 	for i, prefilling := range p {
-		prefilled[i] = prefilling.PrefillComplete()
+		prefilled[i] = prefilling.PrefillComplete(m)
 	}
 	return prefilled
 }
