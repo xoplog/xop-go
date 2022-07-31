@@ -19,13 +19,6 @@ type Logger interface {
 	// additional loggers to added to an ongoing Request.
 	ID() string
 
-	// StackFramesWanted returns the number of stack frames wanted for
-	// each logging level.  Base loggers may be provided with more or
-	// fewer frames than they requested.  It is presumed that higher logging
-	// levels want more frames than lower levels, so only increases are
-	// allowed as the severity increases.
-	StackFramesWanted() map[xopconst.Level]int
-
 	// ReferencesKept should return true if Any() objects are not immediately
 	// serialized (the object is kept around and serilized later).  If copies
 	// are kept, then xop.Log will make copies.
@@ -82,22 +75,31 @@ type Span interface {
 	// be marked as boring so that they're dropped at the indexing stage.
 	Boring(bool)
 
-	// Line starts another line of log output.  Span implementations
-	// can expect multiple calls simultaneously and even during a call
-	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
-	// The number of stack frames could be more or less than was requested
-	// by StackFramesWanted().
-	Line(xopconst.Level, time.Time, []uintptr) Line
-
 	// ID must return the same string as the Logger it came from
 	ID() string
-}
 
-type Line interface {
-	// TODO: ExternalReference(name string, itemID string, storageID string)
 	// TODO: Guage()
 	// TODO: Event()
 
+	NoPrefill() Prefilled
+
+	StartPrefill() Prefilling
+}
+
+type Prefilling interface {
+	ObjectParts
+
+	PrefillComplete(msg string) Prefilled
+}
+
+type Prefilled interface {
+	// Line starts another line of log output.  Span implementations
+	// can expect multiple calls simultaneously and even during a call
+	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
+	Line(xopconst.Level, time.Time, []uintptr) Line
+}
+
+type Line interface {
 	ObjectParts
 
 	// Msg may only be called once.  After calling Msg, the line
@@ -107,30 +109,10 @@ type Line interface {
 	// Template may only be called once.  It is an alternative to Msg.
 	Template(string)
 
-	// SetAsPrefill may only be called once.  It is an alternative to Msg.
-	// Whatever is in the line becomes part of every following line.
-	// This will only be used right when a Span is created and thus
-	// locking should not be required.
-	SetAsPrefill(string)
-
 	// Static is the same as Msg, but it hints that the supplied string is
 	// constant rather than something generated.  Since it's static, base
 	// loggers may keep them a dictionary and send entry numbers.
 	Static(string)
-
-	// Recycle starts the line ready to use again.
-	Recycle(xopconst.Level, time.Time, []uintptr)
-}
-
-type SubObject interface {
-	ObjectParts
-	Complete()
-}
-
-type Encoder interface {
-	MimeType() string
-	ProducesText() bool
-	Encode(elementName string, data interface{}) ([]byte, error)
 }
 
 type ObjectParts interface {
@@ -144,14 +126,24 @@ type ObjectParts interface {
 	Enum(*xopconst.EnumAttribute, xopconst.Enum)
 	Link(string, trace.Trace)
 	Duration(string, time.Duration)
+	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
 	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
+	// TODO: ExternalReference(name string, itemID string, storageID string)
 }
 
-type Buffer interface {
-	Context()
-	Flush()
+// TODO
+type SubObject interface {
+	ObjectParts
+	Complete()
+}
+
+// TODO
+type Encoder interface {
+	MimeType() string
+	ProducesText() bool
+	Encode(elementName string, data interface{}) ([]byte, error)
 }

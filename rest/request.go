@@ -23,7 +23,7 @@ func Log(log xop.Log) *rest.RequestOpts {
 	var farSideSpan trace.HexBytes8
 	return rest.Make().
 		DoBefore(func(o *rest.RequestOpts, r *http.Request) error {
-			step = log.Step(o.Description)
+			step = log.Sub().Step(o.Description)
 			step.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
 			step.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
 			step.Span().Str(xopconst.URL, r.URL.String())

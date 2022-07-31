@@ -5,30 +5,27 @@ import (
 
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
 )
 
 // Seed is used to create a Log.
 type Seed struct {
-	config           Config
+	spanSeed
+	settings LogSettings
+}
+
+type spanSeed struct {
 	traceBundle      trace.Bundle
 	spanSequenceCode string
-	prefillMsg       string
-	prefillData      []func(xopbase.Line)
 	description      string
 	loggers          loggers
+	config           Config
 	flushDelay       time.Duration
 }
 
-func (s Seed) Copy() Seed {
+func (s spanSeed) Copy() spanSeed {
 	n := s
 	n.loggers = s.loggers.Copy()
 	n.traceBundle = s.traceBundle.Copy()
-	n.prefillMsg = s.prefillMsg
-	if s.prefillData != nil {
-		n.prefillData = make([]func(xopbase.Line), len(s.prefillData))
-		copy(n.prefillData, s.prefillData)
-	}
 	return n
 }
 
@@ -36,15 +33,21 @@ type SeedModifier func(*Seed)
 
 func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
-		config:      DefaultConfig,
-		traceBundle: trace.NewBundle(),
+		spanSeed: spanSeed{
+			config:      DefaultConfig,
+			traceBundle: trace.NewBundle(),
+		},
+		settings: DefaultSettings,
 	}
 	seed.rebuildAsOne()
 	return seed.applyMods(mods)
 }
 
 func (s *Span) Seed(mods ...SeedModifier) Seed {
-	seed := s.seed.Copy()
+	seed := Seed{
+		spanSeed: s.seed.Copy(),
+		settings: s.log.settings.Copy(),
+	}
 	return seed.applyMods(mods)
 }
 
@@ -67,16 +70,9 @@ func WithTrace(trace trace.Trace) SeedModifier {
 	}
 }
 
-func WithNoPrefill() SeedModifier {
+func WithAdjustments(f func(*LogSettings)) SeedModifier {
 	return func(s *Seed) {
-		s.prefillData = nil
-		s.prefillMsg = ""
-	}
-}
-
-func WithPrefillText(m string) SeedModifier {
-	return func(s *Seed) {
-		s.prefillMsg = m
+		f(&s.settings)
 	}
 }
 
@@ -88,29 +84,4 @@ func (s Seed) SubSpan() Seed {
 	s.traceBundle = s.traceBundle.Copy()
 	s.traceBundle.Trace.RandomizeSpanID()
 	return s
-}
-
-func (s Seed) sendPrefill(log *Log) {
-	if s.prefillData == nil && s.prefillMsg == "" {
-		return
-	}
-	line := log.span.base.Line(xopconst.InfoLevel, time.Now(), nil)
-	for _, f := range s.prefillData {
-		f(line)
-	}
-	line.SetAsPrefill(s.prefillMsg)
-}
-
-// MACRO BaseData
-// WithZZZPrefill adds a key/value pair that will be included as part
-// of every log line in this span.  If there are no log lines in the
-// span then this data will not be logged at all. Use Span.ZZZ()
-// to add a span-level key/value pair that is logged once (with the
-// span).
-func WithZZZPrefill(k string, v zzz) SeedModifier {
-	return func(s *Seed) {
-		s.prefillData = append(s.prefillData, func(line xopbase.Line) {
-			line.ZZZ(k, v)
-		})
-	}
 }

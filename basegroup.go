@@ -19,14 +19,18 @@ type (
 	}
 )
 type (
-	baseSpans []xopbase.Span
-	lines     []xopbase.Line
+	baseSpans   []xopbase.Span
+	lines       []xopbase.Line
+	prefilleds  []xopbase.Prefilled
+	prefillings []xopbase.Prefilling
 )
 
 var (
-	_ xopbase.Request = baseRequests{}
-	_ xopbase.Span    = baseSpans{}
-	_ xopbase.Line    = lines{}
+	_ xopbase.Request    = baseRequests{}
+	_ xopbase.Span       = baseSpans{}
+	_ xopbase.Line       = lines{}
+	_ xopbase.Prefilled  = prefilleds{}
+	_ xopbase.Prefilling = prefillings{}
 )
 
 func (l baseLoggers) StartRequests(span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
@@ -71,18 +75,6 @@ func (l baseLoggers) Buffered() bool {
 	return false
 }
 
-func (l baseLoggers) StackFramesWanted() map[xopconst.Level]int {
-	combined := make(map[xopconst.Level]int)
-	for _, logger := range l {
-		for level, frames := range logger.StackFramesWanted() {
-			if frames > combined[level] {
-				combined[level] = frames
-			}
-		}
-	}
-	return combined
-}
-
 func (s baseRequests) SetErrorReporter(f func(error)) {
 	for _, request := range s.baseRequests {
 		request.SetErrorReporter(f)
@@ -119,24 +111,36 @@ func (s baseSpans) Boring(b bool) {
 	}
 }
 
-func (s baseSpans) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
-	lines := make(lines, len(s))
+func (s baseSpans) NoPrefill() xopbase.Prefilled {
+	prefilled := make(prefilleds, len(s))
 	for i, span := range s {
-		lines[i] = span.Line(level, t, pc)
+		prefilled[i] = span.NoPrefill()
+	}
+	return prefilled
+}
+
+func (s baseSpans) StartPrefill() xopbase.Prefilling {
+	prefilling := make(prefillings, len(s))
+	for i, span := range s {
+		prefilling[i] = span.StartPrefill()
+	}
+	return prefilling
+}
+
+func (p prefillings) PrefillComplete(m string) xopbase.Prefilled {
+	prefilled := make(prefilleds, len(p))
+	for i, prefilling := range p {
+		prefilled[i] = prefilling.PrefillComplete(m)
+	}
+	return prefilled
+}
+
+func (p prefilleds) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+	lines := make(lines, len(p))
+	for i, prefilled := range p {
+		lines[i] = prefilled.Line(level, t, pc)
 	}
 	return lines
-}
-
-func (l lines) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
-	for _, line := range l {
-		line.Recycle(level, t, pc)
-	}
-}
-
-func (l lines) SetAsPrefill(m string) {
-	for _, line := range l {
-		line.SetAsPrefill(m)
-	}
 }
 
 func (l lines) Template(m string) {
@@ -163,63 +167,114 @@ func (l lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	}
 }
 
-// Any adds a interface{} key/value pair to a line that is in progress
+func (p prefillings) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	for _, prefilling := range p {
+		prefilling.Enum(k, v)
+	}
+}
+
+func (p prefillings) Any(k string, v interface{}) {
+	for _, prefilling := range p {
+		prefilling.Any(k, v)
+	}
+}
+
+func (p prefillings) Bool(k string, v bool) {
+	for _, prefilling := range p {
+		prefilling.Bool(k, v)
+	}
+}
+
+func (p prefillings) Duration(k string, v time.Duration) {
+	for _, prefilling := range p {
+		prefilling.Duration(k, v)
+	}
+}
+
+func (p prefillings) Error(k string, v error) {
+	for _, prefilling := range p {
+		prefilling.Error(k, v)
+	}
+}
+
+func (p prefillings) Int(k string, v int64) {
+	for _, prefilling := range p {
+		prefilling.Int(k, v)
+	}
+}
+
+func (p prefillings) Link(k string, v trace.Trace) {
+	for _, prefilling := range p {
+		prefilling.Link(k, v)
+	}
+}
+
+func (p prefillings) Str(k string, v string) {
+	for _, prefilling := range p {
+		prefilling.Str(k, v)
+	}
+}
+
+func (p prefillings) Time(k string, v time.Time) {
+	for _, prefilling := range p {
+		prefilling.Time(k, v)
+	}
+}
+
+func (p prefillings) Uint(k string, v uint64) {
+	for _, prefilling := range p {
+		prefilling.Uint(k, v)
+	}
+}
+
 func (l lines) Any(k string, v interface{}) {
 	for _, line := range l {
 		line.Any(k, v)
 	}
 }
 
-// Bool adds a bool key/value pair to a line that is in progress
 func (l lines) Bool(k string, v bool) {
 	for _, line := range l {
 		line.Bool(k, v)
 	}
 }
 
-// Duration adds a time.Duration key/value pair to a line that is in progress
 func (l lines) Duration(k string, v time.Duration) {
 	for _, line := range l {
 		line.Duration(k, v)
 	}
 }
 
-// Error adds a error key/value pair to a line that is in progress
 func (l lines) Error(k string, v error) {
 	for _, line := range l {
 		line.Error(k, v)
 	}
 }
 
-// Int adds a int64 key/value pair to a line that is in progress
 func (l lines) Int(k string, v int64) {
 	for _, line := range l {
 		line.Int(k, v)
 	}
 }
 
-// Link adds a trace.Trace key/value pair to a line that is in progress
 func (l lines) Link(k string, v trace.Trace) {
 	for _, line := range l {
 		line.Link(k, v)
 	}
 }
 
-// Str adds a string key/value pair to a line that is in progress
 func (l lines) Str(k string, v string) {
 	for _, line := range l {
 		line.Str(k, v)
 	}
 }
 
-// Time adds a time.Time key/value pair to a line that is in progress
 func (l lines) Time(k string, v time.Time) {
 	for _, line := range l {
 		line.Time(k, v)
 	}
 }
 
-// Uint adds a uint64 key/value pair to a line that is in progress
 func (l lines) Uint(k string, v uint64) {
 	for _, line := range l {
 		line.Uint(k, v)

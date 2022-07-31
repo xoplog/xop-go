@@ -16,7 +16,7 @@ func (l *Log) Request() *Span {
 // Request provides access to the current span
 // Metadata may be added at the span level.
 func (l *Log) Span() *Span {
-	return &l.span
+	return l.span
 }
 
 func (s *Span) TraceState() trace.State     { return s.seed.traceBundle.State }
@@ -30,6 +30,8 @@ func (s *Span) eft() *Span {
 	return s
 }
 
+// Int64 adds a int64 key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
 	s.base.MetadataInt64(k, v)
 	return s.eft()
@@ -40,6 +42,7 @@ func (s *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
 // Alternatively, use xopconst.KeyedEnumAttribute() to create functions
 // to add enum key/value pairs where the key and value are specified
 // separately.
+// The return value does not need to be used.
 func (s *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
 	return s.Enum(kv.EnumAttribute(), kv)
 }
@@ -52,6 +55,7 @@ func (s *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
 // While the AnyAttribute has an expectation
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
+// The return value does not need to be used.
 func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 	s.base.MetadataAny(k, v)
 	return s.eft()
@@ -63,8 +67,9 @@ func (s *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 // While the AnyAttribute has an expectation
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
+// The return value does not need to be used.
 func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
-	if s.log.referencesKept {
+	if s.log.span.span.referencesKept {
 		v = deepcopy.Copy(v)
 	}
 	s.base.MetadataAny(k, v)
@@ -72,7 +77,8 @@ func (s *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
 }
 
 //MACRO BaseAttribute SKIP:Any,Int64
-// ZZZ adds a zzz key/value attribute to the current Span
+// ZZZ adds a zzz key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
 	s.base.MetadataZZZ(k, v)
 	return s.eft()
@@ -80,7 +86,8 @@ func (s *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
 
 // should skip Int64
 // MACRO IntsPlus SKIP:Int64
-// ZZZ adds a zzz key/value attribute to the current Span
+// ZZZ adds a zzz key/value attribute to the current Span.
+// The return value does not need to be used.
 func (s *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
 	s.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return s.eft()
