@@ -21,7 +21,7 @@ type Sub struct {
 type LogSettings struct {
 	prefillMsg        string
 	prefillData       []func(xopbase.Prefilling)
-	minimumLogLevel   xopconst.Level
+	minimumLogLevel   xopconst.Level               // XXX implement check
 	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
 }
 
@@ -52,7 +52,7 @@ func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 	seed := s.log.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&s.log.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter)
-	return l.newChildLog(seed.spanSeed, msg, s.settings)
+	return s.log.newChildLog(seed.spanSeed, msg, s.settings)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -80,14 +80,14 @@ func (s *Sub) StackFrames(level xopconst.Level, count int) *Sub {
 // a logging level.  Levels above the given level will be set to
 // get least this many.  Levels below the given level will be set
 // to receive at most this many.
-func (s *LogSettings) StackFrames(level xopconst.Level, count int) {
-	for _, l := range xopconst.AllLevels() {
+func (s *LogSettings) StackFrames(level xopconst.Level, frameCount int) {
+	for _, l := range xopconst.LevelValues() {
 		current := s.stackFramesWanted[l]
-		if l <= level && current > level {
-			s.stackFramesWanted = count
+		if l <= level && current > frameCount {
+			s.stackFramesWanted[l] = frameCount
 		}
-		if l >= level && current < level {
-			s.stackFramesWanted = count
+		if l >= level && current < frameCount {
+			s.stackFramesWanted[l] = frameCount
 		}
 	}
 }
@@ -95,14 +95,14 @@ func (s *LogSettings) StackFrames(level xopconst.Level, count int) {
 // MinLevel sets the minimum logging level below which logs will
 // be discarded.  The default is that no logs are discarded.
 func (s *Sub) MinLevel(level xopconst.Level) *Sub {
-	s.settings.Level(level)
+	s.settings.MinLevel(level)
 	return s
 }
 
 // MinLevel sets the minimum logging level below which logs will
 // be discarded.  The default is that no logs are discarded.
 func (s *LogSettings) MinLevel(level xopconst.Level) {
-	s.minimumLoggingLevel = level
+	s.minimumLogLevel = level
 }
 
 func (s *Sub) PrefillText(m string) *Sub {
@@ -120,21 +120,24 @@ func (s *Sub) NoPrefill() *Sub {
 }
 
 func (s *LogSettings) NoPrefill() {
-	s.settings.prefillData = nil
-	s.settings.prefillMsg = ""
+	s.prefillData = nil
+	s.prefillMsg = ""
 }
 
-func (l *Log) sendPrefill() xopbase.Prefilled {
-	if s.settings.prefillData == nil && s.settings.prefillMsg == "" {
-		l.prefilled = log.span.base.NoPrefill()
+func (l *Log) sendPrefill() {
+	if l.settings.prefillData == nil && l.settings.prefillMsg == "" {
+		l.prefilled = l.span.base.NoPrefill()
 	}
-	line := log.span.base.StartPrefill()
+	prefilling := l.span.base.StartPrefill()
 	for _, f := range l.settings.prefillData {
-		f(line)
+		f(prefilling)
 	}
-	l.prefilled = line.PrefillComplete()
+	l.prefilled = prefilling.PrefillComplete()
 }
 
+// PrefillAny is used to set a data element that is included on every log
+// line.  Values provided with PrefillAny will be copied
+// using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillAny(k string, v interface{}) *Sub {
@@ -142,12 +145,19 @@ func (s *Sub) PrefillAny(k string, v interface{}) *Sub {
 	return s
 }
 
-func (s *LogSettings) AnyPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+// PrefillAny is used to set a data element that is included on every log
+// line.  Values provided with PrefillAny will be copied
+// using https://github.com/mohae/deepcopy 's Copy().
+// PrefillAny is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (s *LogSettings) PrefillAny(k string, v interface{}) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Any(k, v)
 	})
 }
 
+// PrefillBool is used to set a data element that is included on every log
+// line.
 // PrefillBool is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillBool(k string, v bool) *Sub {
@@ -155,12 +165,14 @@ func (s *Sub) PrefillBool(k string, v bool) *Sub {
 	return s
 }
 
-func (s *LogSettings) BoolPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillBool(k string, v bool) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Bool(k, v)
 	})
 }
 
+// PrefillDuration is used to set a data element that is included on every log
+// line.
 // PrefillDuration is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillDuration(k string, v time.Duration) *Sub {
@@ -168,12 +180,14 @@ func (s *Sub) PrefillDuration(k string, v time.Duration) *Sub {
 	return s
 }
 
-func (s *LogSettings) DurationPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillDuration(k string, v time.Duration) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Duration(k, v)
 	})
 }
 
+// PrefillError is used to set a data element that is included on every log
+// line.
 // PrefillError is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillError(k string, v error) *Sub {
@@ -181,12 +195,14 @@ func (s *Sub) PrefillError(k string, v error) *Sub {
 	return s
 }
 
-func (s *LogSettings) ErrorPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillError(k string, v error) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Error(k, v)
 	})
 }
 
+// PrefillInt is used to set a data element that is included on every log
+// line.
 // PrefillInt is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillInt(k string, v int64) *Sub {
@@ -194,12 +210,14 @@ func (s *Sub) PrefillInt(k string, v int64) *Sub {
 	return s
 }
 
-func (s *LogSettings) IntPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillInt(k string, v int64) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Int(k, v)
 	})
 }
 
+// PrefillLink is used to set a data element that is included on every log
+// line.
 // PrefillLink is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillLink(k string, v trace.Trace) *Sub {
@@ -207,12 +225,14 @@ func (s *Sub) PrefillLink(k string, v trace.Trace) *Sub {
 	return s
 }
 
-func (s *LogSettings) LinkPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillLink(k string, v trace.Trace) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Link(k, v)
 	})
 }
 
+// PrefillStr is used to set a data element that is included on every log
+// line.
 // PrefillStr is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillStr(k string, v string) *Sub {
@@ -220,12 +240,14 @@ func (s *Sub) PrefillStr(k string, v string) *Sub {
 	return s
 }
 
-func (s *LogSettings) StrPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillStr(k string, v string) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Str(k, v)
 	})
 }
 
+// PrefillTime is used to set a data element that is included on every log
+// line.
 // PrefillTime is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillTime(k string, v time.Time) *Sub {
@@ -233,12 +255,14 @@ func (s *Sub) PrefillTime(k string, v time.Time) *Sub {
 	return s
 }
 
-func (s *LogSettings) TimePrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillTime(k string, v time.Time) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Time(k, v)
 	})
 }
 
+// PrefillUint is used to set a data element that is included on every log
+// line.
 // PrefillUint is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
 func (s *Sub) PrefillUint(k string, v uint64) *Sub {
@@ -246,8 +270,8 @@ func (s *Sub) PrefillUint(k string, v uint64) *Sub {
 	return s
 }
 
-func (s *LogSettings) UintPrefill() {
-	s.prefillData = append(s.prefillData, func(line xopbase.Line) {
+func (s *LogSettings) PrefillUint(k string, v uint64) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
 		line.Uint(k, v)
 	})
 }

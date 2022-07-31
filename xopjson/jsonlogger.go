@@ -25,10 +25,12 @@ const (
 )
 
 var (
-	_ xopbase.Logger  = &Logger{}
-	_ xopbase.Request = &Span{}
-	_ xopbase.Span    = &Span{}
-	_ xopbase.Line    = &Line{}
+	_ xopbase.Logger     = &Logger{}
+	_ xopbase.Request    = &Span{}
+	_ xopbase.Span       = &Span{}
+	_ xopbase.Line       = &Line{}
+	_ xopbase.Prefilling = &Prefilling{}
+	_ xopbase.Prefilled  = &Prefilled{}
 )
 
 type Option func(*Logger)
@@ -52,24 +54,17 @@ const (
 )
 
 type Logger struct {
-	writer           xopbytes.BytesWriter
-	timeOption       timeOption
-	timeFormat       string
-	framesAtLevelMap map[xopconst.Level]int
-	framesAtLevel    [xopconst.AlertLevel]int
-	withGoroutine    bool
-	fastKeys         bool
-	durationFormat   DurationOption
-	id               uuid.UUID
+	writer         xopbytes.BytesWriter
+	timeOption     timeOption
+	timeFormat     string
+	withGoroutine  bool
+	fastKeys       bool
+	durationFormat DurationOption
+	id             uuid.UUID
 }
 
 type Request struct {
 	*Span
-}
-
-type prefill struct {
-	data []byte
-	msg  string
 }
 
 type Span struct {
@@ -81,13 +76,26 @@ type Span struct {
 	errorFunc  func(error)
 }
 
+type Prefilling struct {
+	Builder
+}
+
+type Prefilled struct {
+	data          []byte
+	preencodedMsg []byte
+	span          *Span
+}
+
 type Line struct {
+	Builder
+	level     xopconst.Level
+	timestamp time.Time
+}
+
+type Builder struct {
 	dataBuffer xoputil.JBuilder
-	level      xopconst.Level
-	timestamp  time.Time
-	span       *Span
-	prefillLen int
 	encoder    *json.Encoder
+	span       *Span
 }
 
 func WithUncheckedKeys(b bool) Option {
@@ -114,13 +122,6 @@ func WithDuration(durationFormat DurationOption) Option {
 	}
 }
 
-func WithCallersAtLevel(logLevel xopconst.Level, framesWanted int) Option {
-	return func(l *Logger) {
-		l.framesAtLevelMap[logLevel] = framesWanted
-		l.framesAtLevel[logLevel] = framesWanted
-	}
-}
-
 func WithGoroutineID(b bool) Option {
 	return func(l *Logger) {
 		l.withGoroutine = b
@@ -139,10 +140,9 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	return logger
 }
 
-func (l *Logger) ID() string                                { return l.id.String() }
-func (l *Logger) Buffered() bool                            { return l.writer.Buffered() }
-func (l *Logger) ReferencesKept() bool                      { return false }
-func (l *Logger) StackFramesWanted() map[xopconst.Level]int { return l.framesAtLevelMap }
+func (l *Logger) ID() string           { return l.id.String() }
+func (l *Logger) Buffered() bool       { return l.writer.Buffered() }
+func (l *Logger) ReferencesKept() bool { return false }
 
 func (l *Logger) Close() {
 	l.writer.Close()
@@ -174,48 +174,56 @@ func (s *Span) Boring(bool)                           {} // TODO
 func (s *Span) ID() string                            { return s.logger.id.String() }
 func (s *Span) SetErrorReporter(reporter func(error)) { s.errorFunc = reporter }
 
-func (s *Span) getPrefill() *prefill {
-	p := s.prefill.Load()
-	if p == nil {
-		return nil
+func (s *Span) NoPrefill() xopbase.Prefilled {
+	return &Prefilled{
+		span: s,
 	}
-	return p.(*prefill)
 }
 
-func (s *Span) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
-	l := &Line{
-		level:     level,
-		timestamp: t,
-		span:      s,
+func (s *Span) builder() Builder {
+	b := Builder{
+		span: s,
 		dataBuffer: xoputil.JBuilder{
 			B:        make([]byte, 0, minBuffer),
 			FastKeys: s.logger.fastKeys,
 		},
 	}
-	l.encoder = json.NewEncoder(&l.dataBuffer)
-	l.start(level, t, pc)
-	return l
+	b.encoder = json.NewEncoder(&b.dataBuffer)
+	return b
 }
 
-func (l *Line) Recycle(level xopconst.Level, t time.Time, pc []uintptr) {
-	l.level = level
-	l.timestamp = t
-	l.dataBuffer.Reset()
-	l.start(level, t, pc)
+func (s *Span) StartPrefill() xopbase.Prefilling {
+	return &Prefilling{
+		Builder: s.builder(),
+	}
 }
 
-func (l *Line) start(level xopconst.Level, t time.Time, pc []uintptr) {
+func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
+	prefilled := &Prefilled{
+		data: make([]byte, len(p.Builder.databuffer.B)),
+		msg:  m,
+		span: p.Builder.span,
+	}
+	copy(prefilled.data, p.Builder.databuffer.B)
+	return prefilled
+}
+
+func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+	l := &Line{
+		Builder:      p.span.builder(),
+		level:        level,
+		timestamp:    t,
+		prefilledMsg: p.msg,
+	}
 	l.dataBuffer.AppendByte('{') // }
-	prefill := l.span.getPrefill()
-	l.prefillLen = len(prefill.data)
-	if prefill != nil {
+	if len(p.data) != 0 {
 		l.dataBuffer.AppendBytes(prefill.data)
 	}
 	l.dataBuffer.Comma()
 	l.dataBuffer.AppendByte('{')
 	l.Int("level", int64(level))
 	l.Time("time", t)
-	if l.span.logger.framesAtLevel[level] > 0 && len(pc) > 0 {
+	if len(pc) > 0 {
 		n := l.span.logger.framesAtLevel[level]
 		if n > len(pc) {
 			n = len(pc)
@@ -242,28 +250,19 @@ func (l *Line) start(level xopconst.Level, t time.Time, pc []uintptr) {
 	l.dataBuffer.AppendByte('}')
 }
 
-func (l *Line) SetAsPrefill(m string) {
-	skip := 1 + l.prefillLen
-	prefill := prefill{
-		msg:  m,
-		data: make([]byte, len(l.dataBuffer.B)-skip),
-	}
-	copy(prefill.data, l.dataBuffer.B[skip:])
-	l.span.prefill.Store(prefill)
-	// this Line will not be recycled so destory its buffers
-	l.reclaimMemory()
-}
-
 func (l *Line) Static(m string) {
 	l.Msg(m) // TODO
 }
 
 func (l *Line) Msg(m string) {
 	l.dataBuffer.Comma()
-	l.dataBuffer.AppendBytes([]byte(`"msg":`))
-	l.dataBuffer.String(m)
+	l.dataBuffer.AppendBytes([]byte(`"msg":"`))
+	if len(l.prefillMsgPreencoded) != 0 {
+		l.dataBuffer.AppendBytes(l.prefillMsgPreencoded)
+	}
+	l.dataBuffer.StringBody(m)
 	// {
-	l.dataBuffer.AppendByte('}')
+	l.dataBuffer.AppendBytes([]byte{'"', '}'})
 	_, err := l.span.writer.Write(l.dataBuffer.B)
 	if err != nil {
 		l.span.errorFunc(err)
@@ -271,7 +270,7 @@ func (l *Line) Msg(m string) {
 	l.reclaimMemory()
 }
 
-func (l *Line) reclaimMemory() {
+func (l *Line) reclaimMemory() { // XXX re-connect and have pool of Lines & Buffers
 	if len(l.dataBuffer.B) > maxBufferToKeep {
 		l.dataBuffer = xoputil.JBuilder{
 			B:        make([]byte, 0, minBuffer),
@@ -310,85 +309,85 @@ func (l *Line) Any(k string, v interface{}) {
 	}
 }
 
-func (l *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	// TODO: send dictionary and numbers
-	l.Int(k.Key(), v.Int64())
+	b.Int(k.Key(), v.Int64())
 }
 
-func (l *Line) Time(k string, t time.Time) {
-	switch l.span.logger.timeOption {
+func (b *Builder) Time(k string, t time.Time) {
+	switch b.span.logger.timeOption {
 	case strftimeTime:
-		l.dataBuffer.Key(k)
-		l.dataBuffer.AppendByte('"')
-		l.dataBuffer.B = fasttime.AppendStrftime(l.dataBuffer.B, l.span.logger.timeFormat, t)
-		l.dataBuffer.AppendByte('"')
+		b.dataBuffer.Key(k)
+		b.dataBuffer.AppendByte('"')
+		b.dataBuffer.B = fasttime.AppendStrftime(b.dataBuffer.B, b.span.logger.timeFormat, t)
+		b.dataBuffer.AppendByte('"')
 	case timeTime:
-		l.dataBuffer.Key(k)
-		l.dataBuffer.AppendByte('"')
-		l.dataBuffer.B = t.AppendFormat(l.dataBuffer.B, l.span.logger.timeFormat)
-		l.dataBuffer.AppendByte('"')
+		b.dataBuffer.Key(k)
+		b.dataBuffer.AppendByte('"')
+		b.dataBuffer.B = t.AppendFormat(b.dataBuffer.B, b.span.logger.timeFormat)
+		b.dataBuffer.AppendByte('"')
 	case epochTime:
-		l.dataBuffer.Key(k)
-		l.dataBuffer.Float64(float64(t.UnixNano()) / 1000000000.0) // TODO good enough?
+		b.dataBuffer.Key(k)
+		b.dataBuffer.Float64(float64(t.UnixNano()) / 1000000000.0) // TODO good enough?
 	case unixNano:
-		l.dataBuffer.Key(k)
-		l.dataBuffer.Int64(t.UnixNano())
+		b.dataBuffer.Key(k)
+		b.dataBuffer.Int64(t.UnixNano())
 	}
 }
 
-func (l *Line) Link(k string, v trace.Trace) {
+func (b *Builder) Link(k string, v trace.Trace) {
 	// TODO: is this the right format for links?
-	l.dataBuffer.Key(k)
-	l.dataBuffer.AppendBytes([]byte(`{"xop.link":"`))
-	l.dataBuffer.AppendString(v.HeaderString())
-	l.dataBuffer.AppendBytes([]byte(`"}`))
+	b.dataBuffer.Key(k)
+	b.dataBuffer.AppendBytes([]byte(`{"xop.link":"`))
+	b.dataBuffer.AppendString(v.HeaderString())
+	b.dataBuffer.AppendBytes([]byte(`"}`))
 }
 
-func (l *Line) Bool(k string, v bool) {
-	l.dataBuffer.Key(k)
-	l.dataBuffer.Bool(v)
+func (b *Builder) Bool(k string, v bool) {
+	b.dataBuffer.Key(k)
+	b.dataBuffer.Bool(v)
 }
 
-func (l *Line) Int(k string, v int64) {
-	l.dataBuffer.Key(k)
-	l.dataBuffer.Int64(v)
+func (b *Builder) Int(k string, v int64) {
+	b.dataBuffer.Key(k)
+	b.dataBuffer.Int64(v)
 }
 
-func (l *Line) Uint(k string, v uint64) {
-	l.dataBuffer.Key(k)
-	l.dataBuffer.Uint64(v)
+func (b *Builder) Uint(k string, v uint64) {
+	b.dataBuffer.Key(k)
+	b.dataBuffer.Uint64(v)
 }
 
-func (l *Line) Str(k string, v string) {
-	l.dataBuffer.Key(k)
-	l.dataBuffer.String(v)
+func (b *Builder) Str(k string, v string) {
+	b.dataBuffer.Key(k)
+	b.dataBuffer.String(v)
 }
 
-func (l *Line) Number(k string, v float64) {
-	l.dataBuffer.Key(k)
-	l.dataBuffer.Float64(v)
+func (b *Builder) Number(k string, v float64) {
+	b.dataBuffer.Key(k)
+	b.dataBuffer.Float64(v)
 }
 
-func (l *Line) Duration(k string, v time.Duration) {
-	l.dataBuffer.Key(k)
-	switch l.span.logger.durationFormat {
+func (l *Builder) Duration(k string, v time.Duration) {
+	b.dataBuffer.Key(k)
+	switch b.span.logger.durationFormat {
 	case AsNanos:
-		l.dataBuffer.Int64(int64(v / time.Nanosecond))
+		b.dataBuffer.Int64(int64(v / time.Nanosecond))
 	case AsMillis:
-		l.dataBuffer.Int64(int64(v / time.Millisecond))
+		b.dataBuffer.Int64(int64(v / time.Millisecond))
 	case AsSeconds:
-		l.dataBuffer.Int64(int64(v / time.Second))
+		b.dataBuffer.Int64(int64(v / time.Second))
 	case AsString:
 		fallthrough
 	default:
-		l.dataBuffer.UncheckedString(v.String())
+		b.dataBuffer.UncheckedString(v.String())
 	}
 }
 
 // TODO: allow custom formats
-func (l *Line) Error(k string, v error) {
-	l.dataBuffer.Key(k)
-	l.dataBuffer.String(v.Error())
+func (b *Builder) Error(k string, v error) {
+	b.dataBuffer.Key(k)
+	b.dataBuffer.String(v.Error())
 }
 
 func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.attributes.MetadataAny(k, v) }

@@ -89,7 +89,7 @@ type Span interface {
 type Prefilling interface {
 	ObjectParts
 
-	PrefillComplete() Prefilled
+	PrefillComplete(msg string) Prefilled
 }
 
 type Prefilled interface {
