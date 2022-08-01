@@ -88,13 +88,14 @@ func (s *Span) NoPrefill() xopbase.Prefilled {
 	}
 }
 
-func (s *Span) builder() Builder {
+func (s *Span) builder(attributesWanted bool) Builder {
 	b := Builder{
 		span: s,
 		dataBuffer: xoputil.JBuilder{
 			B:        make([]byte, 0, minBuffer),
 			FastKeys: s.logger.fastKeys,
 		},
+		attributesWanted: attributesWanted,
 	}
 	b.encoder = json.NewEncoder(&b.dataBuffer)
 	return b
@@ -102,7 +103,7 @@ func (s *Span) builder() Builder {
 
 func (s *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
-		Builder: s.builder(),
+		Builder: s.builder(false),
 	}
 }
 
@@ -124,17 +125,15 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 
 func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	l := &Line{
-		Builder:              p.span.builder(),
+		Builder:              p.span.builder(p.span.logger.attributesObject),
 		level:                level,
 		timestamp:            t,
 		prefillMsgPreEncoded: p.preEncodedMsg,
 	}
 	l.dataBuffer.AppendByte('{') // }
-	if len(p.data) != 0 {
-		l.dataBuffer.AppendBytes(p.data)
+	if !l.attributesWanted {
+		l.dataBuffer.AppendBytes([]byte(`"zop":{`)) // }
 	}
-	l.dataBuffer.Comma()
-	l.dataBuffer.AppendByte('{')
 	l.Int("level", int64(level))
 	l.Time("time", t)
 	if len(pc) > 0 {
@@ -179,17 +178,28 @@ func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	case OmitTagOption:
 		// yay!
 	}
-	l.dataBuffer.AppendByte('}')
+	if !l.attributesWanted {
+		// {
+		l.dataBuffer.AppendByte('}')
+	}
+	if len(p.data) != 0 {
+		if l.attributesWanted {
+			l.attributesStarted = true
+			l.dataBuffer.AppendBytes([]byte(`"attributes":{`)) // }
+		} else {
+			l.dataBuffer.AppendByte(',')
+		}
+		l.dataBuffer.AppendBytes(p.data)
+	}
 	return l
 }
 
-func (l *Line) Static(m string) {
-	l.Msg(m) // TODO
-}
-
 func (l *Line) Msg(m string) {
-	l.dataBuffer.Comma()
-	l.dataBuffer.AppendBytes([]byte(`"msg":"`))
+	if l.attributesStarted {
+		// {
+		l.dataBuffer.AppendByte('}')
+	}
+	l.dataBuffer.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {
 		l.dataBuffer.AppendBytes(l.prefillMsgPreEncoded)
 	}
@@ -203,6 +213,10 @@ func (l *Line) Msg(m string) {
 	l.reclaimMemory()
 }
 
+func (l *Line) Static(m string) {
+	l.Msg(m) // TODO
+}
+
 func (l *Line) reclaimMemory() { // XXX re-connect and have pool of Lines & Buffers
 	if len(l.dataBuffer.B) > maxBufferToKeep {
 		l.dataBuffer = xoputil.JBuilder{
@@ -214,8 +228,11 @@ func (l *Line) reclaimMemory() { // XXX re-connect and have pool of Lines & Buff
 }
 
 func (l *Line) Template(m string) {
-	l.dataBuffer.Comma()
-	l.dataBuffer.AppendString(`"xop":"template","msg":`)
+	if l.attributesStarted {
+		// {
+		l.dataBuffer.AppendByte('}')
+	}
+	l.dataBuffer.AppendString(`,"xop.format":"template","msg":`)
 	l.dataBuffer.String(m)
 	// {
 	l.dataBuffer.AppendByte('}')
@@ -226,7 +243,16 @@ func (l *Line) Template(m string) {
 	l.reclaimMemory()
 }
 
+func (b *Builder) startAttributes() {
+	if b.attributesWanted && !b.attributesStarted {
+		b.attributesStarted = true
+		b.dataBuffer.AppendBytes([]byte(`"attributes":{`)) // }
+
+	}
+}
+
 func (b *Builder) Any(k string, v interface{}) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	before := len(b.dataBuffer.B)
 	err := b.encoder.Encode(v)
@@ -243,11 +269,13 @@ func (b *Builder) Any(k string, v interface{}) {
 }
 
 func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	b.startAttributes()
 	// TODO: send dictionary and numbers
 	b.Int(k.Key(), v.Int64())
 }
 
 func (b *Builder) Time(k string, t time.Time) {
+	b.startAttributes()
 	switch b.span.logger.timeOption {
 	case strftimeTime:
 		b.dataBuffer.Key(k)
@@ -271,6 +299,7 @@ func (b *Builder) Time(k string, t time.Time) {
 }
 
 func (b *Builder) Link(k string, v trace.Trace) {
+	b.startAttributes()
 	// TODO: is this the right format for links?
 	b.dataBuffer.Key(k)
 	b.dataBuffer.AppendBytes([]byte(`{"xop.link":"`))
@@ -279,31 +308,37 @@ func (b *Builder) Link(k string, v trace.Trace) {
 }
 
 func (b *Builder) Bool(k string, v bool) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	b.dataBuffer.Bool(v)
 }
 
 func (b *Builder) Int(k string, v int64) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	b.dataBuffer.Int64(v)
 }
 
 func (b *Builder) Uint(k string, v uint64) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	b.dataBuffer.Uint64(v)
 }
 
 func (b *Builder) Str(k string, v string) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	b.dataBuffer.String(v)
 }
 
 func (b *Builder) Float64(k string, v float64) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	b.dataBuffer.Float64(v)
 }
 
 func (b *Builder) Duration(k string, v time.Duration) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	switch b.span.logger.durationFormat {
 	case AsNanos:
@@ -321,6 +356,7 @@ func (b *Builder) Duration(k string, v time.Duration) {
 
 // TODO: allow custom formats
 func (b *Builder) Error(k string, v error) {
+	b.startAttributes()
 	b.dataBuffer.Key(k)
 	b.dataBuffer.String(v.Error())
 }

@@ -78,12 +78,15 @@ type Line struct {
 	level                xopconst.Level
 	timestamp            time.Time
 	prefillMsgPreEncoded []byte
+	attributesStarted    bool
 }
 
 type Builder struct {
-	dataBuffer xoputil.JBuilder
-	encoder    *json.Encoder
-	span       *Span
+	dataBuffer        xoputil.JBuilder
+	encoder           *json.Encoder
+	span              *Span
+	attributesStarted bool
+	attributesWanted  bool
 }
 
 type DurationOption int
