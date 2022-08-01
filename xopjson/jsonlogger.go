@@ -39,9 +39,9 @@ type timeOption int
 
 const (
 	epochTime timeOption = iota
+	epochQuoted
 	strftimeTime
-	timeTime
-	unixNano
+	timeTimeFormat
 )
 
 type DurationOption int
@@ -57,6 +57,7 @@ type Logger struct {
 	writer         xopbytes.BytesWriter
 	timeOption     timeOption
 	timeFormat     string
+	timeDivisor    time.Duration
 	withGoroutine  bool
 	fastKeys       bool
 	durationFormat DurationOption
@@ -107,8 +108,8 @@ func WithUncheckedKeys(b bool) Option {
 
 // TODO: allow custom error formats
 
-// WithStrftime adds a timestamp to each log line.  See
-// https://github.com/phuslu/fasttime for the supported
+// WithStrftime specifies how to format timestamps.
+// See // https://github.com/phuslu/fasttime for the supported
 // formats.
 func WithStrftime(format string) Option {
 	return func(l *Logger) {
@@ -117,12 +118,91 @@ func WithStrftime(format string) Option {
 	}
 }
 
-func WithDuration(durationFormat DurationOption) Option {
+// WithTimeFormat specifies the use of the "time" package's
+// Time.Format for formatting times.
+func WithTimeFormat(format string) Option {
+	return func(l *Logger) {
+		l.timeOption = timeTimeFormat
+		l.timeFormat = format
+	}
+}
+
+// WithExpochSeconds specifies that time's are formatted as
+// seconds sinces Jan 1 1970.
+// Note: Starting in year 2038, these are not valid integers for
+// JSON but many implementations will handle them anyway.
+func WithEpochSeconds() Option {
+	return func(l *Logger) {
+		l.timeOption = epochTime
+		l.timeDivisor = time.Second
+	}
+}
+
+// WithExpochNanoseconds specifies that time's are formatted as
+// nanoseconds sinces Jan 1 1970.
+// Note: these are not valid integers for JSON but many implementations
+// will handle them anyway.
+func WithEpochNanoseconds() Option {
+	return func(l *Logger) {
+		l.timeOption = epochTime
+		l.timeDivisor = time.Nanosecond
+	}
+}
+
+// WithExpochMicroseconds specifies that time's are formatted as
+// microseconds sinces Jan 1 1970.
+// This is the default time format.
+// Note: these are not valid integers for JSON but many implementations
+// will handle them anyway.
+func WithEpochMicroseconds() Option {
+	return func(l *Logger) {
+		l.timeOption = epochTime
+		l.timeDivisor = time.Microsecond
+	}
+}
+
+// WithQuotedExpochSeconds specifies that time's are formatted as
+// seconds sinces Jan 1 1970.
+// The integer will have quotes (") around it.  Most JSON parsers will
+// can fill a integer from a quoted number.
+func WithQuotedEpochSeconds() Option {
+	return func(l *Logger) {
+		l.timeOption = epochQuoted
+		l.timeDivisor = time.Second
+	}
+}
+
+// WithQuotedExpochNanoseconds specifies that time's are formatted as
+// nanoseconds sinces Jan 1 1970.
+// The integer will have quotes (") around it.  Most JSON parsers will
+// can fill a integer from a quoted number.
+func WithQuotedEpochNanoseconds() Option {
+	return func(l *Logger) {
+		l.timeOption = epochQuoted
+		l.timeDivisor = time.Nanosecond
+	}
+}
+
+// WithQuotedExpochMicroseconds specifies that time's are formatted as
+// microseconds sinces Jan 1 1970.
+// The integer will have quotes (") around it.  Most JSON parsers will
+// can fill a integer from a quoted number.
+func WithQuotedEpochMicroseconds() Option {
+	return func(l *Logger) {
+		l.timeOption = epochQuoted
+		l.timeDivisor = time.Microsecond
+	}
+}
+
+// WithDurtionFormat specifies the format used for durations.
+// AsNanos is the default.
+func WithDurationFormat(durationFormat DurationOption) Option {
 	return func(l *Logger) {
 		l.durationFormat = durationFormat
 	}
 }
 
+// TODO
 func WithGoroutineID(b bool) Option {
 	return func(l *Logger) {
 		l.withGoroutine = b
@@ -131,8 +211,9 @@ func WithGoroutineID(b bool) Option {
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	logger := &Logger{
-		writer: w,
-		id:     uuid.New(),
+		writer:      w,
+		id:          uuid.New(),
+		timeDivisor: time.Millisecond,
 	}
 	for _, f := range opts {
 		f(logger)
@@ -324,17 +405,19 @@ func (b *Builder) Time(k string, t time.Time) {
 		b.dataBuffer.AppendByte('"')
 		b.dataBuffer.B = fasttime.AppendStrftime(b.dataBuffer.B, b.span.logger.timeFormat, t)
 		b.dataBuffer.AppendByte('"')
-	case timeTime:
+	case timeTimeFormat:
 		b.dataBuffer.Key(k)
 		b.dataBuffer.AppendByte('"')
 		b.dataBuffer.B = t.AppendFormat(b.dataBuffer.B, b.span.logger.timeFormat)
 		b.dataBuffer.AppendByte('"')
 	case epochTime:
 		b.dataBuffer.Key(k)
-		b.dataBuffer.Float64(float64(t.UnixNano()) / 1000000000.0) // TODO good enough?
-	case unixNano:
+		b.dataBuffer.Int64(t.UnixNano() / int64(b.span.logger.timeDivisor))
+	case epochQuoted:
 		b.dataBuffer.Key(k)
-		b.dataBuffer.Int64(t.UnixNano())
+		b.dataBuffer.AppendByte('"')
+		b.dataBuffer.Int64(t.UnixNano() / int64(b.span.logger.timeDivisor))
+		b.dataBuffer.AppendByte('"')
 	}
 }
 
@@ -366,7 +449,7 @@ func (b *Builder) Str(k string, v string) {
 	b.dataBuffer.String(v)
 }
 
-func (b *Builder) Number(k string, v float64) {
+func (b *Builder) Float64(k string, v float64) {
 	b.dataBuffer.Key(k)
 	b.dataBuffer.Float64(v)
 }
@@ -398,12 +481,12 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.attribut
 func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	s.attributes.MetadataEnum(k, v)
 }
+func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+	s.attributes.MetadataFloat64(k, v)
+}
 func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.attributes.MetadataInt64(k, v) }
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.attributes.MetadataLink(k, v)
-}
-func (s *Span) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
-	s.attributes.MetadataNumber(k, v)
 }
 func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.attributes.MetadataStr(k, v) }
 func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.attributes.MetadataTime(k, v) }

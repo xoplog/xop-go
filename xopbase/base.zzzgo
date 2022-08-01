@@ -101,16 +101,7 @@ type Line interface {
 }
 
 type ObjectParts interface {
-	Int(string, int64)
-	Uint(string, uint64)
-	Bool(string, bool)
-	Str(string, string)
-	Time(string, time.Time)
-	Error(string, error)
-	Any(string, interface{}) // generally serialized with JSON
 	Enum(*xopconst.EnumAttribute, xopconst.Enum)
-	Link(string, trace.Trace)
-	Duration(string, time.Duration)
 	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
 	// TODO: SubObject(string) SubObject
@@ -118,6 +109,9 @@ type ObjectParts interface {
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
 	// TODO: ExternalReference(name string, itemID string, storageID string)
+
+	// MACRO BaseData
+	ZZZ(string, zzz)
 }
 
 // TODO

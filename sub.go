@@ -212,6 +212,21 @@ func (s *LogSettings) PrefillError(k string, v error) {
 	})
 }
 
+// PrefillFloat64 is used to set a data element that is included on every log
+// line.
+// PrefillFloat64 is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (s *Sub) PrefillFloat64(k string, v float64) *Sub {
+	s.settings.PrefillFloat64(k, v)
+	return s
+}
+
+func (s *LogSettings) PrefillFloat64(k string, v float64) {
+	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+		line.Float64(k, v)
+	})
+}
+
 // PrefillInt is used to set a data element that is included on every log
 // line.
 // PrefillInt is not threadsafe with respect to other calls on the same *Sub.

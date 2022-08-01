@@ -139,7 +139,8 @@
 
 - Performmance
 
-  - Use sync.Pool agressively to reuse data things
+  - mark all places in the code where an allocation happens `// allocate`
+  - Use sync.Pool agressively to reduce allocations
   - Improve upon sync.Pool
 
      Rebuild https://github.com/Workiva/go-datastructures/blob/master/queue/ring.go to be

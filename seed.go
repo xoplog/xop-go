@@ -40,7 +40,6 @@ func NewSeed(mods ...SeedModifier) Seed {
 		},
 		settings: DefaultSettings,
 	}
-	seed.rebuildAsOne()
 	return seed.applyMods(mods)
 }
 

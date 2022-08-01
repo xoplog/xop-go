@@ -57,12 +57,12 @@ type Span interface {
 	MetadataBool(*xopconst.BoolAttribute, bool)
 	// MetadataEnum adds a key/value pair to describe the span.
 	MetadataEnum(*xopconst.EnumAttribute, xopconst.Enum)
+	// MetadataFloat64 adds a key/value pair to describe the span.
+	MetadataFloat64(*xopconst.Float64Attribute, float64)
 	// MetadataInt64 adds a key/value pair to describe the span.
 	MetadataInt64(*xopconst.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
 	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
-	// MetadataNumber adds a key/value pair to describe the span.
-	MetadataNumber(*xopconst.NumberAttribute, float64)
 	// MetadataStr adds a key/value pair to describe the span.
 	MetadataStr(*xopconst.StrAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
@@ -116,16 +116,7 @@ type Line interface {
 }
 
 type ObjectParts interface {
-	Int(string, int64)
-	Uint(string, uint64)
-	Bool(string, bool)
-	Str(string, string)
-	Time(string, time.Time)
-	Error(string, error)
-	Any(string, interface{}) // generally serialized with JSON
 	Enum(*xopconst.EnumAttribute, xopconst.Enum)
-	Link(string, trace.Trace)
-	Duration(string, time.Duration)
 	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
 	// TODO: SubObject(string) SubObject
@@ -133,6 +124,17 @@ type ObjectParts interface {
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
 	// TODO: ExternalReference(name string, itemID string, storageID string)
+
+	Any(string, interface{})
+	Bool(string, bool)
+	Duration(string, time.Duration)
+	Error(string, error)
+	Float64(string, float64)
+	Int(string, int64)
+	Link(string, trace.Trace)
+	Str(string, string)
+	Time(string, time.Time)
+	Uint(string, uint64)
 }
 
 // TODO

@@ -92,8 +92,8 @@ type Line struct {
 	Tmpl      string
 }
 
-func (l *TestLogger) WithMe() xop.SeedModifier {
-	return xop.WithBaseLogger("testing", l)
+func (t *TestLogger) Log() *xop.Log {
+	return xop.NewSeed(xop.WithBase(t)).Request(t.t.Name())
 }
 
 func (l *TestLogger) ID() string                   { return l.id }
