@@ -96,8 +96,8 @@ type Line struct {
 	Tmpl      string
 }
 
-func (l *TestLogger) WithMe() xop.SeedModifier {
-	return xop.WithBaseLogger("testing", l)
+func (t *TestLogger) Log() *xop.Log {
+	return xop.NewSeed(xop.WithBase(t)).Request(t.t.Name())
 }
 
 func (l *TestLogger) ID() string                   { return l.id }
@@ -268,6 +268,7 @@ func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 func (b *Builder) Bool(k string, v bool)              { b.Any(k, v) }
 func (b *Builder) Duration(k string, v time.Duration) { b.Any(k, v) }
 func (b *Builder) Error(k string, v error)            { b.Any(k, v) }
+func (b *Builder) Float64(k string, v float64)        { b.Any(k, v) }
 func (b *Builder) Int(k string, v int64)              { b.Any(k, v) }
 func (b *Builder) Link(k string, v trace.Trace)       { b.Any(k, v) }
 func (b *Builder) Str(k string, v string)             { b.Any(k, v) }
@@ -279,12 +280,12 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attribut
 func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	s.Attributes.MetadataEnum(k, v)
 }
+func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+	s.Attributes.MetadataFloat64(k, v)
+}
 func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes.MetadataInt64(k, v) }
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.Attributes.MetadataLink(k, v)
-}
-func (s *Span) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
-	s.Attributes.MetadataNumber(k, v)
 }
 func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
 func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }

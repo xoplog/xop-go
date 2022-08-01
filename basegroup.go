@@ -197,6 +197,12 @@ func (p prefillings) Error(k string, v error) {
 	}
 }
 
+func (p prefillings) Float64(k string, v float64) {
+	for _, prefilling := range p {
+		prefilling.Float64(k, v)
+	}
+}
+
 func (p prefillings) Int(k string, v int64) {
 	for _, prefilling := range p {
 		prefilling.Int(k, v)
@@ -251,6 +257,12 @@ func (l lines) Error(k string, v error) {
 	}
 }
 
+func (l lines) Float64(k string, v float64) {
+	for _, line := range l {
+		line.Float64(k, v)
+	}
+}
+
 func (l lines) Int(k string, v int64) {
 	for _, line := range l {
 		line.Int(k, v)
@@ -299,6 +311,12 @@ func (s baseSpans) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	}
 }
 
+func (s baseSpans) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+	for _, span := range s {
+		span.MetadataFloat64(k, v)
+	}
+}
+
 func (s baseSpans) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	for _, span := range s {
 		span.MetadataInt64(k, v)
@@ -308,12 +326,6 @@ func (s baseSpans) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 func (s baseSpans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	for _, span := range s {
 		span.MetadataLink(k, v)
-	}
-}
-
-func (s baseSpans) MetadataNumber(k *xopconst.NumberAttribute, v float64) {
-	for _, span := range s {
-		span.MetadataNumber(k, v)
 	}
 }
 

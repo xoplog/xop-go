@@ -227,13 +227,13 @@ const (
 	AttributeTypeDuration
 	AttributeTypeEnum
 	AttributeTypeFloat32
+	AttributeTypeFloat64
 	AttributeTypeInt
 	AttributeTypeInt16
 	AttributeTypeInt32
 	AttributeTypeInt64
 	AttributeTypeInt8
 	AttributeTypeLink
-	AttributeTypeNumber
 	AttributeTypeStr
 	AttributeTypeTime
 )
@@ -275,6 +275,10 @@ type BoolAttribute struct{ Attribute }
 // with float32 values.
 type Float32Attribute struct{ Attribute }
 
+// Float64Attribute represents an attribute key that can be used
+// with float64 values.
+type Float64Attribute struct{ Attribute }
+
 // Int64Attribute represents an attribute key that can be used
 // with int64 values.
 type Int64Attribute struct{ Attribute }
@@ -282,10 +286,6 @@ type Int64Attribute struct{ Attribute }
 // LinkAttribute represents an attribute key that can be used
 // with trace.Trace values.
 type LinkAttribute struct{ Attribute }
-
-// NumberAttribute represents an attribute key that can be used
-// with float64 values.
-type NumberAttribute struct{ Attribute }
 
 // StrAttribute represents an attribute key that can be used
 // with string values.

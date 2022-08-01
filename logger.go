@@ -10,6 +10,7 @@ import (
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xoputil"
 
 	"github.com/mohae/deepcopy"
 )
@@ -84,15 +85,15 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.AsOne.StartRequests(log.span.seed.traceBundle, descriptionOrName)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
-	log.span.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
-	log.span.buffered = log.span.seed.loggers.AsOne.Buffered()
+	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
+	log.span.buffered = log.span.seed.loggers.List.Buffered()
 	log.span.base = combinedBaseRequest.(xopbase.Span)
 	log.sendPrefill()
 	if log.span.buffered {
-		// XXX always create?
+		// TODO: consider: always create timer?
 		log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
 	}
 	return log
@@ -155,10 +156,10 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			}
 		}
 		for _, removed := range spanSeed.loggers.Removed {
-			delete(spanSet, removed.Base.ID())
+			delete(spanSet, removed.ID())
 		}
 		for _, added := range spanSeed.loggers.Added {
-			id := added.Base.ID()
+			id := added.ID()
 			if _, ok := spanSet[id]; ok {
 				continue
 			}
@@ -170,7 +171,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			}() {
 				continue
 			}
-			req := added.Base.Request(log.request.seed.traceBundle, log.shared.Description)
+			req := added.Request(log.request.seed.traceBundle, log.shared.Description)
 			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
 			func() {
 				log.shared.FlusherLock.Lock()
@@ -189,11 +190,11 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			}
 			log.span.base = spans
 		}
-		log.span.buffered = log.span.seed.loggers.AsOne.Buffered()
-		log.span.referencesKept = log.span.seed.loggers.AsOne.ReferencesKept()
+		log.span.buffered = log.span.seed.loggers.List.Buffered()
+		log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
 	}
 	log.span.base.Boring(true)
-	log.Span().Str(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // XXX improve  (not efficient)
+	log.Span().Str(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
 	log.sendPrefill()
 	return log
 }
@@ -299,15 +300,17 @@ type LogLine struct {
 	log  *Log
 	line xopbase.Line
 	pc   []uintptr
+	skip bool
 }
 
 func (l *Log) logLine(level xopconst.Level) *LogLine {
+	skip := level < l.settings.minimumLogLevel
 	recycled := l.span.linePool.Get()
 	var ll *LogLine
 	if recycled != nil {
 		// TODO: try using LogLine instead of *LogLine
 		ll = recycled.(*LogLine)
-		if l.settings.stackFramesWanted[level] == 0 {
+		if skip || l.settings.stackFramesWanted[level] == 0 {
 			if ll.pc != nil {
 				ll.pc = ll.pc[:0]
 			}
@@ -321,21 +324,24 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 			n := runtime.Callers(3, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
+	} else {
+		ll = &LogLine{
+			log: l,
+		}
+		if !skip && l.settings.stackFramesWanted[level] != 0 {
+			ll.pc = make([]uintptr, l.settings.stackFramesWanted[level],
+				l.settings.stackFramesWanted[xopconst.AlertLevel])
+			n := runtime.Callers(3, ll.pc)
+			ll.pc = ll.pc[:n]
+		}
+	}
+	ll.skip = skip
+	if ll.skip {
+		ll.line = xoputil.SkipLine
+	} else {
 		ll.line = l.prefilled.Line(level, time.Now(), ll.pc)
-		return ll
 	}
-	var pc []uintptr
-	if l.settings.stackFramesWanted[level] != 0 {
-		pc = make([]uintptr, l.settings.stackFramesWanted[level],
-			l.settings.stackFramesWanted[xopconst.AlertLevel])
-		n := runtime.Callers(3, pc)
-		pc = pc[:n]
-	}
-	return &LogLine{
-		log:  l,
-		pc:   pc,
-		line: l.prefilled.Line(level, time.Now(), pc),
-	}
+	return ll
 }
 
 // Template is an alternative to Msg() sends a log line.  Template
@@ -392,6 +398,8 @@ func (ll *LogLine) Time(k string, v time.Time) *LogLine         { ll.line.Time(k
 func (ll *LogLine) Error(k string, v error) *LogLine            { ll.line.Error(k, v); return ll }
 func (ll *LogLine) Link(k string, v trace.Trace) *LogLine       { ll.line.Link(k, v); return ll }
 func (ll *LogLine) Duration(k string, v time.Duration) *LogLine { ll.line.Duration(k, v); return ll }
+func (ll *LogLine) Float64(k string, v float64) *LogLine        { ll.line.Float64(k, v); return ll }
+func (ll *LogLine) Float32(k string, v float32) *LogLine        { return ll.Float64(k, float64(v)) }
 
 func (ll *LogLine) EmbeddedEnum(k xopconst.EmbeddedEnum) *LogLine {
 	return ll.Enum(k.EnumAttribute(), k)
@@ -410,6 +418,9 @@ func (ll *LogLine) AnyImmutable(k string, v interface{}) *LogLine { ll.line.Any(
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
 func (ll *LogLine) Any(k string, v interface{}) *LogLine {
+	if ll.skip {
+		return ll
+	}
 	if ll.log.span.referencesKept {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)

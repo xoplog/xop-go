@@ -94,17 +94,17 @@ func (s *Span) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *Span {
 	return s.eft()
 }
 
+// Float64 adds a float64 key/value attribute to the current Span.
+// The return value does not need to be used.
+func (s *Span) Float64(k *xopconst.Float64Attribute, v float64) *Span {
+	s.base.MetadataFloat64(k, v)
+	return s.eft()
+}
+
 // Link adds a trace.Trace key/value attribute to the current Span.
 // The return value does not need to be used.
 func (s *Span) Link(k *xopconst.LinkAttribute, v trace.Trace) *Span {
 	s.base.MetadataLink(k, v)
-	return s.eft()
-}
-
-// Number adds a float64 key/value attribute to the current Span.
-// The return value does not need to be used.
-func (s *Span) Number(k *xopconst.NumberAttribute, v float64) *Span {
-	s.base.MetadataNumber(k, v)
 	return s.eft()
 }
 
