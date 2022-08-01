@@ -24,191 +24,6 @@ const (
 	minBuffer       = 1024
 )
 
-var (
-	_ xopbase.Logger     = &Logger{}
-	_ xopbase.Request    = &Span{}
-	_ xopbase.Span       = &Span{}
-	_ xopbase.Line       = &Line{}
-	_ xopbase.Prefilling = &Prefilling{}
-	_ xopbase.Prefilled  = &Prefilled{}
-)
-
-type Option func(*Logger)
-
-type timeOption int
-
-const (
-	epochTime timeOption = iota
-	epochQuoted
-	strftimeTime
-	timeTimeFormat
-)
-
-type DurationOption int
-
-const (
-	AsNanos   DurationOption = iota // int64(duration)
-	AsMillis                        // int64(duration / time.Milliscond)
-	AsSeconds                       // int64(duration / time.Second)
-	AsString                        // duration.String()
-)
-
-type Logger struct {
-	writer         xopbytes.BytesWriter
-	timeOption     timeOption
-	timeFormat     string
-	timeDivisor    time.Duration
-	withGoroutine  bool
-	fastKeys       bool
-	durationFormat DurationOption
-	id             uuid.UUID
-}
-
-type Request struct {
-	*Span
-}
-
-type Span struct {
-	attributes xoputil.AttributeBuilder
-	writer     xopbytes.BytesRequest
-	trace      trace.Bundle
-	logger     *Logger
-	prefill    atomic.Value
-	errorFunc  func(error)
-}
-
-type Prefilling struct {
-	Builder
-}
-
-type Prefilled struct {
-	data          []byte
-	preEncodedMsg []byte
-	span          *Span
-}
-
-type Line struct {
-	Builder
-	level                xopconst.Level
-	timestamp            time.Time
-	prefillMsgPreEncoded []byte
-}
-
-type Builder struct {
-	dataBuffer xoputil.JBuilder
-	encoder    *json.Encoder
-	span       *Span
-}
-
-func WithUncheckedKeys(b bool) Option {
-	return func(l *Logger) {
-		l.fastKeys = b
-	}
-}
-
-// TODO: allow custom error formats
-
-// WithStrftime specifies how to format timestamps.
-// See // https://github.com/phuslu/fasttime for the supported
-// formats.
-func WithStrftime(format string) Option {
-	return func(l *Logger) {
-		l.timeOption = strftimeTime
-		l.timeFormat = format
-	}
-}
-
-// WithTimeFormat specifies the use of the "time" package's
-// Time.Format for formatting times.
-func WithTimeFormat(format string) Option {
-	return func(l *Logger) {
-		l.timeOption = timeTimeFormat
-		l.timeFormat = format
-	}
-}
-
-// WithExpochSeconds specifies that time's are formatted as
-// seconds sinces Jan 1 1970.
-// Note: Starting in year 2038, these are not valid integers for
-// JSON but many implementations will handle them anyway.
-func WithEpochSeconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochTime
-		l.timeDivisor = time.Second
-	}
-}
-
-// WithExpochNanoseconds specifies that time's are formatted as
-// nanoseconds sinces Jan 1 1970.
-// Note: these are not valid integers for JSON but many implementations
-// will handle them anyway.
-func WithEpochNanoseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochTime
-		l.timeDivisor = time.Nanosecond
-	}
-}
-
-// WithExpochMicroseconds specifies that time's are formatted as
-// microseconds sinces Jan 1 1970.
-// This is the default time format.
-// Note: these are not valid integers for JSON but many implementations
-// will handle them anyway.
-func WithEpochMicroseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochTime
-		l.timeDivisor = time.Microsecond
-	}
-}
-
-// WithQuotedExpochSeconds specifies that time's are formatted as
-// seconds sinces Jan 1 1970.
-// The integer will have quotes (") around it.  Most JSON parsers will
-// can fill a integer from a quoted number.
-func WithQuotedEpochSeconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochQuoted
-		l.timeDivisor = time.Second
-	}
-}
-
-// WithQuotedExpochNanoseconds specifies that time's are formatted as
-// nanoseconds sinces Jan 1 1970.
-// The integer will have quotes (") around it.  Most JSON parsers will
-// can fill a integer from a quoted number.
-func WithQuotedEpochNanoseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochQuoted
-		l.timeDivisor = time.Nanosecond
-	}
-}
-
-// WithQuotedExpochMicroseconds specifies that time's are formatted as
-// microseconds sinces Jan 1 1970.
-// The integer will have quotes (") around it.  Most JSON parsers will
-// can fill a integer from a quoted number.
-func WithQuotedEpochMicroseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochQuoted
-		l.timeDivisor = time.Microsecond
-	}
-}
-
-// WithDurtionFormat specifies the format used for durations.
-// AsNanos is the default.
-func WithDurationFormat(durationFormat DurationOption) Option {
-	return func(l *Logger) {
-		l.durationFormat = durationFormat
-	}
-}
-
-// TODO
-func WithGoroutineID(b bool) Option {
-	return func(l *Logger) {
-		l.withGoroutine = b
-	}
-}
-
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	logger := &Logger{
 		writer:      w,
@@ -217,6 +32,13 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	}
 	for _, f := range opts {
 		f(logger)
+	}
+	if l.tagOption == DefaultTagOption {
+		if l.buffereLines {
+			l.tagOption = OmitTagOption
+		} else {
+			l.tagOption = FullIDTagOption
+		}
 	}
 	return logger
 }
@@ -233,8 +55,14 @@ func (l *Logger) Request(span trace.Bundle, name string) xopbase.Request {
 	s := &Span{
 		logger: l,
 		writer: l.writer.Request(span),
+		trace:  span,
+		name:   name,
+	}
+	if l.tagOption == TraceSequenceNumberTagOption {
+		s.idNum = atomic.AddInt64(&l.requestCount, 1)
 	}
 	s.attributes.Reset()
+	s.requestSpan = s
 	return s
 }
 
@@ -242,8 +70,11 @@ func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 	n := &Span{
 		logger: s.logger,
 		writer: s.writer,
+		trace:  span,
+		name:   name,
 	}
 	n.attributes.Reset()
+	n.requestSpan = s
 	return n
 }
 
@@ -329,6 +160,28 @@ func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 			}
 		}
 		l.dataBuffer.AppendByte(']')
+	}
+	switch l.span.logger.tagOption {
+	case SpanIDTagOption:
+		l.dataBuffer.Comma()
+		l.dataBuffer.AppendBytes([]byte(`"span_id":"`))
+		l.dataBuffer.AppendString(l.span.trace.SpanIDString())
+		l.dataBuffer.Byte('"')
+	case FullIDTagOption:
+		l.dataBuffer.Comma()
+		l.dataBuffer.AppendBytes([]byte(`"trace_header":"`))
+		l.dataBuffer.AppendString(l.span.trace.HeaderString())
+		l.dataBuffer.Byte('"')
+	case TraceIDTagOption:
+		l.dataBuffer.Comma()
+		l.dataBuffer.AppendBytes([]byte(`"trace_id":"`))
+		l.dataBuffer.AppendString(l.span.trace.TraceIDString())
+		l.dataBuffer.Byte('"')
+	case TraceSequenceNumberTagOption:
+		b.dataBuffer.Key("trace_num")
+		l.dataBuffer.Int64(l.span.requestSpan.idNum)
+	case OmitTagOption:
+		// yay!
 	}
 	l.dataBuffer.AppendByte('}')
 	return l
