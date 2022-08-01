@@ -41,9 +41,10 @@ type Logger struct {
 	durationFormat        DurationOption
 	id                    uuid.UUID
 	bufferSpans           bool
-	tagOption             tagOption
+	tagOption             TagOption
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
-	perRequestBufferLimit int64
+	perRequestBufferLimit int32
+	attributesObject      bool // TODO: implement
 }
 
 type Request struct {
@@ -51,15 +52,15 @@ type Request struct {
 }
 
 type Span struct {
-	attributes     xoputil.AttributeBuilder
-	writer         xopbytes.BytesRequest
-	trace          trace.Bundle
-	logger         *Logger
-	errorFunc      func(error)
-	traceID        trace.Bundle
-	name           string
-	idNum          int64
-	requestSpan	*Span
+	attributes  xoputil.AttributeBuilder
+	writer      xopbytes.BytesRequest
+	trace       trace.Bundle
+	logger      *Logger
+	errorFunc   func(error)
+	traceID     trace.Bundle
+	name        string
+	idNum       int64
+	requestSpan *Span
 }
 
 type Prefilling struct {
@@ -145,6 +146,16 @@ func WithSpanTags(tagOption TagOption) Option {
 func WithUncheckedKeys(b bool) Option {
 	return func(l *Logger) {
 		l.fastKeys = b
+	}
+}
+
+// WithAttributesInObject specifies if the user-defined
+// attributes on lines, spans, and requests should be
+// inside an "attributes" sub-object or part of the main
+// object.
+func WithAttributesInObject(b bool) Option {
+	return func(l *Logger) {
+		l.attributesObject = b
 	}
 }
 
@@ -248,14 +259,14 @@ func WithBufferedSpans(b bool) Option {
 // WithBufferedLines indciates if line data should be buffered until
 // Flush() is called.  If not, lines are emitted as they're completed.
 // A value of zero (the default) indicates that lines are not buffered.
-// 
-// A value less than 1024 will panic.  10MB is the suggested value.
+//
+// A value less than 1024 will panic.  8MB is the suggested value.
 func WithBufferedLines(bufferSize int32) Option {
 	if bufferSize < 1024 {
 		panic("bufferSize too small")
 	}
 	return func(l *Logger) {
-		l.lineBufferSize = bufferSize
+		l.perRequestBufferLimit = bufferSize
 	}
 }
 

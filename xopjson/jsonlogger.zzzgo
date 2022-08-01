@@ -21,22 +21,22 @@ const maxBufferToKeep = 1024 * 10
 const minBuffer = 1024
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
-	logger := &Logger{
+	log := &Logger{
 		writer:      w,
 		id:          uuid.New(),
 		timeDivisor: time.Millisecond,
 	}
 	for _, f := range opts {
-		f(logger)
+		f(log)
 	}
-	if l.tagOption == DefaultTagOption {
-		if l.buffereLines {
-			l.tagOption = OmitTagOption
+	if log.tagOption == DefaultTagOption {
+		if log.perRequestBufferLimit > 0 {
+			log.tagOption = OmitTagOption
 		} else {
-			l.tagOption = FullIDTagOption
+			log.tagOption = FullIDTagOption
 		}
 	}
-	return logger
+	return log
 }
 
 func (l *Logger) ID() string           { return l.id.String() }
@@ -161,20 +161,20 @@ func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	case SpanIDTagOption:
 		l.dataBuffer.Comma()
 		l.dataBuffer.AppendBytes([]byte(`"span_id":"`))
-		l.dataBuffer.AppendString(l.span.trace.SpanIDString())
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendString(l.span.trace.Trace.SpanIDString())
+		l.dataBuffer.AppendByte('"')
 	case FullIDTagOption:
 		l.dataBuffer.Comma()
 		l.dataBuffer.AppendBytes([]byte(`"trace_header":"`))
-		l.dataBuffer.AppendString(l.span.trace.HeaderString())
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendString(l.span.trace.Trace.HeaderString())
+		l.dataBuffer.AppendByte('"')
 	case TraceIDTagOption:
 		l.dataBuffer.Comma()
 		l.dataBuffer.AppendBytes([]byte(`"trace_id":"`))
-		l.dataBuffer.AppendString(l.span.trace.TraceIDString())
-		l.dataBuffer.Byte('"')
+		l.dataBuffer.AppendString(l.span.trace.Trace.TraceIDString())
+		l.dataBuffer.AppendByte('"')
 	case TraceSequenceNumberTagOption:
-		b.dataBuffer.Key("trace_num")
+		l.dataBuffer.Key("trace_num")
 		l.dataBuffer.Int64(l.span.requestSpan.idNum)
 	case OmitTagOption:
 		// yay!
