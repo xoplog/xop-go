@@ -14,7 +14,7 @@ import (
 )
 
 var _ xopbase.Logger = &Logger{}
-var _ xopbase.Request = &Span{}
+var _ xopbase.Request = &Request{}
 var _ xopbase.Span = &Span{}
 var _ xopbase.Line = &Line{}
 var _ xopbase.Prefilling = &Prefilling{}
@@ -45,22 +45,32 @@ type Logger struct {
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	perRequestBufferLimit int32
 	attributesObject      bool // TODO: implement
+	closeRequest          chan struct{}
 }
 
 type Request struct {
 	*Span
 }
 
+type Request struct {
+	Span
+	errorFunc      func(error)
+	lineBuffer     []byte
+	completedLines chan *Line
+	flushRequest   chan struct{}
+}
+
 type Span struct {
-	attributes  xoputil.AttributeBuilder
-	writer      xopbytes.BytesRequest
-	trace       trace.Bundle
-	logger      *Logger
-	errorFunc   func(error)
-	traceID     trace.Bundle
-	name        string
-	idNum       int64
-	requestSpan *Span
+	endTime    int64 // XXX
+	attributes xoputil.AttributeBuilder
+	writer     xopbytes.BytesRequest
+	trace      trace.Bundle
+	logger     *Logger
+	traceID    trace.Bundle
+	name       string
+	idNum      int64
+	request    *Request
+	startTime  time.Time // XXX
 }
 
 type Prefilling struct {
@@ -143,6 +153,20 @@ const (
 func WithSpanTags(tagOption TagOption) Option {
 	return func(l *Logger) {
 		l.tagOption = tagOption
+	}
+}
+
+// WithBufferedLines indciates if line data should be buffered until
+// Flush() is called.  If not, lines are emitted as they're completed.
+// A value of zero (the default) indicates that lines are not buffered.
+//
+// A value less than 1024 will panic.  8MB is the suggested value.
+func WithBufferedLines(bufferSize int32) Option {
+	if bufferSize < 1024 {
+		panic("bufferSize too small")
+	}
+	return func(l *Logger) {
+		l.perRequestBufferLimit = bufferSize
 	}
 }
 
@@ -256,20 +280,6 @@ func WithQuotedEpochMicroseconds() Option {
 func WithBufferedSpans(b bool) Option {
 	return func(l *Logger) {
 		l.bufferSpans = b
-	}
-}
-
-// WithBufferedLines indciates if line data should be buffered until
-// Flush() is called.  If not, lines are emitted as they're completed.
-// A value of zero (the default) indicates that lines are not buffered.
-//
-// A value less than 1024 will panic.  8MB is the suggested value.
-func WithBufferedLines(bufferSize int32) Option {
-	if bufferSize < 1024 {
-		panic("bufferSize too small")
-	}
-	return func(l *Logger) {
-		l.perRequestBufferLimit = bufferSize
 	}
 }
 

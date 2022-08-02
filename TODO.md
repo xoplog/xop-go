@@ -149,6 +149,8 @@
 
 # Not build ready 
 
+- send the spanSequenceCode as a xop: attribute
+
 - Base loggers:
 
   Not ready because APIs should be more solid first

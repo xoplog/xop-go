@@ -3,39 +3,57 @@ xopjson is a xop base logger (xopbase.Logger) that encodes in JSON format.
 
 The format of the encoded JSON is a stream of mixed objects.
 
+Depending on options, the format of lines can vary significantly.
+
 Lines
 
-The JSON format of a line is like:
+The JSON format of a line with WithAttributesInObject(false) is like:
 
 	{
 		"prefilled": "prefilled attributes come first",
 		"xop": {
-			"level": 9,
-			"time": 49394393493,
+			"lvl": 9,
+			"ts": 49394393493,
 			"spanID": "34ec0b8ac9d65e91",
 			"stack": [
 				"some/file.go:382",
 				"some/other/file.go:102"
 			]
 		},
-		"otherattributes": "line specific attributes come next",
+		"user_attribute": "all in the main object",
+		"another_user_attribute": "line specific attributes come next",
 		"msg": "text given to the .Msg() or .Static() method prepended with PrefillText"
 	}
 
-"level"`is the xopconst.Level number
+The JSON format of a line with WithAttributesInObject(false) is like:
 
-"time" can be formatted various ways depending on the options used to create the
-xopjson.Logger.  The default format is an integer representing microseconds since
-Jan 1 1970.
+	{
+		"lvl": 9,
+		"ts": 49394393493,
+		"spanID": "34ec0b8ac9d65e91",
+		"stack": [
+			"some/file.go:382",
+			"some/other/file.go:102"
+		],
+		"attributes": {
+			"prefilled": "prefilled attributes are part of the attributes block",
+			"user_attribute": "all in the main object",
+			"another_user_attribute": "line specific attributes come next"
+		},
+		"msg": "text given to the .Msg() or .Static() method prepended with PrefillText"
+	}
+
+"lvl"`is the xopconst.Level number
+
+"ts" is a timestamp and it can be formatted various ways depending
+on the options used to create the xopjson.Logger.  The default
+format is an integer representing microseconds since Jan 1 1970.
 
 "stack" will only be included if the logger options include sending stack frames.  By
 default stack frames are included with Error and Alert level logs.
 
-
-
-
 Spans
-	
+
 	{
 		"zop": {
 			"type": "span",

@@ -17,14 +17,18 @@ import (
 	"github.com/phuslu/fasttime"
 )
 
-const maxBufferToKeep = 1024 * 10
-const minBuffer = 1024
+const  (
+maxBufferToKeep = 1024 * 10
+minBuffer = 1024
+lineChanDepth = 32
+)
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
 		writer:      w,
 		id:          uuid.New(),
 		timeDivisor: time.Millisecond,
+		closeRequest: make(chan struct{}),
 	}
 	for _, f := range opts {
 		f(log)
@@ -48,39 +52,94 @@ func (l *Logger) Close() {
 }
 
 func (l *Logger) Request(span trace.Bundle, name string) xopbase.Request {
-	s := &Span{
-		logger: l,
-		writer: l.writer.Request(span),
-		trace:  span,
-		name:   name,
+	r := &Request{
+		Span: Span{
+			logger: l,
+			writer: l.writer.Request(span),
+			trace:  span,
+			name:   name,
+		},
 	}
 	if l.tagOption == TraceSequenceNumberTagOption {
-		s.idNum = atomic.AddInt64(&l.requestCount, 1)
+		r.idNum = atomic.AddInt64(&l.requestCount, 1)
 	}
-	s.attributes.Reset()
-	s.requestSpan = s
-	return s
+	r.attributes.Reset()
+	r.request = r
+	if l.perRequestBufferLimit != 0 {
+		r.maintainBuffer()
+	}
+	return r
 }
 
-func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
+func (r *Request) maintainBuffer() {
+	r.flushRequest = make(chan struct{})
+	r.flushComplete = make(chan struct{})
+	r.completedLines = make(chan *Line, lineChanDepth)
+	r.writeBuffer = make([]byte, 0, l.perRequestBufferLimit/16)
+	go func() {
+		for {
+			select {
+			case <- r.logger.closeRequest:
+				r.flushBuffer()
+				// TODO: have logger wait for requests to complete
+				// WaitGroup?
+				return
+			case <- flushRequest:
+				r.flushBuffer()
+				r.flushComplete <- struct{}{}
+			case line := <- completedLines:
+				if len(line.dataBuffer.B) + len(r.writeBuffer) > l.perRequestBufferLimit {
+					r.flushBuffer()
+				}
+				if len(line.dataBuffer.B)  > l.perRequestBufferLimit {
+					// TODO: split into multiple writes
+				}
+				r.writeBuffer = append(r.writeBuffer, line.dataBuffer.B...)
+				line.reclaimMemory()
+			}
+		}
+	}()
+}
+
+func (r *Request) flushBuffer() {
+	// TODO: trigger spans to write their stuff
+	if len(r.writeBuffer) == 0 { return }
+	_, err := r.writer.Write(r.writeBuffer)
+	if err != nil {
+		l.request.errorFunc(err)
+	}
+	r.writer.Flush()
+	r.writeBuffer = r.writeBuffer[:0]
+}
+
+func (r *Request) Flush() {
+	if r.logger.perRequestBufferLimit != 0 {
+		r.flushRequest <- struct{}{}
+		<- r.flushComplete
+	} else {
+		r.writer.Flush()
+	}
+}
+
+func (r *Request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
+
+func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 	n := &Span{
-		logger: s.logger,
-		writer: s.writer,
-		trace:  span,
-		name:   name,
+		logger:    s.logger,
+		writer:    s.writer,
+		trace:     span,
+		name:      name,
+		request:  s.request,
+		startTime: ts,
 	}
 	n.attributes.Reset()
 	n.requestSpan = s
 	return n
 }
 
-func (s *Span) Flush() {
-	s.writer.Flush()
-}
-
+func (s *Span) Done(t time.Time)                      { atomic.StoreInt64(&s.endTime, t.UnixNano()) }
 func (s *Span) Boring(bool)                           {} // TODO
 func (s *Span) ID() string                            { return s.logger.id.String() }
-func (s *Span) SetErrorReporter(reporter func(error)) { s.errorFunc = reporter }
 
 func (s *Span) NoPrefill() xopbase.Prefilled {
 	return &Prefilled{
@@ -124,6 +183,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 }
 
 func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
 	l := &Line{
 		Builder:              p.span.builder(p.span.logger.attributesObject),
 		level:                level,
@@ -134,8 +194,8 @@ func (p *Prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	if !l.attributesWanted {
 		l.dataBuffer.AppendBytes([]byte(`"zop":{`)) // }
 	}
-	l.Int("level", int64(level))
-	l.Time("time", t)
+	l.Int("lvl", int64(level))
+	l.Time("ts", t)
 	if len(pc) > 0 {
 		frames := runtime.CallersFrames(pc)
 		l.dataBuffer.AppendBytes([]byte(`"stack":[`))
@@ -206,18 +266,22 @@ func (l *Line) Msg(m string) {
 	l.dataBuffer.StringBody(m)
 	// {
 	l.dataBuffer.AppendBytes([]byte{'"', '}'})
-	_, err := l.span.writer.Write(l.dataBuffer.B)
-	if err != nil {
-		l.span.errorFunc(err)
+	if l.perRequestBufferLimit != 0 {
+		l.request.completedLines <- l
+	} else {
+		_, err := l.span.writer.Write(l.dataBuffer.B)
+		if err != nil {
+			l.span.errorFunc(err)
+		}
+		l.reclaimMemory()
 	}
-	l.reclaimMemory()
 }
 
 func (l *Line) Static(m string) {
 	l.Msg(m) // TODO
 }
 
-func (l *Line) reclaimMemory() { // XXX re-connect and have pool of Lines & Buffers
+func (l *Line) reclaimMemory() { 
 	if len(l.dataBuffer.B) > maxBufferToKeep {
 		l.dataBuffer = xoputil.JBuilder{
 			B:        make([]byte, 0, minBuffer),
@@ -225,6 +289,7 @@ func (l *Line) reclaimMemory() { // XXX re-connect and have pool of Lines & Buff
 		}
 		l.encoder = json.NewEncoder(&l.dataBuffer)
 	}
+	// TODO have pool of Lines & Buffers
 }
 
 func (l *Line) Template(m string) {
@@ -247,7 +312,6 @@ func (b *Builder) startAttributes() {
 	if b.attributesWanted && !b.attributesStarted {
 		b.attributesStarted = true
 		b.dataBuffer.AppendBytes([]byte(`"attributes":{`)) // }
-
 	}
 }
 

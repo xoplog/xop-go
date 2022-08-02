@@ -93,6 +93,12 @@ func (s baseSpans) Span(span trace.Bundle, descriptionOrName string) xopbase.Spa
 	return baseSpans
 }
 
+func (s baseSpans) Done(t time.Time) {
+	for _, span := range s {
+		span.Done(t)
+	}
+}
+
 func (s baseSpans) ID() string {
 	panic("this is not expected to be called")
 }

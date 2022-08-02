@@ -144,7 +144,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	alloc.Log.span = &alloc.Span
 	log := &alloc.Log
 
-	log.span.base = old.span.base.Span(spanSeed.traceBundle, description)
+	log.span.base = old.span.base.Span(time.Now(), spanSeed.traceBundle, description)
 	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
@@ -276,6 +276,7 @@ func (l *Log) notBoring() {
 // finished, the log is automatically flushed.
 func (l *Log) Done() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
+	l.span.base.Done()
 	if remaining <= 0 {
 		l.Flush()
 	} else {
