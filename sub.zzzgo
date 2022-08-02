@@ -15,10 +15,11 @@ type Sub struct {
 }
 
 type LogSettings struct {
-	prefillMsg        string
-	prefillData       []func(xopbase.Prefilling)
-	minimumLogLevel   xopconst.Level               // XXX implement check
-	stackFramesWanted [xopconst.AlertLevel + 1]int // indexed
+	prefillMsg               string
+	prefillData              []func(xopbase.Prefilling)
+	minimumLogLevel          xopconst.Level
+	stackFramesWanted        [xopconst.AlertLevel + 1]int // indexed
+	tagLinesWithSpanSequence bool
 }
 
 // DefaultSettings are the settings that are used if no setting changes
@@ -112,6 +113,21 @@ func (s *LogSettings) MinLevel(level xopconst.Level) {
 	s.minimumLogLevel = level
 }
 
+// TagLinesWithSpanSequence controls if the span sequence
+// indicator (see Fork() and Step()) should be included in
+// the prefill data on each line.
+func (s *Sub) TagLinesWithSpanSequence(b bool) *Sub {
+	s.settings.TagLinesWithSpanSequence(b)
+	return s
+}
+
+// TagLinesWithSpanSequence controls if the span sequence
+// indicator (see Fork() and Step()) should be included in
+// the prefill data on each line.
+func (s *LogSettings) TagLinesWithSpanSequence(b bool) {
+	s.tagLinesWithSpanSequence = b
+}
+
 func (s *Sub) PrefillText(m string) *Sub {
 	s.settings.PrefillText(m)
 	return s
@@ -132,12 +148,16 @@ func (s *LogSettings) NoPrefill() {
 }
 
 func (l *Log) sendPrefill() {
-	if l.settings.prefillData == nil && l.settings.prefillMsg == "" {
+	if l.settings.prefillData == nil && l.settings.prefillMsg == "" && !l.settings.tagLinesWithSpanSequence {
 		l.prefilled = l.span.base.NoPrefill()
+		return
 	}
 	prefilling := l.span.base.StartPrefill()
 	for _, f := range l.settings.prefillData {
 		f(prefilling)
+	}
+	if l.settings.tagLinesWithSpanSequence {
+		prefilling.Str(xopconst.SpanSequeneCode.Key(), l.span.seed.spanSequenceCode)
 	}
 	l.prefilled = prefilling.PrefillComplete(l.settings.prefillMsg)
 }

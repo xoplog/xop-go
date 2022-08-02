@@ -11,8 +11,8 @@ import (
 )
 
 func makeChildSpan(parent xop.Log, r *http.Request) *xop.Log {
-	route := mux.CurrentRoute(r)
-	name := route.GetName()
+	route := mux.CurrentRoute(r) // TODO: remove dependency on mux
+	name := route.GetName()      // TODO: remove dependency on mux
 	if name == "" {
 		name = r.URL.String()
 	}
