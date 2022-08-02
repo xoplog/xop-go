@@ -14,11 +14,11 @@ import (
 )
 
 var _ xopbase.Logger = &Logger{}
-var _ xopbase.Request = &Request{}
-var _ xopbase.Span = &Span{}
-var _ xopbase.Line = &Line{}
-var _ xopbase.Prefilling = &Prefilling{}
-var _ xopbase.Prefilled = &Prefilled{}
+var _ xopbase.Request = &request{}
+var _ xopbase.Span = &span{}
+var _ xopbase.Line = &line{}
+var _ xopbase.Prefilling = &prefilling{}
+var _ xopbase.Prefilled = &prefilled{}
 
 type Option func(*Logger)
 
@@ -43,24 +43,21 @@ type Logger struct {
 	bufferSpans           bool
 	tagOption             TagOption
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
-	perRequestBufferLimit int32
+	perRequestBufferLimit int
 	attributesObject      bool // TODO: implement
 	closeRequest          chan struct{}
 }
 
-type Request struct {
-	*Span
-}
-
-type Request struct {
-	Span
+type request struct {
+	span
 	errorFunc      func(error)
-	lineBuffer     []byte
-	completedLines chan *Line
+	writeBuffer    []byte
+	completedLines chan *line
 	flushRequest   chan struct{}
+	flushComplete  chan struct{}
 }
 
-type Span struct {
+type span struct {
 	endTime    int64 // XXX
 	attributes xoputil.AttributeBuilder
 	writer     xopbytes.BytesRequest
@@ -69,32 +66,32 @@ type Span struct {
 	traceID    trace.Bundle
 	name       string
 	idNum      int64
-	request    *Request
-	startTime  time.Time // XXX
+	request    *request
+	startTime  time.Time
 }
 
-type Prefilling struct {
-	Builder
+type prefilling struct {
+	builder
 }
 
-type Prefilled struct {
+type prefilled struct {
 	data          []byte
 	preEncodedMsg []byte
-	span          *Span
+	span          *span
 }
 
-type Line struct {
-	Builder
+type line struct {
+	builder
 	level                xopconst.Level
 	timestamp            time.Time
 	prefillMsgPreEncoded []byte
 	attributesStarted    bool
 }
 
-type Builder struct {
+type builder struct {
 	dataBuffer        xoputil.JBuilder
 	encoder           *json.Encoder
-	span              *Span
+	span              *span
 	attributesStarted bool
 	attributesWanted  bool
 }
@@ -161,7 +158,7 @@ func WithSpanTags(tagOption TagOption) Option {
 // A value of zero (the default) indicates that lines are not buffered.
 //
 // A value less than 1024 will panic.  8MB is the suggested value.
-func WithBufferedLines(bufferSize int32) Option {
+func WithBufferedLines(bufferSize int) Option {
 	if bufferSize < 1024 {
 		panic("bufferSize too small")
 	}

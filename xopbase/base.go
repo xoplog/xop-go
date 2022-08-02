@@ -49,7 +49,7 @@ type Request interface {
 
 type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
-	Span(span trace.Bundle, descriptionOrName string) Span
+	Span(ts time.Time, span trace.Bundle, descriptionOrName string) Span
 
 	// MetadataAny adds a key/value pair to describe the span.
 	MetadataAny(*xopconst.AnyAttribute, interface{})
@@ -84,6 +84,9 @@ type Span interface {
 	NoPrefill() Prefilled
 
 	StartPrefill() Prefilling
+
+	// Done may or may not be called.
+	Done(time.Time)
 }
 
 type Prefilling interface {

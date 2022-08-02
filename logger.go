@@ -276,7 +276,7 @@ func (l *Log) notBoring() {
 // finished, the log is automatically flushed.
 func (l *Log) Done() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
-	l.span.base.Done()
+	l.span.base.Done(time.Now())
 	if remaining <= 0 {
 		l.Flush()
 	} else {

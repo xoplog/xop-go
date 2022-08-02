@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,6 +69,8 @@ type Span struct {
 	Lines        []*Line
 	short        string
 	Metadata     map[string]interface{}
+	StartTime    time.Time
+	EndTime      int64
 }
 
 type Prefilling struct {
@@ -140,12 +143,13 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
+func (s *Span) Done(t time.Time)             { atomic.StoreInt64(&s.EndTime, t.UnixNano()) }
 func (s *Span) Flush()                       {}
 func (s *Span) Boring(bool)                  {}
 func (s *Span) ID() string                   { return s.testLogger.id }
 func (s *Span) SetErrorReporter(func(error)) {}
 
-func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
+func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 	s.testLogger.lock.Lock()
 	defer s.testLogger.lock.Unlock()
 	s.lock.Lock()
@@ -154,6 +158,7 @@ func (s *Span) Span(span trace.Bundle, name string) xopbase.Span {
 		testLogger: s.testLogger,
 		Trace:      span,
 		short:      s.testLogger.setShort(span, name),
+		StartTime:  ts,
 	}
 	n.Attributes.Reset()
 	s.Spans = append(s.Spans, n)
@@ -186,6 +191,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 }
 
 func (p *Prefilled) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line {
+	atomic.StoreInt64(&p.Span.EndTime, t.UnixNano())
 	// TODO: stack traces
 	line := &Line{
 		Builder: Builder{
