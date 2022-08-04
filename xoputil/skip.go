@@ -30,6 +30,6 @@ func (_ skipLine) Error(string, error)            {}
 func (_ skipLine) Float64(string, float64)        {}
 func (_ skipLine) Int(string, int64)              {}
 func (_ skipLine) Link(string, trace.Trace)       {}
-func (_ skipLine) Str(string, string)             {}
+func (_ skipLine) String(string, string)          {}
 func (_ skipLine) Time(string, time.Time)         {}
 func (_ skipLine) Uint(string, uint64)            {}

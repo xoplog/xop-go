@@ -64,208 +64,11 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 	a.Changed[k.Key()] = struct{}{}
 }
 
-func (a AttributeBuilder) JBuild(b *JBuilder) {
-	a.Lock.Lock()
-	defer a.Lock.Unlock()
-	if len(a.Any) != 0 {
-		for k, v := range a.Any {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Any(v)
-		}
-	}
-	if len(a.Anys) != 0 {
-		for k, v := range a.Anys {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Any(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Bool) != 0 {
-		for k, v := range a.Bool {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Bool(v)
-		}
-	}
-	if len(a.Bools) != 0 {
-		for k, v := range a.Bools {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Bool(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Enum) != 0 {
-		for k, v := range a.Enum {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Enum(v)
-		}
-	}
-	if len(a.Enums) != 0 {
-		for k, v := range a.Enums {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Enum(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Float64) != 0 {
-		for k, v := range a.Float64 {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Float64(v)
-		}
-	}
-	if len(a.Float64s) != 0 {
-		for k, v := range a.Float64s {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Float64(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Int64) != 0 {
-		for k, v := range a.Int64 {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Int64(v)
-		}
-	}
-	if len(a.Int64s) != 0 {
-		for k, v := range a.Int64s {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Int64(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Link) != 0 {
-		for k, v := range a.Link {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Link(v)
-		}
-	}
-	if len(a.Links) != 0 {
-		for k, v := range a.Links {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Link(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Str) != 0 {
-		for k, v := range a.Str {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Str(v)
-		}
-	}
-	if len(a.Strs) != 0 {
-		for k, v := range a.Strs {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Str(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Time) != 0 {
-		for k, v := range a.Time {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.Time(v)
-		}
-	}
-	if len(a.Times) != 0 {
-		for k, v := range a.Times {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.Time(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-}
-
 func (a AttributeBuilder) IsChanged() bool {
 	a.Lock.Lock()
 	defer a.Lock.Unlock()
 	if len(a.Any) != 0 {
-		for k, v := range a.Any {
+		for k := range a.Any {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -273,7 +76,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Anys) != 0 {
-		for k, v := range a.Anys {
+		for k := range a.Anys {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -281,7 +84,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Bool) != 0 {
-		for k, v := range a.Bool {
+		for k := range a.Bool {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -289,7 +92,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Bools) != 0 {
-		for k, v := range a.Bools {
+		for k := range a.Bools {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -297,7 +100,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Enum) != 0 {
-		for k, v := range a.Enum {
+		for k := range a.Enum {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -305,7 +108,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Enums) != 0 {
-		for k, v := range a.Enums {
+		for k := range a.Enums {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -313,7 +116,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Float64) != 0 {
-		for k, v := range a.Float64 {
+		for k := range a.Float64 {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -321,7 +124,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Float64s) != 0 {
-		for k, v := range a.Float64s {
+		for k := range a.Float64s {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -329,7 +132,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Int64) != 0 {
-		for k, v := range a.Int64 {
+		for k := range a.Int64 {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -337,7 +140,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Int64s) != 0 {
-		for k, v := range a.Int64s {
+		for k := range a.Int64s {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -345,7 +148,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Link) != 0 {
-		for k, v := range a.Link {
+		for k := range a.Link {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -353,23 +156,23 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Links) != 0 {
-		for k, v := range a.Links {
+		for k := range a.Links {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
 			return true
 		}
 	}
-	if len(a.Str) != 0 {
-		for k, v := range a.Str {
+	if len(a.String) != 0 {
+		for k := range a.String {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
 			return true
 		}
 	}
-	if len(a.Strs) != 0 {
-		for k, v := range a.Strs {
+	if len(a.Strings) != 0 {
+		for k := range a.Strings {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -377,7 +180,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Time) != 0 {
-		for k, v := range a.Time {
+		for k := range a.Time {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -385,7 +188,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.Times) != 0 {
-		for k, v := range a.Times {
+		for k := range a.Times {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -435,10 +238,10 @@ func (a AttributeBuilder) IsEmpty() bool {
 	if len(a.Links) != 0 {
 		return false
 	}
-	if len(a.Str) != 0 {
+	if len(a.String) != 0 {
 		return false
 	}
-	if len(a.Strs) != 0 {
+	if len(a.Strings) != 0 {
 		return false
 	}
 	if len(a.Time) != 0 {
@@ -516,13 +319,13 @@ func (a AttributeBuilder) Combine() map[string]interface{} {
 			m[k] = v
 		}
 	}
-	if len(a.Str) != 0 {
-		for k, v := range a.Str {
+	if len(a.String) != 0 {
+		for k, v := range a.String {
 			m[k] = v
 		}
 	}
-	if len(a.Strs) != 0 {
-		for k, v := range a.Strs {
+	if len(a.Strings) != 0 {
+		for k, v := range a.Strings {
 			m[k] = v
 		}
 	}
@@ -557,8 +360,8 @@ func (a *AttributeBuilder) Reset() {
 	a.Int64s = make(map[string][]int64)
 	a.Link = make(map[string]trace.Trace)
 	a.Links = make(map[string][]trace.Trace)
-	a.Str = make(map[string]string)
-	a.Strs = make(map[string][]string)
+	a.String = make(map[string]string)
+	a.Strings = make(map[string][]string)
 	a.Time = make(map[string]time.Time)
 	a.Times = make(map[string][]time.Time)
 
@@ -566,7 +369,7 @@ func (a *AttributeBuilder) Reset() {
 	a.EnumsSeen = make(map[string]map[xopconst.Enum]struct{})
 	a.Float64sSeen = make(map[string]map[float64]struct{})
 	a.Int64sSeen = make(map[string]map[int64]struct{})
-	a.StrsSeen = make(map[string]map[string]struct{})
+	a.StringsSeen = make(map[string]map[string]struct{})
 
 	a.LinksSeen = make(map[string]map[string]struct{})
 	a.TimesSeen = make(map[string]map[int64]struct{})
@@ -657,23 +460,23 @@ func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	a.Changed[k.Key()] = struct{}{}
 }
 
-func (a *AttributeBuilder) MetadataStr(k *xopconst.StrAttribute, v string) {
+func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string) {
 	a.Lock.Lock()
 	defer a.Lock.Unlock()
 	if k.Multiple() {
 		if k.Distinct() {
-			if seenMap, ok := a.StrsSeen[k.Key()]; ok {
+			if seenMap, ok := a.StringsSeen[k.Key()]; ok {
 				if _, ok := seenMap[v]; ok {
 					return
 				}
 			} else {
-				a.StrsSeen[k.Key()] = make(map[string]struct{})
+				a.StringsSeen[k.Key()] = make(map[string]struct{})
 			}
-			a.StrsSeen[k.Key()][v] = struct{}{}
+			a.StringsSeen[k.Key()][v] = struct{}{}
 		}
-		a.Strs[k.Key()] = append(a.Strs[k.Key()], v)
+		a.Strings[k.Key()] = append(a.Strings[k.Key()], v)
 	} else {
-		a.Str[k.Key()] = v
+		a.String[k.Key()] = v
 	}
 	a.Changed[k.Key()] = struct{}{}
 }
@@ -691,8 +494,8 @@ type AttributeBuilder struct {
 	Int64s   map[string][]int64
 	Link     map[string]trace.Trace
 	Links    map[string][]trace.Trace
-	Str      map[string]string
-	Strs     map[string][]string
+	String   map[string]string
+	Strings  map[string][]string
 	Time     map[string]time.Time
 	Times    map[string][]time.Time
 
@@ -700,7 +503,7 @@ type AttributeBuilder struct {
 	EnumsSeen    map[string]map[xopconst.Enum]struct{}
 	Float64sSeen map[string]map[float64]struct{}
 	Int64sSeen   map[string]map[int64]struct{}
-	StrsSeen     map[string]map[string]struct{}
+	StringsSeen  map[string]map[string]struct{}
 
 	LinksSeen map[string]map[string]struct{}
 	TimesSeen map[string]map[int64]struct{}

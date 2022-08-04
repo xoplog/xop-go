@@ -221,9 +221,9 @@ func (p prefillings) Link(k string, v trace.Trace) {
 	}
 }
 
-func (p prefillings) Str(k string, v string) {
+func (p prefillings) String(k string, v string) {
 	for _, prefilling := range p {
-		prefilling.Str(k, v)
+		prefilling.String(k, v)
 	}
 }
 
@@ -281,9 +281,9 @@ func (l lines) Link(k string, v trace.Trace) {
 	}
 }
 
-func (l lines) Str(k string, v string) {
+func (l lines) String(k string, v string) {
 	for _, line := range l {
-		line.Str(k, v)
+		line.String(k, v)
 	}
 }
 
@@ -335,7 +335,7 @@ func (s baseSpans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	}
 }
 
-func (s baseSpans) MetadataStr(k *xopconst.StrAttribute, v string) {
+func (s baseSpans) MetadataStr(k *xopconst.StringAttribute, v string) {
 	for _, span := range s {
 		span.MetadataStr(k, v)
 	}

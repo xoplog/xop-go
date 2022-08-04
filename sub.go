@@ -161,7 +161,7 @@ func (l *Log) sendPrefill() {
 		f(prefilling)
 	}
 	if l.settings.tagLinesWithSpanSequence {
-		prefilling.Str(xopconst.SpanSequeneCode.Key(), l.span.seed.spanSequenceCode)
+		prefilling.String(xopconst.SpanSequeneCode.Key(), l.span.seed.spanSequenceCode)
 	}
 	l.prefilled = prefilling.PrefillComplete(l.settings.prefillMsg)
 }
@@ -288,7 +288,7 @@ func (s *Sub) PrefillStr(k string, v string) *Sub {
 
 func (s *LogSettings) PrefillStr(k string, v string) {
 	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
-		line.Str(k, v)
+		line.String(k, v)
 	})
 }
 

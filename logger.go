@@ -194,7 +194,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
 	}
 	log.span.base.Boring(true)
-	log.Span().Str(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
+	log.Span().String(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
 	log.sendPrefill()
 	return log
 }
@@ -393,7 +393,7 @@ func (ll *LogLine) Uint8(k string, v uint8) *LogLine            { ll.line.Uint(k
 func (ll *LogLine) Uint16(k string, v uint16) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
 func (ll *LogLine) Uint32(k string, v uint32) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
 func (ll *LogLine) Uint64(k string, v uint64) *LogLine          { ll.line.Uint(k, v); return ll }
-func (ll *LogLine) Str(k string, v string) *LogLine             { ll.line.Str(k, v); return ll }
+func (ll *LogLine) String(k string, v string) *LogLine          { ll.line.String(k, v); return ll }
 func (ll *LogLine) Bool(k string, v bool) *LogLine              { ll.line.Bool(k, v); return ll }
 func (ll *LogLine) Time(k string, v time.Time) *LogLine         { ll.line.Time(k, v); return ll }
 func (ll *LogLine) Error(k string, v error) *LogLine            { ll.line.Error(k, v); return ll }

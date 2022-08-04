@@ -62,42 +62,13 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 	a.Changed[k.Key()] = struct{}{}
 }
 
-func (a AttributeBuilder) JBuild(b *JBuilder) {
-	a.Lock.Lock()
-	defer a.Lock.Unlock()
-	//MACRO BaseAttribute
-	if len(a.ZZZ) != 0 {
-		for k, v := range a.ZZZ {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.ZZZ(v)
-		}
-	}
-	if len(a.ZZZs) != 0 {
-		for k, v := range a.ZZZs {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.Key(k)
-			b.AppendByte('[')
-			for _, ve := range v {
-				b.Comma()
-				b.ZZZ(ve)
-			}
-			b.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-}
 
 func (a AttributeBuilder) IsChanged() bool {
 	a.Lock.Lock()
 	defer a.Lock.Unlock()
 	//MACRO BaseAttribute
 	if len(a.ZZZ) != 0 {
-		for k, v := range a.ZZZ {
+		for k := range a.ZZZ {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
@@ -105,7 +76,7 @@ func (a AttributeBuilder) IsChanged() bool {
 		}
 	}
 	if len(a.ZZZs) != 0 {
-		for k, v := range a.ZZZs {
+		for k := range a.ZZZs {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}

@@ -64,7 +64,7 @@ type Span interface {
 	// MetadataLink adds a key/value pair to describe the span.
 	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
 	// MetadataStr adds a key/value pair to describe the span.
-	MetadataStr(*xopconst.StrAttribute, string)
+	MetadataStr(*xopconst.StringAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
 	MetadataTime(*xopconst.TimeAttribute, time.Time)
 
@@ -135,7 +135,7 @@ type ObjectParts interface {
 	Float64(string, float64)
 	Int(string, int64)
 	Link(string, trace.Trace)
-	Str(string, string)
+	String(string, string)
 	Time(string, time.Time)
 	Uint(string, uint64)
 }

@@ -75,31 +75,31 @@ func (logger *Logger) Request(trace trace.Bundle, name string) xopbase.Request {
 
 	rq := xoputil.JBuilder{
 		B:        make([]byte, 0, minBuffer),
-		FastKeys: s.logger.fastKeys,
+		FastKeys: logger.fastKeys,
 	}
-	rq.dataBuffer.AppendBytes([]byte(`{"xop":"request","trace.id":`))
-	rq.dataBuffer.AppendString(trace.Trace.TraceIDString())
-	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
-	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.AppendBytes([]byte(`{"xop":"request","trace.id":`))
+	rq.AppendString(trace.Trace.TraceIDString())
+	rq.AppendBytes([]byte(`,"span.id":`))
+	rq.AppendString(trace.Trace.SpanIDString())
 	if !trace.TraceParentIsZero() {
-		rq.dataBuffer.AppendBytes([]byte(`,"trace.parent":`))
-		rq.dataBuffer.AppendString(trace.TraceParent.HeaderString())
+		rq.AppendBytes([]byte(`,"trace.parent":`))
+		rq.AppendString(trace.TraceParent.HeaderString())
 	}
 	if !trace.TraceState.IsZero() {
-		rq.dataBuffer.AppendBytes([]byte(`,"trace.state":`))
-		rq.dataBuffer.AppendString(trace.TraceState.String())
+		rq.AppendBytes([]byte(`,"trace.state":`))
+		rq.AppendString(trace.TraceState.String())
 	}
 	if !trace.Baggage.IsZero() {
-		rq.dataBuffer.AppendBytes([]byte(`,"trace.baggage":`))
-		rq.dataBuffer.AppendString(trace.Baggage.String())
+		rq.AppendBytes([]byte(`,"trace.baggage":`))
+		rq.AppendString(trace.Baggage.String())
 	}
-	rq.Str("span.name", ts)
+	rq.String("span.name", ts)
 	rq.Time("ts", ts)
-	rq.dataBuffer.AppendByte([]byte('}'))
+	rq.AppendByte([]byte('}'))
 	if logger.perRequestBufferLimit != 0 {
 		request.completedBuffers <- rq
 	} else {
-		_, err := request.writer.Write(rq.dataBuffer.B)
+		_, err := request.writer.Write(rq.B)
 		if err != nil {
 			request.errorFunc(err)
 		}
@@ -189,11 +189,11 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		B:        make([]byte, 0, minBuffer),
 		FastKeys: s.logger.fastKeys,
 	}
-	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.id":`))
-	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
-	rq.Str("span.name", ts)
+	rq.AppendBytes([]byte(`{"xop":"span","span.id":`))
+	rq.AppendString(trace.Trace.SpanIDString())
+	rq.String("span.name", ts)
 	rq.Time("ts", ts)
-	rq.dataBuffer.AppendByte([]byte('}'))
+	rq.AppendByte([]byte('}'))
 	if logger.perRequestBufferLimit != 0 {
 		request.completedBuffers <- l
 	} else {
@@ -212,12 +212,12 @@ func (s *span) FlushAttributes() {
 		B:        make([]byte, 0, minBuffer),
 		FastKeys: s.logger.fastKeys,
 	}
-	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
-	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
+	rq.AppendString(trace.Trace.SpanIDString())
 	rq.Time("ts", ts)
 	rq.Duration("dur", time.Duration(s.endTime-s.starttime.UnixNano()))
-	s.attributes.JBuild(rq.dataBuffer)
-	rq.dataBuffer.AppendByte([]byte('}'))
+	rq.sendAttributes(s.attributes)
+	rq.AppendByte([]byte('}'))
 	if logger.perRequestBufferLimit != 0 {
 		request.completedBuffers <- l
 	} else {
@@ -401,6 +401,10 @@ func (b *builder) startAttributes() {
 func (b *builder) Any(k string, v interface{}) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendAny(v)
+}
+
+func (b *builder) appendAny(v interface{}) {
 	before := len(b.dataBuffer.B)
 	err := b.encoder.Encode(v)
 	if err != nil {
@@ -417,28 +421,34 @@ func (b *builder) Any(k string, v interface{}) {
 
 func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	b.startAttributes()
+	b.dataBuffer.Key(k)
+	b.appendEnum(v)
+}
+
+func (b *builder) appendEnum(v xopconst.Enum) {
 	// TODO: send dictionary and numbers
-	b.Int(k.Key(), v.Int64())
+	b.dataBuffer.Int64(v.Int64())
 }
 
 func (b *builder) Time(k string, t time.Time) {
 	b.startAttributes()
+	b.dataBuffer.Key(k)
+	b.appendTime(t)
+}
+
+func (b *builder) appendTime(t time.Time) {
 	switch b.span.logger.timeOption {
 	case strftimeTime:
-		b.dataBuffer.Key(k)
 		b.dataBuffer.AppendByte('"')
 		b.dataBuffer.B = fasttime.AppendStrftime(b.dataBuffer.B, b.span.logger.timeFormat, t)
 		b.dataBuffer.AppendByte('"')
 	case timeTimeFormat:
-		b.dataBuffer.Key(k)
 		b.dataBuffer.AppendByte('"')
 		b.dataBuffer.B = t.AppendFormat(b.dataBuffer.B, b.span.logger.timeFormat)
 		b.dataBuffer.AppendByte('"')
 	case epochTime:
-		b.dataBuffer.Key(k)
 		b.dataBuffer.Int64(t.UnixNano() / int64(b.span.logger.timeDivisor))
 	case epochQuoted:
-		b.dataBuffer.Key(k)
 		b.dataBuffer.AppendByte('"')
 		b.dataBuffer.Int64(t.UnixNano() / int64(b.span.logger.timeDivisor))
 		b.dataBuffer.AppendByte('"')
@@ -449,6 +459,10 @@ func (b *builder) Link(k string, v trace.Trace) {
 	b.startAttributes()
 	// TODO: is this the right format for links?
 	b.dataBuffer.Key(k)
+	b.appendLink(v)
+}
+
+func (b *builder) appendLink(v trace.Trace) {
 	b.dataBuffer.AppendBytes([]byte(`{"xop.link":"`))
 	b.dataBuffer.AppendString(v.HeaderString())
 	b.dataBuffer.AppendBytes([]byte(`"}`))
@@ -457,36 +471,60 @@ func (b *builder) Link(k string, v trace.Trace) {
 func (b *builder) Bool(k string, v bool) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendBool(v)
+}
+
+func (b *builder) appendBool(v bool) {
 	b.dataBuffer.Bool(v)
 }
 
 func (b *builder) Int(k string, v int64) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendInt64(v)
+}
+
+func (b *builder) appendInt64(v int64) {
 	b.dataBuffer.Int64(v)
 }
 
 func (b *builder) Uint(k string, v uint64) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendUint64(v)
+}
+
+func (b *builder) appendUint64(v uint64) {
 	b.dataBuffer.Uint64(v)
 }
 
-func (b *builder) Str(k string, v string) {
+func (b *builder) String(k string, v string) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendString(v)
+}
+
+func (b *builder) appendString(v string) {
 	b.dataBuffer.String(v)
 }
 
 func (b *builder) Float64(k string, v float64) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendFloat64(v)
+}
+
+func (b *builder) appendFloat64(v float64) {
 	b.dataBuffer.Float64(v)
 }
 
 func (b *builder) Duration(k string, v time.Duration) {
 	b.startAttributes()
 	b.dataBuffer.Key(k)
+	b.appendDuration(v)
+}
+
+func (b *builder) appendDuration(v time.Duration) {
 	switch b.span.logger.durationFormat {
 	case AsNanos:
 		b.dataBuffer.Int64(int64(v / time.Nanosecond))
@@ -499,6 +537,188 @@ func (b *builder) Duration(k string, v time.Duration) {
 	default:
 		b.dataBuffer.UncheckedString(v.String())
 	}
+}
+
+func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
+	a.Lock.Lock()
+	defer a.Lock.Unlock()
+
+	if len(a.Any) != 0 {
+		for k, v := range a.Any {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendAny(k, v)
+		}
+	}
+	if len(a.Anys) != 0 {
+		for k, v := range a.Anys {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendAny(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.Bool) != 0 {
+		for k, v := range a.Bool {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendBool(k, v)
+		}
+	}
+	if len(a.Bools) != 0 {
+		for k, v := range a.Bools {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendBool(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.Enum) != 0 {
+		for k, v := range a.Enum {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendEnum(k, v)
+		}
+	}
+	if len(a.Enums) != 0 {
+		for k, v := range a.Enums {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendEnum(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.Float64) != 0 {
+		for k, v := range a.Float64 {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendFloat64(k, v)
+		}
+	}
+	if len(a.Float64s) != 0 {
+		for k, v := range a.Float64s {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendFloat64(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.Int64) != 0 {
+		for k, v := range a.Int64 {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendInt64(k, v)
+		}
+	}
+	if len(a.Int64s) != 0 {
+		for k, v := range a.Int64s {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendInt64(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.Link) != 0 {
+		for k, v := range a.Link {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendLink(k, v)
+		}
+	}
+	if len(a.Links) != 0 {
+		for k, v := range a.Links {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendLink(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.String) != 0 {
+		for k, v := range a.String {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendString(k, v)
+		}
+	}
+	if len(a.Strings) != 0 {
+		for k, v := range a.Strings {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendString(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
+	if len(a.Time) != 0 {
+		for k, v := range a.Time {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.appendTime(k, v)
+		}
+	}
+	if len(a.Times) != 0 {
+		for k, v := range a.Times {
+			if _, ok := a.Changed[k]; !ok {
+				continue
+			}
+			b.dataBuffer.Key(k)
+			b.dataBuffer.AppendByte('[')
+			for _, ve := range v {
+				b.appendTime(v)
+			}
+			b.dataBuffer.AppendByte(']')
+		}
+	}
+	a.Changed = make(map[string]struct{})
 }
 
 // TODO: allow custom formats
@@ -520,7 +740,9 @@ func (s *span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.attributes
 func (s *span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.attributes.MetadataLink(k, v)
 }
-func (s *span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.attributes.MetadataStr(k, v) }
+func (s *span) MetadataString(k *xopconst.StringAttribute, v string) {
+	s.attributes.MetadataString(k, v)
+}
 func (s *span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.attributes.MetadataTime(k, v) }
 
 // end

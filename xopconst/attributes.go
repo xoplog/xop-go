@@ -72,12 +72,12 @@ func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
 	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err, AttributeTypeLink)}, err
 }
 
-func (s Make) StrAttribute() *StrAttribute {
-	return &StrAttribute{Attribute: s.attribute("", nil, AttributeTypeStr)}
+func (s Make) StringAttribute() *StringAttribute {
+	return &StringAttribute{Attribute: s.attribute("", nil, AttributeTypeString)}
 }
 
-func (s Make) TryStrAttribute() (_ *StrAttribute, err error) {
-	return &StrAttribute{Attribute: s.attribute("", &err, AttributeTypeStr)}, err
+func (s Make) TryStringAttribute() (_ *StringAttribute, err error) {
+	return &StringAttribute{Attribute: s.attribute("", &err, AttributeTypeString)}, err
 }
 
 func (s Make) BoolAttribute() *BoolAttribute {
@@ -234,7 +234,7 @@ const (
 	AttributeTypeInt64
 	AttributeTypeInt8
 	AttributeTypeLink
-	AttributeTypeStr
+	AttributeTypeString
 	AttributeTypeTime
 )
 
@@ -287,9 +287,9 @@ type Int64Attribute struct{ Attribute }
 // with trace.Trace values.
 type LinkAttribute struct{ Attribute }
 
-// StrAttribute represents an attribute key that can be used
+// StringAttribute represents an attribute key that can be used
 // with string values.
-type StrAttribute struct{ Attribute }
+type StringAttribute struct{ Attribute }
 
 // TimeAttribute represents an attribute key that can be used
 // with time.Time values.
