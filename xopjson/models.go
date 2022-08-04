@@ -2,6 +2,7 @@ package xopjson
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -55,6 +56,8 @@ type request struct {
 	completedLines chan *line
 	flushRequest   chan struct{}
 	flushComplete  chan struct{}
+	allSpans       []*span
+	allSpansLock   sync.Mutex
 }
 
 type span struct {

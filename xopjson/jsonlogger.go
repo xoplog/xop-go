@@ -54,7 +54,7 @@ func (logger *Logger) Close() {
 }
 
 func (logger *Logger) Request(trace trace.Bundle, name string) xopbase.Request {
-	r := &request{
+	request := &request{
 		span: span{
 			logger: logger,
 			writer: logger.writer.Request(trace),
@@ -63,14 +63,50 @@ func (logger *Logger) Request(trace trace.Bundle, name string) xopbase.Request {
 		},
 	}
 	if logger.tagOption == TraceSequenceNumberTagOption {
-		r.idNum = atomic.AddInt64(&logger.requestCount, 1)
+		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
-	r.attributes.Reset()
-	r.request = r
+	request.attributes.Reset()
+	request.request = request
 	if logger.perRequestBufferLimit != 0 {
-		r.maintainBuffer()
+		request.maintainBuffer()
 	}
-	return r
+	request.allSpans = make([]*span, 1, 64)
+	request.allSpans[0] = &request.span
+
+	rq := xoputil.JBuilder{
+		B:        make([]byte, 0, minBuffer),
+		FastKeys: s.logger.fastKeys,
+	}
+	rq.dataBuffer.AppendBytes([]byte(`{"xop":"request","trace.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.TraceIDString())
+	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	if !trace.TraceParentIsZero() {
+		rq.dataBuffer.AppendBytes([]byte(`,"trace.parent":`))
+		rq.dataBuffer.AppendString(trace.TraceParent.HeaderString())
+	}
+	if !trace.TraceState.IsZero() {
+		rq.dataBuffer.AppendBytes([]byte(`,"trace.state":`))
+		rq.dataBuffer.AppendString(trace.TraceState.String())
+	}
+	if !trace.Baggage.IsZero() {
+		rq.dataBuffer.AppendBytes([]byte(`,"trace.baggage":`))
+		rq.dataBuffer.AppendString(trace.Baggage.String())
+	}
+	rq.Str("span.name", ts)
+	rq.Time("ts", ts)
+	rq.dataBuffer.AppendByte([]byte('}'))
+	if logger.perRequestBufferLimit != 0 {
+		request.completedBuffers <- rq
+	} else {
+		_, err := request.writer.Write(rq.dataBuffer.B)
+		if err != nil {
+			request.errorFunc(err)
+		}
+		rq.reclaimMemory()
+	}
+
+	return request
 }
 
 func (r *request) maintainBuffer() {
@@ -117,6 +153,13 @@ func (r *request) flushBuffer() {
 }
 
 func (r *request) Flush() {
+	func() {
+		s.request.allSpansLock.Lock()
+		defer s.request.allSpansLock.Unlock()
+		for _, span := range r.allSpans {
+			span.FlushAttributes()
+		}
+	}()
 	if r.logger.perRequestBufferLimit != 0 {
 		// TODO: improve this a bit by using a WaitGroup or something
 		r.flushRequest <- struct{}{}
@@ -138,7 +181,52 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		startTime: ts,
 	}
 	n.attributes.Reset()
+	s.request.allSpansLock.Lock()
+	s.request.allSpans = append(request.span.allSpans, n)
+	s.request.allSpansLock.Unlock()
+
+	rq := xoputil.JBuilder{
+		B:        make([]byte, 0, minBuffer),
+		FastKeys: s.logger.fastKeys,
+	}
+	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.Str("span.name", ts)
+	rq.Time("ts", ts)
+	rq.dataBuffer.AppendByte([]byte('}'))
+	if logger.perRequestBufferLimit != 0 {
+		request.completedBuffers <- l
+	} else {
+		_, err := request.writer.Write(l.dataBuffer.B)
+		if err != nil {
+			request.errorFunc(err)
+		}
+		rq.reclaimMemory()
+	}
+
 	return n
+}
+
+func (s *span) FlushAttributes() {
+	rq := xoputil.JBuilder{
+		B:        make([]byte, 0, minBuffer),
+		FastKeys: s.logger.fastKeys,
+	}
+	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.Time("ts", ts)
+	rq.Duration("dur", time.Duration(s.endTime-s.starttime.UnixNano()))
+	s.attributes.JBuild(rq.dataBuffer)
+	rq.dataBuffer.AppendByte([]byte('}'))
+	if logger.perRequestBufferLimit != 0 {
+		request.completedBuffers <- l
+	} else {
+		_, err := request.writer.Write(l.dataBuffer.B)
+		if err != nil {
+			request.errorFunc(err)
+		}
+		rq.reclaimMemory()
+	}
 }
 
 func (s *span) Done(t time.Time) { atomic.StoreInt64(&s.endTime, t.UnixNano()) }
@@ -195,9 +283,6 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 		prefillMsgPreEncoded: p.preEncodedMsg,
 	}
 	l.dataBuffer.AppendByte('{') // }
-	if !l.attributesWanted {
-		l.dataBuffer.AppendBytes([]byte(`"zop":{`)) // }
-	}
 	l.Int("lvl", int64(level))
 	l.Time("ts", t)
 	if len(pc) > 0 {
@@ -242,10 +327,6 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	case OmitTagOption:
 		// yay!
 	}
-	if !l.attributesWanted {
-		// {
-		l.dataBuffer.AppendByte('}')
-	}
 	if len(p.data) != 0 {
 		if l.attributesWanted {
 			l.attributesStarted = true
@@ -260,16 +341,14 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 
 func (l *line) Msg(m string) {
 	if l.attributesStarted {
-		// {
-		l.dataBuffer.AppendByte('}')
+		l.dataBuffer.AppendByte( /*{*/ '}')
 	}
 	l.dataBuffer.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {
 		l.dataBuffer.AppendBytes(l.prefillMsgPreEncoded)
 	}
 	l.dataBuffer.StringBody(m)
-	// {
-	l.dataBuffer.AppendBytes([]byte{'"', '}'})
+	l.dataBuffer.AppendBytes([]byte{'"' /*{*/, '}'})
 	if l.span.logger.perRequestBufferLimit != 0 {
 		l.span.request.completedLines <- l
 	} else {
