@@ -19,7 +19,7 @@ func TestLogMethods(t *testing.T) {
 	log.Alert().Msg("basic alert message")
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
-	log.Info().Str("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 	lines := tlog.FindLines(xoptest.MessageEquals("basic trace message"))
 	if assert.NotEmpty(t, lines, "found some") {
 		assert.True(t, !lines[0].Timestamp.Before(start), "time seq")

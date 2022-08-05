@@ -108,7 +108,7 @@ func (l *TestLogger) Close()                       {}
 func (l *TestLogger) Buffered() bool               { return false }
 func (l *TestLogger) ReferencesKept() bool         { return true }
 func (l *TestLogger) SetErrorReporter(func(error)) {}
-func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
+func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopbase.Request {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	s := &Span{
@@ -116,6 +116,7 @@ func (l *TestLogger) Request(span trace.Bundle, name string) xopbase.Request {
 		IsRequest:  true,
 		Trace:      span,
 		short:      l.setShort(span, name),
+		StartTime:  ts,
 	}
 	s.Attributes.Reset()
 	return s
@@ -277,7 +278,7 @@ func (b *Builder) Error(k string, v error)            { b.Any(k, v) }
 func (b *Builder) Float64(k string, v float64)        { b.Any(k, v) }
 func (b *Builder) Int(k string, v int64)              { b.Any(k, v) }
 func (b *Builder) Link(k string, v trace.Trace)       { b.Any(k, v) }
-func (b *Builder) Str(k string, v string)             { b.Any(k, v) }
+func (b *Builder) String(k string, v string)          { b.Any(k, v) }
 func (b *Builder) Time(k string, v time.Time)         { b.Any(k, v) }
 func (b *Builder) Uint(k string, v uint64)            { b.Any(k, v) }
 
@@ -293,7 +294,9 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.Attributes.MetadataLink(k, v)
 }
-func (s *Span) MetadataStr(k *xopconst.StrAttribute, v string)      { s.Attributes.MetadataStr(k, v) }
+func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
+	s.Attributes.MetadataString(k, v)
+}
 func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }
 
 // end

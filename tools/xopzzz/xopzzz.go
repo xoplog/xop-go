@@ -29,7 +29,7 @@ var macros = map[string]map[string]string{
 		"Int16":    "int16",
 		"Int8":     "int8",
 		"Int":      "int",
-		"Str":      "string",
+		"String":   "string",
 		"Link":     "trace.Trace",
 		"Any":      "interface{}",
 		"Time":     "time.Time",
@@ -42,7 +42,7 @@ var macros = map[string]map[string]string{
 		"Bool":    "bool",
 		"Float64": "float64",
 		"Int64":   "int64",
-		"Str":     "string",
+		"String":  "string",
 		"Link":    "trace.Trace",
 		"Any":     "interface{}",
 		"Time":    "time.Time",
@@ -69,10 +69,11 @@ var macros = map[string]map[string]string{
 		"Uint16": "uint16",
 		"Uint32": "uint32",
 	},
+	// BaseData are the data types that are supported on a per-line basis
 	"BaseData": {
-		"Int":      "int64",
-		"Uint":     "uint64",
-		"Str":      "string",
+		"Int":      "int64",  // TODO: change to Int64
+		"Uint":     "uint64", // TODO: change to Uint64
+		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",
 		"Link":     "trace.Trace",
@@ -92,7 +93,7 @@ var macros = map[string]map[string]string{
 		"Uint16":   "uint16",
 		"Uint32":   "uint32",
 		"Uint64":   "uint64",
-		"Str":      "string",
+		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",
 		"Link":     "trace.Trace",

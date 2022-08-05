@@ -147,7 +147,27 @@
      "LossyPool" that queues upto 32 items (tossing any extra) and returning immedately if
      there aren't any availble.  Use generics so no casting is needed.
 
+  - AttributeBuilder needs a JSON-specific version
+
+    - per-key buffers
+    - 64 buffers?
+    - 64 bytes each?
+
+- Standard tracing
+
+  - figure out a way to modify trace State
+  - add methods to query trace State
+  - figure out a way to modify trace Baggage
+  - add methods to query trace Baggage
+
 # Not build ready 
+
+- benchmarking
+
+  Aside from building basic benchmarking (separate item)...  
+
+  - figure out how much time is spent for `time.Now()`
+  - figure out how much time is spent formatting timestamps
 
 - send the spanSequenceCode as a xop: attribute
 

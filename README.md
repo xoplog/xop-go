@@ -291,6 +291,8 @@ This logger is inspired by a proprietary logger at [BlueOwl](https://blueowl.xyz
 and
 [Jaeger](https://www.jaegertracing.io/).
 
+Special thanks to [phuslog](https://github.com/phuslu/log) as some of its
+code was used.
 
 ### Open Telementry
 

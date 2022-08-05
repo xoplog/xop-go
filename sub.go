@@ -161,7 +161,7 @@ func (l *Log) sendPrefill() {
 		f(prefilling)
 	}
 	if l.settings.tagLinesWithSpanSequence {
-		prefilling.Str(xopconst.SpanSequeneCode.Key(), l.span.seed.spanSequenceCode)
+		prefilling.String(xopconst.SpanSequeneCode.Key(), l.span.seed.spanSequenceCode)
 	}
 	l.prefilled = prefilling.PrefillComplete(l.settings.prefillMsg)
 }
@@ -277,18 +277,18 @@ func (s *LogSettings) PrefillLink(k string, v trace.Trace) {
 	})
 }
 
-// PrefillStr is used to set a data element that is included on every log
+// PrefillString is used to set a data element that is included on every log
 // line.
-// PrefillStr is not threadsafe with respect to other calls on the same *Sub.
+// PrefillString is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *Sub) PrefillStr(k string, v string) *Sub {
-	s.settings.PrefillStr(k, v)
+func (s *Sub) PrefillString(k string, v string) *Sub {
+	s.settings.PrefillString(k, v)
 	return s
 }
 
-func (s *LogSettings) PrefillStr(k string, v string) {
+func (s *LogSettings) PrefillString(k string, v string) {
 	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
-		line.Str(k, v)
+		line.String(k, v)
 	})
 }
 

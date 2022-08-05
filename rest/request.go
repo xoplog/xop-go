@@ -26,8 +26,8 @@ func Log(log xop.Log) *rest.RequestOpts {
 			step = log.Sub().Step(o.Description)
 			step.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
 			step.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
-			step.Span().Str(xopconst.URL, r.URL.String())
-			step.Span().Str(xopconst.HTTPMethod, r.Method)
+			step.Span().String(xopconst.URL, r.URL.String())
+			step.Span().String(xopconst.HTTPMethod, r.Method)
 			r.Header.Set("traceparent", step.Span().Trace().HeaderString())
 			if !step.Span().TraceBaggage().IsZero() {
 				r.Header.Set("baggage", step.Span().TraceBaggage().String())
@@ -53,9 +53,9 @@ func Log(log xop.Log) *rest.RequestOpts {
 				line = step.Info()
 			}
 
-			line = line.Str(xopconst.HTTPMethod.Key(), result.Request.Method).
-				Str(xopconst.URL.Key(), result.Request.URL.String()).
-				Str("description", result.Options.Description)
+			line = line.String(xopconst.HTTPMethod.Key(), result.Request.Method).
+				String(xopconst.URL.Key(), result.Request.URL.String()).
+				String("description", result.Options.Description)
 
 			if result.Error != nil {
 				line = line.Error("error", result.Error)
@@ -64,12 +64,12 @@ func Log(log xop.Log) *rest.RequestOpts {
 				line = line.Int(xopconst.HTTPStatusCode.Key(), result.Response.StatusCode)
 				tr := result.Response.Header.Get("traceresponse")
 				if tr != "" {
-					line = line.Str(xopconst.TraceResponse.Key(), tr)
+					line = line.String(xopconst.TraceResponse.Key(), tr)
 				}
 				if !farSideSpan.IsZero() {
 					// TODO: standard name?
 					// TODO: use Link()
-					line = line.Str("b3.spanid", farSideSpan.String())
+					line = line.String("b3.spanid", farSideSpan.String())
 				}
 				if result.DecodeTarget != nil {
 					line = line.Any("response.data", result.DecodeTarget)

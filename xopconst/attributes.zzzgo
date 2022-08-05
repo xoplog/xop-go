@@ -67,11 +67,11 @@ func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
 	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err, AttributeTypeLink)}, err
 }
 
-func (s Make) StrAttribute() *StrAttribute {
-	return &StrAttribute{Attribute: s.attribute("", nil, AttributeTypeStr)}
+func (s Make) StringAttribute() *StringAttribute {
+	return &StringAttribute{Attribute: s.attribute("", nil, AttributeTypeString)}
 }
-func (s Make) TryStrAttribute() (_ *StrAttribute, err error) {
-	return &StrAttribute{Attribute: s.attribute("", &err, AttributeTypeStr)}, err
+func (s Make) TryStringAttribute() (_ *StringAttribute, err error) {
+	return &StringAttribute{Attribute: s.attribute("", &err, AttributeTypeString)}, err
 }
 
 func (s Make) BoolAttribute() *BoolAttribute {

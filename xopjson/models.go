@@ -2,6 +2,7 @@ package xopjson
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -50,11 +51,14 @@ type Logger struct {
 
 type request struct {
 	span
-	errorFunc      func(error)
-	writeBuffer    []byte
-	completedLines chan *line
-	flushRequest   chan struct{}
-	flushComplete  chan struct{}
+	errorFunc         func(error)
+	writeBuffer       []byte
+	completedLines    chan *line
+	flushRequest      chan struct{}
+	flushComplete     chan struct{}
+	completedBuilders chan *builder
+	allSpans          []*span
+	allSpansLock      sync.Mutex
 }
 
 type span struct {

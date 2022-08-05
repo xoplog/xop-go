@@ -10,7 +10,7 @@ import (
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
-	Request(span trace.Bundle, description string) Request
+	Request(ts time.Time, span trace.Bundle, description string) Request
 
 	// ID returns a unique id for this instance of a logger.  This
 	// is used to prevent duplicate Requets from being created when
