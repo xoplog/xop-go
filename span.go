@@ -111,7 +111,7 @@ func (s *Span) Link(k *xopconst.LinkAttribute, v trace.Trace) *Span {
 // String adds a string key/value attribute to the current Span.
 // The return value does not need to be used.
 func (s *Span) String(k *xopconst.StringAttribute, v string) *Span {
-	s.base.MetadataStr(k, v)
+	s.base.MetadataString(k, v)
 	return s.eft()
 }
 

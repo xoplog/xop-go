@@ -33,9 +33,9 @@ var (
 	_ xopbase.Prefilling = prefillings{}
 )
 
-func (l baseLoggers) StartRequests(span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
+func (l baseLoggers) StartRequests(ts time.Time, span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
-		req := l[0].Request(span, descriptionOrName)
+		req := l[0].Request(ts, span, descriptionOrName)
 		return req, map[string]xopbase.Request{l[0].ID(): req}
 	}
 	m := make(map[string]xopbase.Request)
@@ -49,7 +49,7 @@ func (l baseLoggers) StartRequests(span trace.Bundle, descriptionOrName string) 
 			// duplicate!
 			continue
 		}
-		req := logger.Request(span, descriptionOrName)
+		req := logger.Request(ts, span, descriptionOrName)
 		r.baseRequests = append(r.baseRequests, req)
 		r.baseSpans = append(r.baseSpans, req.(xopbase.Span))
 		m[id] = req
@@ -335,9 +335,9 @@ func (s baseSpans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	}
 }
 
-func (s baseSpans) MetadataStr(k *xopconst.StringAttribute, v string) {
+func (s baseSpans) MetadataString(k *xopconst.StringAttribute, v string) {
 	for _, span := range s {
-		span.MetadataStr(k, v)
+		span.MetadataString(k, v)
 	}
 }
 

@@ -69,9 +69,10 @@ var macros = map[string]map[string]string{
 		"Uint16": "uint16",
 		"Uint32": "uint32",
 	},
+	// BaseData are the data types that are supported on a per-line basis
 	"BaseData": {
-		"Int":      "int64",
-		"Uint":     "uint64",
+		"Int":      "int64",  // TODO: change to Int64
+		"Uint":     "uint64", // TODO: change to Uint64
 		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",

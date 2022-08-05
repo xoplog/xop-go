@@ -85,7 +85,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(log.span.seed.traceBundle, descriptionOrName)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(time.Now(), log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
@@ -158,6 +158,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		for _, removed := range spanSeed.loggers.Removed {
 			delete(spanSet, removed.ID())
 		}
+		ts := time.Now()
 		for _, added := range spanSeed.loggers.Added {
 			id := added.ID()
 			if _, ok := spanSet[id]; ok {
@@ -171,7 +172,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			}() {
 				continue
 			}
-			req := added.Request(log.request.seed.traceBundle, log.shared.Description)
+			req := added.Request(ts, log.request.seed.traceBundle, log.shared.Description)
 			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
 			func() {
 				log.shared.FlusherLock.Lock()

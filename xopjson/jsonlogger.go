@@ -53,7 +53,7 @@ func (logger *Logger) Close() {
 	logger.writer.Close()
 }
 
-func (logger *Logger) Request(trace trace.Bundle, name string) xopbase.Request {
+func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
 			logger: logger,
@@ -73,33 +73,30 @@ func (logger *Logger) Request(trace trace.Bundle, name string) xopbase.Request {
 	request.allSpans = make([]*span, 1, 64)
 	request.allSpans[0] = &request.span
 
-	rq := xoputil.JBuilder{
-		B:        make([]byte, 0, minBuffer),
-		FastKeys: logger.fastKeys,
+	rq := request.span.builder(false)
+	rq.dataBuffer.AppendBytes([]byte(`{"xop":"request","trace.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.TraceIDString())
+	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	if !trace.TraceParent.IsZero() {
+		rq.dataBuffer.AppendBytes([]byte(`,"trace.parent":`))
+		rq.dataBuffer.AppendString(trace.TraceParent.HeaderString())
 	}
-	rq.AppendBytes([]byte(`{"xop":"request","trace.id":`))
-	rq.AppendString(trace.Trace.TraceIDString())
-	rq.AppendBytes([]byte(`,"span.id":`))
-	rq.AppendString(trace.Trace.SpanIDString())
-	if !trace.TraceParentIsZero() {
-		rq.AppendBytes([]byte(`,"trace.parent":`))
-		rq.AppendString(trace.TraceParent.HeaderString())
-	}
-	if !trace.TraceState.IsZero() {
-		rq.AppendBytes([]byte(`,"trace.state":`))
-		rq.AppendString(trace.TraceState.String())
+	if !trace.State.IsZero() {
+		rq.dataBuffer.AppendBytes([]byte(`,"trace.state":`))
+		rq.dataBuffer.AppendString(trace.State.String())
 	}
 	if !trace.Baggage.IsZero() {
-		rq.AppendBytes([]byte(`,"trace.baggage":`))
-		rq.AppendString(trace.Baggage.String())
+		rq.dataBuffer.AppendBytes([]byte(`,"trace.baggage":`))
+		rq.dataBuffer.AppendString(trace.Baggage.String())
 	}
-	rq.String("span.name", ts)
+	rq.String("span.name", name)
 	rq.Time("ts", ts)
-	rq.AppendByte([]byte('}'))
+	rq.dataBuffer.AppendByte('}')
 	if logger.perRequestBufferLimit != 0 {
-		request.completedBuffers <- rq
+		request.completedBuilders <- &rq
 	} else {
-		_, err := request.writer.Write(rq.B)
+		_, err := request.writer.Write(rq.dataBuffer.B)
 		if err != nil {
 			request.errorFunc(err)
 		}
@@ -113,6 +110,7 @@ func (r *request) maintainBuffer() {
 	r.flushRequest = make(chan struct{})
 	r.flushComplete = make(chan struct{})
 	r.completedLines = make(chan *line, lineChanDepth)
+	r.completedBuilders = make(chan *builder, lineChanDepth)
 	r.writeBuffer = make([]byte, 0, r.logger.perRequestBufferLimit/16)
 	go func() {
 		for {
@@ -154,8 +152,8 @@ func (r *request) flushBuffer() {
 
 func (r *request) Flush() {
 	func() {
-		s.request.allSpansLock.Lock()
-		defer s.request.allSpansLock.Unlock()
+		r.allSpansLock.Lock()
+		defer r.allSpansLock.Unlock()
 		for _, span := range r.allSpans {
 			span.FlushAttributes()
 		}
@@ -182,24 +180,21 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 	}
 	n.attributes.Reset()
 	s.request.allSpansLock.Lock()
-	s.request.allSpans = append(request.span.allSpans, n)
+	s.request.allSpans = append(s.request.allSpans, n)
 	s.request.allSpansLock.Unlock()
 
-	rq := xoputil.JBuilder{
-		B:        make([]byte, 0, minBuffer),
-		FastKeys: s.logger.fastKeys,
-	}
-	rq.AppendBytes([]byte(`{"xop":"span","span.id":`))
-	rq.AppendString(trace.Trace.SpanIDString())
-	rq.String("span.name", ts)
+	rq := s.builder(false)
+	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.id":`))
+	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.String("span.name", name)
 	rq.Time("ts", ts)
-	rq.AppendByte([]byte('}'))
-	if logger.perRequestBufferLimit != 0 {
-		request.completedBuffers <- l
+	rq.dataBuffer.AppendByte('}')
+	if s.request.logger.perRequestBufferLimit != 0 {
+		s.request.completedBuilders <- &rq
 	} else {
-		_, err := request.writer.Write(l.dataBuffer.B)
+		_, err := s.request.writer.Write(rq.dataBuffer.B)
 		if err != nil {
-			request.errorFunc(err)
+			s.request.errorFunc(err)
 		}
 		rq.reclaimMemory()
 	}
@@ -208,22 +203,18 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 }
 
 func (s *span) FlushAttributes() {
-	rq := xoputil.JBuilder{
-		B:        make([]byte, 0, minBuffer),
-		FastKeys: s.logger.fastKeys,
-	}
-	rq.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
-	rq.AppendString(trace.Trace.SpanIDString())
-	rq.Time("ts", ts)
-	rq.Duration("dur", time.Duration(s.endTime-s.starttime.UnixNano()))
-	rq.sendAttributes(s.attributes)
-	rq.AppendByte([]byte('}'))
-	if logger.perRequestBufferLimit != 0 {
-		request.completedBuffers <- l
+	rq := s.builder(false)
+	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
+	rq.dataBuffer.AppendString(s.trace.Trace.SpanIDString())
+	rq.Duration("dur", time.Duration(s.endTime-s.startTime.UnixNano()))
+	rq.appendAttributes(s.attributes)
+	rq.dataBuffer.AppendByte('}')
+	if s.request.logger.perRequestBufferLimit != 0 {
+		s.request.completedBuilders <- &rq
 	} else {
-		_, err := request.writer.Write(l.dataBuffer.B)
+		_, err := s.request.writer.Write(rq.dataBuffer.B)
 		if err != nil {
-			request.errorFunc(err)
+			s.request.errorFunc(err)
 		}
 		rq.reclaimMemory()
 	}
@@ -364,15 +355,20 @@ func (l *line) Static(m string) {
 	l.Msg(m) // TODO
 }
 
-func (l *line) reclaimMemory() {
-	if len(l.dataBuffer.B) > maxBufferToKeep {
-		l.dataBuffer = xoputil.JBuilder{
+func (b *builder) reclaimMemory() {
+	// TODO have pool of builders
+	if len(b.dataBuffer.B) > maxBufferToKeep {
+		b.dataBuffer = xoputil.JBuilder{
 			B:        make([]byte, 0, minBuffer),
-			FastKeys: l.span.logger.fastKeys,
+			FastKeys: b.span.logger.fastKeys,
 		}
-		l.encoder = json.NewEncoder(&l.dataBuffer)
+		b.encoder = json.NewEncoder(&b.dataBuffer)
 	}
-	// TODO have pool of Lines & Buffers
+}
+
+func (l *line) reclaimMemory() {
+	// TODO have pool of Lines
+	l.builder.reclaimMemory()
 }
 
 func (l *line) Template(m string) {
@@ -410,7 +406,7 @@ func (b *builder) appendAny(v interface{}) {
 	if err != nil {
 		b.dataBuffer.B = b.dataBuffer.B[:before]
 		b.span.request.errorFunc(err)
-		b.Error("encode:"+k, err)
+		b.Error("encode", err)
 	} else {
 		// remove \n added by json.Encoder.Encode.  So helpful!
 		if b.dataBuffer.B[len(b.dataBuffer.B)-1] == '\n' {
@@ -421,7 +417,7 @@ func (b *builder) appendAny(v interface{}) {
 
 func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
+	b.dataBuffer.UncheckedKey(k.Key()) // TODO: check attribute keys at registration time
 	b.appendEnum(v)
 }
 
@@ -539,7 +535,7 @@ func (b *builder) appendDuration(v time.Duration) {
 	}
 }
 
-func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
+func (b *builder) appendAttributes(a xoputil.AttributeBuilder) {
 	a.Lock.Lock()
 	defer a.Lock.Unlock()
 
@@ -548,7 +544,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendAny(k, v)
+			b.dataBuffer.Key(k)
+			b.appendAny(v)
 		}
 	}
 	if len(a.Anys) != 0 {
@@ -559,7 +556,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendAny(v)
+				b.appendAny(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -570,7 +567,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendBool(k, v)
+			b.dataBuffer.Key(k)
+			b.appendBool(v)
 		}
 	}
 	if len(a.Bools) != 0 {
@@ -581,7 +579,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendBool(v)
+				b.appendBool(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -592,7 +590,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendEnum(k, v)
+			b.dataBuffer.Key(k)
+			b.appendEnum(v)
 		}
 	}
 	if len(a.Enums) != 0 {
@@ -603,7 +602,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendEnum(v)
+				b.appendEnum(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -614,7 +613,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendFloat64(k, v)
+			b.dataBuffer.Key(k)
+			b.appendFloat64(v)
 		}
 	}
 	if len(a.Float64s) != 0 {
@@ -625,7 +625,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendFloat64(v)
+				b.appendFloat64(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -636,7 +636,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendInt64(k, v)
+			b.dataBuffer.Key(k)
+			b.appendInt64(v)
 		}
 	}
 	if len(a.Int64s) != 0 {
@@ -647,7 +648,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendInt64(v)
+				b.appendInt64(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -658,7 +659,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendLink(k, v)
+			b.dataBuffer.Key(k)
+			b.appendLink(v)
 		}
 	}
 	if len(a.Links) != 0 {
@@ -669,7 +671,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendLink(v)
+				b.appendLink(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -680,7 +682,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendString(k, v)
+			b.dataBuffer.Key(k)
+			b.appendString(v)
 		}
 	}
 	if len(a.Strings) != 0 {
@@ -691,7 +694,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendString(v)
+				b.appendString(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}
@@ -702,7 +705,8 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			if _, ok := a.Changed[k]; !ok {
 				continue
 			}
-			b.appendTime(k, v)
+			b.dataBuffer.Key(k)
+			b.appendTime(v)
 		}
 	}
 	if len(a.Times) != 0 {
@@ -713,7 +717,7 @@ func (b *Builder) WriteAttribute(a xoputil.AttributeBuilder) {
 			b.dataBuffer.Key(k)
 			b.dataBuffer.AppendByte('[')
 			for _, ve := range v {
-				b.appendTime(v)
+				b.appendTime(ve)
 			}
 			b.dataBuffer.AppendByte(']')
 		}

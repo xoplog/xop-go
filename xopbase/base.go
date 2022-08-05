@@ -12,7 +12,7 @@ import (
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
-	Request(span trace.Bundle, description string) Request
+	Request(ts time.Time, span trace.Bundle, description string) Request
 
 	// ID returns a unique id for this instance of a logger.  This
 	// is used to prevent duplicate Requets from being created when
@@ -63,8 +63,8 @@ type Span interface {
 	MetadataInt64(*xopconst.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
 	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
-	// MetadataStr adds a key/value pair to describe the span.
-	MetadataStr(*xopconst.StringAttribute, string)
+	// MetadataString adds a key/value pair to describe the span.
+	MetadataString(*xopconst.StringAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
 	MetadataTime(*xopconst.TimeAttribute, time.Time)
 

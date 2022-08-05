@@ -153,6 +153,13 @@
     - 64 buffers?
     - 64 bytes each?
 
+- Standard tracing
+
+  - figure out a way to modify trace State
+  - add methods to query trace State
+  - figure out a way to modify trace Baggage
+  - add methods to query trace Baggage
+
 # Not build ready 
 
 - benchmarking
