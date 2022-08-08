@@ -30,3 +30,4 @@ ${GOBIN}/enumer:;
 	gofumpt < $@.tmp | goimports > $@
 	-chmod -w $@
 	-rm $@.tmp
+

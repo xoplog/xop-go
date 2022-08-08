@@ -299,17 +299,17 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	switch l.span.logger.tagOption {
 	case SpanIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"span_id":"`))
+		l.dataBuffer.AppendBytes([]byte(`"span.id":"`))
 		l.dataBuffer.AppendString(l.span.trace.Trace.SpanIDString())
 		l.dataBuffer.AppendByte('"')
 	case FullIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace_header":"`))
+		l.dataBuffer.AppendBytes([]byte(`"trace.header":"`))
 		l.dataBuffer.AppendString(l.span.trace.Trace.HeaderString())
 		l.dataBuffer.AppendByte('"')
 	case TraceIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace_id":"`))
+		l.dataBuffer.AppendBytes([]byte(`"trace.id":"`))
 		l.dataBuffer.AppendString(l.span.trace.Trace.TraceIDString())
 		l.dataBuffer.AppendByte('"')
 	case TraceSequenceNumberTagOption:

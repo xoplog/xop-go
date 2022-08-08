@@ -177,11 +177,11 @@ func WithUncheckedKeys(b bool) Option {
 	}
 }
 
-// WithAttributesInObject specifies if the user-defined
+// WithAttributesObject specifies if the user-defined
 // attributes on lines, spans, and requests should be
 // inside an "attributes" sub-object or part of the main
 // object.
-func WithAttributesInObject(b bool) Option {
+func WithAttributesObject(b bool) Option {
 	return func(l *Logger) {
 		l.attributesObject = b
 	}
@@ -208,79 +208,34 @@ func WithTimeFormat(format string) Option {
 	}
 }
 
-// WithExpochSeconds specifies that time's are formatted as
-// seconds sinces Jan 1 1970.
-// Note: Starting in year 2038, these are not valid integers for
-// JSON but many implementations will handle them anyway.
-func WithEpochSeconds() Option {
+// WithEpochTime specifies that time values are formatted as an
+// integer time since Jan 1 1970.  If the units is seconds, then
+// it is seconds since Jan 1 1970.  If the units is nanoseconds,
+// then it is nanoseconds since Jan 1 1970.  Etc.
+//
+// Note that the JSON specification specifies int's are 32 bits,
+// not 64 bits so a compliant JSON parser could fail for seconds
+// since 1970 starting in year 2038.  For microseconds, and
+// nanoseconds, a complicant parser alerady fails.
+func WithEpochTime(units time.Duration) Option {
 	return func(l *Logger) {
 		l.timeOption = epochTime
-		l.timeDivisor = time.Second
+		l.timeDivisor = units
 	}
 }
 
-// WithExpochNanoseconds specifies that time's are formatted as
-// nanoseconds sinces Jan 1 1970.
-// Note: these are not valid integers for JSON but many implementations
-// will handle them anyway.
-func WithEpochNanoseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochTime
-		l.timeDivisor = time.Nanosecond
-	}
-}
-
-// WithExpochMicroseconds specifies that time's are formatted as
-// microseconds sinces Jan 1 1970.
-// This is the default time format.
-// Note: these are not valid integers for JSON but many implementations
-// will handle them anyway.
-func WithEpochMicroseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochTime
-		l.timeDivisor = time.Microsecond
-	}
-}
-
-// WithQuotedExpochSeconds specifies that time's are formatted as
-// seconds sinces Jan 1 1970.
-// The integer will have quotes (") around it.  Most JSON parsers will
-// can fill a integer from a quoted number.
-func WithQuotedEpochSeconds() Option {
+// WithQuotedEpochTime specifies that time values are formatted an
+// integer string (integer with quotes around it) representing time
+// since Jan 1 1970.  If the units is seconds, then
+// it is seconds since Jan 1 1970.  If the units is nanoseconds,
+// then it is nanoseconds since Jan 1 1970.  Etc.
+//
+// Note most JSON parsers can parse into an integer if given a
+// a quoted integer.
+func WithQuotedEpochTime(units time.Duration) Option {
 	return func(l *Logger) {
 		l.timeOption = epochQuoted
-		l.timeDivisor = time.Second
-	}
-}
-
-// WithQuotedExpochNanoseconds specifies that time's are formatted as
-// nanoseconds sinces Jan 1 1970.
-// The integer will have quotes (") around it.  Most JSON parsers will
-// can fill a integer from a quoted number.
-func WithQuotedEpochNanoseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochQuoted
-		l.timeDivisor = time.Nanosecond
-	}
-}
-
-// WithQuotedExpochMicroseconds specifies that time's are formatted as
-// microseconds sinces Jan 1 1970.
-// The integer will have quotes (") around it.  Most JSON parsers will
-// can fill a integer from a quoted number.
-func WithQuotedEpochMicroseconds() Option {
-	return func(l *Logger) {
-		l.timeOption = epochQuoted
-		l.timeDivisor = time.Microsecond
-	}
-}
-
-// WithBufferedSpans indicates if span data should be buffered until
-// Flush() is called. If not, spans, and span attributes are emitted
-// as they're set.
-func WithBufferedSpans(b bool) Option {
-	return func(l *Logger) {
-		l.bufferSpans = b
+		l.timeDivisor = units
 	}
 }
 

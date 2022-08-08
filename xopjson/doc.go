@@ -12,7 +12,7 @@ The JSON format of a line with WithAttributesInObject(false) is like:
 	{
 		"lvl": 9,
 		"ts": 49394393493,
-		"spanID": "34ec0b8ac9d65e91",
+		"span.id": "34ec0b8ac9d65e91",
 		"stack": [
 			"some/file.go:382",
 			"some/other/file.go:102"
@@ -28,7 +28,7 @@ The JSON format of a line with WithAttributesInObject(false) is like:
 	{
 		"lvl": 9,
 		"ts": 49394393493,
-		"spanID": "34ec0b8ac9d65e91",
+		"span.id": "34ec0b8ac9d65e91",
 		"stack": [
 			"some/file.go:382",
 			"some/other/file.go:102"
@@ -53,25 +53,23 @@ default stack frames are included with Error and Alert level logs.
 Spans
 
 	{
-		"zop": {
-			"type": "span",
-			"name": "name provided by user creating span",
-			"trace_header": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00"
-		}
+		"type": "span",
+		"name": "name provided by user creating span",
+		"trace_header": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00"
+		"dur": 822392,
 	}
 
 Requests
 
 	{
-		"zop": {
-			"type": "span",
-			"impl": "zop-go",
-			"name": "name provided by user creating span",
-			"request_id": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00",
-			"parent_id": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00",
-			"trace_state": "vendor:key vendor2:key2",
-			"trace_baggage": "key:values,value key2:value1,value2"
-		}
+		"type": "span",
+		"impl": "zop-go",
+		"name": "name provided by user creating span",
+		"request.id": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00",
+		"parent.id": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00",
+		"trace.state": "vendor:key vendor2:key2",
+		"trace.baggage": "key:values,value key2:value1,value2"
+		"dur": 822392,
 	}
 
 Bufferes
