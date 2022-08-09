@@ -89,7 +89,6 @@ type line struct {
 	level                xopconst.Level
 	timestamp            time.Time
 	prefillMsgPreEncoded []byte
-	attributesStarted    bool
 }
 
 type builder struct {

@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const debugTlog = true
+
 func TestNoBuffer(t *testing.T) {
 	var buffer bytes.Buffer
 	jlog := xopjson.New(
@@ -29,6 +31,7 @@ func TestNoBuffer(t *testing.T) {
 		xopjson.WithAttributesObject(true),
 	)
 	tlog := xoptest.New(t)
+	t.Log(buffer.String())
 	log := xop.NewSeed(xop.WithBase(jlog), xop.WithBase(tlog)).Request(t.Name())
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
@@ -38,7 +41,9 @@ func TestNoBuffer(t *testing.T) {
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 	log.Done()
 
-	newChecker(tlog, true).check(t, &buffer)
+	t.Log(buffer.String())
+
+	newChecker(t, tlog, true).check(t, &buffer)
 }
 
 type IntTime struct {
@@ -79,19 +84,26 @@ type supersetObject struct {
 type checker struct {
 	tlog                *xoptest.TestLogger
 	hasAttributesObject bool
-	linesSeen           []bool
 	spansSeen           []bool
 	requestsSeen        []bool
+	messagesNotSeen     map[string][]int
 }
 
-func newChecker(tlog *xoptest.TestLogger, hasAttributesObject bool) *checker {
-	return &checker{
+func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool) *checker {
+	c := &checker{
 		tlog:                tlog,
 		hasAttributesObject: hasAttributesObject,
-		linesSeen:           make([]bool, len(tlog.Lines)),
 		spansSeen:           make([]bool, len(tlog.Spans)),
 		requestsSeen:        make([]bool, len(tlog.Requests)),
+		messagesNotSeen:     make(map[string][]int),
 	}
+	for i, line := range tlog.Lines {
+		if debugTlog {
+			t.Logf("test line message '%s'", line.Message)
+		}
+		c.messagesNotSeen[line.Message] = append(c.messagesNotSeen[line.Message], i)
+	}
+	return c
 }
 
 func (c *checker) check(t *testing.T, stream io.Reader) {
@@ -127,4 +139,12 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	assert.NotEqual(t, xopconst.Level(0), super.Level, "level")
 	assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 	assert.NotEmpty(t, super.Msg, "message")
+	mns := c.messagesNotSeen[super.Msg]
+	if !assert.NotNilf(t, mns, "test line with message '%s'", super.Msg) {
+		return
+	}
+	line := c.tlog.Lines[mns[0]]
+	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
+	assert.Truef(t, super.Timestamp.Equal(line.Timestamp), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
+	assert.Equal(t, int(line.Level), super.Level, "level")
 }
