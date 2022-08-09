@@ -71,7 +71,7 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	request.allSpans = make([]*span, 1, 64)
 	request.allSpans[0] = &request.span
 
-	rq := request.span.builder(false)
+	rq := request.span.builder()
 	rq.dataBuffer.AppendBytes([]byte(`{"xop":"request","trace.id":`))
 	rq.dataBuffer.AppendString(trace.Trace.TraceIDString())
 	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
@@ -181,7 +181,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 	s.request.allSpans = append(s.request.allSpans, n)
 	s.request.allSpansLock.Unlock()
 
-	rq := s.builder(false)
+	rq := s.builder()
 	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.id":`))
 	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
 	rq.String("span.name", name)
@@ -201,7 +201,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 }
 
 func (s *span) FlushAttributes() {
-	rq := s.builder(false)
+	rq := s.builder()
 	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
 	rq.dataBuffer.AppendString(s.trace.Trace.SpanIDString())
 	rq.Duration("dur", time.Duration(s.endTime-s.startTime.UnixNano()))
@@ -228,14 +228,13 @@ func (s *span) NoPrefill() xopbase.Prefilled {
 	}
 }
 
-func (s *span) builder(attributesWanted bool) builder {
+func (s *span) builder() builder {
 	b := builder{
 		span: s,
 		dataBuffer: xoputil.JBuilder{
 			B:        make([]byte, 0, minBuffer),
 			FastKeys: s.logger.fastKeys,
 		},
-		attributesWanted: attributesWanted,
 	}
 	b.encoder = json.NewEncoder(&b.dataBuffer)
 	return b
@@ -243,7 +242,7 @@ func (s *span) builder(attributesWanted bool) builder {
 
 func (s *span) StartPrefill() xopbase.Prefilling {
 	return &prefilling{
-		builder: s.builder(false),
+		builder: s.builder(),
 	}
 }
 
@@ -266,7 +265,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
 	l := &line{
-		builder:              p.span.builder(p.span.logger.attributesObject),
+		builder:              p.span.builder(),
 		level:                level,
 		timestamp:            t,
 		prefillMsgPreEncoded: p.preEncodedMsg,
@@ -276,7 +275,7 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	l.Time("ts", t)
 	if len(pc) > 0 {
 		frames := runtime.CallersFrames(pc)
-		l.dataBuffer.AppendBytes([]byte(`"stack":[`))
+		l.dataBuffer.AppendBytes([]byte(`,"stack":[`))
 		for {
 			frame, more := frames.Next()
 			if !strings.Contains(frame.File, "runtime/") {
@@ -297,17 +296,17 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	switch l.span.logger.tagOption {
 	case SpanIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"span_id":"`))
+		l.dataBuffer.AppendBytes([]byte(`"span.id":"`))
 		l.dataBuffer.AppendString(l.span.trace.Trace.SpanIDString())
 		l.dataBuffer.AppendByte('"')
 	case FullIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace_header":"`))
+		l.dataBuffer.AppendBytes([]byte(`"trace.header":"`))
 		l.dataBuffer.AppendString(l.span.trace.Trace.HeaderString())
 		l.dataBuffer.AppendByte('"')
 	case TraceIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace_id":"`))
+		l.dataBuffer.AppendBytes([]byte(`"trace.id":"`))
 		l.dataBuffer.AppendString(l.span.trace.Trace.TraceIDString())
 		l.dataBuffer.AppendByte('"')
 	case TraceSequenceNumberTagOption:
@@ -316,10 +315,11 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	case OmitTagOption:
 		// yay!
 	}
+	l.attributesWanted = p.span.logger.attributesObject
 	if len(p.data) != 0 {
 		if l.attributesWanted {
 			l.attributesStarted = true
-			l.dataBuffer.AppendBytes([]byte(`"attributes":{`)) // }
+			l.dataBuffer.AppendBytes([]byte(`,"attributes":{`)) // }
 		} else {
 			l.dataBuffer.AppendByte(',')
 		}
@@ -337,7 +337,10 @@ func (l *line) Msg(m string) {
 		l.dataBuffer.AppendBytes(l.prefillMsgPreEncoded)
 	}
 	l.dataBuffer.StringBody(m)
-	l.dataBuffer.AppendBytes([]byte{'"' /*{*/, '}'})
+	l.dataBuffer.AppendBytes([]byte{
+		'"', // {
+		'}',
+	})
 	if l.span.logger.perRequestBufferLimit != 0 {
 		l.span.request.completedLines <- l
 	} else {
@@ -388,7 +391,7 @@ func (l *line) Template(m string) {
 func (b *builder) startAttributes() {
 	if b.attributesWanted && !b.attributesStarted {
 		b.attributesStarted = true
-		b.dataBuffer.AppendBytes([]byte(`"attributes":{`)) // }
+		b.dataBuffer.AppendBytes([]byte(`,"attributes":{`)) // }
 	}
 }
 

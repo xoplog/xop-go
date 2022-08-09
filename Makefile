@@ -13,7 +13,8 @@ all:	$(ZZZGENERATED)
 
 test:	$(ZZZGENERATED)
 	go generate ./...
-	go test ./...
+	# go test ./...
+	go test -v ./xopjson/...
 
 ${GOBIN}/gofumpt:;
 	go install mvdan.cc/gofumpt@latest
@@ -30,3 +31,4 @@ ${GOBIN}/enumer:;
 	gofumpt < $@.tmp | goimports > $@
 	-chmod -w $@
 	-rm $@.tmp
+

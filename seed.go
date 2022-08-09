@@ -70,7 +70,7 @@ func WithTrace(trace trace.Trace) SeedModifier {
 	}
 }
 
-func WithAdjustments(f func(*LogSettings)) SeedModifier {
+func WithSettings(f func(*LogSettings)) SeedModifier {
 	return func(s *Seed) {
 		f(&s.settings)
 	}

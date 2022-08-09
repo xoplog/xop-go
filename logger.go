@@ -92,9 +92,10 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	log.span.buffered = log.span.seed.loggers.List.Buffered()
 	log.span.base = combinedBaseRequest.(xopbase.Span)
 	log.sendPrefill()
-	if log.span.buffered {
-		// TODO: consider: always create timer?
-		log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
+	log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
+	if !log.span.buffered {
+		log.shared.FlushTimer.Stop()
+		log.shared.FlushActive = 0
 	}
 	return log
 }

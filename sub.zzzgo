@@ -42,6 +42,10 @@ func (settings LogSettings) Copy() LogSettings {
 	return settings
 }
 
+func (l *Log) Settings() LogSettings {
+	return l.settings.Copy()
+}
+
 // Sub is the first step in creating a sub-Log from the current log.
 // Sub allows log settings to be modified.  The returned value must
 // be used.  It is used by a call to sub.Log(), sub.Fork(), or

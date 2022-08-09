@@ -57,7 +57,7 @@ func (b *JBuilder) String(v string) {
 }
 
 func (b *JBuilder) Uint64(i uint64) {
-	b.B = strconv.AppendUint(b.B, i, 64)
+	b.B = strconv.AppendUint(b.B, i, 10)
 }
 
 func (b *JBuilder) Float64(f float64) {
@@ -65,7 +65,7 @@ func (b *JBuilder) Float64(f float64) {
 }
 
 func (b *JBuilder) Int64(i int64) {
-	b.B = strconv.AppendInt(b.B, i, 64)
+	b.B = strconv.AppendInt(b.B, i, 10)
 }
 
 func (b *JBuilder) Bool(v bool) {
