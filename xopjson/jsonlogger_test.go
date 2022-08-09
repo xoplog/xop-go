@@ -18,7 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const debugTlog = true
+const (
+	debugTlog  = true
+	debugTspan = true
+)
 
 func TestNoBuffer(t *testing.T) {
 	var buffer bytes.Buffer
@@ -39,7 +42,11 @@ func TestNoBuffer(t *testing.T) {
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+	ss := log.Sub().Fork("a fork").Wait()
+	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	log.Done()
+	ss.Debug().Msg("sub-span debug message")
+	ss.Done()
 
 	t.Log(buffer.String())
 
@@ -87,6 +94,8 @@ type checker struct {
 	spansSeen           []bool
 	requestsSeen        []bool
 	messagesNotSeen     map[string][]int
+	spanIndex           map[string]int
+	requestIndex        map[string]int
 }
 
 func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool) *checker {
@@ -96,12 +105,26 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool
 		spansSeen:           make([]bool, len(tlog.Spans)),
 		requestsSeen:        make([]bool, len(tlog.Requests)),
 		messagesNotSeen:     make(map[string][]int),
+		spanIndex:           make(map[string]int),
+		requestIndex:        make(map[string]int),
 	}
 	for i, line := range tlog.Lines {
 		if debugTlog {
-			t.Logf("test line message '%s'", line.Message)
+			t.Logf("recorded line: '%s'", line.Message)
 		}
 		c.messagesNotSeen[line.Message] = append(c.messagesNotSeen[line.Message], i)
+	}
+	for i, span := range tlog.Spans {
+		if debugTspan {
+			t.Logf("recorded span: %s - %s", span.Trace.Trace.SpanIDString(), span.Name)
+		}
+		c.spanIndex[span.Trace.Trace.SpanIDString()] = i
+	}
+	for i, request := range tlog.Requests {
+		if debugTspan {
+			t.Logf("recorded request: %s - %s", request.Trace.Trace.SpanIDString(), request.Name)
+		}
+		c.requestIndex[request.Trace.Trace.SpanIDString()] = i
 	}
 	return c
 }
@@ -128,9 +151,15 @@ func (c *checker) check(t *testing.T, stream io.Reader) {
 		case "", "line":
 			c.line(t, super)
 		case "span":
-			// c.span(t, super)
+			c.span(t, super)
 		case "request":
 			// c.request(t, super)
+		}
+	}
+	for _, ia := range c.messagesNotSeen {
+		for _, li := range ia {
+			line := c.tlog.Lines[li]
+			t.Errorf("line '%s' not found in JSON output", line.Text)
 		}
 	}
 }
@@ -147,4 +176,7 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
 	assert.Truef(t, super.Timestamp.Equal(line.Timestamp), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
+}
+
+func (c *checker) span(t *testing.T, super supersetObject) {
 }

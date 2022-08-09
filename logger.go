@@ -80,6 +80,7 @@ func (s Seed) Request(descriptionOrName string) *Log {
 		},
 	}
 	alloc.Span.span = &alloc.span
+	alloc.Span.log = &alloc.Log
 	alloc.Log.span = &alloc.Span
 	alloc.Log.request = &alloc.Span
 	alloc.Log.shared = &alloc.shared
@@ -120,6 +121,7 @@ func (s *Sub) Log() *Log {
 		},
 	}
 	alloc.Log.span = &alloc.Span
+	alloc.Span.log = &alloc.Log
 	log := &alloc.Log
 	log.sendPrefill()
 	return log
@@ -142,6 +144,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		},
 	}
 	alloc.Span.span = &alloc.span
+	alloc.Span.log = &alloc.Log
 	alloc.Log.span = &alloc.Span
 	log := &alloc.Log
 
@@ -365,6 +368,15 @@ func (ll *LogLine) Template(template string) {
 
 func (ll *LogLine) Msg(msg string) {
 	ll.line.Msg(msg)
+	ll.log.span.linePool.Put(ll)
+	ll.log.enableFlushTimer()
+}
+
+// Static is the same as Msg, but it hints that the supplied string is
+// constant rather than something generated.  Since it's static, base
+// loggers may keep them a dictionary and send references.
+func (ll *LogLine) Static(msg string) {
+	ll.line.Static(msg)
 	ll.log.span.linePool.Put(ll)
 	ll.log.enableFlushTimer()
 }

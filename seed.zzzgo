@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopbase"
 )
 
 // Seed is used to create a Log.
