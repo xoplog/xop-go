@@ -23,13 +23,6 @@ const (
 	debugTspan = true
 )
 
-var msg = "The quick brown fox jumps over the lazy dog"
-var obj = struct {
-	Rate string
-	Low  int
-	High float32
-}{"15", 16, 123.2}
-
 func TestNoBuffer(t *testing.T) {
 	var buffer bytes.Buffer
 	jlog := xopjson.New(
@@ -184,7 +177,7 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	}
 	line := c.tlog.Lines[mns[0]]
 	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
-	assert.Truef(t, super.Timestamp.Equal(line.Timestamp), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
+	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
 }
 
