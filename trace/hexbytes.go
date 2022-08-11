@@ -3,112 +3,140 @@
 package trace
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/hex"
-	"strings"
 )
 
 type HexBytes1 struct {
 	b [1]byte
-	s string
+	h [1 * 2]byte
 }
 type HexBytes16 struct {
 	b [16]byte
-	s string
+	h [16 * 2]byte
 }
 type HexBytes8 struct {
 	b [8]byte
-	s string
-}
-
-func NewHexBytes1() HexBytes1 {
-	return HexBytes1{
-		s: strings.Repeat("0", 1*2),
-	}
-}
-
-func NewHexBytes16() HexBytes16 {
-	return HexBytes16{
-		s: strings.Repeat("0", 16*2),
-	}
-}
-
-func NewHexBytes8() HexBytes8 {
-	return HexBytes8{
-		s: strings.Repeat("0", 8*2),
-	}
+	h [8 * 2]byte
 }
 
 var (
-	zeroHexBytes1  = HexBytes1{}
-	zeroHexBytes16 = HexBytes16{}
-	zeroHexBytes8  = HexBytes8{}
+	zeroHexHexBytes1  = bytes.Repeat([]byte{'0'}, 1*2)
+	zeroHexHexBytes16 = bytes.Repeat([]byte{'0'}, 16*2)
+	zeroHexHexBytes8  = bytes.Repeat([]byte{'0'}, 8*2)
 )
 
-func (x HexBytes1) IsZero() bool   { return x.b == zeroHexBytes1.b }
-func (x HexBytes1) String() string { return x.s }
-func (x HexBytes1) Bytes() []byte  { return x.b[:] }
+func NewHexBytes1() HexBytes1 {
+	var x HexBytes1
+	copy(x.h[:], zeroHexHexBytes1)
+	return x
+}
+
+func NewHexBytes16() HexBytes16 {
+	var x HexBytes16
+	copy(x.h[:], zeroHexHexBytes16)
+	return x
+}
+
+func NewHexBytes8() HexBytes8 {
+	var x HexBytes8
+	copy(x.h[:], zeroHexHexBytes8)
+	return x
+}
+
+var (
+	zeroHexBytes1b  = [1]byte{}
+	zeroHexBytes16b = [16]byte{}
+	zeroHexBytes8b  = [8]byte{}
+)
+
+func (x HexBytes1) IsZero() bool      { return x.b == zeroHexBytes1b }
+func (x HexBytes1) String() string    { return string(x.h[:]) }
+func (x HexBytes1) Bytes() []byte     { return x.b[:] }
+func (x HexBytes1) HexBytes() []byte  { return x.h[:] }
+func (x HexBytes16) IsZero() bool     { return x.b == zeroHexBytes16b }
+func (x HexBytes16) String() string   { return string(x.h[:]) }
+func (x HexBytes16) Bytes() []byte    { return x.b[:] }
+func (x HexBytes16) HexBytes() []byte { return x.h[:] }
+func (x HexBytes8) IsZero() bool      { return x.b == zeroHexBytes8b }
+func (x HexBytes8) String() string    { return string(x.h[:]) }
+func (x HexBytes8) Bytes() []byte     { return x.b[:] }
+func (x HexBytes8) HexBytes() []byte  { return x.h[:] }
+
 func (x *HexBytes1) SetBytes(b []byte) {
 	setBytes(x.b[:], b)
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
-func (x HexBytes16) IsZero() bool   { return x.b == zeroHexBytes16.b }
-func (x HexBytes16) String() string { return x.s }
-func (x HexBytes16) Bytes() []byte  { return x.b[:] }
+
 func (x *HexBytes16) SetBytes(b []byte) {
 	setBytes(x.b[:], b)
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
-func (x HexBytes8) IsZero() bool   { return x.b == zeroHexBytes8.b }
-func (x HexBytes8) String() string { return x.s }
-func (x HexBytes8) Bytes() []byte  { return x.b[:] }
+
 func (x *HexBytes8) SetBytes(b []byte) {
 	setBytes(x.b[:], b)
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes1) SetString(s string) {
 	setBytesFromString(x.b[:], s)
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes16) SetString(s string) {
 	setBytesFromString(x.b[:], s)
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes8) SetString(s string) {
 	setBytesFromString(x.b[:], s)
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes1) SetZero() {
 	x.b = [1]byte{}
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes16) SetZero() {
 	x.b = [16]byte{}
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes8) SetZero() {
 	x.b = [8]byte{}
-	x.s = hex.EncodeToString(x.b[:])
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes1) SetRandom() {
-	randomBytesNotAllZero(x.b[:])
-	x.s = hex.EncodeToString(x.b[:])
+	for {
+		_, _ = rand.Read(x.b[:])
+		if !allZero(x.b[:]) {
+			break
+		}
+	}
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes16) SetRandom() {
-	randomBytesNotAllZero(x.b[:])
-	x.s = hex.EncodeToString(x.b[:])
+	for {
+		_, _ = rand.Read(x.b[:])
+		if !allZero(x.b[:]) {
+			break
+		}
+	}
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x *HexBytes8) SetRandom() {
-	randomBytesNotAllZero(x.b[:])
-	x.s = hex.EncodeToString(x.b[:])
+	for {
+		_, _ = rand.Read(x.b[:])
+		if !allZero(x.b[:]) {
+			break
+		}
+	}
+	hex.Encode(x.h[:], x.b[:])
 }
 
 func (x HexBytes1) Copy() HexBytes1 {

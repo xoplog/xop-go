@@ -120,10 +120,12 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 		StartTime:  ts,
 		Name:       name,
 	}
+	l.Requests = append(l.Requests, s)
 	s.Attributes.Reset()
 	return s
 }
 
+// must hold a lock to call setShort
 func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	ts := span.Trace.GetTraceID().String()
 	if ti, ok := l.traceMap[ts]; ok {

@@ -23,6 +23,13 @@ const (
 	debugTspan = true
 )
 
+var msg = "The quick brown fox jumps over the lazy dog"
+var obj = struct {
+	Rate string
+	Low  int
+	High float32
+}{"15", 16, 123.2}
+
 func TestNoBuffer(t *testing.T) {
 	var buffer bytes.Buffer
 	jlog := xopjson.New(
@@ -51,9 +58,6 @@ func TestNoBuffer(t *testing.T) {
 	t.Log(buffer.String())
 
 	newChecker(t, tlog, true).check(t, &buffer)
-}
-
-type IntTime struct {
 }
 
 type supersetObject struct {
@@ -118,12 +122,18 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool
 		if debugTspan {
 			t.Logf("recorded span: %s - %s", span.Trace.Trace.SpanIDString(), span.Name)
 		}
+		_, ok := c.spanIndex[span.Trace.Trace.SpanIDString()]
+		assert.Falsef(t, ok, "duplicate span id %s", span.Trace.Trace.SpanIDString())
 		c.spanIndex[span.Trace.Trace.SpanIDString()] = i
 	}
 	for i, request := range tlog.Requests {
 		if debugTspan {
 			t.Logf("recorded request: %s - %s", request.Trace.Trace.SpanIDString(), request.Name)
 		}
+		_, ok := c.spanIndex[request.Trace.Trace.SpanIDString()]
+		assert.Falsef(t, ok, "duplicate span/request id %s", request.Trace.Trace.SpanIDString())
+		_, ok = c.requestIndex[request.Trace.Trace.SpanIDString()]
+		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanIDString())
 		c.requestIndex[request.Trace.Trace.SpanIDString()] = i
 	}
 	return c
