@@ -36,7 +36,7 @@ func Log(log xop.Log) *rest.RequestOpts {
 				r.Header.Set("state", step.Span().TraceState().String())
 			}
 			if step.Config().UseB3 {
-				farSideSpan = trace.NewSpanID()
+				farSideSpan = trace.NewRandomSpanID()
 				r.Header.Set("b3",
 					step.Span().Trace().GetTraceID().String()+"-"+
 						farSideSpan.String()+"-"+

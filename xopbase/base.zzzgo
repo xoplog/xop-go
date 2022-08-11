@@ -99,7 +99,7 @@ type Line interface {
 
 	// Static is the same as Msg, but it hints that the supplied string is
 	// constant rather than something generated.  Since it's static, base
-	// loggers may keep them a dictionary and send entry numbers.
+	// loggers may keep them a dictionary and send references.
 	Static(string)
 }
 

@@ -71,6 +71,7 @@ type Span struct {
 	Metadata     map[string]interface{}
 	StartTime    time.Time
 	EndTime      int64
+	Name         string
 }
 
 type Prefilling struct {
@@ -117,11 +118,14 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 		Trace:      span,
 		short:      l.setShort(span, name),
 		StartTime:  ts,
+		Name:       name,
 	}
+	l.Requests = append(l.Requests, s)
 	s.Attributes.Reset()
 	return s
 }
 
+// must hold a lock to call setShort
 func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	ts := span.Trace.GetTraceID().String()
 	if ti, ok := l.traceMap[ts]; ok {
@@ -160,6 +164,7 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 		Trace:      span,
 		short:      s.testLogger.setShort(span, name),
 		StartTime:  ts,
+		Name:       name,
 	}
 	n.Attributes.Reset()
 	s.Spans = append(s.Spans, n)

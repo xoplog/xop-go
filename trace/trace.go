@@ -86,7 +86,7 @@ func (t *Trace) Version() *HexBytes1   { return &t.version }
 func (t *Trace) TraceID() *HexBytes16  { return &t.traceID }
 func (t *Trace) SpanID() *HexBytes8    { return &t.spanID }
 func (t *Trace) Flags() *HexBytes1     { return &t.flags }
-func (t *Trace) RandomizeSpanID()      { t.spanID.SetRandom() }
+func (t *Trace) RandomizeSpanID()      { t.spanID.SetRandom(); t.rebuild() }
 func (t Trace) GetVersion() HexBytes1  { return t.version }
 func (t Trace) GetTraceID() HexBytes16 { return t.traceID }
 func (t Trace) GetSpanID() HexBytes8   { return t.spanID }
@@ -96,6 +96,12 @@ func (t Trace) IDString() string       { return t.traceIDString }
 func (t Trace) HeaderString() string   { return t.headerString }
 func (t Trace) TraceIDString() string  { return t.headerString[3:35] }
 func (t Trace) SpanIDString() string   { return t.headerString[36:52] }
+
+func NewRandomSpanID() HexBytes8 {
+	spanID := NewHexBytes8()
+	spanID.SetRandom()
+	return spanID
+}
 
 func NewSpanID() HexBytes8 {
 	return NewHexBytes8()

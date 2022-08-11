@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopbase"
 )
 
 // Seed is used to create a Log.
@@ -42,11 +41,14 @@ func NewSeed(mods ...SeedModifier) Seed {
 	return seed.applyMods(mods)
 }
 
+// Seed provides a copy of the current span's seed, but the
+// spanID is randomized.
 func (s *Span) Seed(mods ...SeedModifier) Seed {
 	seed := Seed{
 		spanSeed: s.seed.Copy(),
 		settings: s.log.settings.Copy(),
 	}
+	seed.spanSeed.traceBundle.Trace.RandomizeSpanID()
 	return seed.applyMods(mods)
 }
 
