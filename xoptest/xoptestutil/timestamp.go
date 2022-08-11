@@ -26,9 +26,6 @@ var (
 
 var lastIndexFound int32
 
-type timeFormat struct {
-}
-
 var formats = []struct {
 	fmt      string
 	re       *regexp.Regexp

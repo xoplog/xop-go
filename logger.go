@@ -15,11 +15,6 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-type on struct {
-	Span Span
-	span span
-}
-
 type Log struct {
 	request   *Span
 	span      *Span
@@ -35,13 +30,13 @@ type Span struct {
 
 type span struct {
 	seed           spanSeed
-	base           xopbase.Span
-	linePool       sync.Pool
-	boring         int32 // 0 = boring
-	buffered       bool
 	referencesKept bool
-	forkCounter    int32
-	stepCounter    int32
+	base           xopbase.Span //nolint:structcheck // false report
+	linePool       sync.Pool    //nolint:structcheck // false report
+	boring         int32        // 0 = boring
+	buffered       bool         //nolint:structcheck // false report
+	stepCounter    int32        //nolint:structcheck // false report
+	forkCounter    int32        //nolint:structcheck // false report
 }
 
 // shared is common between the loggers that share a search index
@@ -447,11 +442,3 @@ func (ll *LogLine) Any(k string, v interface{}) *LogLine {
 // TODO: func (l *Log) Guage(name string, value float64, )
 // TODO: func (l *Log) AdjustCounter(name string, value float64, )
 // TODO: func (l *Log) Event
-
-func copyMap(o map[string]interface{}) map[string]interface{} {
-	n := make(map[string]interface{})
-	for k, v := range o {
-		n[k] = v
-	}
-	return n
-}

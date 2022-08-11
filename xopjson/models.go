@@ -41,7 +41,6 @@ type Logger struct {
 	fastKeys              bool
 	durationFormat        DurationOption
 	id                    uuid.UUID
-	bufferSpans           bool
 	tagOption             TagOption
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	perRequestBufferLimit int
@@ -59,6 +58,7 @@ type request struct {
 	completedBuilders chan *builder
 	allSpans          []*span
 	allSpansLock      sync.Mutex
+	idNum             int64
 }
 
 type span struct {
@@ -67,9 +67,7 @@ type span struct {
 	writer     xopbytes.BytesRequest
 	trace      trace.Bundle
 	logger     *Logger
-	traceID    trace.Bundle
 	name       string
-	idNum      int64
 	request    *request
 	startTime  time.Time
 }

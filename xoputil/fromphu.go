@@ -164,7 +164,7 @@ func (b *JBuilder) StringBody(s string) {
 	b.B = append(b.B, s...)
 }
 
-func (b *JBuilder) bytes(n []byte) {
+func (b *JBuilder) EscapeBytes(n []byte) {
 	for _, c := range n {
 		if escapes[c] {
 			b.escapeb(n)

@@ -324,22 +324,22 @@ need to be [registered](https://opencensus.io/tag/key/).
 
 ### Performance
 
-The most common benchmarks(disable/normal/interface/printf/caller) with zap/zerolog, which runs on [github actions][benchmark]:
 
 ```go
-// go test -v -cpu=4 -run=none -bench=. -benchtime=10s -benchmem log_test.go
-package main
+// go test -v -cpu=4 -run=none -bench=. -benchtime=10s -benchmem bmark_test.go
+
+package xop_test
 
 import (
 	"io/ioutil"
 	"testing"
 	"time"
 
-	"github.com/muir/xop-go/xop"
-	"github.com/muir/xop-go/xopjson"
+	"github.com/francoispqt/onelog"
+	"github.com/muir/xop-go"
 	"github.com/muir/xop-go/xopbytes"
 	"github.com/muir/xop-go/xopconst"
-
+	"github.com/muir/xop-go/xopjson"
 	"github.com/phuslu/log"
 	"github.com/rs/zerolog"
 	"go.uber.org/zap"
@@ -347,9 +347,89 @@ import (
 )
 
 var msg = "The quick brown fox jumps over the lazy dog"
-var obj = struct {Rate string; Low int; High float32}{"15", 16, 123.2}
+var obj = struct {
+	Rate string
+	Low  int
+	High float32
+}{"15", 16, 123.2}
 
+func BenchmarkDisableXop(b *testing.B) {
+	logger := xop.NewSeed(xop.WithBase(
+		xopjson.New(
+			xopbytes.WriteToIOWriter(ioutil.Discard),
+			xopjson.WithEpochTime(time.Nanosecond),
+			xopjson.WithDurationFormat(xopjson.AsNanos),
+			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			xopjson.WithAttributesObject(false)))).
+		Request("disable")
+	for i := 0; i < b.N; i++ {
+		logger.Debug().String("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
+	}
+	logger.Done()
+}
 
+func BenchmarkNormalXop(b *testing.B) {
+	logger := xop.NewSeed(xop.WithBase(
+		xopjson.New(
+			xopbytes.WriteToIOWriter(ioutil.Discard),
+			xopjson.WithEpochTime(time.Nanosecond),
+			xopjson.WithDurationFormat(xopjson.AsNanos),
+			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			xopjson.WithAttributesObject(false)))).
+		Request("disable")
+	for i := 0; i < b.N; i++ {
+		logger.Info().String("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
+	}
+	logger.Done()
+}
+
+func BenchmarkInterfaceXop(b *testing.B) {
+	logger := xop.NewSeed(xop.WithBase(
+		xopjson.New(
+			xopbytes.WriteToIOWriter(ioutil.Discard),
+			xopjson.WithEpochTime(time.Nanosecond),
+			xopjson.WithDurationFormat(xopjson.AsNanos),
+			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			xopjson.WithAttributesObject(false)))).
+		Request("disable")
+	for i := 0; i < b.N; i++ {
+		logger.Info().Any("object", &obj).Msg(msg)
+	}
+	logger.Done()
+}
+
+func BenchmarkPrintfXop(b *testing.B) {
+	logger := xop.NewSeed(xop.WithBase(
+		xopjson.New(
+			xopbytes.WriteToIOWriter(ioutil.Discard),
+			xopjson.WithEpochTime(time.Nanosecond),
+			xopjson.WithDurationFormat(xopjson.AsNanos),
+			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			xopjson.WithAttributesObject(false)))).
+		Request("disable")
+	for i := 0; i < b.N; i++ {
+		logger.Info().Msgf("rate=%s low=%d high=%f msg=%s", "15", 16, 123.2, msg)
+	}
+	logger.Done()
+}
+
+func BenchmarkCallerXop(b *testing.B) {
+	logger := xop.NewSeed(xop.WithBase(
+		xopjson.New(
+			xopbytes.WriteToIOWriter(ioutil.Discard),
+			xopjson.WithEpochTime(time.Nanosecond),
+			xopjson.WithDurationFormat(xopjson.AsNanos),
+			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			xopjson.WithAttributesObject(false)))).
+		Request("disable").
+		Sub().
+		StackFrames(xopconst.InfoLevel, 1).
+		Log()
+	for i := 0; i < b.N; i++ {
+		logger.Info().String("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
+	}
+	logger.Done()
+}
 
 func BenchmarkDisableZap(b *testing.B) {
 	logger := zap.New(zapcore.NewCore(
@@ -443,6 +523,49 @@ func BenchmarkCallerZeroLog(b *testing.B) {
 	}
 }
 
+func BenchmarkDisableOneLog(b *testing.B) {
+	logger := onelog.New(ioutil.Discard, onelog.INFO|onelog.WARN|onelog.ERROR|onelog.FATAL)
+	for i := 0; i < b.N; i++ {
+		logger.DebugWithFields(msg, func(e onelog.Entry) {
+			e.String("rate", "15")
+			e.Int("low", 16)
+			e.Float("high", 123.2)
+		})
+	}
+}
+
+func BenchmarkDisableOneLogChain(b *testing.B) {
+	logger := onelog.New(ioutil.Discard, onelog.INFO|onelog.WARN|onelog.ERROR|onelog.FATAL)
+	for i := 0; i < b.N; i++ {
+		logger.DebugWith(msg).String("rate", "15").Int("low", 16).Float("high", 123.2).Write()
+	}
+}
+
+func BenchmarkNormalOneLog(b *testing.B) {
+	logger := onelog.New(ioutil.Discard, onelog.INFO|onelog.WARN|onelog.ERROR|onelog.FATAL)
+	for i := 0; i < b.N; i++ {
+		logger.InfoWithFields(msg, func(e onelog.Entry) {
+			e.String("rate", "15")
+			e.Int("low", 16)
+			e.Float("high", 123.2)
+		})
+	}
+}
+
+func BenchmarkNormalOneLogChain(b *testing.B) {
+	logger := onelog.New(ioutil.Discard, onelog.INFO|onelog.WARN|onelog.ERROR|onelog.FATAL)
+	for i := 0; i < b.N; i++ {
+		logger.InfoWith(msg).String("rate", "15").Int("low", 16).Float("high", 123.2).Write()
+	}
+}
+
+func BenchmarkInterfaceOneLogChain(b *testing.B) {
+	logger := onelog.New(ioutil.Discard, onelog.INFO|onelog.WARN|onelog.ERROR|onelog.FATAL)
+	for i := 0; i < b.N; i++ {
+		logger.InfoWith(msg).Any("object", &obj).Write()
+	}
+}
+
 func BenchmarkDisablePhusLog(b *testing.B) {
 	logger := log.Logger{Level: log.InfoLevel, Writer: log.IOWriter{ioutil.Discard}}
 	for i := 0; i < b.N; i++ {
@@ -477,69 +600,4 @@ func BenchmarkCallerPhusLog(b *testing.B) {
 		logger.Info().Str("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
 	}
 }
-
-func BenchmarkDisableXop(b *testing.B) {
-	logger := xop.NewSeed(xop.WithBase(
-		xopjson.New(
-			xopbytes.WriteToIOWriter(ioutil.Discard),
-			xopjson.WithEpochTime(time.Nanosecond),
-			xopjson.WithDurationFormat(xopjson.AsNanos),
-			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-			xopjson.WithAttributesObject(false)))).
-		Request("disable")
-	for i := 0; i < b.N; i++ {
-		logger.Debug().String("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
-	}
-	logger.Done()
-}
-
-func BenchmarkNormalXop(b *testing.B) {
-	logger := xop.NewSeed(xop.WithBase(
-		xopjson.New(
-			xopbytes.WriteToIOWriter(ioutil.Discard),
-			xopjson.WithEpochTime(time.Nanosecond),
-			xopjson.WithDurationFormat(xopjson.AsNanos),
-			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-			xopjson.WithAttributesObject(false)))).
-		Request("disable")
-	for i := 0; i < b.N; i++ {
-		logger.Info().String("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
-	}
-	logger.Done()
-}
-
-func BenchmarkPrintfXop(b *testing.B) {
-	logger := xop.NewSeed(xop.WithBase(
-		xopjson.New(
-			xopbytes.WriteToIOWriter(ioutil.Discard),
-			xopjson.WithEpochTime(time.Nanosecond),
-			xopjson.WithDurationFormat(xopjson.AsNanos),
-			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-			xopjson.WithAttributesObject(false)))).
-		Request("disable")
-	for i := 0; i < b.N; i++ {
-		logger.Info().Msgf("rate=%s low=%d high=%f msg=%s", "15", 16, 123.2, msg)
-	}
-	logger.Done()
-}
-
-func BenchmarkCallerXop(b *testing.B) {
-	logger := xop.NewSeed(xop.WithBase(
-		xopjson.New(
-			xopbytes.WriteToIOWriter(ioutil.Discard),
-			xopjson.WithEpochTime(time.Nanosecond),
-			xopjson.WithDurationFormat(xopjson.AsNanos),
-			xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-			xopjson.WithAttributesObject(false)))).
-		Request("disable").
-		Sub().
-		StackFrames(xopconst.InfoLevel, 1).
-		Log()
-	for i := 0; i < b.N; i++ {
-		logger.Info().String("rate", "15").Int("low", 16).Float32("high", 123.2).Msg(msg)
-	}
-	logger.Done()
-}
-
 ```
-

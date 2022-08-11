@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 )
 
-const noCounter = -10000000
-
 type EnumAttribute struct{ Attribute }
 
 // EmbeddedEnumAttribute is a type of enum set that can be added
@@ -71,18 +69,18 @@ func (s Make) TypedEnumAttribute(exampleValue interface{}) *EmbeddedEnumAttribut
 	return e
 }
 func (s Make) TryTypedEnumAttribute(exampleValue interface{}) (_ *EmbeddedEnumAttribute, err error) {
-	attribute := s.attribute(exampleValue, &err, AttributeTypeEnum)
+	emb := &EmbeddedEnumAttribute{
+		EnumAttribute: EnumAttribute{
+			Attribute: s.attribute(exampleValue, &err, AttributeTypeEnum),
+		},
+	}
 	if err != nil {
 		return nil, err
 	}
-	if attribute.reflectType == nil {
+	if emb.EnumAttribute.Attribute.reflectType == nil {
 		return nil, fmt.Errorf("cannot make enum attribute with a nil value")
 	}
-	return &EmbeddedEnumAttribute{
-		EnumAttribute: EnumAttribute{
-			Attribute: attribute,
-		},
-	}, nil
+	return emb, nil
 }
 
 // Iota creates new enums.  It cannotnot be combined with

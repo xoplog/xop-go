@@ -57,7 +57,6 @@ func SetByB3Sampled(b *trace.Bundle, h string) {
 	case "0":
 		b.Trace.Flags().SetBytes([]byte{0})
 	}
-	return
 }
 
 // X-B3-ParentSpanID
