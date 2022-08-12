@@ -23,6 +23,25 @@ const (
 	debugTspan = true
 )
 
+func TestASingleLine(t *testing.T) {
+	var buffer bytes.Buffer
+	jlog := xopjson.New(
+		xopbytes.WriteToIOWriter(&buffer),
+		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithDurationFormat(xopjson.AsNanos),
+		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+		xopjson.WithBufferedLines(8*1024*1024),
+		xopjson.WithAttributesObject(true),
+	)
+	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
+	log.Info().String("foo", "bar").Int("num", 38).Msg("a test line")
+	log.Error().Msg("basic error message")
+	log.Flush()
+	log.Done()
+	s := buffer.String()
+	t.Log(s)
+}
+
 func TestNoBuffer(t *testing.T) {
 	var buffer bytes.Buffer
 	jlog := xopjson.New(

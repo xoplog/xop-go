@@ -92,7 +92,7 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	rq.Time("ts", ts)
 	rq.dataBuffer.AppendByte('}')
 	if logger.perRequestBufferLimit != 0 {
-		request.completedBuilders <- &rq
+		request.completedBuilders <- rq
 	} else {
 		_, err := request.writer.Write(rq.dataBuffer.B)
 		if err != nil {
@@ -188,7 +188,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 	rq.Time("ts", ts)
 	rq.dataBuffer.AppendByte('}')
 	if s.request.logger.perRequestBufferLimit != 0 {
-		s.request.completedBuilders <- &rq
+		s.request.completedBuilders <- rq
 	} else {
 		_, err := s.request.writer.Write(rq.dataBuffer.B)
 		if err != nil {
@@ -208,7 +208,7 @@ func (s *span) FlushAttributes() {
 	rq.appendAttributes(s.attributes)
 	rq.dataBuffer.AppendByte('}')
 	if s.request.logger.perRequestBufferLimit != 0 {
-		s.request.completedBuilders <- &rq
+		s.request.completedBuilders <- rq
 	} else {
 		_, err := s.request.writer.Write(rq.dataBuffer.B)
 		if err != nil {
@@ -228,15 +228,29 @@ func (s *span) NoPrefill() xopbase.Prefilled {
 	}
 }
 
-func (s *span) builder() builder {
-	b := builder{
-		span: s,
-		dataBuffer: xoputil.JBuilder{
-			B:        make([]byte, 0, minBuffer),
-			FastKeys: s.logger.fastKeys,
-		},
+func (b *builder) reset(s *span) {
+	b.span = s
+	b.dataBuffer.B = b.dataBuffer.B[:0]
+	b.attributesWanted = false
+	b.attributesStarted = false
+}
+
+func (s *span) builder() *builder {
+	bRaw := s.request.logger.builderPool.Get()
+	var b *builder
+	if bRaw != nil {
+		b = bRaw.(*builder)
+		b.reset(s)
+	} else {
+		b = &builder{
+			span: s,
+			dataBuffer: xoputil.JBuilder{
+				B:        make([]byte, 0, minBuffer),
+				FastKeys: s.logger.fastKeys,
+			},
+		}
+		b.encoder = json.NewEncoder(&b.dataBuffer)
 	}
-	b.encoder = json.NewEncoder(&b.dataBuffer)
 	return b
 }
 
@@ -264,11 +278,21 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 
 func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
-	l := &line{
-		builder:              p.span.builder(),
-		level:                level,
-		timestamp:            t,
-		prefillMsgPreEncoded: p.preEncodedMsg,
+	var l *line
+	lRaw := p.span.request.logger.linePool.Get()
+	if lRaw != nil {
+		l = lRaw.(*line)
+		l.builder.reset(p.span)
+		l.level = level
+		l.timestamp = t
+		l.prefillMsgPreEncoded = p.preEncodedMsg
+	} else {
+		l = &line{
+			builder:              p.span.builder(),
+			level:                level,
+			timestamp:            t,
+			prefillMsgPreEncoded: p.preEncodedMsg,
+		}
 	}
 	l.dataBuffer.AppendByte('{') // }
 	l.Int("lvl", int64(level))
@@ -357,19 +381,17 @@ func (l *line) Static(m string) {
 }
 
 func (b *builder) reclaimMemory() {
-	// TODO have pool of builders
 	if len(b.dataBuffer.B) > maxBufferToKeep {
-		b.dataBuffer = xoputil.JBuilder{
-			B:        make([]byte, 0, minBuffer),
-			FastKeys: b.span.logger.fastKeys,
-		}
-		b.encoder = json.NewEncoder(&b.dataBuffer)
+		return
 	}
+	b.span.request.logger.builderPool.Put(b)
 }
 
 func (l *line) reclaimMemory() {
-	// TODO have pool of Lines
-	l.builder.reclaimMemory()
+	if len(l.dataBuffer.B) > maxBufferToKeep {
+		return
+	}
+	l.span.request.logger.linePool.Put(l)
 }
 
 func (l *line) Template(m string) {

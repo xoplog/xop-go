@@ -46,6 +46,9 @@ type Logger struct {
 	perRequestBufferLimit int
 	attributesObject      bool // TODO: implement
 	closeRequest          chan struct{}
+	builderPool           sync.Pool // filled with *builder
+	linePool              sync.Pool // filled with *line
+	// prefilledPool	sync.Pool
 }
 
 type request struct {
@@ -73,7 +76,7 @@ type span struct {
 }
 
 type prefilling struct {
-	builder
+	*builder
 }
 
 type prefilled struct {
@@ -83,7 +86,7 @@ type prefilled struct {
 }
 
 type line struct {
-	builder
+	*builder
 	level                xopconst.Level
 	timestamp            time.Time
 	prefillMsgPreEncoded []byte
