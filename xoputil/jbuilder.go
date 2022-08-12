@@ -49,6 +49,13 @@ func (b *JBuilder) Reset() {
 	b.B = b.B[:0]
 }
 
+// String adds a JSON-encoded string that is known to not need escaping
+func (b *JBuilder) SafeString(v string) {
+	b.B = append(b.B, '"')
+	b.AppendString(v)
+	b.B = append(b.B, '"')
+}
+
 // String adds a JSON-encoded string
 func (b *JBuilder) String(v string) {
 	b.B = append(b.B, '"')

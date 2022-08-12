@@ -161,7 +161,7 @@ func WithSpanTags(tagOption TagOption) Option {
 // Flush() is called.  If not, lines are emitted as they're completed.
 // A value of zero (the default) indicates that lines are not buffered.
 //
-// A value less than 1024 will panic.  8MB is the suggested value.
+// A value less than 1024 will panic.  1MB is the suggested value.
 func WithBufferedLines(bufferSize int) Option {
 	if bufferSize < 1024 {
 		panic("bufferSize too small")

@@ -104,15 +104,15 @@ func (s Make) EmbeddedEnumAttribute() *IotaEnumAttribute {
 }
 
 func (s Make) TryEmbeddedEnumAttribute() (_ *IotaEnumAttribute, err error) {
-	attribute := s.attribute(EmbeddedEnum(enum{}), &err, AttributeTypeEnum)
+	ie := &IotaEnumAttribute{
+		EnumAttribute: EnumAttribute{
+			Attribute: s.attribute(EmbeddedEnum(enum{}), &err, AttributeTypeEnum),
+		},
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &IotaEnumAttribute{
-		EnumAttribute: EnumAttribute{
-			Attribute: attribute,
-		},
-	}, nil
+	return ie, nil
 }
 
 func (e *EmbeddedEnumAttribute) AddStringer(v fmt.Stringer) EmbeddedEnum {

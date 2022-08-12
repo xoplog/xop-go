@@ -23,55 +23,6 @@ const (
 	debugTspan = true
 )
 
-func TestASingleLine(t *testing.T) {
-	var buffer bytes.Buffer
-	jlog := xopjson.New(
-		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Nanosecond),
-		xopjson.WithDurationFormat(xopjson.AsNanos),
-		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-		xopjson.WithBufferedLines(8*1024*1024),
-		xopjson.WithAttributesObject(true),
-	)
-	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
-	log.Info().String("foo", "bar").Int("num", 38).Msg("a test line")
-	log.Error().Msg("basic error message")
-	log.Flush()
-	log.Done()
-	s := buffer.String()
-	t.Log(s)
-}
-
-func TestNoBuffer(t *testing.T) {
-	var buffer bytes.Buffer
-	jlog := xopjson.New(
-		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Nanosecond),
-		xopjson.WithDurationFormat(xopjson.AsNanos),
-		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-		xopjson.WithBufferedLines(8*1024*1024),
-		xopjson.WithAttributesObject(true),
-	)
-	tlog := xoptest.New(t)
-	t.Log(buffer.String())
-	log := xop.NewSeed(xop.WithBase(jlog), xop.WithBase(tlog)).Request(t.Name())
-	log.Info().Msg("basic info message")
-	log.Error().Msg("basic error message")
-	log.Alert().Msg("basic alert message")
-	log.Debug().Msg("basic debug message")
-	log.Trace().Msg("basic trace message")
-	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
-	ss := log.Sub().Fork("a fork").Wait()
-	ss.Alert().String("frightening", "stuff").Static("like a rock")
-	log.Done()
-	ss.Debug().Msg("sub-span debug message")
-	ss.Done()
-
-	t.Log(buffer.String())
-
-	newChecker(t, tlog, true).check(t, &buffer)
-}
-
 type supersetObject struct {
 	// lines, spans, and requests
 
@@ -112,6 +63,55 @@ type checker struct {
 	messagesNotSeen     map[string][]int
 	spanIndex           map[string]int
 	requestIndex        map[string]int
+}
+
+func TestASingleLine(t *testing.T) {
+	var buffer bytes.Buffer
+	jlog := xopjson.New(
+		xopbytes.WriteToIOWriter(&buffer),
+		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithDurationFormat(xopjson.AsNanos),
+		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+		xopjson.WithBufferedLines(8*1024*1024),
+		xopjson.WithAttributesObject(true),
+	)
+	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
+	log.Info().String("foo", "bar").Int("blast", 99).Msg("a test line")
+	log.Error().Msg("basic error message")
+	log.Flush()
+	log.Done()
+	s := buffer.String()
+	t.Log(s)
+}
+
+func TestNoBuffer(t *testing.T) {
+	var buffer bytes.Buffer
+	jlog := xopjson.New(
+		xopbytes.WriteToIOWriter(&buffer),
+		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithDurationFormat(xopjson.AsNanos),
+		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+		xopjson.WithBufferedLines(8*1024*1024),
+		xopjson.WithAttributesObject(true),
+	)
+	tlog := xoptest.New(t)
+	t.Log(buffer.String())
+	log := xop.NewSeed(xop.WithBase(jlog), xop.WithBase(tlog)).Request(t.Name())
+	log.Info().Msg("basic info message")
+	log.Error().Msg("basic error message")
+	log.Alert().Msg("basic alert message")
+	log.Debug().Msg("basic debug message")
+	log.Trace().Msg("basic trace message")
+	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+	ss := log.Sub().Fork("a fork").Wait()
+	ss.Alert().String("frightening", "stuff").Static("like a rock")
+	log.Done()
+	ss.Debug().Msg("sub-span debug message")
+	ss.Done()
+
+	t.Log(buffer.String())
+
+	newChecker(t, tlog, true).check(t, &buffer)
 }
 
 func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool) *checker {

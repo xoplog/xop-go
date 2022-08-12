@@ -72,10 +72,10 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	request.allSpans[0] = &request.span
 
 	rq := request.span.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"xop":"request","trace.id":`))
+	rq.dataBuffer.AppendBytes([]byte(`{"type":"request","trace.id":"`))
 	rq.dataBuffer.AppendString(trace.Trace.TraceIDString())
-	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
-	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.dataBuffer.AppendBytes([]byte(`","span.id":`))
+	rq.dataBuffer.SafeString(trace.Trace.SpanIDString())
 	if !trace.TraceParent.IsZero() {
 		rq.dataBuffer.AppendBytes([]byte(`,"trace.parent":`))
 		rq.dataBuffer.AppendString(trace.TraceParent.HeaderString())
@@ -90,7 +90,7 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	}
 	rq.String("span.name", name)
 	rq.Time("ts", ts)
-	rq.dataBuffer.AppendByte('}')
+	rq.dataBuffer.AppendBytes([]byte{'}', '\n'})
 	if logger.perRequestBufferLimit != 0 {
 		request.completedBuilders <- rq
 	} else {
@@ -121,6 +121,16 @@ func (r *request) maintainBuffer() {
 			case <-r.flushRequest:
 				r.flushBuffer()
 				r.flushComplete <- struct{}{}
+			case builder := <-r.completedBuilders:
+				if len(builder.dataBuffer.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
+					r.flushBuffer()
+				}
+				if len(builder.dataBuffer.B) > r.logger.perRequestBufferLimit {
+					// TODO: split into multiple writes
+				}
+				r.writeBuffer = append(r.writeBuffer, builder.dataBuffer.B...)
+				builder.reclaimMemory()
+				
 			case line := <-r.completedLines:
 				if len(line.dataBuffer.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
 					r.flushBuffer()
@@ -177,16 +187,18 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		startTime: ts,
 	}
 	n.attributes.Reset()
-	s.request.allSpansLock.Lock()
-	s.request.allSpans = append(s.request.allSpans, n)
-	s.request.allSpansLock.Unlock()
+	func() {
+		s.request.allSpansLock.Lock()
+		defer s.request.allSpansLock.Unlock()
+		s.request.allSpans = append(s.request.allSpans, n)
+	}()
 
 	rq := s.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.id":`))
-	rq.dataBuffer.AppendString(trace.Trace.SpanIDString())
+	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.id":`))
+	rq.dataBuffer.SafeString(trace.Trace.SpanIDString())
 	rq.String("span.name", name)
 	rq.Time("ts", ts)
-	rq.dataBuffer.AppendByte('}')
+	rq.dataBuffer.AppendBytes([]byte{'}', '\n'})
 	if s.request.logger.perRequestBufferLimit != 0 {
 		s.request.completedBuilders <- rq
 	} else {
@@ -202,8 +214,8 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 
 func (s *span) FlushAttributes() {
 	rq := s.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"xop":"span","span.update":true,"span.id":`))
-	rq.dataBuffer.AppendString(s.trace.Trace.SpanIDString())
+	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.update":true,"span.id":`))
+	rq.dataBuffer.SafeString(s.trace.Trace.SpanIDString())
 	rq.Duration("dur", time.Duration(s.endTime-s.startTime.UnixNano()))
 	rq.appendAttributes(s.attributes)
 	rq.dataBuffer.AppendByte('}')
@@ -320,19 +332,16 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	switch l.span.logger.tagOption {
 	case SpanIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"span.id":"`))
-		l.dataBuffer.AppendString(l.span.trace.Trace.SpanIDString())
-		l.dataBuffer.AppendByte('"')
+		l.dataBuffer.AppendBytes([]byte(`"span.id":`))
+		l.dataBuffer.SafeString(l.span.trace.Trace.SpanIDString())
 	case FullIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace.header":"`))
-		l.dataBuffer.AppendString(l.span.trace.Trace.HeaderString())
-		l.dataBuffer.AppendByte('"')
+		l.dataBuffer.AppendBytes([]byte(`"trace.header":`))
+		l.dataBuffer.SafeString(l.span.trace.Trace.HeaderString())
 	case TraceIDTagOption:
 		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace.id":"`))
-		l.dataBuffer.AppendString(l.span.trace.Trace.TraceIDString())
-		l.dataBuffer.AppendByte('"')
+		l.dataBuffer.AppendBytes([]byte(`"trace.id":`))
+		l.dataBuffer.SafeString(l.span.trace.Trace.TraceIDString())
 	case TraceSequenceNumberTagOption:
 		l.dataBuffer.Key("trace_num")
 		l.dataBuffer.Int64(l.span.request.idNum)
@@ -364,6 +373,7 @@ func (l *line) Msg(m string) {
 	l.dataBuffer.AppendBytes([]byte{
 		'"', // {
 		'}',
+		'\n',
 	})
 	if l.span.logger.perRequestBufferLimit != 0 {
 		l.span.request.completedLines <- l
@@ -402,7 +412,7 @@ func (l *line) Template(m string) {
 	l.dataBuffer.AppendString(`,"fmt":"tmpl","msg":`)
 	l.dataBuffer.String(m)
 	// {
-	l.dataBuffer.AppendByte('}')
+	l.dataBuffer.AppendBytes([]byte{'}', '\n'})
 	_, err := l.span.writer.Write(l.dataBuffer.B)
 	if err != nil {
 		l.span.request.errorFunc(err)
