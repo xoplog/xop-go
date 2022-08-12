@@ -2,7 +2,6 @@ package trace
 
 import (
 	"encoding/hex"
-	"math/rand"
 )
 
 // TraceState represents W3C tracing headers.
@@ -47,10 +46,6 @@ type Trace struct {
 	// request.  It's mandated by W3C and is useful when there are logs
 	// missing and the parent ids can't be tied together
 	traceID HexBytes16
-
-	// This is the recevied "parent-id" field.
-	// TODO: add methods and propagate
-	parentID HexBytes8
 
 	// This is the "parent-id" field in the header.  The W3C spec name for this
 	// causes confusion.  It's also considered the "span-id".
@@ -109,18 +104,6 @@ func NewSpanID() HexBytes8 {
 
 func NewTraceID() HexBytes16 {
 	return NewHexBytes16()
-}
-
-func randomBytesNotAllZero(byts []byte) {
-	if len(byts) == 0 {
-		panic("cannot have a random empty string")
-	}
-	for {
-		_, _ = rand.Read(byts)
-		if !allZero(byts) {
-			return
-		}
-	}
 }
 
 func allZero(byts []byte) bool {

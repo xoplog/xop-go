@@ -138,6 +138,9 @@ func main() {
 		if m := packageRE.FindStringSubmatch(line); m != nil {
 			currentPackage = m[1]
 		}
+		if errorRE.MatchString(line) {
+			panic(fmt.Errorf("found invalid //MACRO at line %d", index+1))
+		}
 		fmt.Print(line)
 	}
 }
