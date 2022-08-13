@@ -39,6 +39,9 @@ type Attribute struct {
 // an init() function.
 var DefaultNamespace = os.Args[0]
 
+// Make is used to construct attributes.
+// Some keys are reserved.  See https://github.com/muir/xop-go/blob/main/xopconst/reserved.go
+// for the list of reserved keys.  Some keys are already registered.
 type Make struct {
 	Key          string // the attribute name
 	Description  string // the attribute description
@@ -129,6 +132,10 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 	if prior, ok := registeredNames[s.Key]; ok {
 		return *prior, fmt.Errorf("duplicate attribute registration for '%s'", s.Key)
 	}
+	if _, ok := reservedKeys[s.Key]; ok {
+		return Attribute{}, fmt.Errorf("key is reserved for internal use '%s'", s.Key)
+	}
+
 	if s.Namespace == "" {
 		s.Namespace = DefaultNamespace
 	}

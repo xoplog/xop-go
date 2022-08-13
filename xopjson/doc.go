@@ -50,14 +50,28 @@ format is an integer representing microseconds since Jan 1 1970.
 "stack" will only be included if the logger options include sending stack frames.  By
 default stack frames are included with Error and Alert level logs.
 
+"span.id" is included when WithSpanTags(SpanIDTagOption) is used.
+
+"fmt":"tmpl" is included when the format of the line is a template (logged
+with .Template())
+
 Spans
 
 	{
 		"type": "span",
 		"name": "name provided by user creating span",
 		"trace_header": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00"
-		"dur": 822392,
+		"span.id":
+		"dur": 82239222902,
+		"span.ver": 0,
 	}
+
+Span.ver starts at zero.  The same span can be included in output more than once.  Each
+time the span is serialized, span.ver is incremented.  When a field is included in span
+output, it replaces any previous value.  Only changed fields are guaranteed to be output
+(with the exception of "type" and "span.id")
+
+"dur" will be included whenever span.ver is not zero.
 
 Requests
 

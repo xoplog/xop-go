@@ -65,14 +65,15 @@ type request struct {
 }
 
 type span struct {
-	endTime    int64 // XXX
-	attributes xoputil.AttributeBuilder
-	writer     xopbytes.BytesRequest
-	trace      trace.Bundle
-	logger     *Logger
-	name       string
-	request    *request
-	startTime  time.Time
+	endTime            int64
+	attributes         xoputil.AttributeBuilder
+	writer             xopbytes.BytesRequest
+	trace              trace.Bundle
+	logger             *Logger
+	name               string
+	request            *request
+	startTime          time.Time
+	serializationCount int32
 }
 
 type prefilling struct {
@@ -134,15 +135,15 @@ const (
 // figure out which span the line goes with.
 //
 // SpanIDTagOption indicates the the spanID should be included.  The key
-// is "span_id".
+// is "span.id".
 //
 // TraceIDTagOption indicates the traceID should be included.  If
 // TagLinesWithSpanSequence(true) was used, then the span can be derrived
-// that way.  The key is "trace_id".
+// that way.  The key is "trace.id".
 //
 // FullIDTagOption indicates that the traceID and the spanID should be
 // included.  This is the default with WithBufferedLines(false).
-// The key is "trace_header".
+// The key is "trace.header".
 //
 // TraceSequenceNumberTagOption indicates that that a trace sequence
 // number should be included in each line.  This also means that each

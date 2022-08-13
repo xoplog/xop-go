@@ -1,7 +1,6 @@
 package xopjson_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/muir/xop-go/xopjson"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoptest/xoptestutil"
+	"github.com/muir/xop-go/xoputil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,20 +39,22 @@ type supersetObject struct {
 
 	// requests & spans
 
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Duration int64  `json:"dur"`
 
 	// requests
 
-	Implmentation string `json:"impl"`
-	ParentID      string `json:"parent.id"`
-	RequestID     string `json:"request.id"`
-	State         string `json:"trace.state"`
-	Baggage       string `json:"trace.baggage"`
+	Implmentation  string `json:"impl"`
+	ParentID       string `json:"parent.id"`
+	RequestID      string `json:"request.id"`
+	State          string `json:"trace.state"`
+	Baggage        string `json:"trace.baggage"`
+	RequestVersion int    `json:"request.ver"`
 
 	// spans
 
-	Update bool `json:"span.update"`
+	SpanVersion int `json:"span.ver"`
 }
 
 type checker struct {
@@ -66,10 +68,10 @@ type checker struct {
 }
 
 func TestASingleLine(t *testing.T) {
-	var buffer bytes.Buffer
+	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDurationFormat(xopjson.AsNanos),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithBufferedLines(8*1024*1024),
@@ -85,10 +87,10 @@ func TestASingleLine(t *testing.T) {
 }
 
 func TestNoBuffer(t *testing.T) {
-	var buffer bytes.Buffer
+	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDurationFormat(xopjson.AsNanos),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithBufferedLines(8*1024*1024),
@@ -105,9 +107,11 @@ func TestNoBuffer(t *testing.T) {
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 	ss := log.Sub().Fork("a fork").Wait()
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
+	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 	log.Done()
 	ss.Debug().Msg("sub-span debug message")
 	ss.Done()
+	log.Flush()
 
 	t.Log(buffer.String())
 
@@ -163,19 +167,20 @@ func (c *checker) check(t *testing.T, stream io.Reader) {
 		enc, err := json.Marshal(generic)
 		require.NoError(t, err)
 
-		t.Logf("check: %s", string(enc))
-
 		var super supersetObject
 		err = json.Unmarshal(enc, &super)
-		require.NoErrorf(t, err, "decode re-encoded")
+		require.NoErrorf(t, err, "decode re-encoded: %s", string(enc))
 
 		switch super.Type {
 		case "", "line":
+			t.Logf("check line: %s", string(enc))
 			c.line(t, super)
 		case "span":
+			t.Logf("check span: %s", string(enc))
 			c.span(t, super)
 		case "request":
-			// c.request(t, super)
+			t.Logf("check span: %s", string(enc))
+			c.request(t, super)
 		}
 	}
 	for _, ia := range c.messagesNotSeen {
@@ -198,7 +203,46 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
 	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
+	compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes")
 }
 
 func (c *checker) span(t *testing.T, super supersetObject) {
+	assert.Empty(t, super.Level, "no level expected")
+	if super.SpanVersion > 0 {
+		assert.NotEmpty(t, super.Duration, "duration is set")
+	} else {
+		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
+	}
+}
+
+func (c *checker) request(t *testing.T, super supersetObject) {
+	assert.Empty(t, super.Level, "no level expected")
+	if super.RequestVersion > 0 {
+		assert.NotEmpty(t, super.Duration, "duration is set")
+	} else {
+		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
+	}
+}
+
+func compareData(t *testing.T, a map[string]interface{}, aDesc string, b map[string]interface{}, bDesc string) {
+	if len(a) == 0 && len(b) == 0 {
+		return
+	}
+	aEnc, err := json.Marshal(a)
+	if !assert.NoErrorf(t, err, "marshal %s", aDesc) {
+		return
+	}
+	var aRedone map[string]interface{}
+	if !assert.NoErrorf(t, json.Unmarshal(aEnc, &aRedone), "remarshal %s", aDesc) {
+		return
+	}
+	bEnc, err := json.Marshal(b)
+	if !assert.NoErrorf(t, err, "marshal %s", bDesc) {
+		return
+	}
+	var bRedone map[string]interface{}
+	if !assert.NoErrorf(t, json.Unmarshal(bEnc, &bRedone), "remarshal %s", bDesc) {
+		return
+	}
+	assert.Equalf(t, aRedone, bRedone, "%s vs %s", aDesc, bDesc)
 }

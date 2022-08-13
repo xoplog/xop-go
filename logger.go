@@ -274,11 +274,16 @@ func (l *Log) notBoring() {
 // Done is used to indicate that a seed.Reqeust(), log.Fork().Wait(), or
 // log.Step().Wait() is done.  When all of the parts of a request are
 // finished, the log is automatically flushed.
+//
+// Done is not synchronous and can return before logs are flushed (assuming
+// that the Done call means that all the parts of the request are
+// finished and the log should get flushed).  To make sure the log is
+// flushed, call Flush().
 func (l *Log) Done() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
 	l.span.base.Done(time.Now())
 	if remaining <= 0 {
-		l.Flush()
+		go l.Flush()
 	} else {
 		l.enableFlushTimer()
 	}
@@ -367,6 +372,12 @@ func (ll *LogLine) Msg(msg string) {
 	ll.log.enableFlushTimer()
 }
 
+func (ll *LogLine) Msgf(msg string, v ...interface{}) {
+	if !ll.skip {
+		ll.Msg(fmt.Sprintf(msg, v...))
+	}
+}
+
 // Static is the same as Msg, but it hints that the supplied string is
 // constant rather than something generated.  Since it's static, base
 // loggers may keep them a dictionary and send references.
@@ -390,7 +401,6 @@ func (l *Log) Alert() *LogLine {
 	return l.LogLine(xopconst.AlertLevel)
 }
 
-func (ll *LogLine) Msgf(msg string, v ...interface{})           { ll.Msg(fmt.Sprintf(msg, v...)) }
 func (ll *LogLine) Msgs(v ...interface{})                       { ll.Msg(fmt.Sprint(v...)) }
 func (ll *LogLine) Int(k string, v int) *LogLine                { ll.line.Int(k, int64(v)); return ll }
 func (ll *LogLine) Int8(k string, v int8) *LogLine              { ll.line.Int(k, int64(v)); return ll }
