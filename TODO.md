@@ -43,6 +43,9 @@
 
 # Just do it (build ready)
 
+- move xoputil to internal/xoputil -- at least for now since
+  the APIs in xoputil are less stable than the rest of the code
+
 - Better receiver names
 
   - change `func (l *Log)` to `func (log *Log)` everywhere
@@ -152,6 +155,9 @@
     - per-key buffers
     - 64 buffers?
     - 64 bytes each?
+
+  - how to make protobuf faster (when building OTEL compatability):
+    [notes](https://blog.najaryan.net/posts/partial-protobuf-encoding/?s=09)
 
 - Standard tracing
 

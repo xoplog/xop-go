@@ -1,7 +1,6 @@
 package xopjson_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/muir/xop-go/xopjson"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoptest/xoptestutil"
+	"github.com/muir/xop-go/xoputil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,10 +66,10 @@ type checker struct {
 }
 
 func TestASingleLine(t *testing.T) {
-	var buffer bytes.Buffer
+	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDurationFormat(xopjson.AsNanos),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithBufferedLines(8*1024*1024),
@@ -85,10 +85,10 @@ func TestASingleLine(t *testing.T) {
 }
 
 func TestNoBuffer(t *testing.T) {
-	var buffer bytes.Buffer
+	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Nanosecond),
+		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDurationFormat(xopjson.AsNanos),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithBufferedLines(8*1024*1024),
@@ -108,6 +108,7 @@ func TestNoBuffer(t *testing.T) {
 	log.Done()
 	ss.Debug().Msg("sub-span debug message")
 	ss.Done()
+	log.Flush()
 
 	t.Log(buffer.String())
 
