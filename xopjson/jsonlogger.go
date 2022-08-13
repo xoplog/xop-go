@@ -29,7 +29,7 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
 		writer:       w,
 		id:           uuid.New(),
-		timeDivisor:  time.Millisecond,
+		timeDivisor:  time.Microsecond,
 		closeRequest: make(chan struct{}),
 	}
 	for _, f := range opts {
@@ -196,7 +196,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 	}()
 
 	rq := s.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.id":`))
+	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
 	rq.dataBuffer.SafeString(trace.Trace.SpanIDString())
 	rq.String("span.name", name)
 	rq.Time("ts", ts)
@@ -216,7 +216,10 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 
 func (s *span) FlushAttributes() {
 	rq := s.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.update":true,"span.id":`))
+	s.serializationCount++
+	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.ver":`))
+	rq.dataBuffer.Int64(int64(s.serializationCount))
+	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
 	rq.dataBuffer.SafeString(s.trace.Trace.SpanIDString())
 	rq.Duration("dur", time.Duration(s.endTime-s.startTime.UnixNano()))
 	rq.appendAttributes(s.attributes)
