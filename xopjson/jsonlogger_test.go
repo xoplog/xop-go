@@ -72,7 +72,7 @@ func TestASingleLine(t *testing.T) {
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
 		xopjson.WithEpochTime(time.Microsecond),
-		xopjson.WithDurationFormat(xopjson.AsNanos),
+		xopjson.WithDuration("dur", xopjson.AsString),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithBufferedLines(8*1024*1024),
 		xopjson.WithAttributesObject(true),
@@ -91,7 +91,7 @@ func TestNoBuffer(t *testing.T) {
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
 		xopjson.WithEpochTime(time.Microsecond),
-		xopjson.WithDurationFormat(xopjson.AsNanos),
+		xopjson.WithDuration("dur", xopjson.AsMicros),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithBufferedLines(8*1024*1024),
 		xopjson.WithAttributesObject(true),
@@ -105,13 +105,14 @@ func TestNoBuffer(t *testing.T) {
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+
 	ss := log.Sub().Fork("a fork").Wait()
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
-	log.Done()
+
+	log.SyncDone()
 	ss.Debug().Msg("sub-span debug message")
-	ss.Done()
-	log.Flush()
+	ss.SyncDone()
 
 	t.Log(buffer.String())
 
@@ -213,6 +214,7 @@ func (c *checker) span(t *testing.T, super supersetObject) {
 	} else {
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 	}
+	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 
 func (c *checker) request(t *testing.T, super supersetObject) {
@@ -222,6 +224,7 @@ func (c *checker) request(t *testing.T, super supersetObject) {
 	} else {
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 	}
+	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 
 func compareData(t *testing.T, a map[string]interface{}, aDesc string, b map[string]interface{}, bDesc string) {

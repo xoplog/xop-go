@@ -106,3 +106,11 @@ func (b *JBuilder) UncheckedString(v string) {
 	b.B = append(b.B, v...)
 	b.B = append(b.B, '"')
 }
+
+func BuildKey(v string) []byte {
+	b := &JBuilder{}
+	b.B = append(b.B, ',')
+	b.String(v)
+	b.B = append(b.B, ':')
+	return b.B
+}

@@ -21,7 +21,7 @@ var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-type Option func(*Logger)
+type Option func(*Logger, *xoputil.Prealloc)
 
 type timeOption int
 
@@ -48,7 +48,13 @@ type Logger struct {
 	closeRequest          chan struct{}
 	builderPool           sync.Pool // filled with *builder
 	linePool              sync.Pool // filled with *line
-	// prefilledPool	sync.Pool
+	preallocatedKeys      [100]byte
+	durationKey           []byte
+	timestampKey          []byte
+	// TODO: keys [64]byte
+	// TODO: prefilledPool	sync.Pool
+	// TODO: durationKey []byte
+	// TODO: timeKey []byte
 }
 
 type request struct {
@@ -105,15 +111,17 @@ type DurationOption int
 
 const (
 	AsNanos   DurationOption = iota // int64(duration)
+	AsMicros                        // int64(duration / time.Milliscond)
 	AsMillis                        // int64(duration / time.Milliscond)
 	AsSeconds                       // int64(duration / time.Second)
 	AsString                        // duration.String()
 )
 
-// WithDurtionFormat specifies the format used for durations.
-// AsNanos is the default.
-func WithDurationFormat(durationFormat DurationOption) Option {
-	return func(l *Logger) {
+// WithDuration specifies the format used for durations. If
+// set, durations will be recorded for spans and requests.
+func WithDuration(key string, durationFormat DurationOption) Option {
+	return func(l *Logger, p *xoputil.Prealloc) {
+		l.durationKey = p.Pack(xoputil.BuildKey(key))
 		l.durationFormat = durationFormat
 	}
 }
@@ -153,7 +161,7 @@ const (
 // OmitTagOption indicates that no Span information should be included with
 // each Line object.
 func WithSpanTags(tagOption TagOption) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.tagOption = tagOption
 	}
 }
@@ -167,13 +175,13 @@ func WithBufferedLines(bufferSize int) Option {
 	if bufferSize < 1024 {
 		panic("bufferSize too small")
 	}
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.perRequestBufferLimit = bufferSize
 	}
 }
 
 func WithUncheckedKeys(b bool) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.fastKeys = b
 	}
 }
@@ -183,7 +191,7 @@ func WithUncheckedKeys(b bool) Option {
 // inside an "attributes" sub-object or part of the main
 // object.
 func WithAttributesObject(b bool) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.attributesObject = b
 	}
 }
@@ -194,7 +202,7 @@ func WithAttributesObject(b bool) Option {
 // See // https://github.com/phuslu/fasttime for the supported
 // formats.
 func WithStrftime(format string) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.timeOption = strftimeTime
 		l.timeFormat = format
 	}
@@ -203,7 +211,7 @@ func WithStrftime(format string) Option {
 // WithTimeFormat specifies the use of the "time" package's
 // Time.Format for formatting times.
 func WithTimeFormat(format string) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.timeOption = timeTimeFormat
 		l.timeFormat = format
 	}
@@ -219,7 +227,7 @@ func WithTimeFormat(format string) Option {
 // since 1970 starting in year 2038.  For microseconds, and
 // nanoseconds, a complicant parser alerady fails.
 func WithEpochTime(units time.Duration) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.timeOption = epochTime
 		l.timeDivisor = units
 	}
@@ -234,7 +242,7 @@ func WithEpochTime(units time.Duration) Option {
 // Note most JSON parsers can parse into an integer if given a
 // a quoted integer.
 func WithQuotedEpochTime(units time.Duration) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.timeOption = epochQuoted
 		l.timeDivisor = units
 	}
@@ -242,7 +250,7 @@ func WithQuotedEpochTime(units time.Duration) Option {
 
 // TODO
 func WithGoroutineID(b bool) Option {
-	return func(l *Logger) {
+	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.withGoroutine = b
 	}
 }

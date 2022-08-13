@@ -32,8 +32,9 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 		timeDivisor:  time.Microsecond,
 		closeRequest: make(chan struct{}),
 	}
+	prealloc := xoputil.NewPrealloc(log.preallocatedKeys[:])
 	for _, f := range opts {
-		f(log)
+		f(log, prealloc)
 	}
 	if log.tagOption == DefaultTagOption {
 		if log.perRequestBufferLimit > 0 {
@@ -56,10 +57,12 @@ func (logger *Logger) Close() {
 func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
-			logger: logger,
-			writer: logger.writer.Request(trace),
-			trace:  trace,
-			name:   name,
+			logger:    logger,
+			writer:    logger.writer.Request(trace),
+			trace:     trace,
+			name:      name,
+			startTime: ts,
+			endTime:   ts.UnixNano(),
 		},
 	}
 	if logger.tagOption == TraceSequenceNumberTagOption {
@@ -187,6 +190,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		name:      name,
 		request:   s.request,
 		startTime: ts,
+		endTime:   ts.UnixNano(),
 	}
 	n.attributes.Reset()
 	func() {
@@ -217,12 +221,20 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 func (s *span) FlushAttributes() {
 	rq := s.builder()
 	s.serializationCount++
-	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.ver":`))
+	if s == &s.request.span {
+		rq.dataBuffer.AppendBytes([]byte(`{"type":"request","request.ver":`)) // }
+	} else {
+		rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.ver":`)) // }
+	}
 	rq.dataBuffer.Int64(int64(s.serializationCount))
 	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
 	rq.dataBuffer.SafeString(s.trace.Trace.SpanIDString())
-	rq.Duration("dur", time.Duration(s.endTime-s.startTime.UnixNano()))
+	if s.request.logger.durationKey != nil {
+		rq.dataBuffer.AppendBytes(s.request.logger.durationKey)
+		rq.appendDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
+	}
 	rq.appendAttributes(s.attributes)
+	// {
 	rq.dataBuffer.AppendByte('}')
 	if s.request.logger.perRequestBufferLimit != 0 {
 		s.request.completedBuilders <- rq
@@ -562,6 +574,8 @@ func (b *builder) appendDuration(v time.Duration) {
 	switch b.span.logger.durationFormat {
 	case AsNanos:
 		b.dataBuffer.Int64(int64(v / time.Nanosecond))
+	case AsMicros:
+		b.dataBuffer.Int64(int64(v / time.Microsecond))
 	case AsMillis:
 		b.dataBuffer.Int64(int64(v / time.Millisecond))
 	case AsSeconds:
