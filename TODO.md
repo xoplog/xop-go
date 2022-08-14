@@ -144,6 +144,15 @@
 
   - mark all places in the code where an allocation happens `// allocate`
   - Use sync.Pool agressively to reduce allocations
+
+    - xop.Logger
+
+  - Replace flushers map with a flushers slice
+  - In xopjson
+
+    - track which spans have been modified
+    - pre-allocate span array
+
   - Improve upon sync.Pool
 
      Rebuild https://github.com/Workiva/go-datastructures/blob/master/queue/ring.go to be

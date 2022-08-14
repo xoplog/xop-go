@@ -154,7 +154,7 @@ func (b *JBuilder) escapes(s string) {
 // StringBody appends the body parts of a string (the bits
 // between the quotes).  It escapes characters that need
 // escaping for JSON.
-func (b *JBuilder) StringBody(s string) {
+func (b *JBuilder) AddStringBody(s string) {
 	for _, c := range []byte(s) {
 		if escapes[c] {
 			b.escapes(s)
@@ -164,7 +164,7 @@ func (b *JBuilder) StringBody(s string) {
 	b.B = append(b.B, s...)
 }
 
-func (b *JBuilder) EscapeBytes(n []byte) {
+func (b *JBuilder) AddEscapeBytes(n []byte) {
 	for _, c := range n {
 		if escapes[c] {
 			b.escapeb(n)

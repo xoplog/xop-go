@@ -18,8 +18,8 @@ import (
 type Log struct {
 	request   *Span
 	span      *Span
-	shared    *shared     // shared between spans in a request
-	settings  LogSettings // XXX added
+	shared    *shared // shared between spans in a request
+	settings  LogSettings
 	prefilled xopbase.Prefilled
 }
 
@@ -194,7 +194,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
 	}
 	log.span.base.Boring(true)
-	log.Span().String(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
+	log.Span().String(xopconst.SpanSequenceCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
 	log.sendPrefill()
 	return log
 }
@@ -280,10 +280,15 @@ func (l *Log) notBoring() {
 // finished and the log should get flushed).  To make sure the log is
 // flushed, call Flush().
 func (l *Log) Done() {
+	go l.SyncDone()
+}
+
+// TODO: make choice between SyncDone and Sync based on settings
+func (l *Log) SyncDone() {
 	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
 	l.span.base.Done(time.Now())
 	if remaining <= 0 {
-		go l.Flush()
+		l.Flush()
 	} else {
 		l.enableFlushTimer()
 	}

@@ -15,6 +15,8 @@ var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
 var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
 var packageRE = regexp.MustCompile(`^package (\w+)`)
+var conditionalRE = regexp.MustCompile(`^\s*//\s?CONDITIONAL (?:(?:ONLY:(\S+))|(?:SKIP:(\S+)))\s*$`)
+var endConditionalRE = regexp.MustCompile(`^\s*//\s?END CONDITIONAL\s*$`)
 
 var macros = map[string]map[string]string{
 	// ZZZAttribute are the span-attributes in the main logger.  These
@@ -190,11 +192,41 @@ func macroExpand(indent string, macro string, skipList string) {
 			"ZZZ": name,
 			"zzz": typ,
 		}
+		var skipping bool
 		for _, line := range lines {
+			if m := conditionalRE.FindStringSubmatch(line); m != nil {
+				if m[1] != "" {
+					// ONLY
+					skipping = true
+					for _, n := range strings.Split(m[1], ",") {
+						if n == name {
+							skipping = false
+							break
+						}
+					}
+				} else {
+					// SKIP
+					skipping = false
+					for _, n := range strings.Split(m[1], ",") {
+						if n == name {
+							skipping = true
+							break
+						}
+					}
+				}
+				continue
+			} else if endConditionalRE.MatchString(line) {
+				skipping = false
+				continue
+			}
+			if skipping {
+				continue
+			}
 			rewritten := zzzRE.ReplaceAllStringFunc(line, func(s string) string {
 				return replMap[s]
 			})
 			fmt.Print(rewritten)
 		}
+		skipping = false
 	}
 }

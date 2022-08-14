@@ -63,7 +63,7 @@ func (l *Log) Sub() *Sub {
 func (s *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 	seed := s.log.span.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&s.log.span.forkCounter, 1))
-	seed.spanSequenceCode += "." + base26(counter)
+	seed.spanSequenceCode += "." + base26(counter-1)
 	return s.log.newChildLog(seed.spanSeed, msg, s.settings)
 }
 
@@ -161,7 +161,7 @@ func (l *Log) sendPrefill() {
 		f(prefilling)
 	}
 	if l.settings.tagLinesWithSpanSequence {
-		prefilling.String(xopconst.SpanSequeneCode.Key(), l.span.seed.spanSequenceCode)
+		prefilling.String(xopconst.SpanSequenceCode.Key(), l.span.seed.spanSequenceCode)
 	}
 	l.prefilled = prefilling.PrefillComplete(l.settings.prefillMsg)
 }

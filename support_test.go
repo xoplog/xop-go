@@ -7,9 +7,15 @@ import (
 )
 
 func TestBase26(t *testing.T) {
-	assert.Equal(t, "A", base26(0), "0")
-	assert.Equal(t, "Z", base26(25), "25")
-	assert.Equal(t, "BA", base26(26), "26")
-	assert.Equal(t, "BB", base26(27), "27")
-	assert.Equal(t, "CA", base26(52), "52")
+	tc := map[int]string{
+		0:  "A",
+		1:  "B",
+		25: "Z",
+		26: "BA",
+		27: "BB",
+		52: "CA",
+	}
+	for num, want := range tc {
+		assert.Equalf(t, want, base26(num), "base26(%d)", num)
+	}
 }

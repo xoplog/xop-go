@@ -6,6 +6,7 @@ import (
 
 	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xoptest"
+	"github.com/muir/xop-go/xoputil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -26,9 +27,17 @@ func TestLogMethods(t *testing.T) {
 		assert.Equal(t, "basic trace message", lines[0].Message, "message")
 		assert.Equal(t, xopconst.TraceLevel, lines[0].Level, "level")
 	}
+	f := log.Sub().Fork("forkie")
+	f.Span().Int(xopconst.HTTPStatusCode, 204)
 	assert.Empty(t, tlog.FindLines(xoptest.MessageEquals("basic debug message")), "debug filtered out by log level")
 	assert.Equal(t, 1, tlog.CountLines(xoptest.MessageEquals("basic alert message")), "count alert")
 	assert.Equal(t, 1, tlog.CountLines(xoptest.TextContains("a test")), "count a test")
 	assert.Equal(t, 1, tlog.CountLines(xoptest.TextContains("a test bar")), "count a test foo")
 	assert.Equal(t, 1, tlog.CountLines(xoptest.TextContains("a test bar with 38")), "count a test foo with 38")
+	if assert.NotEmpty(t, tlog.Spans, "have a sub-span") {
+		assert.Equal(t, tlog.Spans[0].Metadata["span.seq"], ".A", "span sequence for fork")
+		assert.Equal(t, tlog.Spans[0].Metadata["http.status_code"], int64(204), "an explicit attribute")
+		assert.Equal(t, xoputil.BaseAttributeTypeString, tlog.Spans[0].MetadataTypes["span.seq"], "span.seq attribute type")
+		assert.Equal(t, xoputil.BaseAttributeTypeInt64, tlog.Spans[0].MetadataTypes["http.status_code"], "http status code attribute type")
+	}
 }
