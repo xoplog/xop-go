@@ -33,10 +33,8 @@ const (
 )
 
 type Logger struct {
+	builderConfig
 	writer                xopbytes.BytesWriter
-	timeOption            timeOption
-	timeFormat            string
-	timeDivisor           time.Duration
 	withGoroutine         bool
 	fastKeys              bool
 	durationFormat        DurationOption
@@ -57,6 +55,12 @@ type Logger struct {
 	// TODO: timeKey []byte
 }
 
+type builderConfig struct {
+	timeOption  timeOption
+	timeFormat  string
+	timeDivisor time.Duration
+}
+
 type request struct {
 	span
 	errorFunc         func(error)
@@ -72,7 +76,6 @@ type request struct {
 
 type span struct {
 	endTime            int64
-	attributes         xoputil.AttributeBuilder
 	writer             xopbytes.BytesRequest
 	trace              trace.Bundle
 	logger             *Logger
@@ -80,6 +83,7 @@ type span struct {
 	request            *request
 	startTime          time.Time
 	serializationCount int32
+	attributes         AttributeBuilder
 }
 
 type prefilling struct {

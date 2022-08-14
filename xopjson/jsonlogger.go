@@ -68,7 +68,7 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	if logger.tagOption == TraceSequenceNumberTagOption {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
-	request.attributes.Reset()
+	request.attributes.Init()
 	request.request = request
 	if logger.perRequestBufferLimit != 0 {
 		request.maintainBuffer()
@@ -192,7 +192,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		startTime: ts,
 		endTime:   ts.UnixNano(),
 	}
-	n.attributes.Reset()
+	n.attributes.Init()
 	func() {
 		s.request.allSpansLock.Lock()
 		defer s.request.allSpansLock.Unlock()
@@ -233,7 +233,7 @@ func (s *span) FlushAttributes() {
 		rq.dataBuffer.AppendBytes(s.request.logger.durationKey)
 		rq.appendDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
 	}
-	rq.appendAttributes(s.attributes)
+	s.attributes.Append(rq.dataBuffer)
 	// {
 	rq.dataBuffer.AppendByte('}')
 	if s.request.logger.perRequestBufferLimit != 0 {
@@ -585,196 +585,6 @@ func (b *builder) appendDuration(v time.Duration) {
 	default:
 		b.dataBuffer.UncheckedString(v.String())
 	}
-}
-
-func (b *builder) appendAttributes(a xoputil.AttributeBuilder) {
-	a.Lock.Lock()
-	defer a.Lock.Unlock()
-
-	if len(a.Any) != 0 {
-		for k, v := range a.Any {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendAny(v)
-		}
-	}
-	if len(a.Anys) != 0 {
-		for k, v := range a.Anys {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendAny(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Bool) != 0 {
-		for k, v := range a.Bool {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendBool(v)
-		}
-	}
-	if len(a.Bools) != 0 {
-		for k, v := range a.Bools {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendBool(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Enum) != 0 {
-		for k, v := range a.Enum {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendEnum(v)
-		}
-	}
-	if len(a.Enums) != 0 {
-		for k, v := range a.Enums {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendEnum(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Float64) != 0 {
-		for k, v := range a.Float64 {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendFloat64(v)
-		}
-	}
-	if len(a.Float64s) != 0 {
-		for k, v := range a.Float64s {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendFloat64(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Int64) != 0 {
-		for k, v := range a.Int64 {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendInt64(v)
-		}
-	}
-	if len(a.Int64s) != 0 {
-		for k, v := range a.Int64s {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendInt64(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Link) != 0 {
-		for k, v := range a.Link {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendLink(v)
-		}
-	}
-	if len(a.Links) != 0 {
-		for k, v := range a.Links {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendLink(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.String) != 0 {
-		for k, v := range a.String {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendString(v)
-		}
-	}
-	if len(a.Strings) != 0 {
-		for k, v := range a.Strings {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendString(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
-	if len(a.Time) != 0 {
-		for k, v := range a.Time {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendTime(v)
-		}
-	}
-	if len(a.Times) != 0 {
-		for k, v := range a.Times {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendTime(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
 }
 
 // TODO: allow custom formats

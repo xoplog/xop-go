@@ -55,18 +55,18 @@ func (logger *Logger) Close() {
 func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
-			logger: logger,
-			writer: logger.writer.Request(trace),
-			trace:  trace,
-			name:   name,
+			logger:    logger,
+			writer:    logger.writer.Request(trace),
+			trace:     trace,
+			name:      name,
 			startTime: ts,
-			endTime: ts.UnixNano(),
+			endTime:   ts.UnixNano(),
 		},
 	}
 	if logger.tagOption == TraceSequenceNumberTagOption {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
-	request.attributes.Reset()
+	request.attributes.Init()
 	request.request = request
 	if logger.perRequestBufferLimit != 0 {
 		request.maintainBuffer()
@@ -188,9 +188,9 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		name:      name,
 		request:   s.request,
 		startTime: ts,
-		endTime: ts.UnixNano(),
+		endTime:   ts.UnixNano(),
 	}
-	n.attributes.Reset()
+	n.attributes.Init()
 	func() {
 		s.request.allSpansLock.Lock()
 		defer s.request.allSpansLock.Unlock()
@@ -229,9 +229,9 @@ func (s *span) FlushAttributes() {
 	rq.dataBuffer.SafeString(s.trace.Trace.SpanIDString())
 	if s.request.logger.durationKey != nil {
 		rq.dataBuffer.AppendBytes(s.request.logger.durationKey)
-		rq.appendDuration(time.Duration(s.endTime-s.startTime.UnixNano()))
+		rq.appendDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
 	}
-	rq.appendAttributes(s.attributes)
+	s.attributes.Append(rq.dataBuffer)
 	// {
 	rq.dataBuffer.AppendByte('}')
 	if s.request.logger.perRequestBufferLimit != 0 {
@@ -583,36 +583,6 @@ func (b *builder) appendDuration(v time.Duration) {
 	default:
 		b.dataBuffer.UncheckedString(v.String())
 	}
-}
-
-func (b *builder) appendAttributes(a xoputil.AttributeBuilder) {
-	a.Lock.Lock()
-	defer a.Lock.Unlock()
-
-	//MACRO BaseAttribute
-	if len(a.ZZZ) != 0 {
-		for k, v := range a.ZZZ {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.appendZZZ(v)
-		}
-	}
-	if len(a.ZZZs) != 0 {
-		for k, v := range a.ZZZs {
-			if _, ok := a.Changed[k]; !ok {
-				continue
-			}
-			b.dataBuffer.Key(k)
-			b.dataBuffer.AppendByte('[')
-			for _, ve := range v {
-				b.appendZZZ(ve)
-			}
-			b.dataBuffer.AppendByte(']')
-		}
-	}
-	a.Changed = make(map[string]struct{})
 }
 
 // TODO: allow custom formats

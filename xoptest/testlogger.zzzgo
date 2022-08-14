@@ -54,7 +54,6 @@ type traceInfo struct {
 }
 
 type Span struct {
-	Attributes   xoputil.AttributeBuilder
 	lock         sync.Mutex
 	testLogger   *TestLogger
 	Trace        trace.Bundle
@@ -65,6 +64,7 @@ type Span struct {
 	Lines        []*Line
 	short        string
 	Metadata     map[string]interface{}
+	MetadataTypes     map[string]xoputil.BaseAttributeType
 	StartTime    time.Time
 	EndTime      int64
 	Name         string
@@ -115,9 +115,10 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 		short:      l.setShort(span, name),
 		StartTime:  ts,
 		Name:       name,
+		Metadata     : make(map[string]interface{}),
+		MetadataTypes     :make(map[string]xoputil.BaseAttributeType),
 	}
 	l.Requests = append(l.Requests, s)
-	s.Attributes.Reset()
 	return s
 }
 
@@ -161,8 +162,9 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 		short:      s.testLogger.setShort(span, name),
 		StartTime:  ts,
 		Name:       name,
+		Metadata     : make(map[string]interface{}),
+		MetadataTypes     :make(map[string]xoputil.BaseAttributeType),
 	}
-	n.Attributes.Reset()
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)
 	return n
@@ -277,6 +279,19 @@ func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 func (b *Builder) ZZZ(k string, v zzz) { b.Any(k, v) }
 
 // MACRO BaseAttribute
-func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { s.Attributes.MetadataZZZ(k, v) }
+func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { 
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()] ; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZ
+	}
+}
 
-// end

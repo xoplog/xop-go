@@ -1,0 +1,10 @@
+package xoputil
+
+type BaseAttributeType int
+
+const (
+	//MACRO BaseAttribute
+	BaseAttributeTypeZZZ BaseAttributeType = iota
+	//MACRO BaseAttribute
+	BaseAttributeTypeZZZArray BaseAttributeType = iota
+)

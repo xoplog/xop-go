@@ -194,7 +194,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
 	}
 	log.span.base.Boring(true)
-	log.Span().String(xopconst.SpanSequeneCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
+	log.Span().String(xopconst.SpanSequenceCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
 	log.sendPrefill()
 	return log
 }

@@ -58,20 +58,20 @@ type traceInfo struct {
 }
 
 type Span struct {
-	Attributes   xoputil.AttributeBuilder
-	lock         sync.Mutex
-	testLogger   *TestLogger
-	Trace        trace.Bundle
-	IsRequest    bool
-	Parent       *Span
-	Spans        []*Span
-	RequestLines []*Line
-	Lines        []*Line
-	short        string
-	Metadata     map[string]interface{}
-	StartTime    time.Time
-	EndTime      int64
-	Name         string
+	lock          sync.Mutex
+	testLogger    *TestLogger
+	Trace         trace.Bundle
+	IsRequest     bool
+	Parent        *Span
+	Spans         []*Span
+	RequestLines  []*Line
+	Lines         []*Line
+	short         string
+	Metadata      map[string]interface{}
+	MetadataTypes map[string]xoputil.BaseAttributeType
+	StartTime     time.Time
+	EndTime       int64
+	Name          string
 }
 
 type Prefilling struct {
@@ -113,15 +113,16 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	s := &Span{
-		testLogger: l,
-		IsRequest:  true,
-		Trace:      span,
-		short:      l.setShort(span, name),
-		StartTime:  ts,
-		Name:       name,
+		testLogger:    l,
+		IsRequest:     true,
+		Trace:         span,
+		short:         l.setShort(span, name),
+		StartTime:     ts,
+		Name:          name,
+		Metadata:      make(map[string]interface{}),
+		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 	}
 	l.Requests = append(l.Requests, s)
-	s.Attributes.Reset()
 	return s
 }
 
@@ -160,13 +161,14 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	n := &Span{
-		testLogger: s.testLogger,
-		Trace:      span,
-		short:      s.testLogger.setShort(span, name),
-		StartTime:  ts,
-		Name:       name,
+		testLogger:    s.testLogger,
+		Trace:         span,
+		short:         s.testLogger.setShort(span, name),
+		StartTime:     ts,
+		Name:          name,
+		Metadata:      make(map[string]interface{}),
+		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 	}
-	n.Attributes.Reset()
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)
 	return n
@@ -287,21 +289,130 @@ func (b *Builder) String(k string, v string)          { b.Any(k, v) }
 func (b *Builder) Time(k string, v time.Time)         { b.Any(k, v) }
 func (b *Builder) Uint(k string, v uint64)            { b.Any(k, v) }
 
-func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.Attributes.MetadataAny(k, v) }
-func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.Attributes.MetadataBool(k, v) }
-func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
-	s.Attributes.MetadataEnum(k, v)
+func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAnyArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAny
+	}
 }
-func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
-	s.Attributes.MetadataFloat64(k, v)
-}
-func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.Attributes.MetadataInt64(k, v) }
-func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
-	s.Attributes.MetadataLink(k, v)
-}
-func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
-	s.Attributes.MetadataString(k, v)
-}
-func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.Attributes.MetadataTime(k, v) }
 
-// end
+func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBoolArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBool
+	}
+}
+
+func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnumArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnum
+	}
+}
+
+func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64Array
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64
+	}
+}
+
+func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64Array
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64
+	}
+}
+
+func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLinkArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLink
+	}
+}
+
+func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeStringArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeString
+	}
+}
+
+func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if k.Multiple() {
+		if p, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+		} else {
+			s.Metadata[k.Key()] = []interface{}{v}
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTimeArray
+		}
+	} else {
+		s.Metadata[k.Key()] = v
+		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTime
+	}
+}

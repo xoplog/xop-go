@@ -13,7 +13,7 @@ var Boring = Make{Key: "boring", Namespace: "xop", Indexed: false, Prominence: 2
 		" log.Step()) or they're a request and log.Boring() has been called, and if" +
 		" there have has been nothing logged at the Error or Alert level"}.BoolAttribute()
 
-var SpanSequeneCode = Make{Key: "span.seq", Namespace: "xop", Indexed: false, Prominence: 500,
+var SpanSequenceCode = Make{Key: "span.seq", Namespace: "xop", Indexed: false, Prominence: 500,
 	Description: "sub-spans only: an indicator of how the sub-span relates to it's parent" +
 		" span.  A .n number indicates a sequential setp.  A .l letter indicates one fork of" +
 		" several things happening in parallel.  Automatically added to all sub-spans"}.StringAttribute()
