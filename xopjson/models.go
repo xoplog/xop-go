@@ -50,11 +50,9 @@ type Logger struct {
 	linePool              sync.Pool // filled with *line
 	preallocatedKeys      [100]byte
 	durationKey           []byte
-	timestampKey          []byte
-	// TODO: keys [64]byte
 	// TODO: prefilledPool	sync.Pool
-	// TODO: durationKey []byte
 	// TODO: timeKey []byte
+	// TODO: timestampKey          []byte
 }
 
 type request struct {
