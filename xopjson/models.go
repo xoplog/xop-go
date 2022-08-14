@@ -33,11 +33,13 @@ const (
 )
 
 type Logger struct {
-	builderConfig
 	writer                xopbytes.BytesWriter
 	withGoroutine         bool
 	fastKeys              bool
 	durationFormat        DurationOption
+	timeOption            timeOption
+	timeFormat            string
+	timeDivisor           time.Duration
 	id                    uuid.UUID
 	tagOption             TagOption
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
@@ -53,12 +55,6 @@ type Logger struct {
 	// TODO: prefilledPool	sync.Pool
 	// TODO: durationKey []byte
 	// TODO: timeKey []byte
-}
-
-type builderConfig struct {
-	timeOption  timeOption
-	timeFormat  string
-	timeDivisor time.Duration
 }
 
 type request struct {
@@ -104,7 +100,7 @@ type line struct {
 }
 
 type builder struct {
-	dataBuffer        xoputil.JBuilder
+	xoputil.JBuilder
 	encoder           *json.Encoder
 	span              *span
 	attributesStarted bool

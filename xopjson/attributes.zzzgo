@@ -1,6 +1,7 @@
 package xopjson
 
 import (
+	"encoding/json"
 	"sync"
 
 	"github.com/muir/xop-go/xopconst"
@@ -11,18 +12,25 @@ const minMap = 12
 const numSinglePrealloc = 20
 const numMultiPrealloc = 12
 
+// Writer implements io.Writer interface for json.Encoder
+func (a AttributeBuilder) Write(n []byte) (int, error) {
+	*a.encodeTarget = append(*a.encodeTarget, n...)
+	return len(n), nil
+}
+
 type AttributeBuilder struct {
-	lock          sync.Mutex
-	singlesBuf    [numSinglePrealloc]singleAttribute
-	multiBuf      [numMultiPrealloc]multiAttribute
-	singles       []singleAttribute
-	multis        []multiAttribute
-	Type          xoputil.BaseAttributeType
-	singleMap     map[string]*singleAttribute // available only when count > minMap
-	multiMap      map[string]*multiAttribute  // available only when count > minMap
-	anyChanged    bool
-	builderConfig *builderConfig
-	errorFunc     func(error)
+	lock         sync.Mutex
+	singlesBuf   [numSinglePrealloc]singleAttribute
+	multiBuf     [numMultiPrealloc]multiAttribute
+	singles      []singleAttribute
+	multis       []multiAttribute
+	Type         xoputil.BaseAttributeType
+	singleMap    map[string]*singleAttribute // available only when count > minMap
+	multiMap     map[string]*multiAttribute  // available only when count > minMap
+	anyChanged   bool
+	span         *span
+	encodeTarget *[]byte
+	encoder      *json.Encoder
 }
 
 type singleAttribute struct {
@@ -35,7 +43,7 @@ type multiAttribute struct {
 	attribute
 	Buf      [100]byte
 	Distinct map[string]struct{}
-	Builder  xoputil.JBuilder
+	Builder  builder
 }
 
 type attribute struct {
@@ -44,12 +52,13 @@ type attribute struct {
 	Type    xoputil.BaseAttributeType
 }
 
-func (a *AttributeBuilder) Init() {
-	a.singles = (a.singlesBuf[:])[:0]
-	a.multis = (a.multiBuf[:])[:0]
+func (a *AttributeBuilder) Init(s *span) {
+	a.singles = a.singlesBuf[:0]
+	a.multis = a.multiBuf[:0]
 	a.singleMap = nil
 	a.multiMap = nil
 	a.anyChanged = false
+	a.span = s
 }
 
 func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
@@ -102,9 +111,10 @@ func (a *AttributeBuilder) useMultiMap() {
 	}
 }
 
-func (m *multiAttribute) init(k string) {
+func (m *multiAttribute) init(a *AttributeBuilder, k string) {
 	m.Builder.B = m.Buf[:0]
-	m.Builder.String(k)
+	m.Builder.reset(a.span)
+	m.Builder.AddString(k)
 	if len(m.Builder.B) == len(k)+2 {
 		m.Name = m.Builder.B[1 : len(m.Builder.B)-1]
 	} else {
@@ -135,7 +145,7 @@ func (a *AttributeBuilder) addMulti(k string) *multiAttribute {
 			m = &multiAttribute{}
 			a.useMultiMap()
 		}
-		m.init(k)
+		m.init(a, k)
 		if a.multiMap != nil {
 			a.multiMap[k] = m
 		}
@@ -156,7 +166,7 @@ func (s *singleAttribute) init(k string) {
 	b := xoputil.JBuilder{
 		B: s.Buf[:0],
 	}
-	b.String(k)
+	b.AddString(k)
 	if len(b.B) == len(k)+2 {
 		s.Name = b.B[1 : len(b.B)-1]
 	} else {
@@ -198,15 +208,25 @@ func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
 }
 
 //MACRO BaseAttribute
-func (a *AttributeBuilder) ZZZ(k *xopconst.ZZZAttribute, v zzz) {
+func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	//CONDITIONAL ONLY:Any
+	if a.encoder == nil {
+		a.encoder = json.NewEncoder(a)
+		a.encoder.SetEscapeHTML(false)
+	}
+	//END CONDITIONAL
 	if k.Multiple() {
 		m := a.addMulti(k.Key())
 		m.Type = xoputil.BaseAttributeTypeZZZArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.ZZZ(v)
+		//CONDITIONAL ONLY:Any
+		a.encodeTarget = &m.Builder.B
+		m.Builder.encoder = a.encoder
+		//END CONDITIONAL
+		m.Builder.AddZZZ(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -223,10 +243,19 @@ func (a *AttributeBuilder) ZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeZZZ
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
+			//CONDITIONAL ONLY:Any
+			encoder: a.encoder,
+			//END CONDITIONAL
 		}
-		b.ZZZ(v)
+		//CONDITIONAL ONLY:Any
+		a.encodeTarget = &b.B
+		//END CONDITIONAL
+		b.AddZZZ(v)
 	}
 	a.anyChanged = true
 }

@@ -3,6 +3,7 @@
 package xopjson
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -17,16 +18,25 @@ const (
 	numMultiPrealloc  = 12
 )
 
+// Writer implements io.Writer interface for json.Encoder
+func (a AttributeBuilder) Write(n []byte) (int, error) {
+	*a.encodeTarget = append(*a.encodeTarget, n...)
+	return len(n), nil
+}
+
 type AttributeBuilder struct {
-	lock       sync.Mutex
-	singlesBuf [numSinglePrealloc]singleAttribute
-	multiBuf   [numMultiPrealloc]multiAttribute
-	singles    []singleAttribute
-	multis     []multiAttribute
-	Type       xoputil.BaseAttributeType
-	singleMap  map[string]*singleAttribute // available only when count > minMap
-	multiMap   map[string]*multiAttribute  // available only when count > minMap
-	anyChanged bool
+	lock         sync.Mutex
+	singlesBuf   [numSinglePrealloc]singleAttribute
+	multiBuf     [numMultiPrealloc]multiAttribute
+	singles      []singleAttribute
+	multis       []multiAttribute
+	Type         xoputil.BaseAttributeType
+	singleMap    map[string]*singleAttribute // available only when count > minMap
+	multiMap     map[string]*multiAttribute  // available only when count > minMap
+	anyChanged   bool
+	span         *span
+	encodeTarget *[]byte
+	encoder      *json.Encoder
 }
 
 type singleAttribute struct {
@@ -39,7 +49,7 @@ type multiAttribute struct {
 	attribute
 	Buf      [100]byte
 	Distinct map[string]struct{}
-	Builder  xoputil.JBuilder
+	Builder  builder
 }
 
 type attribute struct {
@@ -48,12 +58,13 @@ type attribute struct {
 	Type    xoputil.BaseAttributeType
 }
 
-func (a *AttributeBuilder) Init() {
-	a.singles = (a.singlesBuf[:])[:0]
-	a.multis = (a.multiBuf[:])[:0]
+func (a *AttributeBuilder) Init(s *span) {
+	a.singles = a.singlesBuf[:0]
+	a.multis = a.multiBuf[:0]
 	a.singleMap = nil
 	a.multiMap = nil
 	a.anyChanged = false
+	a.span = s
 }
 
 func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
@@ -106,9 +117,10 @@ func (a *AttributeBuilder) useMultiMap() {
 	}
 }
 
-func (m *multiAttribute) init(k string) {
+func (m *multiAttribute) init(a *AttributeBuilder, k string) {
 	m.Builder.B = m.Buf[:0]
-	m.Builder.String(k)
+	m.Builder.reset(a.span)
+	m.Builder.AddString(k)
 	if len(m.Builder.B) == len(k)+2 {
 		m.Name = m.Builder.B[1 : len(m.Builder.B)-1]
 	} else {
@@ -139,7 +151,7 @@ func (a *AttributeBuilder) addMulti(k string) *multiAttribute {
 			m = &multiAttribute{}
 			a.useMultiMap()
 		}
-		m.init(k)
+		m.init(a, k)
 		if a.multiMap != nil {
 			a.multiMap[k] = m
 		}
@@ -160,7 +172,7 @@ func (s *singleAttribute) init(k string) {
 	b := xoputil.JBuilder{
 		B: s.Buf[:0],
 	}
-	b.String(k)
+	b.AddString(k)
 	if len(b.B) == len(k)+2 {
 		s.Name = b.B[1 : len(b.B)-1]
 	} else {
@@ -201,15 +213,21 @@ func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
 	return s
 }
 
-func (a *AttributeBuilder) Any(k *xopconst.AnyAttribute, v interface{}) {
+func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	if a.encoder == nil {
+		a.encoder = json.NewEncoder(a)
+		a.encoder.SetEscapeHTML(false)
+	}
 	if k.Multiple() {
 		m := a.addMulti(k.Key())
 		m.Type = xoputil.BaseAttributeTypeAnyArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Any(v)
+		a.encodeTarget = &m.Builder.B
+		m.Builder.encoder = a.encoder
+		m.Builder.AddAny(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -226,15 +244,20 @@ func (a *AttributeBuilder) Any(k *xopconst.AnyAttribute, v interface{}) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeAny
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
+			encoder: a.encoder,
 		}
-		b.Any(v)
+		a.encodeTarget = &b.B
+		b.AddAny(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) Bool(k *xopconst.BoolAttribute, v bool) {
+func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -242,7 +265,7 @@ func (a *AttributeBuilder) Bool(k *xopconst.BoolAttribute, v bool) {
 		m.Type = xoputil.BaseAttributeTypeBoolArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Bool(v)
+		m.Builder.AddBool(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -259,15 +282,18 @@ func (a *AttributeBuilder) Bool(k *xopconst.BoolAttribute, v bool) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeBool
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.Bool(v)
+		b.AddBool(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -275,7 +301,7 @@ func (a *AttributeBuilder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 		m.Type = xoputil.BaseAttributeTypeEnumArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Enum(v)
+		m.Builder.AddEnum(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -292,15 +318,18 @@ func (a *AttributeBuilder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeEnum
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.Enum(v)
+		b.AddEnum(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) Float64(k *xopconst.Float64Attribute, v float64) {
+func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -308,7 +337,7 @@ func (a *AttributeBuilder) Float64(k *xopconst.Float64Attribute, v float64) {
 		m.Type = xoputil.BaseAttributeTypeFloat64Array
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Float64(v)
+		m.Builder.AddFloat64(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -325,15 +354,18 @@ func (a *AttributeBuilder) Float64(k *xopconst.Float64Attribute, v float64) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeFloat64
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.Float64(v)
+		b.AddFloat64(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) Int64(k *xopconst.Int64Attribute, v int64) {
+func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -341,7 +373,7 @@ func (a *AttributeBuilder) Int64(k *xopconst.Int64Attribute, v int64) {
 		m.Type = xoputil.BaseAttributeTypeInt64Array
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Int64(v)
+		m.Builder.AddInt64(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -358,15 +390,18 @@ func (a *AttributeBuilder) Int64(k *xopconst.Int64Attribute, v int64) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeInt64
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.Int64(v)
+		b.AddInt64(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) Link(k *xopconst.LinkAttribute, v trace.Trace) {
+func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -374,7 +409,7 @@ func (a *AttributeBuilder) Link(k *xopconst.LinkAttribute, v trace.Trace) {
 		m.Type = xoputil.BaseAttributeTypeLinkArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Link(v)
+		m.Builder.AddLink(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -391,15 +426,18 @@ func (a *AttributeBuilder) Link(k *xopconst.LinkAttribute, v trace.Trace) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeLink
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.Link(v)
+		b.AddLink(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) String(k *xopconst.StringAttribute, v string) {
+func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -407,7 +445,7 @@ func (a *AttributeBuilder) String(k *xopconst.StringAttribute, v string) {
 		m.Type = xoputil.BaseAttributeTypeStringArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.String(v)
+		m.Builder.AddString(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -424,15 +462,18 @@ func (a *AttributeBuilder) String(k *xopconst.StringAttribute, v string) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeString
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.String(v)
+		b.AddString(v)
 	}
 	a.anyChanged = true
 }
 
-func (a *AttributeBuilder) Time(k *xopconst.TimeAttribute, v time.Time) {
+func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if k.Multiple() {
@@ -440,7 +481,7 @@ func (a *AttributeBuilder) Time(k *xopconst.TimeAttribute, v time.Time) {
 		m.Type = xoputil.BaseAttributeTypeTimeArray
 		m.Builder.Comma()
 		lenBefore := len(m.Builder.B)
-		m.Builder.Time(v)
+		m.Builder.AddTime(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -457,10 +498,13 @@ func (a *AttributeBuilder) Time(k *xopconst.TimeAttribute, v time.Time) {
 	} else {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeTime
-		b := xoputil.JBuilder{
-			B: s.KeyValue,
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
 		}
-		b.Time(v)
+		b.AddTime(v)
 	}
 	a.anyChanged = true
 }

@@ -31,10 +31,12 @@ func (b *JBuilder) AppendByte(v byte) {
 	b.B = append(b.B, v)
 }
 
+// AppendBytes adds the bytes without wrapping or checking
 func (b *JBuilder) AppendBytes(v []byte) {
 	b.B = append(b.B, v...)
 }
 
+// AppendString adds the bytes without wrapping or checking
 func (b *JBuilder) AppendString(v string) {
 	b.B = append(b.B, v...)
 }
@@ -49,68 +51,60 @@ func (b *JBuilder) Reset() {
 	b.B = b.B[:0]
 }
 
-// String adds a JSON-encoded string that is known to not need escaping
-func (b *JBuilder) SafeString(v string) {
+// AddString adds a JSON-encoded string that is known to not need escaping
+func (b *JBuilder) AddSafeString(v string) {
 	b.B = append(b.B, '"')
 	b.AppendString(v)
 	b.B = append(b.B, '"')
 }
 
-// String adds a JSON-encoded string
-func (b *JBuilder) String(v string) {
+// AddString adds a JSON-encoded string
+func (b *JBuilder) AddString(v string) {
 	b.B = append(b.B, '"')
-	b.StringBody(v)
+	b.AddStringBody(v)
 	b.B = append(b.B, '"')
 }
 
-func (b *JBuilder) Uint64(i uint64) {
+func (b *JBuilder) AddUint64(i uint64) {
 	b.B = strconv.AppendUint(b.B, i, 10)
 }
 
-func (b *JBuilder) Float64(f float64) {
+func (b *JBuilder) AddFloat64(f float64) {
 	b.B = strconv.AppendFloat(b.B, f, 'f', -1, 64)
 }
 
-func (b *JBuilder) Int64(i int64) {
+func (b *JBuilder) AddInt64(i int64) {
 	b.B = strconv.AppendInt(b.B, i, 10)
 }
 
-func (b *JBuilder) Bool(v bool) {
+func (b *JBuilder) AddBool(v bool) {
 	b.B = strconv.AppendBool(b.B, v)
 }
 
 // Key() calls Comma() and then adds " k " :
 // It skips checking if the key needs escape if FastKeys
 // is true.
-func (b *JBuilder) Key(v string) {
+func (b *JBuilder) AddKey(v string) {
 	if b.FastKeys {
-		b.UncheckedKey(v)
+		b.AddUncheckedKey(v)
 	} else {
 		b.Comma()
-		b.String(v)
+		b.AddString(v)
 		b.B = append(b.B, ':')
 	}
 }
 
-func (b *JBuilder) UncheckedKey(v string) {
+func (b *JBuilder) AddUncheckedKey(v string) {
 	b.Comma()
 	b.B = append(b.B, '"')
 	b.B = append(b.B, v...)
 	b.B = append(b.B, '"', ':')
 }
 
-// UncheckedString does not check to see if the string
-// has any characters in it that would need JSON escaping.
-func (b *JBuilder) UncheckedString(v string) {
-	b.B = append(b.B, '"')
-	b.B = append(b.B, v...)
-	b.B = append(b.B, '"')
-}
-
 func BuildKey(v string) []byte {
 	b := &JBuilder{}
 	b.B = append(b.B, ',')
-	b.String(v)
+	b.AddString(v)
 	b.B = append(b.B, ':')
 	return b.B
 }

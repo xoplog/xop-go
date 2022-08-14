@@ -66,7 +66,7 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	if logger.tagOption == TraceSequenceNumberTagOption {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
-	request.attributes.Init()
+	request.attributes.Init(&request.span)
 	request.request = request
 	if logger.perRequestBufferLimit != 0 {
 		request.maintainBuffer()
@@ -75,29 +75,29 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	request.allSpans[0] = &request.span
 
 	rq := request.span.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"type":"request","trace.id":"`))
-	rq.dataBuffer.AppendString(trace.Trace.TraceIDString())
-	rq.dataBuffer.AppendBytes([]byte(`","span.id":`))
-	rq.dataBuffer.SafeString(trace.Trace.SpanIDString())
+	rq.AppendBytes([]byte(`{"type":"request","trace.id":"`))
+	rq.AppendString(trace.Trace.TraceIDString())
+	rq.AppendBytes([]byte(`","span.id":`))
+	rq.AddSafeString(trace.Trace.SpanIDString())
 	if !trace.TraceParent.IsZero() {
-		rq.dataBuffer.AppendBytes([]byte(`,"trace.parent":`))
-		rq.dataBuffer.AppendString(trace.TraceParent.HeaderString())
+		rq.AppendBytes([]byte(`,"trace.parent":`))
+		rq.AppendString(trace.TraceParent.HeaderString())
 	}
 	if !trace.State.IsZero() {
-		rq.dataBuffer.AppendBytes([]byte(`,"trace.state":`))
-		rq.dataBuffer.AppendString(trace.State.String())
+		rq.AppendBytes([]byte(`,"trace.state":`))
+		rq.AppendString(trace.State.String())
 	}
 	if !trace.Baggage.IsZero() {
-		rq.dataBuffer.AppendBytes([]byte(`,"trace.baggage":`))
-		rq.dataBuffer.AppendString(trace.Baggage.String())
+		rq.AppendBytes([]byte(`,"trace.baggage":`))
+		rq.AppendString(trace.Baggage.String())
 	}
 	rq.String("span.name", name)
 	rq.Time("ts", ts)
-	rq.dataBuffer.AppendBytes([]byte{'}', '\n'})
+	rq.AppendBytes([]byte{'}', '\n'})
 	if logger.perRequestBufferLimit != 0 {
 		request.completedBuilders <- rq
 	} else {
-		_, err := request.writer.Write(rq.dataBuffer.B)
+		_, err := request.writer.Write(rq.B)
 		if err != nil {
 			request.errorFunc(err)
 		}
@@ -125,23 +125,23 @@ func (r *request) maintainBuffer() {
 				r.flushBuffer()
 				r.flushComplete <- struct{}{}
 			case builder := <-r.completedBuilders:
-				if len(builder.dataBuffer.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
+				if len(builder.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
 					r.flushBuffer()
 				}
-				if len(builder.dataBuffer.B) > r.logger.perRequestBufferLimit {
+				if len(builder.B) > r.logger.perRequestBufferLimit {
 					// TODO: split into multiple writes
 				}
-				r.writeBuffer = append(r.writeBuffer, builder.dataBuffer.B...)
+				r.writeBuffer = append(r.writeBuffer, builder.B...)
 				builder.reclaimMemory()
 
 			case line := <-r.completedLines:
-				if len(line.dataBuffer.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
+				if len(line.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
 					r.flushBuffer()
 				}
-				if len(line.dataBuffer.B) > r.logger.perRequestBufferLimit {
+				if len(line.B) > r.logger.perRequestBufferLimit {
 					// TODO: split into multiple writes
 				}
-				r.writeBuffer = append(r.writeBuffer, line.dataBuffer.B...)
+				r.writeBuffer = append(r.writeBuffer, line.B...)
 				line.reclaimMemory()
 			}
 		}
@@ -190,7 +190,7 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 		startTime: ts,
 		endTime:   ts.UnixNano(),
 	}
-	n.attributes.Init()
+	n.attributes.Init(n)
 	func() {
 		s.request.allSpansLock.Lock()
 		defer s.request.allSpansLock.Unlock()
@@ -198,15 +198,15 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 	}()
 
 	rq := s.builder()
-	rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
-	rq.dataBuffer.SafeString(trace.Trace.SpanIDString())
+	rq.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
+	rq.AddSafeString(trace.Trace.SpanIDString())
 	rq.String("span.name", name)
 	rq.Time("ts", ts)
-	rq.dataBuffer.AppendBytes([]byte{'}', '\n'})
+	rq.AppendBytes([]byte{'}', '\n'})
 	if s.request.logger.perRequestBufferLimit != 0 {
 		s.request.completedBuilders <- rq
 	} else {
-		_, err := s.request.writer.Write(rq.dataBuffer.B)
+		_, err := s.request.writer.Write(rq.B)
 		if err != nil {
 			s.request.errorFunc(err)
 		}
@@ -220,24 +220,24 @@ func (s *span) FlushAttributes() {
 	rq := s.builder()
 	s.serializationCount++
 	if s == &s.request.span {
-		rq.dataBuffer.AppendBytes([]byte(`{"type":"request","request.ver":`)) // }
+		rq.AppendBytes([]byte(`{"type":"request","request.ver":`)) // }
 	} else {
-		rq.dataBuffer.AppendBytes([]byte(`{"type":"span","span.ver":`)) // }
+		rq.AppendBytes([]byte(`{"type":"span","span.ver":`)) // }
 	}
-	rq.dataBuffer.Int64(int64(s.serializationCount))
-	rq.dataBuffer.AppendBytes([]byte(`,"span.id":`))
-	rq.dataBuffer.SafeString(s.trace.Trace.SpanIDString())
+	rq.AddInt64(int64(s.serializationCount))
+	rq.AppendBytes([]byte(`,"span.id":`))
+	rq.AddSafeString(s.trace.Trace.SpanIDString())
 	if s.request.logger.durationKey != nil {
-		rq.dataBuffer.AppendBytes(s.request.logger.durationKey)
-		rq.appendDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
+		rq.AppendBytes(s.request.logger.durationKey)
+		rq.AddDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
 	}
-	s.attributes.Append(rq.dataBuffer)
+	s.attributes.Append(&rq.JBuilder)
 	// {
-	rq.dataBuffer.AppendByte('}')
+	rq.AppendByte('}')
 	if s.request.logger.perRequestBufferLimit != 0 {
 		s.request.completedBuilders <- rq
 	} else {
-		_, err := s.request.writer.Write(rq.dataBuffer.B)
+		_, err := s.request.writer.Write(rq.B)
 		if err != nil {
 			s.request.errorFunc(err)
 		}
@@ -257,7 +257,7 @@ func (s *span) NoPrefill() xopbase.Prefilled {
 
 func (b *builder) reset(s *span) {
 	b.span = s
-	b.dataBuffer.B = b.dataBuffer.B[:0]
+	b.B = b.B[:0]
 	b.attributesWanted = false
 	b.attributesStarted = false
 }
@@ -271,12 +271,13 @@ func (s *span) builder() *builder {
 	} else {
 		b = &builder{
 			span: s,
-			dataBuffer: xoputil.JBuilder{
+			JBuilder: xoputil.JBuilder{
 				B:        make([]byte, 0, minBuffer),
 				FastKeys: s.logger.fastKeys,
 			},
 		}
-		b.encoder = json.NewEncoder(&b.dataBuffer)
+		b.encoder = json.NewEncoder(&b.JBuilder)
+		b.encoder.SetEscapeHTML(false)
 	}
 	return b
 }
@@ -289,15 +290,15 @@ func (s *span) StartPrefill() xopbase.Prefilling {
 
 func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	prefilled := &prefilled{
-		data: make([]byte, len(p.builder.dataBuffer.B)),
+		data: make([]byte, len(p.builder.B)),
 		span: p.builder.span,
 	}
-	copy(prefilled.data, p.builder.dataBuffer.B)
+	copy(prefilled.data, p.builder.B)
 	if len(m) > 0 {
 		msgBuffer := xoputil.JBuilder{
 			B: make([]byte, len(m)), // alloc-per-prefill
 		}
-		msgBuffer.StringBody(m)
+		msgBuffer.AddStringBody(m)
 		prefilled.preEncodedMsg = msgBuffer.B
 	}
 	return prefilled
@@ -321,45 +322,45 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 			prefillMsgPreEncoded: p.preEncodedMsg,
 		}
 	}
-	l.dataBuffer.AppendByte('{') // }
+	l.AppendByte('{') // }
 	l.Int("lvl", int64(level))
 	l.Time("ts", t)
 	if len(pc) > 0 {
 		frames := runtime.CallersFrames(pc)
-		l.dataBuffer.AppendBytes([]byte(`,"stack":[`))
+		l.AppendBytes([]byte(`,"stack":[`))
 		for {
 			frame, more := frames.Next()
 			if !strings.Contains(frame.File, "runtime/") {
 				break
 			}
-			l.dataBuffer.Comma()
-			l.dataBuffer.AppendByte('"')
-			l.dataBuffer.StringBody(frame.File)
-			l.dataBuffer.AppendByte(':')
-			l.dataBuffer.Int64(int64(frame.Line))
-			l.dataBuffer.AppendByte('"')
+			l.Comma()
+			l.AppendByte('"')
+			l.AddStringBody(frame.File)
+			l.AppendByte(':')
+			l.AddInt64(int64(frame.Line))
+			l.AppendByte('"')
 			if !more {
 				break
 			}
 		}
-		l.dataBuffer.AppendByte(']')
+		l.AppendByte(']')
 	}
 	switch l.span.logger.tagOption {
 	case SpanIDTagOption:
-		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"span.id":`))
-		l.dataBuffer.SafeString(l.span.trace.Trace.SpanIDString())
+		l.Comma()
+		l.AppendBytes([]byte(`"span.id":`))
+		l.AddSafeString(l.span.trace.Trace.SpanIDString())
 	case FullIDTagOption:
-		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace.header":`))
-		l.dataBuffer.SafeString(l.span.trace.Trace.HeaderString())
+		l.Comma()
+		l.AppendBytes([]byte(`"trace.header":`))
+		l.AddSafeString(l.span.trace.Trace.HeaderString())
 	case TraceIDTagOption:
-		l.dataBuffer.Comma()
-		l.dataBuffer.AppendBytes([]byte(`"trace.id":`))
-		l.dataBuffer.SafeString(l.span.trace.Trace.TraceIDString())
+		l.Comma()
+		l.AppendBytes([]byte(`"trace.id":`))
+		l.AddSafeString(l.span.trace.Trace.TraceIDString())
 	case TraceSequenceNumberTagOption:
-		l.dataBuffer.Key("trace_num")
-		l.dataBuffer.Int64(l.span.request.idNum)
+		l.AddKey("trace_num")
+		l.AddInt64(l.span.request.idNum)
 	case OmitTagOption:
 		// yay!
 	}
@@ -367,25 +368,25 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	if len(p.data) != 0 {
 		if l.attributesWanted {
 			l.attributesStarted = true
-			l.dataBuffer.AppendBytes([]byte(`,"attributes":{`)) // }
+			l.AppendBytes([]byte(`,"attributes":{`)) // }
 		} else {
-			l.dataBuffer.AppendByte(',')
+			l.AppendByte(',')
 		}
-		l.dataBuffer.AppendBytes(p.data)
+		l.AppendBytes(p.data)
 	}
 	return l
 }
 
 func (l *line) Msg(m string) {
 	if l.attributesStarted {
-		l.dataBuffer.AppendByte( /*{*/ '}')
+		l.AppendByte( /*{*/ '}')
 	}
-	l.dataBuffer.AppendBytes([]byte(`,"msg":"`))
+	l.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {
-		l.dataBuffer.AppendBytes(l.prefillMsgPreEncoded)
+		l.AppendBytes(l.prefillMsgPreEncoded)
 	}
-	l.dataBuffer.StringBody(m)
-	l.dataBuffer.AppendBytes([]byte{
+	l.AddStringBody(m)
+	l.AppendBytes([]byte{
 		'"', // {
 		'}',
 		'\n',
@@ -393,7 +394,7 @@ func (l *line) Msg(m string) {
 	if l.span.logger.perRequestBufferLimit != 0 {
 		l.span.request.completedLines <- l
 	} else {
-		_, err := l.span.writer.Write(l.dataBuffer.B)
+		_, err := l.span.writer.Write(l.B)
 		if err != nil {
 			l.span.request.errorFunc(err)
 		}
@@ -406,14 +407,14 @@ func (l *line) Static(m string) {
 }
 
 func (b *builder) reclaimMemory() {
-	if len(b.dataBuffer.B) > maxBufferToKeep {
+	if len(b.B) > maxBufferToKeep {
 		return
 	}
 	b.span.request.logger.builderPool.Put(b)
 }
 
 func (l *line) reclaimMemory() {
-	if len(l.dataBuffer.B) > maxBufferToKeep {
+	if len(l.B) > maxBufferToKeep {
 		return
 	}
 	l.span.request.logger.linePool.Put(l)
@@ -422,13 +423,13 @@ func (l *line) reclaimMemory() {
 func (l *line) Template(m string) {
 	if l.attributesStarted {
 		// {
-		l.dataBuffer.AppendByte('}')
+		l.AppendByte('}')
 	}
-	l.dataBuffer.AppendString(`,"fmt":"tmpl","msg":`)
-	l.dataBuffer.String(m)
+	l.AppendString(`,"fmt":"tmpl","msg":`)
+	l.AddString(m)
 	// {
-	l.dataBuffer.AppendBytes([]byte{'}', '\n'})
-	_, err := l.span.writer.Write(l.dataBuffer.B)
+	l.AppendBytes([]byte{'}', '\n'})
+	_, err := l.span.writer.Write(l.B)
 	if err != nil {
 		l.span.request.errorFunc(err)
 	}
@@ -438,158 +439,142 @@ func (l *line) Template(m string) {
 func (b *builder) startAttributes() {
 	if b.attributesWanted && !b.attributesStarted {
 		b.attributesStarted = true
-		b.dataBuffer.AppendBytes([]byte(`,"attributes":{`)) // }
+		b.AppendBytes([]byte(`,"attributes":{`)) // }
 	}
 }
 
 func (b *builder) Any(k string, v interface{}) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendAny(v)
+	b.AddKey(k)
+	b.AddAny(v)
 }
 
-func (b *builder) appendAny(v interface{}) {
-	before := len(b.dataBuffer.B)
+func (b *builder) AddAny(v interface{}) {
+	before := len(b.B)
 	err := b.encoder.Encode(v)
 	if err != nil {
-		b.dataBuffer.B = b.dataBuffer.B[:before]
+		b.B = b.B[:before]
 		b.span.request.errorFunc(err)
 		b.Error("encode", err)
 	} else {
 		// remove \n added by json.Encoder.Encode.  So helpful!
-		if b.dataBuffer.B[len(b.dataBuffer.B)-1] == '\n' {
-			b.dataBuffer.B = b.dataBuffer.B[:len(b.dataBuffer.B)-1]
+		if b.B[len(b.B)-1] == '\n' {
+			b.B = b.B[:len(b.B)-1]
 		}
 	}
 }
 
 func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	b.startAttributes()
-	b.dataBuffer.UncheckedKey(k.Key()) // TODO: check attribute keys at registration time
-	b.appendEnum(v)
+	b.AddUncheckedKey(k.Key()) // TODO: check attribute keys at registration time
+	b.AddEnum(v)
 }
 
-func (b *builder) appendEnum(v xopconst.Enum) {
+func (b *builder) AddEnum(v xopconst.Enum) {
 	// TODO: send dictionary and numbers
-	b.dataBuffer.Int64(v.Int64())
+	b.AddInt64(v.Int64())
 }
 
 func (b *builder) Time(k string, t time.Time) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendTime(t)
+	b.AddKey(k)
+	b.AddTime(t)
 }
 
-func (b *builder) appendTime(t time.Time) {
+func (b *builder) AddTime(t time.Time) {
 	switch b.span.logger.timeOption {
 	case strftimeTime:
-		b.dataBuffer.AppendByte('"')
-		b.dataBuffer.B = fasttime.AppendStrftime(b.dataBuffer.B, b.span.logger.timeFormat, t)
-		b.dataBuffer.AppendByte('"')
+		b.AppendByte('"')
+		b.B = fasttime.AppendStrftime(b.B, b.span.logger.timeFormat, t)
+		b.AppendByte('"')
 	case timeTimeFormat:
-		b.dataBuffer.AppendByte('"')
-		b.dataBuffer.B = t.AppendFormat(b.dataBuffer.B, b.span.logger.timeFormat)
-		b.dataBuffer.AppendByte('"')
+		b.AppendByte('"')
+		b.B = t.AppendFormat(b.B, b.span.logger.timeFormat)
+		b.AppendByte('"')
 	case epochTime:
-		b.dataBuffer.Int64(t.UnixNano() / int64(b.span.logger.timeDivisor))
+		b.AddInt64(t.UnixNano() / int64(b.span.logger.timeDivisor))
 	case epochQuoted:
-		b.dataBuffer.AppendByte('"')
-		b.dataBuffer.Int64(t.UnixNano() / int64(b.span.logger.timeDivisor))
-		b.dataBuffer.AppendByte('"')
+		b.AppendByte('"')
+		b.AddInt64(t.UnixNano() / int64(b.span.logger.timeDivisor))
+		b.AppendByte('"')
 	}
 }
 
 func (b *builder) Link(k string, v trace.Trace) {
 	b.startAttributes()
 	// TODO: is this the right format for links?
-	b.dataBuffer.Key(k)
-	b.appendLink(v)
+	b.AddKey(k)
+	b.AddLink(v)
 }
 
-func (b *builder) appendLink(v trace.Trace) {
-	b.dataBuffer.AppendBytes([]byte(`{"xop.link":"`))
-	b.dataBuffer.AppendString(v.HeaderString())
-	b.dataBuffer.AppendBytes([]byte(`"}`))
+func (b *builder) AddLink(v trace.Trace) {
+	b.AppendBytes([]byte(`{"xop.link":"`))
+	b.AppendString(v.HeaderString())
+	b.AppendBytes([]byte(`"}`))
 }
 
 func (b *builder) Bool(k string, v bool) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendBool(v)
-}
-
-func (b *builder) appendBool(v bool) {
-	b.dataBuffer.Bool(v)
+	b.AddKey(k)
+	b.AddBool(v)
 }
 
 func (b *builder) Int(k string, v int64) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendInt64(v)
-}
-
-func (b *builder) appendInt64(v int64) {
-	b.dataBuffer.Int64(v)
+	b.AddKey(k)
+	b.AddInt64(v)
 }
 
 func (b *builder) Uint(k string, v uint64) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendUint64(v)
-}
-
-func (b *builder) appendUint64(v uint64) {
-	b.dataBuffer.Uint64(v)
+	b.AddKey(k)
+	b.AddUint64(v)
 }
 
 func (b *builder) String(k string, v string) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendString(v)
-}
-
-func (b *builder) appendString(v string) {
-	b.dataBuffer.String(v)
+	b.AddKey(k)
+	b.AddString(v)
 }
 
 func (b *builder) Float64(k string, v float64) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendFloat64(v)
-}
-
-func (b *builder) appendFloat64(v float64) {
-	b.dataBuffer.Float64(v)
+	b.AddKey(k)
+	b.AddFloat64(v)
 }
 
 func (b *builder) Duration(k string, v time.Duration) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.appendDuration(v)
+	b.AddKey(k)
+	b.AddDuration(v)
 }
 
-func (b *builder) appendDuration(v time.Duration) {
+func (b *builder) AddDuration(v time.Duration) {
 	switch b.span.logger.durationFormat {
 	case AsNanos:
-		b.dataBuffer.Int64(int64(v / time.Nanosecond))
+		b.AddInt64(int64(v / time.Nanosecond))
 	case AsMicros:
-		b.dataBuffer.Int64(int64(v / time.Microsecond))
+		b.AddInt64(int64(v / time.Microsecond))
 	case AsMillis:
-		b.dataBuffer.Int64(int64(v / time.Millisecond))
+		b.AddInt64(int64(v / time.Millisecond))
 	case AsSeconds:
-		b.dataBuffer.Int64(int64(v / time.Second))
+		b.AddInt64(int64(v / time.Second))
 	case AsString:
 		fallthrough
 	default:
-		b.dataBuffer.UncheckedString(v.String())
+		b.AddSafeString(v.String())
 	}
 }
 
 // TODO: allow custom formats
 func (b *builder) Error(k string, v error) {
 	b.startAttributes()
-	b.dataBuffer.Key(k)
-	b.dataBuffer.String(v.Error())
+	b.AddKey(k)
+	b.AddError(v)
+}
+
+func (b *builder) AddError(v error) {
+	b.AddString(v.Error())
 }
 
 // MACRO BaseAttribute
