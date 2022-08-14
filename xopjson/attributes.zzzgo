@@ -221,11 +221,11 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 		m := a.addMulti(k.Key())
 		m.Type = xoputil.BaseAttributeTypeZZZArray
 		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
 		//CONDITIONAL ONLY:Any
 		a.encodeTarget = &m.Builder.B
 		m.Builder.encoder = a.encoder
 		//END CONDITIONAL
+		lenBefore := len(m.Builder.B)
 		m.Builder.AddZZZ(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
@@ -256,6 +256,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 		a.encodeTarget = &b.B
 		//END CONDITIONAL
 		b.AddZZZ(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }

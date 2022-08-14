@@ -224,9 +224,9 @@ func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) 
 		m := a.addMulti(k.Key())
 		m.Type = xoputil.BaseAttributeTypeAnyArray
 		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
 		a.encodeTarget = &m.Builder.B
 		m.Builder.encoder = a.encoder
+		lenBefore := len(m.Builder.B)
 		m.Builder.AddAny(v)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
@@ -253,6 +253,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) 
 		}
 		a.encodeTarget = &b.B
 		b.AddAny(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -289,6 +290,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 			},
 		}
 		b.AddBool(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -325,6 +327,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.En
 			},
 		}
 		b.AddEnum(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -361,6 +364,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float
 			},
 		}
 		b.AddFloat64(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -397,6 +401,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 			},
 		}
 		b.AddInt64(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -433,6 +438,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 			},
 		}
 		b.AddLink(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -469,6 +475,7 @@ func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string)
 			},
 		}
 		b.AddString(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
@@ -505,6 +512,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) 
 			},
 		}
 		b.AddTime(v)
+		s.KeyValue = b.B
 	}
 	a.anyChanged = true
 }
