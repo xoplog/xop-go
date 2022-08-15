@@ -26,16 +26,16 @@ const (
 type supersetObject struct {
 	// lines, spans, and requests
 
-	Attributes map[string]interface{} `json:"attributes"`
-	Timestamp  xoptestutil.TS         `json:"ts"`
+	Timestamp xoptestutil.TS `json:"ts"`
 
 	// lines
 
-	Level  int      `json:"lvl"`
-	SpanID string   `json:"span.id"`
-	Stack  []string `json:"stack"`
-	Msg    string   `json:"msg"`
-	Format string   `json:"fmt"`
+	Attributes map[string]interface{} `json:"attributes"`
+	Level      int                    `json:"lvl"`
+	SpanID     string                 `json:"span.id"`
+	Stack      []string               `json:"stack"`
+	Msg        string                 `json:"msg"`
+	Format     string                 `json:"fmt"`
 
 	// requests & spans
 
@@ -50,7 +50,7 @@ type supersetObject struct {
 	RequestID      string `json:"request.id"`
 	State          string `json:"trace.state"`
 	Baggage        string `json:"trace.baggage"`
-	RequestVersion int    `json:"request.ver"`
+	RequestVersion int    `json:"request.ver"` // TODO: change to span.ver?
 
 	// spans
 
@@ -65,6 +65,7 @@ type checker struct {
 	messagesNotSeen     map[string][]int
 	spanIndex           map[string]int
 	requestIndex        map[string]int
+	accumulatedSpan     map[string]interface{}
 }
 
 func TestASingleLine(t *testing.T) {

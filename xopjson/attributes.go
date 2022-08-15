@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	minMap            = 12
 	numSinglePrealloc = 20
 	numMultiPrealloc  = 12
 )
@@ -31,8 +30,8 @@ type AttributeBuilder struct {
 	singles      []singleAttribute
 	multis       []multiAttribute
 	Type         xoputil.BaseAttributeType
-	singleMap    map[string]*singleAttribute // available only when count > minMap
-	multiMap     map[string]*multiAttribute  // available only when count > minMap
+	singleMap    map[string]*singleAttribute
+	multiMap     map[string]*multiAttribute
 	anyChanged   bool
 	span         *span
 	encodeTarget *[]byte
@@ -61,8 +60,8 @@ type attribute struct {
 func (a *AttributeBuilder) Init(s *span) {
 	a.singles = a.singlesBuf[:0]
 	a.multis = a.multiBuf[:0]
-	a.singleMap = nil
-	a.multiMap = nil
+	a.singleMap = make(map[string]*singleAttribute)
+	a.multiMap = make(map[string]*multiAttribute)
 	a.anyChanged = false
 	a.span = s
 }
@@ -110,13 +109,6 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 	}
 }
 
-func (a *AttributeBuilder) useMultiMap() {
-	a.multiMap = make(map[string]*multiAttribute)
-	for i, p := range a.multis {
-		a.multiMap[string(p.Name)] = &a.multis[i]
-	}
-}
-
 func (m *multiAttribute) init(a *AttributeBuilder, k string) {
 	m.Builder.B = m.Buf[:0]
 	m.Builder.reset(a.span)
@@ -133,39 +125,19 @@ func (m *multiAttribute) init(a *AttributeBuilder, k string) {
 func (a *AttributeBuilder) addMulti(k string) *multiAttribute {
 	var m *multiAttribute
 	var ok bool
-	if a.multiMap != nil {
-		m, ok = a.multiMap[k]
-	} else {
-		for _, m := range a.multis {
-			if k == string(m.Name) {
-				ok = true
-				break
-			}
-		}
-	}
+	m, ok = a.multiMap[k]
 	if !ok {
-		if cap(a.multis) > len(a.multis) {
-			a.multis = a.multis[:len(a.multis)+1]
-			m = &a.multis[len(a.multis)-1]
-		} else {
-			m = &multiAttribute{}
-			a.useMultiMap()
+		if len(a.multis) == cap(a.multis) {
+			a.multis = make([]multiAttribute, 0, cap(a.multis))
 		}
+		a.multis = a.multis[:len(a.multis)+1]
+		m = &a.multis[len(a.multis)-1]
 		m.init(a, k)
-		if a.multiMap != nil {
-			a.multiMap[k] = m
-		}
+		a.multiMap[k] = m
 	}
 	m.Changed = true
 	m.Builder.Comma()
 	return m
-}
-
-func (a *AttributeBuilder) useSingleMap() {
-	a.singleMap = make(map[string]*singleAttribute)
-	for i, p := range a.singles {
-		a.singleMap[string(p.Name)] = &a.singles[i]
-	}
 }
 
 func (s *singleAttribute) init(k string) {
@@ -186,28 +158,15 @@ func (s *singleAttribute) init(k string) {
 func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
 	var s *singleAttribute
 	var ok bool
-	if a.singleMap != nil {
-		s, ok = a.singleMap[k]
-	} else {
-		for _, s := range a.singles {
-			if k == string(s.Name) {
-				ok = true
-				break
-			}
-		}
-	}
+	s, ok = a.singleMap[k]
 	if !ok {
-		if cap(a.singles) > len(a.singles) {
-			a.singles = a.singles[:len(a.singles)+1]
-			s = &a.singles[len(a.singles)-1]
-		} else {
-			s = &singleAttribute{}
-			a.useSingleMap()
+		if len(a.singles) == cap(a.singles) {
+			a.singles = make([]singleAttribute, 0, cap(a.singles))
 		}
+		a.singles = a.singles[:len(a.singles)+1]
+		s = &a.singles[len(a.singles)-1]
 		s.init(k)
-		if a.singleMap != nil {
-			a.singleMap[k] = s
-		}
+		a.singleMap[k] = s
 	}
 	s.Changed = true
 	return s
