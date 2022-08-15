@@ -73,6 +73,10 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 		return
 	}
 	a.anyChanged = false
+	if a.span.logger.attributesObject {
+		b.Comma()
+		b.AppendBytes([]byte(`"attributes":{`)) // }
+	}
 	multi := func(m *multiAttribute) {
 		if m.Changed {
 			b.Comma()
@@ -82,14 +86,8 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 			m.Changed = false
 		}
 	}
-	if a.multiMap != nil {
-		for _, m := range a.multiMap {
-			multi(m)
-		}
-	} else {
-		for i := range a.multis {
-			multi(&a.multis[i])
-		}
+	for _, m := range a.multiMap {
+		multi(m)
 	}
 	single := func(s *singleAttribute) {
 		if s.Changed {
@@ -98,14 +96,12 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 			s.Changed = false
 		}
 	}
-	if a.singleMap != nil {
-		for _, s := range a.singleMap {
-			single(s)
-		}
-	} else {
-		for i := range a.singles {
-			single(&a.singles[i])
-		}
+	for _, s := range a.singleMap {
+		single(s)
+	}
+	if a.span.logger.attributesObject {
+		// {
+		b.AppendByte('}')
 	}
 }
 
