@@ -26,8 +26,8 @@ const (
 type supersetObject struct {
 	// lines, spans, and requests
 
-	Attributes map[string]interface{} `json:"attributes"`
 	Timestamp  xoptestutil.TS         `json:"ts"`
+	Attributes map[string]interface{} `json:"attributes"`
 
 	// lines
 
@@ -46,11 +46,12 @@ type supersetObject struct {
 	// requests
 
 	Implmentation  string `json:"impl"`
+	TraceID        string `json:"trace.id"`
 	ParentID       string `json:"parent.id"`
 	RequestID      string `json:"request.id"`
 	State          string `json:"trace.state"`
 	Baggage        string `json:"trace.baggage"`
-	RequestVersion int    `json:"request.ver"`
+	RequestVersion int    `json:"request.ver"` // TODO: change to span.ver?
 
 	// spans
 
@@ -65,6 +66,7 @@ type checker struct {
 	messagesNotSeen     map[string][]int
 	spanIndex           map[string]int
 	requestIndex        map[string]int
+	accumulatedSpans    map[string]map[string]interface{}
 }
 
 func TestASingleLine(t *testing.T) {
@@ -113,8 +115,9 @@ func TestNoBuffer(t *testing.T) {
 	log.SyncDone()
 	ss.Debug().Msg("sub-span debug message")
 	ss.SyncDone()
+	log.Flush()
 
-	t.Log(buffer.String())
+	t.Log("\n", buffer.String())
 
 	newChecker(t, tlog, true).check(t, &buffer)
 }
@@ -128,6 +131,7 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool
 		messagesNotSeen:     make(map[string][]int),
 		spanIndex:           make(map[string]int),
 		requestIndex:        make(map[string]int),
+		accumulatedSpans:    make(map[string]map[string]interface{}),
 	}
 	for i, line := range tlog.Lines {
 		if debugTlog {
@@ -180,7 +184,7 @@ func (c *checker) check(t *testing.T, stream io.Reader) {
 			t.Logf("check span: %s", string(enc))
 			c.span(t, super)
 		case "request":
-			t.Logf("check span: %s", string(enc))
+			t.Logf("check request: %s", string(enc))
 			c.request(t, super)
 		}
 	}
@@ -188,6 +192,11 @@ func (c *checker) check(t *testing.T, stream io.Reader) {
 		for _, li := range ia {
 			line := c.tlog.Lines[li]
 			t.Errorf("line '%s' not found in JSON output", line.Text)
+		}
+	}
+	for _, span := range c.tlog.Spans {
+		if len(span.Metadata) != 0 || len(c.accumulatedSpans[span.Trace.Trace.SpanID().String()]) != 0 {
+			assert.Equalf(t, span.Metadata, c.accumulatedSpans[span.Trace.Trace.SpanID().String()], "attributes for span %s", span.Trace.Trace.SpanID())
 		}
 	}
 }
@@ -211,20 +220,36 @@ func (c *checker) span(t *testing.T, super supersetObject) {
 	assert.Empty(t, super.Level, "no level expected")
 	if super.SpanVersion > 0 {
 		assert.NotEmpty(t, super.Duration, "duration is set")
+		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
+		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
+		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
+		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
 	}
 	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 
 func (c *checker) request(t *testing.T, super supersetObject) {
 	assert.Empty(t, super.Level, "no level expected")
+	assert.NotEmpty(t, super.SpanID, "has span id")
 	if super.RequestVersion > 0 {
 		assert.NotEmpty(t, super.Duration, "duration is set")
+		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
+		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
+		assert.NotEmpty(t, super.TraceID, "has trace id")
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
+		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
+		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
 	}
 	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
+}
+
+func combineAttributes(super supersetObject, attributes map[string]interface{}) {
+	for k, v := range super.Attributes {
+		attributes[k] = v
+	}
 }
 
 func compareData(t *testing.T, a map[string]interface{}, aDesc string, b map[string]interface{}, bDesc string) {
