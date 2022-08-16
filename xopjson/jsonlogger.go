@@ -235,7 +235,7 @@ func (s *span) FlushAttributes() {
 	}
 	s.attributes.Append(&rq.JBuilder)
 	// {
-	rq.AppendByte('}')
+	rq.AppendBytes([]byte{'}', '\n'})
 	if s.request.logger.perRequestBufferLimit != 0 {
 		s.request.completedBuilders <- rq
 	} else {

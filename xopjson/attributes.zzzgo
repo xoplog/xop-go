@@ -71,7 +71,7 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 		b.Comma()
 		b.AppendBytes([]byte(`"attributes":{`)) // }
 	}
-	multi := func(m *multiAttribute) {
+	for _, m := range a.multiMap {
 		if m.Changed {
 			b.Comma()
 			b.AppendBytes(m.Builder.B)
@@ -80,18 +80,12 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 			m.Changed = false
 		}
 	}
-	for _, m := range a.multiMap {
-		multi(m)
-	}
-	single := func(s *singleAttribute) {
+	for _, s := range a.singleMap {
 		if s.Changed {
 			b.Comma()
 			b.AppendBytes(s.KeyValue)
 			s.Changed = false
 		}
-	}
-	for _, s := range a.singleMap {
-		single(s)
 	}
 	if a.span.logger.attributesObject {
 		// {
@@ -141,7 +135,7 @@ func (s *singleAttribute) init(k string) {
 		s.Name = []byte(k)
 	}
 	b.AppendByte(':')
-	s.Changed = false
+	s.Changed = true
 	s.KeyValue = b.B
 }
 
@@ -166,36 +160,14 @@ func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
 func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.anyChanged = true
 	//CONDITIONAL ONLY:Any
 	if a.encoder == nil {
 		a.encoder = json.NewEncoder(a)
 		a.encoder.SetEscapeHTML(false)
 	}
 	//END CONDITIONAL
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeZZZArray
-		m.Builder.Comma()
-		//CONDITIONAL ONLY:Any
-		a.encodeTarget = &m.Builder.B
-		m.Builder.encoder = a.encoder
-		//END CONDITIONAL
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddZZZ(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeZZZ
 		b := builder{
@@ -212,6 +184,28 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 		//END CONDITIONAL
 		b.AddZZZ(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeZZZArray
+	m.Builder.Comma()
+	//CONDITIONAL ONLY:Any
+	a.encodeTarget = &m.Builder.B
+	m.Builder.encoder = a.encoder
+	//END CONDITIONAL
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddZZZ(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }

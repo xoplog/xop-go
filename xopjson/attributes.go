@@ -77,7 +77,7 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 		b.Comma()
 		b.AppendBytes([]byte(`"attributes":{`)) // }
 	}
-	multi := func(m *multiAttribute) {
+	for _, m := range a.multiMap {
 		if m.Changed {
 			b.Comma()
 			b.AppendBytes(m.Builder.B)
@@ -86,18 +86,12 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 			m.Changed = false
 		}
 	}
-	for _, m := range a.multiMap {
-		multi(m)
-	}
-	single := func(s *singleAttribute) {
+	for _, s := range a.singleMap {
 		if s.Changed {
 			b.Comma()
 			b.AppendBytes(s.KeyValue)
 			s.Changed = false
 		}
-	}
-	for _, s := range a.singleMap {
-		single(s)
 	}
 	if a.span.logger.attributesObject {
 		// {
@@ -147,7 +141,7 @@ func (s *singleAttribute) init(k string) {
 		s.Name = []byte(k)
 	}
 	b.AppendByte(':')
-	s.Changed = false
+	s.Changed = true
 	s.KeyValue = b.B
 }
 
@@ -171,32 +165,12 @@ func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
 func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.anyChanged = true
 	if a.encoder == nil {
 		a.encoder = json.NewEncoder(a)
 		a.encoder.SetEscapeHTML(false)
 	}
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeAnyArray
-		m.Builder.Comma()
-		a.encodeTarget = &m.Builder.B
-		m.Builder.encoder = a.encoder
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddAny(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeAny
 		b := builder{
@@ -209,33 +183,35 @@ func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) 
 		a.encodeTarget = &b.B
 		b.AddAny(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeAnyArray
+	m.Builder.Comma()
+	a.encodeTarget = &m.Builder.B
+	m.Builder.encoder = a.encoder
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddAny(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeBoolArray
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddBool(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeBool
 		b := builder{
@@ -246,33 +222,33 @@ func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 		}
 		b.AddBool(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeBoolArray
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddBool(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeEnumArray
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddEnum(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeEnum
 		b := builder{
@@ -283,33 +259,33 @@ func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.En
 		}
 		b.AddEnum(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeEnumArray
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddEnum(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeFloat64Array
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddFloat64(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeFloat64
 		b := builder{
@@ -320,33 +296,33 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float
 		}
 		b.AddFloat64(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeFloat64Array
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddFloat64(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeInt64Array
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddInt64(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeInt64
 		b := builder{
@@ -357,33 +333,33 @@ func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 		}
 		b.AddInt64(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeInt64Array
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddInt64(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeLinkArray
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddLink(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeLink
 		b := builder{
@@ -394,33 +370,33 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 		}
 		b.AddLink(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeLinkArray
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddLink(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeStringArray
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddString(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeString
 		b := builder{
@@ -431,33 +407,33 @@ func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string)
 		}
 		b.AddString(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeStringArray
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddString(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }
 
 func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if k.Multiple() {
-		m := a.addMulti(k.Key())
-		m.Type = xoputil.BaseAttributeTypeTimeArray
-		m.Builder.Comma()
-		lenBefore := len(m.Builder.B)
-		m.Builder.AddTime(v)
-		if k.Distinct() {
-			sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
-			if m.Distinct == nil {
-				m.Distinct = make(map[string]struct{})
-				m.Distinct[sk] = struct{}{}
-			} else {
-				if _, ok := m.Distinct[sk]; ok {
-					m.Builder.B = m.Builder.B[:lenBefore]
-				} else {
-					m.Distinct[sk] = struct{}{}
-				}
-			}
-		}
-	} else {
+	a.anyChanged = true
+	if !k.Multiple() {
 		s := a.addSingle(k.Key())
 		s.Type = xoputil.BaseAttributeTypeTime
 		b := builder{
@@ -468,6 +444,24 @@ func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) 
 		}
 		b.AddTime(v)
 		s.KeyValue = b.B
+		return
 	}
-	a.anyChanged = true
+	m := a.addMulti(k.Key())
+	m.Type = xoputil.BaseAttributeTypeTimeArray
+	m.Builder.Comma()
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddTime(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
 }

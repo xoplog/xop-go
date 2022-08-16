@@ -115,8 +115,9 @@ func TestNoBuffer(t *testing.T) {
 	log.SyncDone()
 	ss.Debug().Msg("sub-span debug message")
 	ss.SyncDone()
+	log.Flush()
 
-	t.Log(buffer.String())
+	t.Log("\n", buffer.String())
 
 	newChecker(t, tlog, true).check(t, &buffer)
 }
@@ -183,7 +184,7 @@ func (c *checker) check(t *testing.T, stream io.Reader) {
 			t.Logf("check span: %s", string(enc))
 			c.span(t, super)
 		case "request":
-			t.Logf("check span: %s", string(enc))
+			t.Logf("check request: %s", string(enc))
 			c.request(t, super)
 		}
 	}
@@ -232,12 +233,12 @@ func (c *checker) span(t *testing.T, super supersetObject) {
 func (c *checker) request(t *testing.T, super supersetObject) {
 	assert.Empty(t, super.Level, "no level expected")
 	assert.NotEmpty(t, super.SpanID, "has span id")
-	assert.NotEmpty(t, super.TraceID, "has trace id")
 	if super.RequestVersion > 0 {
 		assert.NotEmpty(t, super.Duration, "duration is set")
 		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
+		assert.NotEmpty(t, super.TraceID, "has trace id")
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
