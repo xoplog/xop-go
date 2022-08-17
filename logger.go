@@ -52,8 +52,8 @@ type shared struct {
 	Description   string
 }
 
-func (s Seed) Request(descriptionOrName string) *Log {
-	s.traceBundle.Trace.RebuildSetNonZero()
+func (seed Seed) Request(descriptionOrName string) *Log {
+	seed.traceBundle.Trace.RebuildSetNonZero()
 
 	type singleAlloc struct {
 		Log    Log
@@ -63,10 +63,10 @@ func (s Seed) Request(descriptionOrName string) *Log {
 	}
 	alloc := singleAlloc{
 		Log: Log{
-			settings: s.settings.Copy(),
+			settings: seed.settings.Copy(),
 		},
 		span: span{
-			seed: s.spanSeed.Copy(),
+			seed: seed.spanSeed.Copy(),
 		},
 		shared: shared{
 			RefCount:    1,
@@ -83,12 +83,12 @@ func (s Seed) Request(descriptionOrName string) *Log {
 
 	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(time.Now(), log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
-	combinedBaseRequest.SetErrorReporter(s.config.ErrorReporter)
+	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
 	log.span.buffered = log.span.seed.loggers.List.Buffered()
 	log.span.base = combinedBaseRequest.(xopbase.Span)
 	log.sendPrefill()
-	log.shared.FlushTimer = time.AfterFunc(s.config.FlushDelay, log.timerFlush)
+	log.shared.FlushTimer = time.AfterFunc(seed.config.FlushDelay, log.timerFlush)
 	if !log.span.buffered {
 		log.shared.FlushTimer.Stop()
 		log.shared.FlushActive = 0
@@ -100,19 +100,19 @@ func (s Seed) Request(descriptionOrName string) *Log {
 // it is assumed to be done with the current log is finished.  The new log
 // shares a span with its parent log. It can have different settings from its
 // parent log.
-func (s *Sub) Log() *Log {
+func (sub *Sub) Log() *Log {
 	type singleAlloc struct {
 		Log  Log
 		Span Span
 	}
 	alloc := singleAlloc{
 		Log: Log{
-			shared:   s.log.shared,
-			request:  s.log.request,
-			settings: s.settings,
+			shared:   sub.log.shared,
+			request:  sub.log.request,
+			settings: sub.settings,
 		},
 		Span: Span{
-			span: s.log.span.span,
+			span: sub.log.span.span,
 		},
 	}
 	alloc.Log.span = &alloc.Span
@@ -199,35 +199,35 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	return log
 }
 
-func (l *Log) enableFlushTimer() {
-	if l.span.buffered {
-		was := atomic.SwapInt32(&l.shared.FlushActive, 1)
+func (log *Log) enableFlushTimer() {
+	if log.span.buffered {
+		was := atomic.SwapInt32(&log.shared.FlushActive, 1)
 		if was == 0 {
-			l.shared.FlushTimer.Reset(l.shared.FlushDelay)
+			log.shared.FlushTimer.Reset(log.shared.FlushDelay)
 		}
 	}
 }
 
 // timerFlush is only called by log.shared.FlushTimer
-func (l *Log) timerFlush() {
-	l.Flush()
+func (log *Log) timerFlush() {
+	log.Flush()
 }
 
-func (l *Log) Flush() {
+func (log *Log) Flush() {
 	flushers := func() []xopbase.Request {
-		l.shared.FlusherLock.RLock()
-		defer l.shared.FlusherLock.RUnlock()
-		requests := make([]xopbase.Request, 0, len(l.shared.Flushers))
-		for _, req := range l.shared.Flushers {
+		log.shared.FlusherLock.RLock()
+		defer log.shared.FlusherLock.RUnlock()
+		requests := make([]xopbase.Request, 0, len(log.shared.Flushers))
+		for _, req := range log.shared.Flushers {
 			requests = append(requests, req)
 		}
 		return requests
 	}()
-	l.shared.FlushLock.Lock()
-	defer l.shared.FlushLock.Unlock()
+	log.shared.FlushLock.Lock()
+	defer log.shared.FlushLock.Unlock()
 	// Stop is is not thread-safe with respect to other calls to Stop
-	l.shared.FlushTimer.Stop()
-	atomic.StoreInt32(&l.shared.FlushActive, 0)
+	log.shared.FlushTimer.Stop()
+	atomic.StoreInt32(&log.shared.FlushActive, 0)
 	var wg sync.WaitGroup
 	wg.Add(len(flushers))
 	for _, flusher := range flushers {
@@ -241,33 +241,33 @@ func (l *Log) Flush() {
 
 // Marks this request as boring.  Any log at the Alert or
 // Error level will mark this request as not boring.
-func (l *Log) Boring() {
-	requestBoring := atomic.LoadInt32(&l.request.boring)
+func (log *Log) Boring() {
+	requestBoring := atomic.LoadInt32(&log.request.boring)
 	if requestBoring != 0 {
 		return
 	}
-	l.request.base.Boring(true)
+	log.request.base.Boring(true)
 	// There is chance that in the time we were sending that
 	// boring=true, the the request became un-boring. If that
 	// happened, we can't tell if we're currently marked as
 	// boring, so let's make sure we're not boring by sending
 	// a false
-	requestStillBoring := atomic.LoadInt32(&l.request.boring)
+	requestStillBoring := atomic.LoadInt32(&log.request.boring)
 	if requestStillBoring != 0 {
-		l.request.base.Boring(false)
+		log.request.base.Boring(false)
 	}
-	l.enableFlushTimer()
+	log.enableFlushTimer()
 }
 
-func (l *Log) notBoring() {
-	spanBoring := atomic.AddInt32(&l.span.boring, 1)
+func (log *Log) notBoring() {
+	spanBoring := atomic.AddInt32(&log.span.boring, 1)
 	if spanBoring == 1 {
-		l.span.base.Boring(false)
-		requestBoring := atomic.AddInt32(&l.request.boring, 1)
+		log.span.base.Boring(false)
+		requestBoring := atomic.AddInt32(&log.request.boring, 1)
 		if requestBoring == 1 {
-			l.request.base.Boring(false)
+			log.request.base.Boring(false)
 		}
-		l.enableFlushTimer()
+		log.enableFlushTimer()
 	}
 }
 
@@ -279,56 +279,56 @@ func (l *Log) notBoring() {
 // that the Done call means that all the parts of the request are
 // finished and the log should get flushed).  To make sure the log is
 // flushed, call Flush().
-func (l *Log) Done() {
-	go l.SyncDone()
+func (log *Log) Done() {
+	go log.SyncDone()
 }
 
 // TODO: make choice between SyncDone and Sync based on settings
-func (l *Log) SyncDone() {
-	remaining := atomic.AddInt32(&l.shared.RefCount, -1)
-	l.span.base.Done(time.Now())
+func (log *Log) SyncDone() {
+	remaining := atomic.AddInt32(&log.shared.RefCount, -1)
+	log.span.base.Done(time.Now())
 	if remaining <= 0 {
-		l.Flush()
+		log.Flush()
 	} else {
-		l.enableFlushTimer()
+		log.enableFlushTimer()
 	}
 }
 
 // Wait modifies (and returns) a Log to indicate that the overall
 // request is not finished until an additional Done() is called.
-func (l *Log) Wait() *Log {
-	remaining := atomic.AddInt32(&l.shared.RefCount, 1)
+func (log *Log) Wait() *Log {
+	remaining := atomic.AddInt32(&log.shared.RefCount, 1)
 	if remaining > 1 {
-		return l
+		return log
 	}
 	// This indicates a bug in the code that is using the logger.
-	l.Warn().Msg("Too many calls to log.Done()") // TODO: allow user to provide error maker
-	l.shared.FlushTimer.Reset(l.span.seed.config.FlushDelay)
-	return l
+	log.Warn().Msg("Too many calls to log.Done()") // TODO: allow user to provide error maker
+	log.shared.FlushTimer.Reset(log.span.seed.config.FlushDelay)
+	return log
 }
 
-type LogLine struct {
+type Line struct {
 	log  *Log
 	line xopbase.Line
 	pc   []uintptr
 	skip bool
 }
 
-func (l *Log) logLine(level xopconst.Level) *LogLine {
-	skip := level < l.settings.minimumLogLevel
-	recycled := l.span.linePool.Get()
-	var ll *LogLine
+func (log *Log) logLine(level xopconst.Level) *Line {
+	skip := level < log.settings.minimumLogLevel
+	recycled := log.span.linePool.Get()
+	var ll *Line
 	if recycled != nil {
-		// TODO: try using LogLine instead of *LogLine
-		ll = recycled.(*LogLine)
-		if skip || l.settings.stackFramesWanted[level] == 0 {
+		// TODO: try using Line instead of *Line
+		ll = recycled.(*Line)
+		if skip || log.settings.stackFramesWanted[level] == 0 {
 			if ll.pc != nil {
 				ll.pc = ll.pc[:0]
 			}
 		} else {
 			if ll.pc == nil {
-				ll.pc = make([]uintptr, l.settings.stackFramesWanted[level],
-					l.settings.stackFramesWanted[xopconst.AlertLevel])
+				ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
+					log.settings.stackFramesWanted[xopconst.AlertLevel])
 			} else {
 				ll.pc = ll.pc[:cap(ll.pc)]
 			}
@@ -336,12 +336,12 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 			ll.pc = ll.pc[:n]
 		}
 	} else {
-		ll = &LogLine{
-			log: l,
+		ll = &Line{
+			log: log,
 		}
-		if !skip && l.settings.stackFramesWanted[level] != 0 {
-			ll.pc = make([]uintptr, l.settings.stackFramesWanted[level],
-				l.settings.stackFramesWanted[xopconst.AlertLevel])
+		if !skip && log.settings.stackFramesWanted[level] != 0 {
+			ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
+				log.settings.stackFramesWanted[xopconst.AlertLevel])
 			n := runtime.Callers(3, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
@@ -350,7 +350,7 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 	if ll.skip {
 		ll.line = xoputil.SkipLine
 	} else {
-		ll.line = l.prefilled.Line(level, time.Now(), ll.pc)
+		ll.line = log.prefilled.Line(level, time.Now(), ll.pc)
 	}
 	return ll
 }
@@ -365,93 +365,93 @@ func (l *Log) logLine(level xopconst.Level) *LogLine {
 // The names used for "{name}" substitutions are restricted: they may
 // not include any characters that would be escapsed in a JSON string.
 // No double quote.  No linefeed.  No backslash.  Etc.
-func (ll *LogLine) Template(template string) {
-	ll.line.Template(template)
-	ll.log.span.linePool.Put(ll)
-	ll.log.enableFlushTimer()
+func (line *Line) Template(template string) {
+	line.line.Template(template)
+	line.log.span.linePool.Put(line)
+	line.log.enableFlushTimer()
 }
 
-func (ll *LogLine) Msg(msg string) {
-	ll.line.Msg(msg)
-	ll.log.span.linePool.Put(ll)
-	ll.log.enableFlushTimer()
+func (line *Line) Msg(msg string) {
+	line.line.Msg(msg)
+	line.log.span.linePool.Put(line)
+	line.log.enableFlushTimer()
 }
 
-func (ll *LogLine) Msgf(msg string, v ...interface{}) {
-	if !ll.skip {
-		ll.Msg(fmt.Sprintf(msg, v...))
+func (line *Line) Msgf(msg string, v ...interface{}) {
+	if !line.skip {
+		line.Msg(fmt.Sprintf(msg, v...))
 	}
 }
 
 // Static is the same as Msg, but it hints that the supplied string is
 // constant rather than something generated.  Since it's static, base
 // loggers may keep them a dictionary and send references.
-func (ll *LogLine) Static(msg string) {
-	ll.line.Static(msg)
-	ll.log.span.linePool.Put(ll)
-	ll.log.enableFlushTimer()
+func (line *Line) Static(msg string) {
+	line.line.Static(msg)
+	line.log.span.linePool.Put(line)
+	line.log.enableFlushTimer()
 }
 
-func (l *Log) LogLine(level xopconst.Level) *LogLine { return l.logLine(level) }
-func (l *Log) Debug() *LogLine                       { return l.logLine(xopconst.DebugLevel) }
-func (l *Log) Trace() *LogLine                       { return l.logLine(xopconst.TraceLevel) }
-func (l *Log) Info() *LogLine                        { return l.logLine(xopconst.InfoLevel) }
-func (l *Log) Warn() *LogLine                        { return l.logLine(xopconst.WarnLevel) }
-func (l *Log) Error() *LogLine {
-	l.notBoring()
-	return l.LogLine(xopconst.ErrorLevel)
+func (log *Log) LogLine(level xopconst.Level) *Line { return log.logLine(level) }
+func (log *Log) Debug() *Line                       { return log.logLine(xopconst.DebugLevel) }
+func (log *Log) Trace() *Line                       { return log.logLine(xopconst.TraceLevel) }
+func (log *Log) Info() *Line                        { return log.logLine(xopconst.InfoLevel) }
+func (log *Log) Warn() *Line                        { return log.logLine(xopconst.WarnLevel) }
+func (log *Log) Error() *Line {
+	log.notBoring()
+	return log.LogLine(xopconst.ErrorLevel)
 }
-func (l *Log) Alert() *LogLine {
-	l.notBoring()
-	return l.LogLine(xopconst.AlertLevel)
-}
-
-func (ll *LogLine) Msgs(v ...interface{})                       { ll.Msg(fmt.Sprint(v...)) }
-func (ll *LogLine) Int(k string, v int) *LogLine                { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int8(k string, v int8) *LogLine              { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int16(k string, v int16) *LogLine            { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int32(k string, v int32) *LogLine            { ll.line.Int(k, int64(v)); return ll }
-func (ll *LogLine) Int64(k string, v int64) *LogLine            { ll.line.Int(k, v); return ll }
-func (ll *LogLine) Uint(k string, v uint) *LogLine              { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint8(k string, v uint8) *LogLine            { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint16(k string, v uint16) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint32(k string, v uint32) *LogLine          { ll.line.Uint(k, uint64(v)); return ll }
-func (ll *LogLine) Uint64(k string, v uint64) *LogLine          { ll.line.Uint(k, v); return ll }
-func (ll *LogLine) String(k string, v string) *LogLine          { ll.line.String(k, v); return ll }
-func (ll *LogLine) Bool(k string, v bool) *LogLine              { ll.line.Bool(k, v); return ll }
-func (ll *LogLine) Time(k string, v time.Time) *LogLine         { ll.line.Time(k, v); return ll }
-func (ll *LogLine) Error(k string, v error) *LogLine            { ll.line.Error(k, v); return ll }
-func (ll *LogLine) Link(k string, v trace.Trace) *LogLine       { ll.line.Link(k, v); return ll }
-func (ll *LogLine) Duration(k string, v time.Duration) *LogLine { ll.line.Duration(k, v); return ll }
-func (ll *LogLine) Float64(k string, v float64) *LogLine        { ll.line.Float64(k, v); return ll }
-func (ll *LogLine) Float32(k string, v float32) *LogLine        { return ll.Float64(k, float64(v)) }
-
-func (ll *LogLine) EmbeddedEnum(k xopconst.EmbeddedEnum) *LogLine {
-	return ll.Enum(k.EnumAttribute(), k)
+func (log *Log) Alert() *Line {
+	log.notBoring()
+	return log.LogLine(xopconst.AlertLevel)
 }
 
-func (ll *LogLine) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *LogLine {
-	ll.line.Enum(k, v)
-	return ll
+func (line *Line) Msgs(v ...interface{})                    { line.Msg(fmt.Sprint(v...)) }
+func (line *Line) Int(k string, v int) *Line                { line.line.Int(k, int64(v)); return line }
+func (line *Line) Int8(k string, v int8) *Line              { line.line.Int(k, int64(v)); return line }
+func (line *Line) Int16(k string, v int16) *Line            { line.line.Int(k, int64(v)); return line }
+func (line *Line) Int32(k string, v int32) *Line            { line.line.Int(k, int64(v)); return line }
+func (line *Line) Int64(k string, v int64) *Line            { line.line.Int(k, v); return line }
+func (line *Line) Uint(k string, v uint) *Line              { line.line.Uint(k, uint64(v)); return line }
+func (line *Line) Uint8(k string, v uint8) *Line            { line.line.Uint(k, uint64(v)); return line }
+func (line *Line) Uint16(k string, v uint16) *Line          { line.line.Uint(k, uint64(v)); return line }
+func (line *Line) Uint32(k string, v uint32) *Line          { line.line.Uint(k, uint64(v)); return line }
+func (line *Line) Uint64(k string, v uint64) *Line          { line.line.Uint(k, v); return line }
+func (line *Line) String(k string, v string) *Line          { line.line.String(k, v); return line }
+func (line *Line) Bool(k string, v bool) *Line              { line.line.Bool(k, v); return line }
+func (line *Line) Time(k string, v time.Time) *Line         { line.line.Time(k, v); return line }
+func (line *Line) Error(k string, v error) *Line            { line.line.Error(k, v); return line }
+func (line *Line) Link(k string, v trace.Trace) *Line       { line.line.Link(k, v); return line }
+func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration(k, v); return line }
+func (line *Line) Float64(k string, v float64) *Line        { line.line.Float64(k, v); return line }
+func (line *Line) Float32(k string, v float32) *Line        { return line.Float64(k, float64(v)) }
+
+func (line *Line) EmbeddedEnum(k xopconst.EmbeddedEnum) *Line {
+	return line.Enum(k.EnumAttribute(), k)
+}
+
+func (line *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *Line {
+	line.line.Enum(k, v)
+	return line
 }
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.
-func (ll *LogLine) AnyImmutable(k string, v interface{}) *LogLine { ll.line.Any(k, v); return ll }
+func (line *Line) AnyImmutable(k string, v interface{}) *Line { line.line.Any(k, v); return line }
 
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
-func (ll *LogLine) Any(k string, v interface{}) *LogLine {
-	if ll.skip {
-		return ll
+func (line *Line) Any(k string, v interface{}) *Line {
+	if line.skip {
+		return line
 	}
-	if ll.log.span.referencesKept {
+	if line.log.span.referencesKept {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
 	}
-	ll.line.Any(k, v)
-	return ll
+	line.line.Any(k, v)
+	return line
 }
 
 // TODO: func (l *Log) Guage(name string, value float64, )

@@ -45,20 +45,20 @@ func NewSeed(mods ...SeedModifier) Seed {
 
 // Seed provides a copy of the current span's seed, but the
 // spanID is randomized.
-func (s *Span) Seed(mods ...SeedModifier) Seed {
+func (span *Span) Seed(mods ...SeedModifier) Seed {
 	seed := Seed{
-		spanSeed: s.seed.Copy(),
-		settings: s.log.settings.Copy(),
+		spanSeed: span.seed.Copy(),
+		settings: span.log.settings.Copy(),
 	}
 	seed.spanSeed.traceBundle.Trace.RandomizeSpanID()
 	return seed.applyMods(mods)
 }
 
-func (s Seed) applyMods(mods []SeedModifier) Seed {
+func (seed Seed) applyMods(mods []SeedModifier) Seed {
 	for _, mod := range mods {
-		mod(&s)
+		mod(&seed)
 	}
-	return s
+	return seed
 }
 
 func WithBundle(bundle trace.Bundle) SeedModifier {
@@ -79,12 +79,12 @@ func WithSettings(f func(*LogSettings)) SeedModifier {
 	}
 }
 
-func (s Seed) Trace() trace.Bundle {
-	return s.traceBundle
+func (seed Seed) Trace() trace.Bundle {
+	return seed.traceBundle
 }
 
-func (s Seed) SubSpan() Seed {
-	s.traceBundle = s.traceBundle.Copy()
-	s.traceBundle.Trace.RandomizeSpanID()
-	return s
+func (seed Seed) SubSpan() Seed {
+	seed.traceBundle = seed.traceBundle.Copy()
+	seed.traceBundle.Trace.RandomizeSpanID()
+	return seed
 }
