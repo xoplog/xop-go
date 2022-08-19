@@ -119,8 +119,10 @@ func TestNoBuffer(t *testing.T) {
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
+	xoptestutil.MicroNap()
 	log.Done()
 	ss.Debug().Msg("sub-span debug message")
+	xoptestutil.MicroNap()
 	ss.Done()
 
 	t.Log("\n", buffer.String())
