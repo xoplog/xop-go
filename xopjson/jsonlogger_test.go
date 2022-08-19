@@ -100,7 +100,13 @@ func TestNoBuffer(t *testing.T) {
 	)
 	tlog := xoptest.New(t)
 	t.Log(buffer.String())
-	log := xop.NewSeed(xop.WithBase(jlog), xop.WithBase(tlog)).Request(t.Name())
+	log := xop.NewSeed(
+		xop.WithBase(jlog),
+		xop.WithBase(tlog),
+		xop.WithSettings(func(settings *xop.LogSettings) {
+			settings.SynchronousFlush(true)
+		}),
+	).Request(t.Name())
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
 	log.Alert().Msg("basic alert message")
@@ -113,11 +119,9 @@ func TestNoBuffer(t *testing.T) {
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
-	// XXX TODO: SynchronousFlush
 	log.Done()
 	ss.Debug().Msg("sub-span debug message")
 	ss.Done()
-	log.Flush()
 
 	t.Log("\n", buffer.String())
 
