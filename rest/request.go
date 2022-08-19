@@ -46,7 +46,7 @@ func Log(log xop.Log) *rest.RequestOpts {
 			return nil
 		}).
 		DoAfter(func(result rest.Result) rest.Result {
-			var line *xop.LogLine
+			var line *xop.Line
 			if result.Error != nil {
 				line = step.Error()
 			} else {

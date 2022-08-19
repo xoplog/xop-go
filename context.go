@@ -11,8 +11,8 @@ var contextKey = contextKeyType{}
 // TODO: have a default log that prints
 var Default = NewSeed().Request("discard")
 
-func (l *Log) IntoContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, contextKey, l)
+func (log *Log) IntoContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKey, log)
 }
 
 func FromContext(ctx context.Context) (*Log, bool) {
