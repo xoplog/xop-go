@@ -14,8 +14,13 @@ import (
 
 // Sub holds an ephermal state of a log being tranformed to a new log.
 type Sub struct {
+	detached bool
 	settings LogSettings
 	log      *Log
+}
+
+type Detaching struct {
+	sub *Sub
 }
 
 type LogSettings struct {
@@ -24,6 +29,7 @@ type LogSettings struct {
 	minimumLogLevel          xopconst.Level
 	stackFramesWanted        [xopconst.AlertLevel + 1]int // indexed
 	tagLinesWithSpanSequence bool
+	synchronousFlushWhenDone bool
 }
 
 // DefaultSettings are the settings that are used if no setting changes
@@ -34,6 +40,7 @@ var DefaultSettings = func() LogSettings {
 	settings.stackFramesWanted[xopconst.AlertLevel] = 20
 	settings.stackFramesWanted[xopconst.ErrorLevel] = 10
 	settings.minimumLogLevel = xopconst.TraceLevel
+	settings.synchronousFlushWhenDone = true
 	return settings
 }()
 
@@ -50,10 +57,12 @@ func (log *Log) Settings() LogSettings {
 	return log.settings.Copy()
 }
 
-// Sub is the first step in creating a sub-Log from the current log.
+// Sub is a first step in creating a sub-Log from the current log.
 // Sub allows log settings to be modified.  The returned value must
 // be used.  It is used by a call to sub.Log(), sub.Fork(), or
 // sub.Step().
+//
+// Logs created from Sub() are done when their parent is done.
 func (log *Log) Sub() *Sub {
 	return &Sub{
 		settings: log.settings.Copy(),
@@ -61,14 +70,27 @@ func (log *Log) Sub() *Sub {
 	}
 }
 
+// Detach followed by Fork() or Step() create a sub-span/log that is detached from
+// it's parent.  A Done() on the parent does not imply Done() on the detached
+// log.
+func (sub Sub) Detach() *Detaching {
+	sub.detached = true
+	return &Detaching{
+		sub: &sub,
+	}
+}
+
+func (d *Detaching) Step(msg string, mods ...SeedModifier) *Log { return d.sub.Step(msg, mods...) }
+func (d *Detaching) Fork(msg string, mods ...SeedModifier) *Log { return d.sub.Fork(msg, mods...) }
+
 // Fork creates a new Log that does not need to be terminated because
 // it is assumed to be done with the current log is finished.  The new log
 // has its own span.
 func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.span.Seed(mods...).SubSpan()
+	seed := sub.log.capSpan.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&sub.log.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter-1)
-	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings)
+	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings, sub.detached)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -77,10 +99,10 @@ func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 // is that there is a parent log that is creating various sub-logs using
 // Step over and over as it does different things.
 func (sub *Sub) Step(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.span.Seed(mods...).SubSpan()
+	seed := sub.log.capSpan.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&sub.log.span.stepCounter, 1))
 	seed.spanSequenceCode += "." + strconv.Itoa(counter)
-	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings)
+	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings, sub.detached)
 }
 
 // StackFrames sets the number of stack frames to include at
@@ -96,16 +118,33 @@ func (sub *Sub) StackFrames(level xopconst.Level, count int) *Sub {
 // a logging level.  Levels above the given level will be set to
 // get least this many.  Levels below the given level will be set
 // to receive at most this many.
-func (s *LogSettings) StackFrames(level xopconst.Level, frameCount int) {
+func (settings *LogSettings) StackFrames(level xopconst.Level, frameCount int) {
 	for _, l := range xopconst.LevelValues() {
-		current := s.stackFramesWanted[l]
+		current := settings.stackFramesWanted[l]
 		if l <= level && current > frameCount {
-			s.stackFramesWanted[l] = frameCount
+			settings.stackFramesWanted[l] = frameCount
 		}
 		if l >= level && current < frameCount {
-			s.stackFramesWanted[l] = frameCount
+			settings.stackFramesWanted[l] = frameCount
 		}
 	}
+}
+
+// SynchronousFlush sets the behavior for any Flush()
+// triggered by a call to Done().  When true, the
+// call to Done() will not return until the Flush() is
+// complete.
+func (sub *Sub) SynchronousFlush(b bool) *Sub {
+	sub.settings.SynchronousFlush(b)
+	return sub
+}
+
+// SynchronousFlush sets the behavior for any Flush()
+// triggered by a call to Done().  When true, the
+// call to Done() will not return until the Flush() is
+// complete.
+func (settings *LogSettings) SynchronousFlush(b bool) {
+	settings.synchronousFlushWhenDone = b
 }
 
 // MinLevel sets the minimum logging level below which logs will
@@ -117,8 +156,8 @@ func (sub *Sub) MinLevel(level xopconst.Level) *Sub {
 
 // MinLevel sets the minimum logging level below which logs will
 // be discarded.  The default is that no logs are discarded.
-func (s *LogSettings) MinLevel(level xopconst.Level) {
-	s.minimumLogLevel = level
+func (settings *LogSettings) MinLevel(level xopconst.Level) {
+	settings.minimumLogLevel = level
 }
 
 // TagLinesWithSpanSequence controls if the span sequence
@@ -132,8 +171,8 @@ func (sub *Sub) TagLinesWithSpanSequence(b bool) *Sub {
 // TagLinesWithSpanSequence controls if the span sequence
 // indicator (see Fork() and Step()) should be included in
 // the prefill data on each line.
-func (s *LogSettings) TagLinesWithSpanSequence(b bool) {
-	s.tagLinesWithSpanSequence = b
+func (settings *LogSettings) TagLinesWithSpanSequence(b bool) {
+	settings.tagLinesWithSpanSequence = b
 }
 
 func (sub *Sub) PrefillText(m string) *Sub {
@@ -141,8 +180,8 @@ func (sub *Sub) PrefillText(m string) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillText(m string) {
-	s.prefillMsg = m
+func (settings *LogSettings) PrefillText(m string) {
+	settings.prefillMsg = m
 }
 
 func (sub *Sub) NoPrefill() *Sub {
@@ -150,9 +189,9 @@ func (sub *Sub) NoPrefill() *Sub {
 	return sub
 }
 
-func (s *LogSettings) NoPrefill() {
-	s.prefillData = nil
-	s.prefillMsg = ""
+func (settings *LogSettings) NoPrefill() {
+	settings.prefillData = nil
+	settings.prefillMsg = ""
 }
 
 func (log *Log) sendPrefill() {
@@ -185,8 +224,8 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-func (s *LogSettings) PrefillAny(k string, v interface{}) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillAny(k string, v interface{}) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Any(k, v)
 	})
 }
@@ -200,8 +239,8 @@ func (sub *Sub) PrefillBool(k string, v bool) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillBool(k string, v bool) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillBool(k string, v bool) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Bool(k, v)
 	})
 }
@@ -215,8 +254,8 @@ func (sub *Sub) PrefillDuration(k string, v time.Duration) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillDuration(k string, v time.Duration) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillDuration(k string, v time.Duration) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Duration(k, v)
 	})
 }
@@ -230,8 +269,8 @@ func (sub *Sub) PrefillError(k string, v error) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillError(k string, v error) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillError(k string, v error) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Error(k, v)
 	})
 }
@@ -245,8 +284,8 @@ func (sub *Sub) PrefillFloat64(k string, v float64) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillFloat64(k string, v float64) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillFloat64(k string, v float64) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Float64(k, v)
 	})
 }
@@ -260,8 +299,8 @@ func (sub *Sub) PrefillInt(k string, v int64) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillInt(k string, v int64) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillInt(k string, v int64) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int(k, v)
 	})
 }
@@ -275,8 +314,8 @@ func (sub *Sub) PrefillLink(k string, v trace.Trace) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillLink(k string, v trace.Trace) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillLink(k string, v trace.Trace) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Link(k, v)
 	})
 }
@@ -290,8 +329,8 @@ func (sub *Sub) PrefillString(k string, v string) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillString(k string, v string) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillString(k string, v string) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.String(k, v)
 	})
 }
@@ -305,8 +344,8 @@ func (sub *Sub) PrefillTime(k string, v time.Time) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillTime(k string, v time.Time) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillTime(k string, v time.Time) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Time(k, v)
 	})
 }
@@ -320,8 +359,8 @@ func (sub *Sub) PrefillUint(k string, v uint64) *Sub {
 	return sub
 }
 
-func (s *LogSettings) PrefillUint(k string, v uint64) {
-	s.prefillData = append(s.prefillData, func(line xopbase.Prefilling) {
+func (settings *LogSettings) PrefillUint(k string, v uint64) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint(k, v)
 	})
 }

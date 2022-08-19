@@ -46,14 +46,6 @@
 - move xoputil to internal/xoputil -- at least for now since
   the APIs in xoputil are less stable than the rest of the code
 
-- Better receiver names
-
-  - change `func (l *Log)` to `func (log *Log)` everywhere
-  - change `func (s *Sub)` to `func (sub *Sub)` everywhere
-  - change `func (ll *LogLine)` to `func (line *Line)` everywhere
-  - change `func (s *Span)` to `func (span *Span)` everywhere
-  - change `func (s Seed)` to `func (seed Seed)` everywhere
-
 - For enums from OTEL, generate them from the protobuf constants.
 
 - Drop the makefile in favor of more sophisticated use of go:generate See example of enumer in zitadel/oidc
@@ -135,11 +127,6 @@
 
   - Example in libschema for combining coverage from multiple source
 
-- Add benchmarking
-
-  - Example in phuslog for adjusting readme.  
-  - Also in zap, onelog, zerolog
-
 - Performmance
 
   - mark all places in the code where an allocation happens `// allocate`
@@ -167,6 +154,13 @@
 
   - how to make protobuf faster (when building OTEL compatability):
     [notes](https://blog.najaryan.net/posts/partial-protobuf-encoding/?s=09)
+
+  - can *Sub be Sub instead?  Would that have better performance? 
+
+  - the Flush() and Done() code ends locking and releasing the same locks 
+    multiple times.  Refactor to put some parts of the work in functions that
+    must be called while locked so that fewer lock/release cycles. 200ns per
+    lock/release...
 
 - Standard tracing
 
