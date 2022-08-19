@@ -109,9 +109,9 @@ func TestNoBuffer(t *testing.T) {
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 
 	ss := log.Sub().Detach().Fork("a fork")
+	xoptestutil.MicroNap()
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
-	xoptestutil.MicroNap()
 
 	// XXX TODO: SynchronousFlush
 	log.Done()
