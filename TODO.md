@@ -46,14 +46,6 @@
 - move xoputil to internal/xoputil -- at least for now since
   the APIs in xoputil are less stable than the rest of the code
 
-- Better receiver names
-
-  - change `func (l *Log)` to `func (log *Log)` everywhere
-  - change `func (s *Sub)` to `func (sub *Sub)` everywhere
-  - change `func (ll *LogLine)` to `func (line *Line)` everywhere
-  - change `func (s *Span)` to `func (span *Span)` everywhere
-  - change `func (s Seed)` to `func (seed Seed)` everywhere
-
 - For enums from OTEL, generate them from the protobuf constants.
 
 - Drop the makefile in favor of more sophisticated use of go:generate See example of enumer in zitadel/oidc
