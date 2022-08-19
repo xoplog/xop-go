@@ -14,8 +14,13 @@ import (
 
 // Sub holds an ephermal state of a log being tranformed to a new log.
 type Sub struct {
+	detached bool
 	settings LogSettings
 	log      *Log
+}
+
+type Detaching struct {
+	sub *Sub
 }
 
 type LogSettings struct {
@@ -24,6 +29,7 @@ type LogSettings struct {
 	minimumLogLevel          xopconst.Level
 	stackFramesWanted        [xopconst.AlertLevel + 1]int // indexed
 	tagLinesWithSpanSequence bool
+	synchronousFlushWhenDone bool
 }
 
 // DefaultSettings are the settings that are used if no setting changes
@@ -34,6 +40,7 @@ var DefaultSettings = func() LogSettings {
 	settings.stackFramesWanted[xopconst.AlertLevel] = 20
 	settings.stackFramesWanted[xopconst.ErrorLevel] = 10
 	settings.minimumLogLevel = xopconst.TraceLevel
+	settings.synchronousFlushWhenDone = true
 	return settings
 }()
 
@@ -50,10 +57,12 @@ func (log *Log) Settings() LogSettings {
 	return log.settings.Copy()
 }
 
-// Sub is the first step in creating a sub-Log from the current log.
+// Sub is a first step in creating a sub-Log from the current log.
 // Sub allows log settings to be modified.  The returned value must
 // be used.  It is used by a call to sub.Log(), sub.Fork(), or
 // sub.Step().
+//
+// Logs created from Sub() are done when their parent is done.
 func (log *Log) Sub() *Sub {
 	return &Sub{
 		settings: log.settings.Copy(),
@@ -61,14 +70,27 @@ func (log *Log) Sub() *Sub {
 	}
 }
 
+// Detach followed by Fork() or Step() create a sub-span/log that is detached from
+// it's parent.  A Done() on the parent does not imply Done() on the detached
+// log.
+func (s Sub) Detach() *Detaching { // XXX do not create a Sub.  Replace with DetachFork!!!
+	s.detached = true
+	return &Detaching{
+		sub: &s,
+	}
+}
+
+func (d *Detaching) Step(msg string, mods ...SeedModifier) *Log { return d.sub.Step(msg, mods...) }
+func (d *Detaching) Fork(msg string, mods ...SeedModifier) *Log { return d.sub.Fork(msg, mods...) }
+
 // Fork creates a new Log that does not need to be terminated because
 // it is assumed to be done with the current log is finished.  The new log
 // has its own span.
 func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.span.Seed(mods...).SubSpan()
+	seed := sub.log.capSpan.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&sub.log.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter-1)
-	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings)
+	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings, sub.detached)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -77,10 +99,10 @@ func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 // is that there is a parent log that is creating various sub-logs using
 // Step over and over as it does different things.
 func (sub *Sub) Step(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.span.Seed(mods...).SubSpan()
+	seed := sub.log.capSpan.Seed(mods...).SubSpan()
 	counter := int(atomic.AddInt32(&sub.log.span.stepCounter, 1))
 	seed.spanSequenceCode += "." + strconv.Itoa(counter)
-	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings)
+	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings, sub.detached)
 }
 
 // StackFrames sets the number of stack frames to include at
@@ -106,6 +128,23 @@ func (s *LogSettings) StackFrames(level xopconst.Level, frameCount int) {
 			s.stackFramesWanted[l] = frameCount
 		}
 	}
+}
+
+// SynchronousFlush sets the behavior for any Flush()
+// triggered by a call to Done().  When true, the
+// call to Done() will not return until the Flush() is
+// complete.
+func (s *Sub) SynchronousFlush(b bool) *Sub {
+	s.settings.SynchronousFlush(b)
+	return s
+}
+
+// SynchronousFlush sets the behavior for any Flush()
+// triggered by a call to Done().  When true, the
+// call to Done() will not return until the Flush() is
+// complete.
+func (s *LogSettings) SynchronousFlush(b bool) {
+	s.synchronousFlushWhenDone = b
 }
 
 // MinLevel sets the minimum logging level below which logs will

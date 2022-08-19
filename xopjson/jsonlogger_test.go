@@ -108,13 +108,14 @@ func TestNoBuffer(t *testing.T) {
 	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 
-	ss := log.Sub().Fork("a fork").Wait()
+	ss := log.Sub().Detach().Fork("a fork")
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
-	log.SyncDone()
+	// XXX TODO: SynchronousFlush
+	log.Done()
 	ss.Debug().Msg("sub-span debug message")
-	ss.SyncDone()
+	ss.Done()
 	log.Flush()
 
 	t.Log("\n", buffer.String())

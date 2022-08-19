@@ -135,11 +135,6 @@
 
   - Example in libschema for combining coverage from multiple source
 
-- Add benchmarking
-
-  - Example in phuslog for adjusting readme.  
-  - Also in zap, onelog, zerolog
-
 - Performmance
 
   - mark all places in the code where an allocation happens `// allocate`
@@ -167,6 +162,13 @@
 
   - how to make protobuf faster (when building OTEL compatability):
     [notes](https://blog.najaryan.net/posts/partial-protobuf-encoding/?s=09)
+
+  - can *Sub be Sub instead?  Would that have better performance? 
+
+  - the Flush() and Done() code ends locking and releasing the same locks 
+    multiple times.  Refactor to put some parts of the work in functions that
+    must be called while locked so that fewer lock/release cycles. 200ns per
+    lock/release...
 
 - Standard tracing
 

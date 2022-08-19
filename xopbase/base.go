@@ -35,7 +35,9 @@ type Logger interface {
 type Request interface {
 	Span
 
-	// Flush calls are single-threaded
+	// Flush calls are single-threaded.  Flush can be triggered explicitly by
+	// users and it can be triggered because all parts of a request have had
+	// Done() called on them.
 	Flush()
 
 	// SetErrorReported will always be called before any other method on the
@@ -85,7 +87,11 @@ type Span interface {
 
 	StartPrefill() Prefilling
 
-	// Done may or may not be called.
+	// Done is called when (1) log.Done is called on the log corresponding
+	// to this span; (2) log.Done is called on a parent log of the log
+	// corresponding to this span, and the log is not Detach()ed; or
+	// (3) preceeding Flush() if there has been logging activity since the
+	// last call to Flush(), Done(), or the start of the span.
 	Done(time.Time)
 }
 
