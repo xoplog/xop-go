@@ -111,6 +111,7 @@ func TestNoBuffer(t *testing.T) {
 	ss := log.Sub().Detach().Fork("a fork")
 	ss.Alert().String("frightening", "stuff").Static("like a rock")
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
+	xoptestutil.MicroNap()
 
 	// XXX TODO: SynchronousFlush
 	log.Done()
