@@ -41,6 +41,8 @@
   behavior.  Baseloggers could choose to ignore levels that are too low.  The logger itself
   could choose to discard when the level is too low.
 
+- support microsoft correlation vectors?  https://github.com/Microsoft/CorrelationVector-Go
+
 # Just do it (build ready)
 
 - move xoputil to internal/xoputil -- at least for now since

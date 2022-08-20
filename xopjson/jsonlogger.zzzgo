@@ -135,7 +135,7 @@ func (r *request) maintainBuffer() {
 	}
 	handleFlush := func() {
 		// drains lines & builders before flush!
-		Flush:
+	Flush:
 		for {
 			select {
 			case builder := <-r.completedBuilders:
@@ -160,7 +160,7 @@ func (r *request) maintainBuffer() {
 				handleFlush()
 			case <-r.logger.closeRequest:
 				// drain everything else first
-				Request:
+			Request:
 				for {
 					select {
 					case builder := <-r.completedBuilders:
@@ -214,15 +214,16 @@ func (r *request) Flush() {
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
 
-func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span {
+func (s *span) Span(ts time.Time, trace trace.Bundle, name string, spanSequenceCodes string) xopbase.Span {
 	n := &span{
-		logger:    s.logger,
-		writer:    s.writer,
-		trace:     trace,
-		name:      name,
-		request:   s.request,
-		startTime: ts,
-		endTime:   ts.UnixNano(),
+		logger:       s.logger,
+		writer:       s.writer,
+		trace:        trace,
+		name:         name,
+		request:      s.request,
+		startTime:    ts,
+		endTime:      ts.UnixNano(),
+		sequenceCode: spanSequenceCode,
 	}
 	n.attributes.Init(n)
 	func() {
@@ -248,6 +249,33 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span 
 	}
 
 	return n
+}
+
+func (s *span) setSpanIDPrefill() {
+	b := xoputil.JBuilder{
+		B: s.spanIDBuffer[:0],
+	}
+	if l.span.logger.tagOption&SpanIDTagOption != 0 {
+		b.Comma()
+		b.AppendBytes([]byte(`"span.id":`))
+		b.AddSafeString(l.span.trace.Trace.SpanIDString())
+	}
+	if l.span.logger.tagOption&TraceIDTagOption != 0 {
+		b.Comma()
+		b.AppendBytes([]byte(`"trace.id":`))
+		b.AddSafeString(l.span.trace.Trace.TraceIDString())
+	}
+	if l.span.logger.tagOption&TraceNumberTagOption != 0 {
+		b.Comma()
+		l.AddKey("trace.num")
+		l.AddInt64(l.span.request.idNum)
+	}
+	if l.span.logger.tagOption&SpanSequenceTagOption != 0 {
+		b.Comma()
+		l.AddKey("span.ctx")
+		l.AddSafeString(l.span.request.sequenceCode)
+	}
+	s.spanIDPrebuilt = b
 }
 
 func (s *span) FlushAttributes() {
@@ -360,6 +388,7 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	l.Int("lvl", int64(level))
 	l.Time("ts", t)
 	if len(pc) > 0 {
+		// TODO: debug this!
 		frames := runtime.CallersFrames(pc)
 		l.AppendBytes([]byte(`,"stack":[`))
 		for {
@@ -379,24 +408,9 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 		}
 		l.AppendByte(']')
 	}
-	switch l.span.logger.tagOption {
-	case SpanIDTagOption:
+	if len(p.span.spanIDPrebuilt.B) != 0 {
 		l.Comma()
-		l.AppendBytes([]byte(`"span.id":`))
-		l.AddSafeString(l.span.trace.Trace.SpanIDString())
-	case FullIDTagOption:
-		l.Comma()
-		l.AppendBytes([]byte(`"trace.header":`))
-		l.AddSafeString(l.span.trace.Trace.HeaderString())
-	case TraceIDTagOption:
-		l.Comma()
-		l.AppendBytes([]byte(`"trace.id":`))
-		l.AddSafeString(l.span.trace.Trace.TraceIDString())
-	case TraceSequenceNumberTagOption:
-		l.AddKey("trace_num")
-		l.AddInt64(l.span.request.idNum)
-	case OmitTagOption:
-		// yay!
+		l.AppendBytes(p.span.spanIDPrebuilt.B) 
 	}
 	l.attributesWanted = p.span.logger.attributesObject
 	if len(p.data) != 0 {

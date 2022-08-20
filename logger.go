@@ -166,7 +166,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	alloc.Log.span = &alloc.span
 	log := &alloc.Log
 
-	log.span.base = old.span.base.Span(time.Now(), spanSeed.traceBundle, description)
+	log.span.base = old.span.base.Span(time.Now(), spanSeed.traceBundle, description, log.span.seed.spanSequenceCode)
 	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
@@ -217,7 +217,6 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
 	}
 	log.span.base.Boring(true)
-	log.Span().String(xopconst.SpanSequenceCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
 	log.sendPrefill()
 	log.addMyselfAsDependent()
 	return log

@@ -78,6 +78,9 @@ type span struct {
 	startTime          time.Time
 	serializationCount int32
 	attributes         AttributeBuilder
+	sequenceCode       string
+	spanIDBuffer       [len(`"trace.header":`) + 55 + 2]byte
+	spanIDPrebuilt     xoputil.JBuilder
 }
 
 type prefilling struct {
@@ -127,18 +130,17 @@ func WithDuration(key string, durationFormat DurationOption) Option {
 type TagOption int
 
 const (
-	DefaultTagOption TagOption = iota // TODO: set
-	SpanIDTagOption
-	FullIDTagOption
-	TraceIDTagOption
-	TraceSequenceNumberTagOption // TODO emit trace sequence number
-	OmitTagOption
+	SpanIDTagOption       TagOption = 1 << iota // 16 bytes hex
+	TraceIDTagOption                = 1 << iota // 32 bytes hex
+	TraceHeaderTagOption            = 1 << iota // 2+1+32+1+16+1+2 = 55 bytes/
+	TraceNumberOption               = 1 << iota // integer trace count
+	SpanSequenceTagOption           = 1 << iota // eg ".1.A"
 )
 
 // WithSpanTags specifies should reference the span that they're within.
-// The default is OmitTagOption if WithBufferedLines(true) is used
+// The default is SpanSequenceTagOption if WithBufferedLines(true) is used
 // because in that sitatuion, there are other clues that can be used to
-// figure out which span the line goes with.
+// figure out the spanID and traceID.
 //
 // SpanIDTagOption indicates the the spanID should be included.  The key
 // is "span.id".
