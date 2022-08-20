@@ -131,6 +131,7 @@ func TestNoBuffer(t *testing.T) {
 
 	t.Log("\n", buffer.String())
 	xoptestutil.DumpEvents(t, tlog)
+	xoptestutil.ExpectEventCount(t, tlog, xoptest.FlushEvent, 1)
 
 	newChecker(t, tlog, true).check(t, &buffer)
 }

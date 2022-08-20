@@ -18,16 +18,19 @@ import (
 	"github.com/muir/xop-go/xoputil"
 )
 
+//go:generate enumer -type=EventType -linecomment -json -sql
+
 type EventType int
 
 const (
-	LineEvent EventType = iota
-	RequestStart
-	RequestDone // there can be more than one RequestDone per Request
-	SpanStart
-	SpanDone // there can be more than one SpanDone per Span
-	FlushEvent
-	CustomEvent
+	LineEvent    EventType = iota // line
+	RequestStart                  // requestStart
+	RequestDone                   // requestDone
+	SpanStart                     // spanStart
+	SpanDone                      // spanStart
+	FlushEvent                    // flush
+	MetadataSet                   // metadata
+	CustomEvent                   // custom
 )
 
 type testingT interface {
@@ -160,7 +163,7 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 	}
 	l.Requests = append(l.Requests, s)
 	l.Events = append(l.Events, &Event{
-		Type: SpanStart,
+		Type: RequestStart,
 		Span: s,
 	})
 	return s
@@ -235,6 +238,10 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 	}
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)
+	s.testLogger.Events = append(s.testLogger.Events, &Event{
+		Type: SpanStart,
+		Span: n,
+	})
 	return n
 }
 
@@ -358,6 +365,15 @@ func (b *Builder) Time(k string, v time.Time)         { b.Any(k, v) }
 func (b *Builder) Uint(k string, v uint64)            { b.Any(k, v) }
 
 func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -374,6 +390,15 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 }
 
 func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -390,6 +415,15 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 }
 
 func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -406,6 +440,15 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 }
 
 func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -422,6 +465,15 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 }
 
 func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -438,6 +490,15 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 }
 
 func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -454,6 +515,15 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 }
 
 func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
@@ -470,6 +540,15 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 }
 
 func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+	func() {
+		s.testLogger.lock.Lock()
+		defer s.testLogger.lock.Unlock()
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: MetadataSet,
+			Msg:  k.Key(),
+			Span: s,
+		})
+	}()
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {

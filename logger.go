@@ -42,9 +42,9 @@ type span struct {
 	spanNumber       int32
 	detached         bool
 	doneCount        int32
-	knownActive      int32 // XXX added
+	knownActive      int32
 	dependentLock    sync.Mutex
-	activeDependents map[int32]*Log // XXX added
+	activeDependents map[int32]*Log
 }
 
 // shared is common between the loggers that share a search index
@@ -56,9 +56,8 @@ type shared struct {
 	FlushActive    int32                      // 1 == timer is running, 0 = timer is not running
 	Flushers       map[string]xopbase.Request // key is xopbase.Logger.ID() // XXX change key to int?
 	Description    string
-	Spans          map[int]*Log   // XXX added
-	SpanCount      int32          // XXX added
-	ActiveDetached map[int32]*Log // XXX added
+	SpanCount      int32
+	ActiveDetached map[int32]*Log
 }
 
 func (seed Seed) Request(descriptionOrName string) *Log {
@@ -136,6 +135,7 @@ func (sub *Sub) Log() *Log {
 	alloc.Log.capSpan = &alloc.Span
 	log := &alloc.Log
 	log.sendPrefill()
+	log.addMyselfAsDependent()
 	return log
 }
 
@@ -219,6 +219,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	log.span.base.Boring(true)
 	log.Span().String(xopconst.SpanSequenceCode, log.span.seed.spanSequenceCode) // TODO: improve  (not efficient)
 	log.sendPrefill()
+	log.addMyselfAsDependent()
 	return log
 }
 
@@ -227,11 +228,13 @@ func (log *Log) addMyselfAsDependent() bool {
 		return false
 	}
 	if log.span.detached {
+		log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is detached")
 		log.request.span.dependentLock.Lock()
 		defer log.request.span.dependentLock.Unlock()
 		log.shared.ActiveDetached[log.span.spanNumber] = log
 		return false
 	}
+	log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is attached")
 	log.parent.span.dependentLock.Lock()
 	defer log.parent.span.dependentLock.Unlock()
 	if log.parent.span.activeDependents == nil {

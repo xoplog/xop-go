@@ -113,36 +113,70 @@ func (r *request) maintainBuffer() {
 	r.completedLines = make(chan *line, lineChanDepth)
 	r.completedBuilders = make(chan *builder, lineChanDepth)
 	r.writeBuffer = make([]byte, 0, r.logger.perRequestBufferLimit/16)
+	handleBuilder := func(builder *builder) {
+		if len(builder.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
+			r.flushBuffer()
+		}
+		if len(builder.B) > r.logger.perRequestBufferLimit {
+			// TODO: split into multiple writes
+		}
+		r.writeBuffer = append(r.writeBuffer, builder.B...)
+		builder.reclaimMemory()
+	}
+	handleLine := func(line *line) {
+		if len(line.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
+			r.flushBuffer()
+		}
+		if len(line.B) > r.logger.perRequestBufferLimit {
+			// TODO: split into multiple writes
+		}
+		r.writeBuffer = append(r.writeBuffer, line.B...)
+		line.reclaimMemory()
+	}
+	handleFlush := func() {
+		// drains lines & builders before flush!
+		Flush:
+		for {
+			select {
+			case builder := <-r.completedBuilders:
+				handleBuilder(builder)
+			case line := <-r.completedLines:
+				handleLine(line)
+			default:
+				break Flush
+			}
+		}
+		r.flushBuffer()
+		r.flushComplete <- struct{}{}
+	}
 	go func() {
 		for {
 			select {
+			case builder := <-r.completedBuilders:
+				handleBuilder(builder)
+			case line := <-r.completedLines:
+				handleLine(line)
+			case <-r.flushRequest:
+				handleFlush()
 			case <-r.logger.closeRequest:
+				// drain everything else first
+				Request:
+				for {
+					select {
+					case builder := <-r.completedBuilders:
+						handleBuilder(builder)
+					case line := <-r.completedLines:
+						handleLine(line)
+					case <-r.flushRequest:
+						handleFlush()
+					default:
+						break Request
+					}
+				}
 				r.flushBuffer()
 				// TODO: have logger wait for requests to complete
 				// WaitGroup?
 				return
-			case <-r.flushRequest:
-				r.flushBuffer()
-				r.flushComplete <- struct{}{}
-			case builder := <-r.completedBuilders:
-				if len(builder.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
-					r.flushBuffer()
-				}
-				if len(builder.B) > r.logger.perRequestBufferLimit {
-					// TODO: split into multiple writes
-				}
-				r.writeBuffer = append(r.writeBuffer, builder.B...)
-				builder.reclaimMemory()
-
-			case line := <-r.completedLines:
-				if len(line.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
-					r.flushBuffer()
-				}
-				if len(line.B) > r.logger.perRequestBufferLimit {
-					// TODO: split into multiple writes
-				}
-				r.writeBuffer = append(r.writeBuffer, line.B...)
-				line.reclaimMemory()
 			}
 		}
 	}()
