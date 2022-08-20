@@ -16,6 +16,17 @@ import (
 	"github.com/muir/xop-go/xoputil"
 )
 
+type EventType int
+
+const (
+	LineEvent EventType = iota
+	RequestStart
+	RequestDone // there can be more than one RequestDone per Request
+	SpanStart
+	SpanDone // there can be more than one SpanDone per Span
+	FlushEvent
+)
+
 type testingT interface {
 	Log(...interface{})
 	Name() string
@@ -42,6 +53,7 @@ type TestLogger struct {
 	Requests   []*Span
 	Spans      []*Span
 	Lines      []*Line
+	Events     []*Event
 	traceCount int
 	traceMap   map[string]*traceInfo
 	id         string
@@ -54,20 +66,20 @@ type traceInfo struct {
 }
 
 type Span struct {
-	lock         sync.Mutex
-	testLogger   *TestLogger
-	Trace        trace.Bundle
-	IsRequest    bool
-	Parent       *Span
-	Spans        []*Span
-	RequestLines []*Line
-	Lines        []*Line
-	short        string
-	Metadata     map[string]interface{}
-	MetadataTypes     map[string]xoputil.BaseAttributeType
-	StartTime    time.Time
-	EndTime      int64
-	Name         string
+	lock          sync.Mutex
+	testLogger    *TestLogger
+	Trace         trace.Bundle
+	IsRequest     bool
+	Parent        *Span
+	Spans         []*Span
+	RequestLines  []*Line
+	Lines         []*Line
+	short         string
+	Metadata      map[string]interface{}
+	MetadataTypes map[string]xoputil.BaseAttributeType
+	StartTime     time.Time
+	EndTime       int64
+	Name          string
 }
 
 type Prefilling struct {
@@ -96,8 +108,21 @@ type Line struct {
 	Tmpl      bool
 }
 
+type Event struct {
+	Type EventType
+	Line *Line
+	Span *Span
+}
+
 func (t *TestLogger) Log() *xop.Log {
 	return xop.NewSeed(xop.WithBase(t)).Request(t.t.Name())
+}
+
+// WithLock is provided for thread-safe introspection of the logger
+func (l *TestLogger) WithLock(f func(*TestLogger) error) error {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	return f(l)
 }
 
 func (l *TestLogger) ID() string                   { return l.id }
@@ -109,16 +134,20 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	s := &Span{
-		testLogger: l,
-		IsRequest:  true,
-		Trace:      span,
-		short:      l.setShort(span, name),
-		StartTime:  ts,
-		Name:       name,
-		Metadata     : make(map[string]interface{}),
-		MetadataTypes     :make(map[string]xoputil.BaseAttributeType),
+		testLogger:    l,
+		IsRequest:     true,
+		Trace:         span,
+		short:         l.setShort(span, name),
+		StartTime:     ts,
+		Name:          name,
+		Metadata:      make(map[string]interface{}),
+		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 	}
 	l.Requests = append(l.Requests, s)
+	l.Events = append(l.Events, &Event{
+		Type: SpanStart,
+		Span: s,
+	})
 	return s
 }
 
@@ -145,8 +174,32 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
-func (s *Span) Done(t time.Time)             { atomic.StoreInt64(&s.EndTime, t.UnixNano()) }
-func (s *Span) Flush()                       {}
+func (s *Span) Done(t time.Time) {
+	atomic.StoreInt64(&s.EndTime, t.UnixNano())
+	s.testLogger.lock.Lock()
+	defer s.testLogger.lock.Unlock()
+	if s.IsRequest {
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: RequestDone,
+			Span: s,
+		})
+	} else {
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: SpanDone,
+			Span: s,
+		})
+	}
+}
+
+func (s *Span) Flush() {
+	s.testLogger.lock.Lock()
+	defer s.testLogger.lock.Unlock()
+	s.testLogger.Events = append(s.testLogger.Events, &Event{
+		Type: FlushEvent,
+		Span: s,
+	})
+}
+
 func (s *Span) Boring(bool)                  {}
 func (s *Span) ID() string                   { return s.testLogger.id }
 func (s *Span) SetErrorReporter(func(error)) {}
@@ -157,13 +210,13 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	n := &Span{
-		testLogger: s.testLogger,
-		Trace:      span,
-		short:      s.testLogger.setShort(span, name),
-		StartTime:  ts,
-		Name:       name,
-		Metadata     : make(map[string]interface{}),
-		MetadataTypes     :make(map[string]xoputil.BaseAttributeType),
+		testLogger:    s.testLogger,
+		Trace:         span,
+		short:         s.testLogger.setShort(span, name),
+		StartTime:     ts,
+		Name:          name,
+		Metadata:      make(map[string]interface{}),
+		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 	}
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)
@@ -262,6 +315,10 @@ func (l Line) send(text string) {
 	l.Span.lock.Lock()
 	defer l.Span.lock.Unlock()
 	l.Span.testLogger.Lines = append(l.Span.testLogger.Lines, &l)
+	l.Span.testLogger.Events = append(l.Span.testLogger.Events, &Event{
+		Type: LineEvent,
+		Line: &l,
+	})
 	l.Span.Lines = append(l.Span.Lines, &l)
 }
 
@@ -279,11 +336,11 @@ func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 func (b *Builder) ZZZ(k string, v zzz) { b.Any(k, v) }
 
 // MACRO BaseAttribute
-func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { 
+func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		if p, ok := s.Metadata[k.Key()] ; ok {
+		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{v}
@@ -294,4 +351,3 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZ
 	}
 }
-
