@@ -264,11 +264,11 @@ func (log *Log) hasActivity(startFlusher bool) {
 //
 // Done can be synchronous or asynchronous depending on the SynchronousFlush
 // settings.
-func (l *Log) Done() {
-	if l.settings.synchronousFlushWhenDone {
-		l.done(true, true, time.Now())
+func (log *Log) Done() {
+	if log.settings.synchronousFlushWhenDone {
+		log.done(true, true, time.Now())
 	} else {
-		go l.done(true, true, time.Now())
+		go log.done(true, true, time.Now())
 	}
 }
 
@@ -276,9 +276,11 @@ func (log *Log) recursiveDone(done bool) (count int32) {
 	if done {
 		atomic.StoreInt32(&log.span.knownActive, 0)
 		count = atomic.AddInt32(&log.span.doneCount, 1)
-	}
-	if atomic.SwapInt32(&log.span.knownActive, 0) == 1 {
 		log.span.base.Done(time.Now())
+	} else {
+		if atomic.SwapInt32(&log.span.knownActive, 0) == 1 {
+			log.span.base.Done(time.Now())
+		}
 	}
 	deps := func() []*Log {
 		log.span.dependentLock.Lock()
@@ -336,30 +338,6 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 		log.parent.done(explicit, doUp, now)
 	}
 }
-
-/* XXX
-parentDone, doFlush := func() (bool, bool) {
-	log.parent.span.dependentLock.Lock()
-	defer log.parent.span.dependentLock.Unlock()
-	delete(log.parent.span.activeDependents, log.span.spanNumber)
-	if len(log.parent.span.activeDependents) != 0  {
-		return false, false
-	} else if log.parent != log.request {
-		return true, false,
-	} else if len(log.shared.ActiveDetached) != 0 {
-		return true, false
-	} else {
-		return true, true
-	}
-}
-if doFlush {
-	log.request.Flush()
-} else if parentDone {
-	log = log.parent
-} else {
-	break
-}
-*/
 
 // timerFlush is only called by log.shared.FlushTimer
 func (log *Log) timerFlush() {
@@ -511,6 +489,7 @@ func (line *Line) Msg(msg string) {
 	line.log.hasActivity(true)
 }
 
+// TODO: add Msgf to base loggers to pass through data elements
 func (line *Line) Msgf(msg string, v ...interface{}) {
 	if !line.skip {
 		line.Msg(fmt.Sprintf(msg, v...))

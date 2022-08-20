@@ -18,6 +18,18 @@ import (
 	"github.com/muir/xop-go/xoputil"
 )
 
+type EventType int
+
+const (
+	LineEvent EventType = iota
+	RequestStart
+	RequestDone // there can be more than one RequestDone per Request
+	SpanStart
+	SpanDone // there can be more than one SpanDone per Span
+	FlushEvent
+	CustomEvent
+)
+
 type testingT interface {
 	Log(...interface{})
 	Name() string
@@ -46,6 +58,7 @@ type TestLogger struct {
 	Requests   []*Span
 	Spans      []*Span
 	Lines      []*Line
+	Events     []*Event
 	traceCount int
 	traceMap   map[string]*traceInfo
 	id         string
@@ -100,8 +113,31 @@ type Line struct {
 	Tmpl      bool
 }
 
+type Event struct {
+	Type EventType
+	Line *Line
+	Span *Span
+	Msg  string
+}
+
 func (t *TestLogger) Log() *xop.Log {
 	return xop.NewSeed(xop.WithBase(t)).Request(t.t.Name())
+}
+
+// WithLock is provided for thread-safe introspection of the logger
+func (l *TestLogger) WithLock(f func(*TestLogger) error) error {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	return f(l)
+}
+
+func (l *TestLogger) CustomEvent(msg string, args ...interface{}) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	l.Events = append(l.Events, &Event{
+		Type: CustomEvent,
+		Msg:  fmt.Sprintf(msg, args...),
+	})
 }
 
 func (l *TestLogger) ID() string                   { return l.id }
@@ -123,6 +159,10 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 	}
 	l.Requests = append(l.Requests, s)
+	l.Events = append(l.Events, &Event{
+		Type: SpanStart,
+		Span: s,
+	})
 	return s
 }
 
@@ -149,8 +189,32 @@ func (l *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
-func (s *Span) Done(t time.Time)             { atomic.StoreInt64(&s.EndTime, t.UnixNano()) }
-func (s *Span) Flush()                       {}
+func (s *Span) Done(t time.Time) {
+	atomic.StoreInt64(&s.EndTime, t.UnixNano())
+	s.testLogger.lock.Lock()
+	defer s.testLogger.lock.Unlock()
+	if s.IsRequest {
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: RequestDone,
+			Span: s,
+		})
+	} else {
+		s.testLogger.Events = append(s.testLogger.Events, &Event{
+			Type: SpanDone,
+			Span: s,
+		})
+	}
+}
+
+func (s *Span) Flush() {
+	s.testLogger.lock.Lock()
+	defer s.testLogger.lock.Unlock()
+	s.testLogger.Events = append(s.testLogger.Events, &Event{
+		Type: FlushEvent,
+		Span: s,
+	})
+}
+
 func (s *Span) Boring(bool)                  {}
 func (s *Span) ID() string                   { return s.testLogger.id }
 func (s *Span) SetErrorReporter(func(error)) {}
@@ -266,6 +330,10 @@ func (l Line) send(text string) {
 	l.Span.lock.Lock()
 	defer l.Span.lock.Unlock()
 	l.Span.testLogger.Lines = append(l.Span.testLogger.Lines, &l)
+	l.Span.testLogger.Events = append(l.Span.testLogger.Events, &Event{
+		Type: LineEvent,
+		Line: &l,
+	})
 	l.Span.Lines = append(l.Span.Lines, &l)
 }
 

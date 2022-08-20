@@ -120,12 +120,17 @@ func TestNoBuffer(t *testing.T) {
 	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
 	xoptestutil.MicroNap()
+	tlog.CustomEvent("before log.Done")
 	log.Done()
+	tlog.CustomEvent("after log.Done")
 	ss.Debug().Msg("sub-span debug message")
 	xoptestutil.MicroNap()
+	tlog.CustomEvent("before ss.Done")
 	ss.Done()
+	tlog.CustomEvent("after ss.Done")
 
 	t.Log("\n", buffer.String())
+	xoptestutil.DumpEvents(t, tlog)
 
 	newChecker(t, tlog, true).check(t, &buffer)
 }
