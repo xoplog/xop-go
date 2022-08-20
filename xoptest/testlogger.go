@@ -27,6 +27,7 @@ const (
 	SpanStart
 	SpanDone // there can be more than one SpanDone per Span
 	FlushEvent
+	CustomEvent
 )
 
 type testingT interface {
@@ -116,6 +117,7 @@ type Event struct {
 	Type EventType
 	Line *Line
 	Span *Span
+	Msg  string
 }
 
 func (t *TestLogger) Log() *xop.Log {
@@ -127,6 +129,15 @@ func (l *TestLogger) WithLock(f func(*TestLogger) error) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	return f(l)
+}
+
+func (l *TestLogger) CustomEvent(msg string, args ...interface{}) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	l.Events = append(l.Events, &Event{
+		Type: CustomEvent,
+		Msg:  fmt.Sprintf(msg, args...),
+	})
 }
 
 func (l *TestLogger) ID() string                   { return l.id }
