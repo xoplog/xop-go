@@ -85,7 +85,7 @@ func (s baseRequests) Flush() {
 	wg.Wait()
 }
 
-func (s baseSpans) Span(t time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode) xopbase.Span {
+func (s baseSpans) Span(t time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
 	baseSpans := make(baseSpans, len(s))
 	for i, ele := range s {
 		baseSpans[i] = ele.Span(t, span, descriptionOrName, spanSequenceCode)

@@ -12,8 +12,8 @@ func TestSetRandom(t *testing.T) {
 	trace := trace.NewTrace()
 	trace.RebuildSetNonZero()
 	trace.RandomizeSpanID()
-	a := trace.SpanIDString()
+	a := trace.SpanID().String()
 	trace.RandomizeSpanID()
-	b := trace.SpanIDString()
+	b := trace.SpanID().String()
 	assert.NotEqual(t, a, b)
 }

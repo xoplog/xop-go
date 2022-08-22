@@ -171,6 +171,11 @@
   - figure out a way to modify trace Baggage
   - add methods to query trace Baggage
 
+- How to do full-text (short-term) indexing of log lines
+
+  - Elastic
+  - [zinc](https://github.com/zinclabs/zinc)
+
 # Not build ready 
 
 - benchmarking

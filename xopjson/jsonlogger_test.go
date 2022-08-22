@@ -2,7 +2,7 @@ package xopjson_test
 
 import (
 	"encoding/json"
-	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +95,7 @@ func TestNoBuffer(t *testing.T) {
 		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDuration("dur", xopjson.AsMicros),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+		xopjson.WithSpanStarts(true),
 		xopjson.WithBufferedLines(8*1024*1024),
 		xopjson.WithAttributesObject(true),
 	)
@@ -133,7 +134,7 @@ func TestNoBuffer(t *testing.T) {
 	xoptestutil.DumpEvents(t, tlog)
 	xoptestutil.ExpectEventCount(t, tlog, xoptest.FlushEvent, 1)
 
-	newChecker(t, tlog, true).check(t, &buffer)
+	newChecker(t, tlog, true).check(t, buffer.String())
 }
 
 func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool) *checker {
@@ -174,31 +175,28 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool
 	return c
 }
 
-func (c *checker) check(t *testing.T, stream io.Reader) {
-	dec := json.NewDecoder(stream)
-	for {
-		var generic map[string]interface{}
-		err := dec.Decode(&generic)
-		if err == io.EOF {
-			break
+func (c *checker) check(t *testing.T, data string) {
+	for _, line := range strings.Split(data, "\n") {
+		if line == "" {
+			continue
 		}
-		require.NoError(t, err)
-		enc, err := json.Marshal(generic)
-		require.NoError(t, err)
+		var generic map[string]interface{}
+		err := json.Unmarshal([]byte(line), &generic)
+		require.NoErrorf(t, err, "decode to generic '%s'", line)
 
 		var super supersetObject
-		err = json.Unmarshal(enc, &super)
-		require.NoErrorf(t, err, "decode re-encoded: %s", string(enc))
+		err = json.Unmarshal([]byte(line), &super)
+		require.NoErrorf(t, err, "decode to super: %s", line)
 
 		switch super.Type {
 		case "", "line":
-			t.Logf("check line: %s", string(enc))
+			t.Logf("check line: %s", line)
 			c.line(t, super)
 		case "span":
-			t.Logf("check span: %s", string(enc))
+			t.Logf("check span: %s", line)
 			c.span(t, super)
 		case "request":
-			t.Logf("check request: %s", string(enc))
+			t.Logf("check request: %s", line)
 			c.request(t, super)
 		}
 	}

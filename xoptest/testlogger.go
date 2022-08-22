@@ -88,6 +88,7 @@ type Span struct {
 	StartTime     time.Time
 	EndTime       int64
 	Name          string
+	SequenceCode  string
 }
 
 type Prefilling struct {
@@ -222,7 +223,7 @@ func (s *Span) Boring(bool)                  {}
 func (s *Span) ID() string                   { return s.testLogger.id }
 func (s *Span) SetErrorReporter(func(error)) {}
 
-func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
+func (s *Span) Span(ts time.Time, span trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	s.testLogger.lock.Lock()
 	defer s.testLogger.lock.Unlock()
 	s.lock.Lock()
@@ -235,6 +236,7 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string) xopbase.Span {
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
+		SequenceCode:  spanSequenceCode,
 	}
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)

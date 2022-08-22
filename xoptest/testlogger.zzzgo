@@ -232,7 +232,7 @@ func (s *Span) Span(ts time.Time, span trace.Bundle, name string, spanSequenceCo
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		SequenceCode: string,
+		SequenceCode: spanSequenceCode,
 	}
 	s.Spans = append(s.Spans, n)
 	s.testLogger.Spans = append(s.testLogger.Spans, n)
