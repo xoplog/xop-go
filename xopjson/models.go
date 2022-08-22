@@ -40,6 +40,8 @@ type Logger struct {
 	timeOption            timeOption
 	timeFormat            string
 	timeDivisor           time.Duration
+	spanStarts            bool
+	spanChangesOnly       bool
 	id                    uuid.UUID
 	tagOption             TagOption
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
@@ -63,8 +65,6 @@ type request struct {
 	flushRequest      chan struct{}
 	flushComplete     chan struct{}
 	completedBuilders chan *builder
-	allSpans          []*span
-	allSpansLock      sync.Mutex
 	idNum             int64
 }
 
@@ -78,6 +78,9 @@ type span struct {
 	startTime          time.Time
 	serializationCount int32
 	attributes         AttributeBuilder
+	sequenceCode       string
+	spanIDBuffer       [len(`"trace.header":`) + 55 + 2]byte
+	spanIDPrebuilt     xoputil.JBuilder
 }
 
 type prefilling struct {
@@ -127,18 +130,19 @@ func WithDuration(key string, durationFormat DurationOption) Option {
 type TagOption int
 
 const (
-	DefaultTagOption TagOption = iota // TODO: set
-	SpanIDTagOption
-	FullIDTagOption
-	TraceIDTagOption
-	TraceSequenceNumberTagOption // TODO emit trace sequence number
-	OmitTagOption
+	SpanIDTagOption       TagOption = 1 << iota // 16 bytes hex
+	TraceIDTagOption                = 1 << iota // 32 bytes hex
+	TraceHeaderTagOption            = 1 << iota // 2+1+32+1+16+1+2 = 55 bytes/
+	TraceNumberTagOption            = 1 << iota // integer trace count
+	SpanSequenceTagOption           = 1 << iota // eg ".1.A"
 )
 
-// WithSpanTags specifies should reference the span that they're within.
-// The default is OmitTagOption if WithBufferedLines(true) is used
+// WithSpanTags specifies how lines should reference the span that they're within.
+// The default is SpanSequenceTagOption if WithBufferedLines(true) is used
 // because in that sitatuion, there are other clues that can be used to
-// figure out which span the line goes with.
+// figure out the spanID and traceID.  WithSpanTags() also modifies how spans
+// (but not requests) are logged: both TraceNumberTagOption, TraceNumberTagOption
+// apply to spans also.
 //
 // SpanIDTagOption indicates the the spanID should be included.  The key
 // is "span.id".
@@ -147,20 +151,35 @@ const (
 // TagLinesWithSpanSequence(true) was used, then the span can be derrived
 // that way.  The key is "trace.id".
 //
-// FullIDTagOption indicates that the traceID and the spanID should be
-// included.  This is the default with WithBufferedLines(false).
-// The key is "trace.header".
-//
-// TraceSequenceNumberTagOption indicates that that a trace sequence
+// TraceNumberTagOption indicates that that a trace sequence
 // number should be included in each line.  This also means that each
 // Request will emit a small record tying the traceID to a squence number.
-// The key is "trace_num".
+// The key is "trace.num".
 //
-// OmitTagOption indicates that no Span information should be included with
-// each Line object.
+// SpanSequenceTagOption indicates that the dot-notation span context
+// string should be included in each line.  The key is "span.ctx".
+
 func WithSpanTags(tagOption TagOption) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.tagOption = tagOption
+	}
+}
+
+// WithSpanStarts controls logging of the start of spans and requests.
+// When false, span-level data is output only when when Done() is called.
+// Done() can be called more than once.
+func WithSpanStarts(b bool) Option {
+	return func(l *Logger, _ *xoputil.Prealloc) {
+		l.spanStarts = b
+	}
+}
+
+// WithSpanChangesOnly controls the data included when span-level and
+// request-level data is logged.  When true, only changed fields will
+// be output. When false, all data will be output at each call to Done().
+func WithSpanChangesOnly(b bool) Option {
+	return func(l *Logger, _ *xoputil.Prealloc) {
+		l.spanChangesOnly = b
 	}
 }
 

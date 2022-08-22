@@ -34,11 +34,11 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	for _, f := range opts {
 		f(log, prealloc)
 	}
-	if log.tagOption == DefaultTagOption {
+	if log.tagOption == 0 {
 		if log.perRequestBufferLimit > 0 {
-			log.tagOption = OmitTagOption
+			log.tagOption = SpanIDTagOption
 		} else {
-			log.tagOption = FullIDTagOption
+			log.tagOption = SpanIDTagOption | TraceIDTagOption
 		}
 	}
 	return log
@@ -63,7 +63,7 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 			endTime:   ts.UnixNano(),
 		},
 	}
-	if logger.tagOption == TraceSequenceNumberTagOption {
+	if logger.tagOption&TraceNumberTagOption != 0 {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
 	request.attributes.Init(&request.span)
@@ -71,40 +71,47 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 	if logger.perRequestBufferLimit != 0 {
 		request.maintainBuffer()
 	}
-	request.allSpans = make([]*span, 1, 64)
-	request.allSpans[0] = &request.span
+	request.span.setSpanIDPrefill()
 
-	rq := request.span.builder()
-	rq.AppendBytes([]byte(`{"type":"request","trace.id":"`))
-	rq.AppendString(trace.Trace.TraceIDString())
-	rq.AppendBytes([]byte(`","span.id":`))
-	rq.AddSafeString(trace.Trace.SpanIDString())
-	if !trace.TraceParent.IsZero() {
-		rq.AppendBytes([]byte(`,"trace.parent":`))
-		rq.AppendString(trace.TraceParent.HeaderString())
-	}
-	if !trace.State.IsZero() {
-		rq.AppendBytes([]byte(`,"trace.state":`))
-		rq.AppendString(trace.State.String())
-	}
-	if !trace.Baggage.IsZero() {
-		rq.AppendBytes([]byte(`,"trace.baggage":`))
-		rq.AppendString(trace.Baggage.String())
-	}
-	rq.String("span.name", name)
-	rq.Time("ts", ts)
-	rq.AppendBytes([]byte{'}', '\n'})
-	if logger.perRequestBufferLimit != 0 {
-		request.completedBuilders <- rq
-	} else {
-		_, err := request.writer.Write(rq.B)
-		if err != nil {
-			request.errorFunc(err)
+	if logger.spanStarts {
+		rq := request.span.builder()
+		rq.AppendBytes([]byte(`{"type":"request"`))
+		request.span.addRequestStartData(rq)
+		rq.AppendBytes([]byte{'}', '\n'})
+		if logger.perRequestBufferLimit != 0 {
+			request.completedBuilders <- rq
+		} else {
+			_, err := request.writer.Write(rq.B)
+			if err != nil {
+				request.errorFunc(err)
+			}
+			rq.reclaimMemory()
 		}
-		rq.reclaimMemory()
 	}
 
 	return request
+}
+
+func (s *span) addRequestStartData(rq *builder) {
+	rq.AddSafeKey("trace.id")
+	rq.AddSafeString(s.trace.Trace.TraceIDString())
+	rq.AddSafeKey("span.id")
+	rq.AddSafeString(s.trace.Trace.SpanIDString())
+	if !s.trace.TraceParent.IsZero() {
+		rq.AddSafeKey("trace.parent")
+		rq.AppendString(s.trace.TraceParent.HeaderString())
+	}
+	if !s.trace.State.IsZero() {
+		rq.AddSafeKey("trace.state")
+		rq.AppendString(s.trace.State.String())
+	}
+	if !s.trace.Baggage.IsZero() {
+		rq.AddSafeKey("trace.baggage")
+		rq.AppendString(s.trace.Baggage.String())
+	}
+	rq.AddSafeKey("span.name")
+	rq.AddString(s.name)
+	rq.Time("ts", s.startTime)
 }
 
 func (r *request) maintainBuffer() {
@@ -135,7 +142,7 @@ func (r *request) maintainBuffer() {
 	}
 	handleFlush := func() {
 		// drains lines & builders before flush!
-		Flush:
+	Flush:
 		for {
 			select {
 			case builder := <-r.completedBuilders:
@@ -160,7 +167,7 @@ func (r *request) maintainBuffer() {
 				handleFlush()
 			case <-r.logger.closeRequest:
 				// drain everything else first
-				Request:
+			Request:
 				for {
 					select {
 					case builder := <-r.completedBuilders:
@@ -196,13 +203,6 @@ func (r *request) flushBuffer() {
 }
 
 func (r *request) Flush() {
-	func() {
-		r.allSpansLock.Lock()
-		defer r.allSpansLock.Unlock()
-		for _, span := range r.allSpans {
-			span.FlushAttributes()
-		}
-	}()
 	if r.logger.perRequestBufferLimit != 0 {
 		// TODO: improve this a bit by using a WaitGroup or something
 		r.flushRequest <- struct{}{}
@@ -214,58 +214,97 @@ func (r *request) Flush() {
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
 
-func (s *span) Span(ts time.Time, trace trace.Bundle, name string) xopbase.Span {
+func (s *span) Span(ts time.Time, trace trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &span{
-		logger:    s.logger,
-		writer:    s.writer,
-		trace:     trace,
-		name:      name,
-		request:   s.request,
-		startTime: ts,
-		endTime:   ts.UnixNano(),
+		logger:       s.logger,
+		writer:       s.writer,
+		trace:        trace,
+		name:         name,
+		request:      s.request,
+		startTime:    ts,
+		endTime:      ts.UnixNano(),
+		sequenceCode: spanSequenceCode,
 	}
 	n.attributes.Init(n)
-	func() {
-		s.request.allSpansLock.Lock()
-		defer s.request.allSpansLock.Unlock()
-		s.request.allSpans = append(s.request.allSpans, n)
-	}()
+	n.setSpanIDPrefill()
 
-	rq := s.builder()
-	rq.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
-	rq.AddSafeString(trace.Trace.SpanIDString())
-	rq.String("span.name", name)
-	rq.Time("ts", ts)
-	rq.AppendBytes([]byte{'}', '\n'})
-	if s.request.logger.perRequestBufferLimit != 0 {
-		s.request.completedBuilders <- rq
-	} else {
-		_, err := s.request.writer.Write(rq.B)
-		if err != nil {
-			s.request.errorFunc(err)
+	if s.logger.spanStarts {
+		rq := s.builder()
+		rq.AppendBytes([]byte(`{"type":"span","span.id":`))
+		rq.AddSafeString(trace.Trace.SpanIDString())
+		s.spanStartData(rq)
+		rq.AppendBytes([]byte{'}', '\n'})
+		if s.request.logger.perRequestBufferLimit != 0 {
+			s.request.completedBuilders <- rq
+		} else {
+			_, err := s.request.writer.Write(rq.B)
+			if err != nil {
+				s.request.errorFunc(err)
+			}
+			rq.reclaimMemory()
 		}
-		rq.reclaimMemory()
 	}
 
 	return n
+}
+
+func (s *span) spanStartData(rq *builder) {
+	rq.String("span.name", s.name)
+	rq.Time("ts", s.startTime)
+}
+
+func (s *span) setSpanIDPrefill() {
+	b := xoputil.JBuilder{
+		B: s.spanIDBuffer[:0],
+	}
+	s.identifySpan(&b)
+	s.spanIDPrebuilt = b
+}
+
+func (s *span) identifySpan(b *xoputil.JBuilder) {
+	if s.logger.tagOption&SpanIDTagOption != 0 {
+		b.AddSafeKey("span.id")
+		b.AddSafeString(s.trace.Trace.SpanIDString())
+	}
+	if s.logger.tagOption&TraceIDTagOption != 0 {
+		b.AddSafeKey("trace.id")
+		b.AddSafeString(s.trace.Trace.TraceIDString())
+	}
+	if s.logger.tagOption&TraceNumberTagOption != 0 {
+		b.AddSafeKey("trace.num")
+		b.AddInt64(s.request.idNum)
+	}
+	if s.logger.tagOption&SpanSequenceTagOption != 0 {
+		b.AddSafeKey("span.ctx")
+		b.AddSafeString(s.request.sequenceCode)
+	}
 }
 
 func (s *span) FlushAttributes() {
 	rq := s.builder()
 	s.serializationCount++
 	if s == &s.request.span {
-		rq.AppendBytes([]byte(`{"type":"request","request.ver":`)) // }
+		rq.AppendBytes([]byte(`{"type":"request"`)) // }
+		if !s.logger.spanStarts || !s.logger.spanChangesOnly {
+			s.addRequestStartData(rq)
+		} else {
+			s.identifySpan(&rq.JBuilder)
+		}
+		rq.AddSafeKey("request.ver")
 	} else {
-		rq.AppendBytes([]byte(`{"type":"span","span.ver":`)) // }
+		rq.AppendBytes([]byte(`{"type":"span"`)) // }
+		if !s.logger.spanStarts || !s.logger.spanChangesOnly {
+			s.spanStartData(rq)
+		}
+		s.identifySpan(&rq.JBuilder)
+		rq.AddSafeKey("span.ver")
 	}
 	rq.AddInt64(int64(s.serializationCount))
-	rq.AppendBytes([]byte(`,"span.id":`))
-	rq.AddSafeString(s.trace.Trace.SpanIDString())
 	if s.request.logger.durationKey != nil {
 		rq.AppendBytes(s.request.logger.durationKey)
 		rq.AddDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
 	}
-	s.attributes.Append(&rq.JBuilder)
+	s.attributes.Append(&rq.JBuilder, s.logger.spanChangesOnly)
 	// {
 	rq.AppendBytes([]byte{'}', '\n'})
 	if s.request.logger.perRequestBufferLimit != 0 {
@@ -279,9 +318,13 @@ func (s *span) FlushAttributes() {
 	}
 }
 
-func (s *span) Done(t time.Time) { atomic.StoreInt64(&s.endTime, t.UnixNano()) }
-func (s *span) Boring(bool)      {} // TODO
-func (s *span) ID() string       { return s.logger.id.String() }
+func (s *span) Done(t time.Time) {
+	atomic.StoreInt64(&s.endTime, t.UnixNano())
+	s.FlushAttributes()
+}
+
+func (s *span) Boring(bool) {} // TODO
+func (s *span) ID() string  { return s.logger.id.String() }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
@@ -360,6 +403,7 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 	l.Int("lvl", int64(level))
 	l.Time("ts", t)
 	if len(pc) > 0 {
+		// TODO: debug this!
 		frames := runtime.CallersFrames(pc)
 		l.AppendBytes([]byte(`,"stack":[`))
 		for {
@@ -379,24 +423,9 @@ func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbas
 		}
 		l.AppendByte(']')
 	}
-	switch l.span.logger.tagOption {
-	case SpanIDTagOption:
+	if len(p.span.spanIDPrebuilt.B) != 0 {
 		l.Comma()
-		l.AppendBytes([]byte(`"span.id":`))
-		l.AddSafeString(l.span.trace.Trace.SpanIDString())
-	case FullIDTagOption:
-		l.Comma()
-		l.AppendBytes([]byte(`"trace.header":`))
-		l.AddSafeString(l.span.trace.Trace.HeaderString())
-	case TraceIDTagOption:
-		l.Comma()
-		l.AppendBytes([]byte(`"trace.id":`))
-		l.AddSafeString(l.span.trace.Trace.TraceIDString())
-	case TraceSequenceNumberTagOption:
-		l.AddKey("trace_num")
-		l.AddInt64(l.span.request.idNum)
-	case OmitTagOption:
-		// yay!
+		l.AppendBytes(p.span.spanIDPrebuilt.B)
 	}
 	l.attributesWanted = p.span.logger.attributesObject
 	if len(p.data) != 0 {
@@ -500,7 +529,7 @@ func (b *builder) AddAny(v interface{}) {
 
 func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	b.startAttributes()
-	b.AddUncheckedKey(k.Key()) // TODO: check attribute keys at registration time
+	b.AddSafeKey(k.Key()) // TODO: check attribute keys at registration time
 	b.AddEnum(v)
 }
 

@@ -66,10 +66,10 @@ func (a *AttributeBuilder) Init(s *span) {
 	a.span = s
 }
 
-func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
+func (a *AttributeBuilder) Append(b *xoputil.JBuilder, onlyChanged bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if !a.anyChanged {
+	if (!a.anyChanged && onlyChanged) || (len(a.multiMap) == 0 && len(a.singleMap) == 0) {
 		return
 	}
 	a.anyChanged = false
@@ -78,7 +78,7 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 		b.AppendBytes([]byte(`"attributes":{`)) // }
 	}
 	for _, m := range a.multiMap {
-		if m.Changed {
+		if m.Changed || !onlyChanged {
 			b.Comma()
 			b.AppendBytes(m.Builder.B)
 			// [
@@ -87,7 +87,7 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder) {
 		}
 	}
 	for _, s := range a.singleMap {
-		if s.Changed {
+		if s.Changed || !onlyChanged {
 			b.Comma()
 			b.AppendBytes(s.KeyValue)
 			s.Changed = false

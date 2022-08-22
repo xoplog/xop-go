@@ -86,7 +86,7 @@ func (b *JBuilder) AddBool(v bool) {
 // is true.
 func (b *JBuilder) AddKey(v string) {
 	if b.FastKeys {
-		b.AddUncheckedKey(v)
+		b.AddSafeKey(v)
 	} else {
 		b.Comma()
 		b.AddString(v)
@@ -94,7 +94,7 @@ func (b *JBuilder) AddKey(v string) {
 	}
 }
 
-func (b *JBuilder) AddUncheckedKey(v string) {
+func (b *JBuilder) AddSafeKey(v string) {
 	b.Comma()
 	b.B = append(b.B, '"')
 	b.B = append(b.B, v...)

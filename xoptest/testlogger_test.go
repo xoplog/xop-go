@@ -35,9 +35,8 @@ func TestLogMethods(t *testing.T) {
 	assert.Equal(t, 1, tlog.CountLines(xoptest.TextContains("a test bar")), "count a test foo")
 	assert.Equal(t, 1, tlog.CountLines(xoptest.TextContains("a test bar with 38")), "count a test foo with 38")
 	if assert.NotEmpty(t, tlog.Spans, "have a sub-span") {
-		assert.Equal(t, tlog.Spans[0].Metadata["span.seq"], ".A", "span sequence for fork")
-		assert.Equal(t, tlog.Spans[0].Metadata["http.status_code"], int64(204), "an explicit attribute")
-		assert.Equal(t, xoputil.BaseAttributeTypeString, tlog.Spans[0].MetadataTypes["span.seq"], "span.seq attribute type")
+		assert.Equal(t, ".A", tlog.Spans[0].SequenceCode, "span sequence for fork")
+		assert.Equal(t, int64(204), tlog.Spans[0].Metadata["http.status_code"], "an explicit attribute")
 		assert.Equal(t, xoputil.BaseAttributeTypeInt64, tlog.Spans[0].MetadataTypes["http.status_code"], "http status code attribute type")
 	}
 }

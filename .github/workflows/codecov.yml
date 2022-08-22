@@ -13,6 +13,11 @@ jobs:
         with:
           go-version: '1.18'
       - name: Run coverage
-        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic -coverpkg github.com/muir/xop-go
+        run: make calculate_coverage
+
       - name: Upload coverage to Codecov
-        run: bash <(curl -s https://codecov.io/bash)
+        uses: codecov/codecov-action@v2
+        with:
+          verbose: true
+          flags: go_tests
+          fail_ci_if_error: true
