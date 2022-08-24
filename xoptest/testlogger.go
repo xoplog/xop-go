@@ -124,46 +124,46 @@ type Event struct {
 	Msg  string
 }
 
-func (t *TestLogger) Log() *xop.Log {
-	return xop.NewSeed(xop.WithBase(t)).Request(t.t.Name())
+func (log *TestLogger) Log() *xop.Log {
+	return xop.NewSeed(xop.WithBase(log)).Request(log.t.Name())
 }
 
 // WithLock is provided for thread-safe introspection of the logger
-func (l *TestLogger) WithLock(f func(*TestLogger) error) error {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-	return f(l)
+func (log *TestLogger) WithLock(f func(*TestLogger) error) error {
+	log.lock.Lock()
+	defer log.lock.Unlock()
+	return f(log)
 }
 
-func (l *TestLogger) CustomEvent(msg string, args ...interface{}) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-	l.Events = append(l.Events, &Event{
+func (log *TestLogger) CustomEvent(msg string, args ...interface{}) {
+	log.lock.Lock()
+	defer log.lock.Unlock()
+	log.Events = append(log.Events, &Event{
 		Type: CustomEvent,
 		Msg:  fmt.Sprintf(msg, args...),
 	})
 }
 
-func (l *TestLogger) ID() string                   { return l.id }
-func (l *TestLogger) Close()                       {}
-func (l *TestLogger) Buffered() bool               { return false }
-func (l *TestLogger) ReferencesKept() bool         { return true }
-func (l *TestLogger) SetErrorReporter(func(error)) {}
-func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopbase.Request {
-	l.lock.Lock()
-	defer l.lock.Unlock()
+func (log *TestLogger) ID() string                   { return log.id }
+func (log *TestLogger) Close()                       {}
+func (log *TestLogger) Buffered() bool               { return false }
+func (log *TestLogger) ReferencesKept() bool         { return true }
+func (log *TestLogger) SetErrorReporter(func(error)) {}
+func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopbase.Request {
+	log.lock.Lock()
+	defer log.lock.Unlock()
 	s := &Span{
-		testLogger:    l,
+		testLogger:    log,
 		IsRequest:     true,
 		Trace:         span,
-		short:         l.setShort(span, name),
+		short:         log.setShort(span, name),
 		StartTime:     ts,
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 	}
-	l.Requests = append(l.Requests, s)
-	l.Events = append(l.Events, &Event{
+	log.Requests = append(log.Requests, s)
+	log.Events = append(log.Events, &Event{
 		Type: RequestStart,
 		Span: s,
 	})
@@ -171,93 +171,93 @@ func (l *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopba
 }
 
 // must hold a lock to call setShort
-func (l *TestLogger) setShort(span trace.Bundle, name string) string {
+func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 	ts := span.Trace.GetTraceID().String()
-	if ti, ok := l.traceMap[ts]; ok {
+	if ti, ok := log.traceMap[ts]; ok {
 		ti.spanCount++
 		ti.spans[span.Trace.GetSpanID().String()] = ti.spanCount
 		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
-		l.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
+		log.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
 		return short
 	}
-	l.traceCount++
-	l.traceMap[ts] = &traceInfo{
+	log.traceCount++
+	log.traceMap[ts] = &traceInfo{
 		spanCount: 1,
-		traceNum:  l.traceCount,
+		traceNum:  log.traceCount,
 		spans: map[string]int{
 			span.Trace.GetSpanID().String(): 1,
 		},
 	}
-	short := fmt.Sprintf("T%d.%d", l.traceCount, 1)
-	l.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
+	short := fmt.Sprintf("T%d.%d", log.traceCount, 1)
+	log.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
 	return short
 }
 
-func (s *Span) Done(t time.Time) {
-	atomic.StoreInt64(&s.EndTime, t.UnixNano())
-	s.testLogger.lock.Lock()
-	defer s.testLogger.lock.Unlock()
-	if s.IsRequest {
-		s.testLogger.Events = append(s.testLogger.Events, &Event{
+func (span *Span) Done(t time.Time) {
+	atomic.StoreInt64(&span.EndTime, t.UnixNano())
+	span.testLogger.lock.Lock()
+	defer span.testLogger.lock.Unlock()
+	if span.IsRequest {
+		span.testLogger.Events = append(span.testLogger.Events, &Event{
 			Type: RequestDone,
-			Span: s,
+			Span: span,
 		})
 	} else {
-		s.testLogger.Events = append(s.testLogger.Events, &Event{
+		span.testLogger.Events = append(span.testLogger.Events, &Event{
 			Type: SpanDone,
-			Span: s,
+			Span: span,
 		})
 	}
 }
 
-func (s *Span) Flush() {
-	s.testLogger.lock.Lock()
-	defer s.testLogger.lock.Unlock()
-	s.testLogger.Events = append(s.testLogger.Events, &Event{
+func (span *Span) Flush() {
+	span.testLogger.lock.Lock()
+	defer span.testLogger.lock.Unlock()
+	span.testLogger.Events = append(span.testLogger.Events, &Event{
 		Type: FlushEvent,
-		Span: s,
+		Span: span,
 	})
 }
 
-func (s *Span) Boring(bool)                  {}
-func (s *Span) ID() string                   { return s.testLogger.id }
-func (s *Span) SetErrorReporter(func(error)) {}
+func (span *Span) Boring(bool)                  {}
+func (span *Span) ID() string                   { return span.testLogger.id }
+func (span *Span) SetErrorReporter(func(error)) {}
 
-func (s *Span) Span(ts time.Time, span trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
-	s.testLogger.lock.Lock()
-	defer s.testLogger.lock.Unlock()
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+	span.testLogger.lock.Lock()
+	defer span.testLogger.lock.Unlock()
+	span.lock.Lock()
+	defer span.lock.Unlock()
 	n := &Span{
-		testLogger:    s.testLogger,
-		Trace:         span,
-		short:         s.testLogger.setShort(span, name),
+		testLogger:    span.testLogger,
+		Trace:         traceSpan,
+		short:         span.testLogger.setShort(traceSpan, name),
 		StartTime:     ts,
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
 		SequenceCode:  spanSequenceCode,
 	}
-	s.Spans = append(s.Spans, n)
-	s.testLogger.Spans = append(s.testLogger.Spans, n)
-	s.testLogger.Events = append(s.testLogger.Events, &Event{
+	span.Spans = append(span.Spans, n)
+	span.testLogger.Spans = append(span.testLogger.Spans, n)
+	span.testLogger.Events = append(span.testLogger.Events, &Event{
 		Type: SpanStart,
 		Span: n,
 	})
 	return n
 }
 
-func (s *Span) NoPrefill() xopbase.Prefilled {
+func (span *Span) NoPrefill() xopbase.Prefilled {
 	return &Prefilled{
-		Span: s,
+		Span: span,
 	}
 }
 
-func (s *Span) StartPrefill() xopbase.Prefilling {
+func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
 			Data: make(map[string]interface{}),
-			Span: s,
+			Span: span,
 		},
 	}
 }
@@ -293,57 +293,57 @@ func (p *Prefilled) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase
 	return line
 }
 
-func (l *Line) Static(m string) {
-	l.Msg(m)
+func (line *Line) Static(m string) {
+	line.Msg(m)
 }
 
-func (l *Line) Msg(m string) {
-	l.Message += m
-	text := l.Span.short + ": " + l.Message
-	if len(l.kvText) > 0 {
-		text += " " + strings.Join(l.kvText, " ")
-		l.kvText = nil
+func (line *Line) Msg(m string) {
+	line.Message += m
+	text := line.Span.short + ": " + line.Message
+	if len(line.kvText) > 0 {
+		text += " " + strings.Join(line.kvText, " ")
+		line.kvText = nil
 	}
-	l.Text = text
-	l.send(text)
+	line.Text = text
+	line.send(text)
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
 
-func (l *Line) Template(m string) {
-	l.Tmpl = true
-	l.Message += m
+func (line *Line) Template(m string) {
+	line.Tmpl = true
+	line.Message += m
 	used := make(map[string]struct{})
-	text := l.Span.short + ": " +
-		templateRE.ReplaceAllStringFunc(l.Message, func(k string) string {
+	text := line.Span.short + ": " +
+		templateRE.ReplaceAllStringFunc(line.Message, func(k string) string {
 			k = k[1 : len(k)-1]
-			if v, ok := l.Data[k]; ok {
+			if v, ok := line.Data[k]; ok {
 				used[k] = struct{}{}
 				return fmt.Sprint(v)
 			}
 			return "''"
 		})
-	for k, v := range l.Data {
+	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)
 		}
 	}
-	l.Text = text
-	l.send(text)
+	line.Text = text
+	line.send(text)
 }
 
-func (l Line) send(text string) {
-	l.Span.testLogger.t.Log(text)
-	l.Span.testLogger.lock.Lock()
-	defer l.Span.testLogger.lock.Unlock()
-	l.Span.lock.Lock()
-	defer l.Span.lock.Unlock()
-	l.Span.testLogger.Lines = append(l.Span.testLogger.Lines, &l)
-	l.Span.testLogger.Events = append(l.Span.testLogger.Events, &Event{
+func (line Line) send(text string) {
+	line.Span.testLogger.t.Log(text)
+	line.Span.testLogger.lock.Lock()
+	defer line.Span.testLogger.lock.Unlock()
+	line.Span.lock.Lock()
+	defer line.Span.lock.Unlock()
+	line.Span.testLogger.Lines = append(line.Span.testLogger.Lines, &line)
+	line.Span.testLogger.Events = append(line.Span.testLogger.Events, &Event{
 		Type: LineEvent,
-		Line: &l,
+		Line: &line,
 	})
-	l.Span.Lines = append(l.Span.Lines, &l)
+	line.Span.Lines = append(line.Span.Lines, &line)
 }
 
 func (b *Builder) Any(k string, v interface{}) {

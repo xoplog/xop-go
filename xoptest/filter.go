@@ -18,12 +18,12 @@ func TextContains(msg string) LinePredicate {
 	}
 }
 
-func (l *TestLogger) FindLines(predicates ...LinePredicate) []*Line {
-	l.lock.Lock()
-	defer l.lock.Unlock()
+func (log *TestLogger) FindLines(predicates ...LinePredicate) []*Line {
+	log.lock.Lock()
+	defer log.lock.Unlock()
 	var found []*Line
 Line:
-	for _, line := range l.Lines {
+	for _, line := range log.Lines {
 		for _, predicate := range predicates {
 			if !predicate(line) {
 				continue Line
@@ -34,6 +34,6 @@ Line:
 	return found
 }
 
-func (l *TestLogger) CountLines(predicates ...LinePredicate) int {
-	return len(l.FindLines(predicates...))
+func (log *TestLogger) CountLines(predicates ...LinePredicate) int {
+	return len(log.FindLines(predicates...))
 }

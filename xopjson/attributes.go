@@ -18,7 +18,7 @@ const (
 )
 
 // Writer implements io.Writer interface for json.Encoder
-func (a AttributeBuilder) Write(n []byte) (int, error) {
+func (a *AttributeBuilder) Write(n []byte) (int, error) {
 	*a.encodeTarget = append(*a.encodeTarget, n...)
 	return len(n), nil
 }

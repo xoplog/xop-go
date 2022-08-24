@@ -14,6 +14,7 @@ func TestBase26(t *testing.T) {
 		26: "BA",
 		27: "BB",
 		52: "CA",
+		-1: "-B",
 	}
 	for num, want := range tc {
 		assert.Equalf(t, want, base26(num), "base26(%d)", num)
