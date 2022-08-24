@@ -65,16 +65,15 @@ type checkConfig struct {
 }
 
 type checker struct {
-	tlog                *xoptest.TestLogger
-	config              checkConfig
-	hasAttributesObject bool
-	spansSeen           []bool
-	requestsSeen        []bool
-	messagesNotSeen     map[string][]int
-	spanIndex           map[string]int
-	requestIndex        map[string]int
-	accumulatedSpans    map[string]map[string]interface{}
-	sequencing          map[string]int
+	tlog             *xoptest.TestLogger
+	config           checkConfig
+	spansSeen        []bool
+	requestsSeen     []bool
+	messagesNotSeen  map[string][]int
+	spanIndex        map[string]int
+	requestIndex     map[string]int
+	accumulatedSpans map[string]map[string]interface{}
+	sequencing       map[string]int
 }
 
 func TestASingleLine(t *testing.T) {
@@ -314,7 +313,11 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
 	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
-	compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes")
+	if c.config.hasAttributesObject {
+		compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes")
+	} else {
+		assert.Empty(t, super.Attributes)
+	}
 }
 
 func (c *checker) span(t *testing.T, super supersetObject) {
