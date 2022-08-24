@@ -43,6 +43,11 @@
 
 - support microsoft correlation vectors?  https://github.com/Microsoft/CorrelationVector-Go
 
+- How to do full-text (short-term) indexing of log lines
+
+  - Elastic
+  - [zinc](https://github.com/zinclabs/zinc)
+
 # Just do it (build ready)
 
 - move xoputil to internal/xoputil -- at least for now since
@@ -50,7 +55,7 @@
 
 - For enums from OTEL, generate them from the protobuf constants.
 
-- Drop the makefile in favor of more sophisticated use of go:generate See example of enumer in zitadel/oidc
+- Drop the makefile in favor of more sophisticated use of go:generate See example of enumer in zitadel/oidc.  Well, keep the makefile since coverage is complicated.
 
 - Round out the kinds of things that can be logged:
 
@@ -81,6 +86,8 @@
 
 - Add tests:
 
+  Coverage needs to be up at 90+%
+
   - subspans
   - Span attributes
   - Structued lines
@@ -97,7 +104,6 @@
   - gateway to onelog
   - gateway to zerolog
   - gateway to zap
-  - gateway to phuslog
 
 - emulation
 
@@ -118,17 +124,6 @@
 
   - Console (emphasis on readable, but still retains full data)
 
-- Bytes writers 
-
-  - to console
-  - to io.Writer (same as console?)
-
-- Add CI
-
-  Gitlab actions.  
-
-  - Example in libschema for combining coverage from multiple source
-
 - Performmance
 
   - mark all places in the code where an allocation happens `// allocate`
@@ -137,10 +132,11 @@
     - xop.Logger
 
   - Replace flushers map with a flushers slice
+
   - In xopjson
 
-    - track which spans have been modified
     - pre-allocate span array
+    - use a priority queue instead of multiple channels for sending stuff to the writer
 
   - Improve upon sync.Pool
 
@@ -159,22 +155,12 @@
 
   - can *Sub be Sub instead?  Would that have better performance? 
 
-  - the Flush() and Done() code ends locking and releasing the same locks 
-    multiple times.  Refactor to put some parts of the work in functions that
-    must be called while locked so that fewer lock/release cycles. 200ns per
-    lock/release...
-
 - Standard tracing
 
   - figure out a way to modify trace State
   - add methods to query trace State
   - figure out a way to modify trace Baggage
   - add methods to query trace Baggage
-
-- How to do full-text (short-term) indexing of log lines
-
-  - Elastic
-  - [zinc](https://github.com/zinclabs/zinc)
 
 # Not build ready 
 
@@ -191,20 +177,16 @@
 
   Not ready because APIs should be more solid first
 
+- Bytes writers 
+
   - Gateway into Jaeger
   - Gateway into Open Telementry
-  - Improve the JSON logger
 
     It can have a bunch more knobs and controls
 
-    - add additional time formats
     - add ability to maintain and send dictionaries to compress logs
 
       - keys for key/value
-      - span ids (use the spanSequenceCode)
-      - log line prefix sets
-
-- Bytes writers:
 
   - send to server (need to design server)
 
@@ -218,5 +200,3 @@
   - Gets counted
   - Re-use attributes?
   - Attach arbitrary data
-
-

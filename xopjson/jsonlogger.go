@@ -77,9 +77,10 @@ func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xop
 
 	if logger.spanStarts {
 		rq := request.span.builder()
-		rq.AppendBytes([]byte(`{"type":"request"`))
+		rq.AppendBytes([]byte(`{"type":"request","request.ver":0`))
 		request.span.addRequestStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
+		request.serializationCount++
 		if logger.perRequestBufferLimit != 0 {
 			request.completedBuilders <- rq
 		} else {
@@ -232,10 +233,11 @@ func (s *span) Span(ts time.Time, trace trace.Bundle, name string, spanSequenceC
 
 	if s.logger.spanStarts {
 		rq := s.builder()
-		rq.AppendBytes([]byte(`{"type":"span","span.id":`))
+		rq.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
 		rq.AddSafeString(trace.Trace.SpanIDString())
-		s.spanStartData(rq)
+		n.spanStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
+		n.serializationCount++
 		if s.request.logger.perRequestBufferLimit != 0 {
 			s.request.completedBuilders <- rq
 		} else {
@@ -284,7 +286,6 @@ func (s *span) identifySpan(b *xoputil.JBuilder) {
 
 func (s *span) FlushAttributes() {
 	rq := s.builder()
-	s.serializationCount++
 	if s == &s.request.span {
 		rq.AppendBytes([]byte(`{"type":"request"`)) // }
 		if !s.logger.spanStarts || !s.logger.spanChangesOnly {
@@ -302,6 +303,7 @@ func (s *span) FlushAttributes() {
 		rq.AddSafeKey("span.ver")
 	}
 	rq.AddInt64(int64(s.serializationCount))
+	s.serializationCount++
 	if s.request.logger.durationKey != nil {
 		rq.AppendBytes(s.request.logger.durationKey)
 		rq.AddDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
