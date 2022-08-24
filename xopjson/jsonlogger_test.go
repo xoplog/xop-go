@@ -58,15 +58,22 @@ type supersetObject struct {
 	SpanVersion int `json:"span.ver"`
 }
 
-type checker struct {
-	tlog                *xoptest.TestLogger
+type checkConfig struct {
+	minVersions         int
+	maxVersions         int
 	hasAttributesObject bool
-	spansSeen           []bool
-	requestsSeen        []bool
-	messagesNotSeen     map[string][]int
-	spanIndex           map[string]int
-	requestIndex        map[string]int
-	accumulatedSpans    map[string]map[string]interface{}
+}
+
+type checker struct {
+	tlog             *xoptest.TestLogger
+	config           checkConfig
+	spansSeen        []bool
+	requestsSeen     []bool
+	messagesNotSeen  map[string][]int
+	spanIndex        map[string]int
+	requestIndex     map[string]int
+	accumulatedSpans map[string]map[string]interface{}
+	sequencing       map[string]int
 }
 
 func TestASingleLine(t *testing.T) {
@@ -76,77 +83,158 @@ func TestASingleLine(t *testing.T) {
 		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDuration("dur", xopjson.AsString),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-		xopjson.WithBufferedLines(8*1024*1024),
 		xopjson.WithAttributesObject(true),
 	)
 	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
 	log.Info().String("foo", "bar").Int("blast", 99).Msg("a test line")
-	log.Error().Msg("basic error message")
-	log.Flush()
 	log.Done()
 	s := buffer.String()
 	t.Log(s)
+	lines := strings.Split(buffer.String(), "\n")
+	require.Equal(t, 3, len(lines), "three lines")
+	assert.Contains(t, lines[0], `"span.id":`)
+	assert.Contains(t, lines[0], `"attributes":{`) // }
+	assert.Contains(t, lines[0], `"foo":"bar"`)
+	assert.Contains(t, lines[0], `"lvl":9`)
+	assert.Contains(t, lines[0], `"ts":`)
+	assert.Contains(t, lines[0], `"blast":99`)
+	assert.NotContains(t, lines[0], `"trace.id":`)
+	assert.Contains(t, lines[1], `"trace.id":`)
+	assert.Contains(t, lines[1], `"span.id":`)
+	assert.Contains(t, lines[1], `"dur":"`)
+	assert.Contains(t, lines[1], `"request.ver":0`)
+	assert.Contains(t, lines[1], `"type":"request"`)
+	assert.Contains(t, lines[1], `"span.name":"TestASingleLine"`)
 }
 
-func TestNoBuffer(t *testing.T) {
-	var buffer xoputil.Buffer
-	jlog := xopjson.New(
-		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Microsecond),
-		xopjson.WithDuration("dur", xopjson.AsMicros),
-		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-		xopjson.WithSpanStarts(true),
-		xopjson.WithBufferedLines(8*1024*1024),
-		xopjson.WithAttributesObject(true),
-	)
-	tlog := xoptest.New(t)
-	t.Log(buffer.String())
-	log := xop.NewSeed(
-		xop.WithBase(jlog),
-		xop.WithBase(tlog),
-		xop.WithSettings(func(settings *xop.LogSettings) {
-			settings.SynchronousFlush(true)
-		}),
-	).Request(t.Name())
-	log.Info().Msg("basic info message")
-	log.Error().Msg("basic error message")
-	log.Alert().Msg("basic alert message")
-	log.Debug().Msg("basic debug message")
-	log.Trace().Msg("basic trace message")
-	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+func TestParameters(t *testing.T) {
+	cases := []struct {
+		name         string
+		joptions     []xopjson.Option
+		settings     func(settings *xop.LogSettings)
+		waitForFlush bool
+		checkConfig  checkConfig
+	}{
+		{
+			name: "buffered",
+			joptions: []xopjson.Option{
+				xopjson.WithSpanStarts(true),
+				xopjson.WithBufferedLines(8 * 1024 * 1024),
+				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			},
+			checkConfig: checkConfig{
+				minVersions:         2,
+				hasAttributesObject: true,
+			},
+		},
+		{
+			name: "unbuffered",
+			joptions: []xopjson.Option{
+				xopjson.WithSpanStarts(true),
+				xopjson.WithBufferedLines(8 * 1024 * 1024),
+				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			},
+			checkConfig: checkConfig{
+				minVersions:         2,
+				hasAttributesObject: true,
+			},
+		},
+		{
+			name: "unsynced",
+			joptions: []xopjson.Option{
+				xopjson.WithSpanStarts(false),
+				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+			},
+			settings: func(settings *xop.LogSettings) {
+				settings.SynchronousFlush(false)
+			},
+			// with sync=false, we don't know when .Done will trigger a flush.
+			waitForFlush: true,
+			checkConfig: checkConfig{
+				minVersions:         1,
+				hasAttributesObject: true,
+			},
+		},
+	}
 
-	ss := log.Sub().Detach().Fork("a fork")
-	xoptestutil.MicroNap()
-	ss.Alert().String("frightening", "stuff").Static("like a rock")
-	ss.Span().String(xopconst.EndpointRoute, "/some/thing")
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			var buffer xoputil.Buffer
+			joptions := []xopjson.Option{
+				xopjson.WithEpochTime(time.Microsecond),
+				xopjson.WithDuration("dur", xopjson.AsMicros),
+				xopjson.WithSpanStarts(true),
+				xopjson.WithBufferedLines(8 * 1024 * 1024),
+				xopjson.WithAttributesObject(true),
+			}
+			joptions = append(joptions, tc.joptions...)
 
-	xoptestutil.MicroNap()
-	tlog.CustomEvent("before log.Done")
-	log.Done()
-	tlog.CustomEvent("after log.Done")
-	ss.Debug().Msg("sub-span debug message")
-	xoptestutil.MicroNap()
-	tlog.CustomEvent("before ss.Done")
-	ss.Done()
-	tlog.CustomEvent("after ss.Done")
+			jlog := xopjson.New(
+				xopbytes.WriteToIOWriter(&buffer),
+				joptions...)
+			tlog := xoptest.New(t)
+			t.Log(buffer.String())
+			settings := func(settings *xop.LogSettings) {
+				settings.SynchronousFlush(true)
+			}
+			if tc.settings != nil {
+				settings = tc.settings
+			}
+			log := xop.NewSeed(
+				xop.WithBase(jlog),
+				xop.WithBase(tlog),
+				xop.WithSettings(settings),
+			).Request(t.Name())
+			log.Info().Msg("basic info message")
+			log.Error().Msg("basic error message")
+			log.Alert().Msg("basic alert message")
+			log.Debug().Msg("basic debug message")
+			log.Trace().Msg("basic trace message")
+			log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 
-	t.Log("\n", buffer.String())
-	xoptestutil.DumpEvents(t, tlog)
-	xoptestutil.ExpectEventCount(t, tlog, xoptest.FlushEvent, 1)
+			ss := log.Sub().Detach().Fork("a fork")
+			xoptestutil.MicroNap()
+			ss.Alert().String("frightening", "stuff").Static("like a rock")
+			ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
-	newChecker(t, tlog, true).check(t, buffer.String())
+			xoptestutil.MicroNap()
+			tlog.CustomEvent("before log.Done")
+			log.Done()
+			tlog.CustomEvent("after log.Done")
+			ss.Debug().Msg("sub-span debug message")
+			xoptestutil.MicroNap()
+			tlog.CustomEvent("before ss.Done")
+			ss.Done()
+			tlog.CustomEvent("after ss.Done")
+
+			t.Log("\n", buffer.String())
+			xoptestutil.DumpEvents(t, tlog)
+			if tc.waitForFlush {
+				assert.Eventually(t, func() bool {
+					return xoptestutil.EventCount(tlog, xoptest.FlushEvent) > 0
+				}, time.Second, time.Millisecond*3)
+			}
+			assert.Equal(t, 1, xoptestutil.EventCount(tlog, xoptest.FlushEvent), "count of flush")
+			newChecker(t, tlog, tc.checkConfig).check(t, buffer.String())
+		})
+	}
 }
 
-func newChecker(t *testing.T, tlog *xoptest.TestLogger, hasAttributesObject bool) *checker {
+func newChecker(t *testing.T, tlog *xoptest.TestLogger, config checkConfig) *checker {
+	if config.maxVersions < config.minVersions {
+		config.maxVersions = config.minVersions
+	}
 	c := &checker{
-		tlog:                tlog,
-		hasAttributesObject: hasAttributesObject,
-		spansSeen:           make([]bool, len(tlog.Spans)),
-		requestsSeen:        make([]bool, len(tlog.Requests)),
-		messagesNotSeen:     make(map[string][]int),
-		spanIndex:           make(map[string]int),
-		requestIndex:        make(map[string]int),
-		accumulatedSpans:    make(map[string]map[string]interface{}),
+		tlog:             tlog,
+		config:           config,
+		spansSeen:        make([]bool, len(tlog.Spans)),
+		requestsSeen:     make([]bool, len(tlog.Requests)),
+		messagesNotSeen:  make(map[string][]int),
+		spanIndex:        make(map[string]int),
+		requestIndex:     make(map[string]int),
+		accumulatedSpans: make(map[string]map[string]interface{}),
+		sequencing:       make(map[string]int),
 	}
 	for i, line := range tlog.Lines {
 		if debugTlog {
@@ -225,36 +313,61 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
 	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
-	compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes")
+	if c.config.hasAttributesObject {
+		compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes")
+	} else {
+		assert.Empty(t, super.Attributes)
+	}
 }
 
 func (c *checker) span(t *testing.T, super supersetObject) {
 	assert.Empty(t, super.Level, "no level expected")
+	var prior int
+	var ok bool
+	if assert.NotEmpty(t, super.SpanID, "has span id") {
+		prior, ok = c.sequencing[super.SpanID]
+	}
 	if super.SpanVersion > 0 {
+		if assert.True(t, ok, "has prior version") {
+			assert.Equal(t, prior+1, super.SpanVersion, "version is in sequence")
+		}
 		assert.NotEmpty(t, super.Duration, "duration is set")
 		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
+		assert.False(t, ok, "no prior version expected")
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
+		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	}
+	c.sequencing[super.SpanID] = super.SpanVersion
 	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 
 func (c *checker) request(t *testing.T, super supersetObject) {
 	assert.Empty(t, super.Level, "no level expected")
-	assert.NotEmpty(t, super.SpanID, "has span id")
+	var prior int
+	var ok bool
+	if assert.NotEmpty(t, super.SpanID, "has span id") {
+		prior, ok = c.sequencing[super.SpanID]
+	}
 	if super.RequestVersion > 0 {
+		if assert.True(t, ok, "has prior version") {
+			assert.Equal(t, prior+1, super.RequestVersion, "version is in sequence")
+		}
 		assert.NotEmpty(t, super.Duration, "duration is set")
 		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
+		assert.False(t, ok, "no prior version expected")
 		assert.NotEmpty(t, super.TraceID, "has trace id")
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
+		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	}
+	c.sequencing[super.SpanID] = super.RequestVersion
 	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 

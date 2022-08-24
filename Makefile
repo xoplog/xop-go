@@ -14,7 +14,7 @@ all:	$(ZZZGENERATED)
 test:	$(ZZZGENERATED)
 	go generate ./...
 	go test -v ./xopjson/... -run TestASingleLine
-	go test -v ./xopjson/... -run TestNoBuffer
+	go test -v ./xopjson/... -run TestParameters
 	go test ./...
 	go test -race ./...
 
@@ -52,3 +52,7 @@ golanglint:
 	# binary will be $(go env GOPATH)/bin/golangci-lint
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.45.2
 	golangci-lint --version
+
+lint:;
+	golangci-lint run
+	
