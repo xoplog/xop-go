@@ -43,14 +43,11 @@ func TestLogMethods(t *testing.T) {
 }
 
 func TestWithLock(t *testing.T) {
-	var err1 error
-	var err2 error
 	message := make(chan int, 2)
 	defer close(message)
 	wg := sync.WaitGroup{}
 	invocations := 0
 	f := func(l *xoptest.TestLogger) error {
-		defer wg.Done()
 		time.Sleep(100 * time.Millisecond)
 		invocations++
 		message <- invocations
@@ -60,16 +57,18 @@ func TestWithLock(t *testing.T) {
 	defer tLog.Close()
 	wg.Add(1)
 	go func() {
-		err1 = tLog.WithLock(f)
+		defer wg.Done()
+		err := tLog.WithLock(f)
+		assert.NoError(t, err)
 	}()
 	wg.Add(1)
 	go func() {
-		err2 = tLog.WithLock(f)
+		defer wg.Done()
+		err := tLog.WithLock(f)
+		assert.NoError(t, err)
 	}()
 
 	wg.Wait()
-	assert.NoError(t, err1)
-	assert.NoError(t, err2)
 	assert.Equal(t, 1, <-message)
 	assert.Equal(t, 2, <-message)
 }
