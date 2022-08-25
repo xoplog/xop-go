@@ -108,7 +108,7 @@ func TestASingleLine(t *testing.T) {
 }
 
 func TestParameters(t *testing.T) {
-	cases := []struct {
+	jsonCases := []struct {
 		name         string
 		joptions     []xopjson.Option
 		settings     func(settings *xop.LogSettings)
@@ -128,15 +128,16 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "unbuffered",
+			name: "unbuffered/no-attributes",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(true),
 				xopjson.WithBufferedLines(8 * 1024 * 1024),
 				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+				xopjson.WithAttributesObject(false),
 			},
 			checkConfig: checkConfig{
 				minVersions:         2,
-				hasAttributesObject: true,
+				hasAttributesObject: false,
 			},
 		},
 		{
@@ -157,66 +158,93 @@ func TestParameters(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
+	messageCases := []struct {
+		name string
+		do   func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger)
+	}{
+		{
+			name: "one span",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				log.Info().Msg("basic info message")
+				log.Error().Msg("basic error message")
+				log.Alert().Msg("basic alert message")
+				log.Debug().Msg("basic debug message")
+				log.Trace().Msg("basic trace message")
+				log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+
+				ss := log.Sub().Detach().Fork("a fork")
+				xoptestutil.MicroNap()
+				ss.Alert().String("frightening", "stuff").Static("like a rock")
+				ss.Span().String(xopconst.EndpointRoute, "/some/thing")
+
+				xoptestutil.MicroNap()
+				tlog.CustomEvent("before log.Done")
+				log.Done()
+				tlog.CustomEvent("after log.Done")
+				ss.Debug().Msg("sub-span debug message")
+				xoptestutil.MicroNap()
+				tlog.CustomEvent("before ss.Done")
+				ss.Done()
+				tlog.CustomEvent("after ss.Done")
+			},
+		},
+		{
+			name: "metadata singles",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				// TODO: debug non-detached fork
+				// ss := log.Sub().Fork("a fork")
+				log.Span().Bool(ExampleMetadataBool, true)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+	}
+
+	for _, tc := range jsonCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			var buffer xoputil.Buffer
-			joptions := []xopjson.Option{
-				xopjson.WithEpochTime(time.Microsecond),
-				xopjson.WithDuration("dur", xopjson.AsMicros),
-				xopjson.WithSpanStarts(true),
-				xopjson.WithBufferedLines(8 * 1024 * 1024),
-				xopjson.WithAttributesObject(true),
-			}
-			joptions = append(joptions, tc.joptions...)
+			for _, mc := range messageCases {
+				mc := mc
+				t.Run(mc.name, func(t *testing.T) {
+					var buffer xoputil.Buffer
+					joptions := []xopjson.Option{
+						xopjson.WithEpochTime(time.Microsecond),
+						xopjson.WithDuration("dur", xopjson.AsMicros),
+						xopjson.WithSpanStarts(true),
+						xopjson.WithBufferedLines(8 * 1024 * 1024),
+						xopjson.WithAttributesObject(true),
+					}
+					joptions = append(joptions, tc.joptions...)
 
-			jlog := xopjson.New(
-				xopbytes.WriteToIOWriter(&buffer),
-				joptions...)
-			tlog := xoptest.New(t)
-			t.Log(buffer.String())
-			settings := func(settings *xop.LogSettings) {
-				settings.SynchronousFlush(true)
-			}
-			if tc.settings != nil {
-				settings = tc.settings
-			}
-			log := xop.NewSeed(
-				xop.WithBase(jlog),
-				xop.WithBase(tlog),
-				xop.WithSettings(settings),
-			).Request(t.Name())
-			log.Info().Msg("basic info message")
-			log.Error().Msg("basic error message")
-			log.Alert().Msg("basic alert message")
-			log.Debug().Msg("basic debug message")
-			log.Trace().Msg("basic trace message")
-			log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+					jlog := xopjson.New(
+						xopbytes.WriteToIOWriter(&buffer),
+						joptions...)
+					tlog := xoptest.New(t)
+					settings := func(settings *xop.LogSettings) {
+						settings.SynchronousFlush(true)
+					}
+					if tc.settings != nil {
+						settings = tc.settings
+					}
+					log := xop.NewSeed(
+						xop.WithBase(jlog),
+						xop.WithBase(tlog),
+						xop.WithSettings(settings),
+					).Request(t.Name())
 
-			ss := log.Sub().Detach().Fork("a fork")
-			xoptestutil.MicroNap()
-			ss.Alert().String("frightening", "stuff").Static("like a rock")
-			ss.Span().String(xopconst.EndpointRoute, "/some/thing")
+					mc.do(t, log, tlog)
 
-			xoptestutil.MicroNap()
-			tlog.CustomEvent("before log.Done")
-			log.Done()
-			tlog.CustomEvent("after log.Done")
-			ss.Debug().Msg("sub-span debug message")
-			xoptestutil.MicroNap()
-			tlog.CustomEvent("before ss.Done")
-			ss.Done()
-			tlog.CustomEvent("after ss.Done")
-
-			t.Log("\n", buffer.String())
-			xoptestutil.DumpEvents(t, tlog)
-			if tc.waitForFlush {
-				assert.Eventually(t, func() bool {
-					return xoptestutil.EventCount(tlog, xoptest.FlushEvent) > 0
-				}, time.Second, time.Millisecond*3)
+					if tc.waitForFlush {
+						assert.Eventually(t, func() bool {
+							return xoptestutil.EventCount(tlog, xoptest.FlushEvent) > 0
+						}, time.Second, time.Millisecond*3)
+					}
+					t.Log("\n", buffer.String())
+					xoptestutil.DumpEvents(t, tlog)
+					assert.Equal(t, 1, xoptestutil.EventCount(tlog, xoptest.FlushEvent), "count of flush")
+					newChecker(t, tlog, tc.checkConfig).check(t, buffer.String())
+				})
 			}
-			assert.Equal(t, 1, xoptestutil.EventCount(tlog, xoptest.FlushEvent), "count of flush")
-			newChecker(t, tlog, tc.checkConfig).check(t, buffer.String())
 		})
 	}
 }
@@ -260,6 +288,14 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, config checkConfig) *che
 		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanIDString())
 		c.requestIndex[request.Trace.Trace.SpanIDString()] = i
 	}
+	for spanID, versions := range c.sequencing {
+		if c.config.minVersions == c.config.maxVersions {
+			assert.Equal(t, versions, c.config.minVersions, "version count for span %s", spanID)
+		} else {
+			assert.GreaterOrEqualf(t, versions, c.config.minVersions, "version count for span %s", spanID)
+			assert.LessOrEqualf(t, versions, c.config.maxVersions, "version count for span %s", spanID)
+		}
+	}
 	return c
 }
 
@@ -279,13 +315,13 @@ func (c *checker) check(t *testing.T, data string) {
 		switch super.Type {
 		case "", "line":
 			t.Logf("check line: %s", line)
-			c.line(t, super)
+			c.line(t, super, generic)
 		case "span":
 			t.Logf("check span: %s", line)
-			c.span(t, super)
+			c.span(t, super, generic)
 		case "request":
 			t.Logf("check request: %s", line)
-			c.request(t, super)
+			c.request(t, super, generic)
 		}
 	}
 	for _, ia := range c.messagesNotSeen {
@@ -295,13 +331,19 @@ func (c *checker) check(t *testing.T, data string) {
 		}
 	}
 	for _, span := range c.tlog.Spans {
-		if len(span.Metadata) != 0 || len(c.accumulatedSpans[span.Trace.Trace.SpanID().String()]) != 0 {
-			assert.Equalf(t, span.Metadata, c.accumulatedSpans[span.Trace.Trace.SpanID().String()], "attributes for span %s", span.Trace.Trace.SpanID())
+		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
+		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
+			if c.config.hasAttributesObject {
+				assert.Equalf(t, span.Metadata, spanAttributes,
+					"attributes for span %s", span.Trace.Trace.SpanID())
+			} else {
+				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+			}
 		}
 	}
 }
 
-func (c *checker) line(t *testing.T, super supersetObject) {
+func (c *checker) line(t *testing.T, super supersetObject, generic map[string]interface{}) {
 	assert.NotEqual(t, xopconst.Level(0), super.Level, "level")
 	assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 	assert.NotEmpty(t, super.Msg, "message")
@@ -314,13 +356,14 @@ func (c *checker) line(t *testing.T, super supersetObject) {
 	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
 	if c.config.hasAttributesObject {
-		compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes")
+		compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes", false)
 	} else {
 		assert.Empty(t, super.Attributes)
+		compareData(t, line.Data, "xoptest.Data", generic, "xopjson.Generic", true)
 	}
 }
 
-func (c *checker) span(t *testing.T, super supersetObject) {
+func (c *checker) span(t *testing.T, super supersetObject, generic map[string]interface{}) {
 	assert.Empty(t, super.Level, "no level expected")
 	var prior int
 	var ok bool
@@ -333,19 +376,22 @@ func (c *checker) span(t *testing.T, super supersetObject) {
 		}
 		assert.NotEmpty(t, super.Duration, "duration is set")
 		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
-		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
 		assert.False(t, ok, "no prior version expected")
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
-		combineAttributes(super, c.accumulatedSpans[super.SpanID])
+	}
+	if c.config.hasAttributesObject {
+		combineAttributes(super.Attributes, c.accumulatedSpans[super.SpanID])
+	} else {
+		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
 	}
 	c.sequencing[super.SpanID] = super.SpanVersion
 	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 
-func (c *checker) request(t *testing.T, super supersetObject) {
+func (c *checker) request(t *testing.T, super supersetObject, generic map[string]interface{}) {
 	assert.Empty(t, super.Level, "no level expected")
 	var prior int
 	var ok bool
@@ -358,26 +404,41 @@ func (c *checker) request(t *testing.T, super supersetObject) {
 		}
 		assert.NotEmpty(t, super.Duration, "duration is set")
 		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
-		combineAttributes(super, c.accumulatedSpans[super.SpanID])
 	} else {
 		assert.False(t, ok, "no prior version expected")
 		assert.NotEmpty(t, super.TraceID, "has trace id")
 		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
 		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
-		combineAttributes(super, c.accumulatedSpans[super.SpanID])
+	}
+	if c.config.hasAttributesObject {
+		combineAttributes(super.Attributes, c.accumulatedSpans[super.SpanID])
+	} else {
+		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
 	}
 	c.sequencing[super.SpanID] = super.RequestVersion
 	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
 }
 
-func combineAttributes(super supersetObject, attributes map[string]interface{}) {
-	for k, v := range super.Attributes {
+func combineAttributes(from map[string]interface{}, attributes map[string]interface{}) {
+	for k, v := range from {
 		attributes[k] = v
 	}
 }
 
-func compareData(t *testing.T, a map[string]interface{}, aDesc string, b map[string]interface{}, bDesc string) {
+func compareData(t *testing.T, a map[string]interface{}, aDesc string, b map[string]interface{}, bDesc string, ignoreExtra bool) {
+	if len(a) == 0 && len(b) == 0 {
+		return
+	}
+	if ignoreExtra {
+		tmp := make(map[string]interface{})
+		for k := range a {
+			if v, ok := b[k]; ok {
+				tmp[k] = v
+			}
+		}
+		b = tmp
+	}
 	if len(a) == 0 && len(b) == 0 {
 		return
 	}

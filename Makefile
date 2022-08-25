@@ -14,9 +14,9 @@ all:	$(ZZZGENERATED)
 test:	$(ZZZGENERATED)
 	go generate ./...
 	go test -v ./xopjson/... -run TestASingleLine
-	go test -v ./xopjson/... -run TestParameters
-	go test ./...
-	go test -race ./...
+	go test -v ./xopjson/... -run TestParameters -failfast
+	go test ./... -failfast
+	go test -race ./... -failfast
 
 ${GOBIN}/gofumpt:;
 	go install mvdan.cc/gofumpt@latest
