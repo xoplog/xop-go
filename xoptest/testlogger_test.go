@@ -55,13 +55,12 @@ func TestWithLock(t *testing.T) {
 	}
 	tLog := xoptest.New(t)
 	defer tLog.Close()
-	wg.Add(1)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		err := tLog.WithLock(f)
 		assert.NoError(t, err)
 	}()
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err := tLog.WithLock(f)
