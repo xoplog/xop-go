@@ -1,0 +1,7 @@
+package xopjson_test
+
+import "github.com/muir/xop-go/xopconst"
+
+// TODO: why the skips?
+// MACRO ZZZAttribute SKIP:Any,Enum,Float32,Float64
+var ExampleMetadataZZZ = xopconst.Make{Key: "ezzz", Namespace: "test"}.ZZZAttribute()

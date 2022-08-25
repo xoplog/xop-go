@@ -46,7 +46,7 @@ type Logger struct {
 	tagOption             TagOption
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	perRequestBufferLimit int
-	attributesObject      bool // TODO: implement
+	attributesObject      bool
 	closeRequest          chan struct{}
 	builderPool           sync.Pool // filled with *builder
 	linePool              sync.Pool // filled with *line
