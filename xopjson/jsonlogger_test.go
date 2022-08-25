@@ -194,6 +194,7 @@ func TestParameters(t *testing.T) {
 				// TODO: debug non-detached fork
 				// ss := log.Sub().Fork("a fork")
 				log.Span().Bool(ExampleMetadataBool, true)
+				xoptestutil.MicroNap()
 				log.Done()
 			},
 		},
