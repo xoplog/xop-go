@@ -36,6 +36,7 @@ type singleAttribute struct {
 	attribute
 	KeyValue []byte
 	Buf      [40]byte
+	keyLen	int
 }
 
 type multiAttribute struct {
@@ -139,10 +140,8 @@ func (s *singleAttribute) init(k string) {
 	s.KeyValue = b.B
 }
 
-func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
-	var s *singleAttribute
-	var ok bool
-	s, ok = a.singleMap[k]
+func (a *AttributeBuilder) addSingle(k string) (*singleAttribute , bool){
+	s, ok := a.singleMap[k]
 	if !ok {
 		if len(a.singles) == cap(a.singles) {
 			a.singles = make([]singleAttribute, 0, cap(a.singles))
@@ -153,7 +152,7 @@ func (a *AttributeBuilder) addSingle(k string) *singleAttribute {
 		a.singleMap[k] = s
 	}
 	s.Changed = true
-	return s
+	return s, ok
 }
 
 //MACRO BaseAttribute
@@ -168,7 +167,16 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	}
 	//END CONDITIONAL
 	if !k.Multiple() {
-		s := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key())
+		if preExisting  {
+			if k.Locked() {
+				return
+			} else {
+				s.KeyValue = s.KeyValue[:s.keyLen]
+			}
+		} else {
+			s.keyLen = len(s.KeyValue)
+		}
 		s.Type = xoputil.BaseAttributeTypeZZZ
 		b := builder{
 			span: a.span,
@@ -188,7 +196,6 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	}
 	m := a.addMulti(k.Key())
 	m.Type = xoputil.BaseAttributeTypeZZZArray
-	m.Builder.Comma()
 	//CONDITIONAL ONLY:Any
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder

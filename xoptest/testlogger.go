@@ -386,8 +386,14 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAnyArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAny
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAny
 	}
 }
 
@@ -411,8 +417,14 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBoolArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBool
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBool
 	}
 }
 
@@ -436,8 +448,14 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnumArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnum
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnum
 	}
 }
 
@@ -461,8 +479,14 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64Array
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64
 	}
 }
 
@@ -486,8 +510,14 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64Array
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64
 	}
 }
 
@@ -511,8 +541,14 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLinkArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLink
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLink
 	}
 }
 
@@ -536,8 +572,14 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeStringArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeString
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeString
 	}
 }
 
@@ -561,7 +603,13 @@ func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTimeArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTime
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTime
 	}
 }
