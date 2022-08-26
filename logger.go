@@ -267,11 +267,7 @@ func (log *Log) hasActivity(startFlusher bool) {
 // Done can be synchronous or asynchronous depending on the SynchronousFlush
 // settings.
 func (log *Log) Done() {
-	if log.settings.synchronousFlushWhenDone {
-		log.done(true, true, time.Now())
-	} else {
-		go log.done(true, true, time.Now())
-	}
+	log.done(true, true, time.Now())
 }
 
 func (log *Log) recursiveDone(done bool) (count int32) {
@@ -312,7 +308,7 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 			return len(log.shared.ActiveDetached) == 0 &&
 				len(log.request.span.activeDependents) == 0
 		}() {
-			log.request.Flush()
+			log.request.flush()
 		}
 		return
 	}
@@ -327,7 +323,7 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 			return len(log.shared.ActiveDetached) == 0 &&
 				len(log.span.activeDependents) == 0
 		}() {
-			log.request.Flush()
+			log.request.flush()
 		}
 		return
 	}
@@ -344,6 +340,17 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 // timerFlush is only called by log.shared.FlushTimer
 func (log *Log) timerFlush() {
 	log.Flush()
+}
+
+func (log *Log) flush() {
+	if log.settings.synchronousFlushWhenDone {
+		log.Flush()
+	} else {
+		go func() {
+			SmallSleepForTesting()
+			log.Flush()
+		}()
+	}
 }
 
 func (log *Log) Flush() {

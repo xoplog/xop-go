@@ -376,7 +376,13 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZArray
 		}
 	} else {
+		if _, ok := s.Metadata[k.Key()]; ok {
+			if k.Locked() {
+				return
+			}
+		} else {
+			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZ
+		}
 		s.Metadata[k.Key()] = v
-		s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZ
 	}
 }

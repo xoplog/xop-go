@@ -4,4 +4,7 @@ import "github.com/muir/xop-go/xopconst"
 
 // TODO: why the skips?
 // MACRO ZZZAttribute SKIP:Any,Enum,Float32,Float64
-var ExampleMetadataZZZ = xopconst.Make{Key: "ezzz", Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataSingleZZZ = xopconst.Make{Key: "s-zzz", Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataLockedZZZ = xopconst.Make{Key: "l-zzz", Locked: true, Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataMultipleZZZ = xopconst.Make{Key: "m-zzz", Multiple: true, Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataDistinctZZZ = xopconst.Make{Key: "d-zzz", Multiple: true, Distinct: true, Namespace: "test"}.ZZZAttribute()

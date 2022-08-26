@@ -193,7 +193,23 @@ func TestParameters(t *testing.T) {
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				// TODO: debug non-detached fork
 				// ss := log.Sub().Fork("a fork")
-				log.Span().Bool(ExampleMetadataBool, true)
+				log.Span().Bool(ExampleMetadataSingleBool, false)
+				log.Span().Bool(ExampleMetadataSingleBool, true)
+				log.Span().Bool(ExampleMetadataLockedBool, true)
+				log.Span().Bool(ExampleMetadataLockedBool, false)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata multiples",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				// ss := log.Sub().Fork("a fork")
+				log.Span().Bool(ExampleMetadataMultipleBool, true)
+				log.Span().Bool(ExampleMetadataMultipleBool, true)
+				log.Span().Int(ExampleMetadataMultipleInt, 3)
+				log.Span().Int(ExampleMetadataMultipleInt, 5)
+				log.Span().Int(ExampleMetadataMultipleInt, 7)
 				xoptestutil.MicroNap()
 				log.Done()
 			},
