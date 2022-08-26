@@ -1,6 +1,5 @@
-//go:build !testing
+//go:build !xoptesting
 
 package xop
 
-func SmallSleepForTesting() { }
-
+func SmallSleepForTesting() {}
