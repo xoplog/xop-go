@@ -301,6 +301,7 @@ func TestParameters(t *testing.T) {
 				log.Span().Any(ExampleMetadataDistinctAny, a)
 				log.Span().Any(ExampleMetadataDistinctAny, a)
 				log.Span().Any(ExampleMetadataDistinctAny, b)
+				xoptestutil.MicroNap()
 				log.Done()
 			},
 		},
