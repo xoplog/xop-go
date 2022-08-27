@@ -210,6 +210,9 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0:len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}

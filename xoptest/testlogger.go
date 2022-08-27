@@ -163,6 +163,7 @@ func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xop
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
+		metadataSeen:  make(map[string]interface{}),
 	}
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
@@ -238,6 +239,7 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
+		metadataSeen:  make(map[string]interface{}),
 		SequenceCode:  spanSequenceCode,
 	}
 	span.Spans = append(span.Spans, n)

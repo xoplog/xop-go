@@ -4,6 +4,20 @@ package xopjson_test
 
 import "github.com/muir/xop-go/xopconst"
 
+type AnyObject struct {
+	I int
+	S string
+	A []string
+	P *AnyObject
+}
+
+var (
+	ExampleMetadataSingleAny   = xopconst.Make{Key: "s-any", Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataLockedAny   = xopconst.Make{Key: "l-any", Locked: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataMultipleAny = xopconst.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataDistinctAny = xopconst.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+)
+
 // TODO: why the skips?
 var ExampleMetadataSingleBool = xopconst.Make{Key: "s-bool", Namespace: "test"}.BoolAttribute()
 
