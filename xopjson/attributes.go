@@ -207,6 +207,9 @@ func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) 
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -252,6 +255,9 @@ func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -297,6 +303,9 @@ func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.En
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -342,6 +351,9 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -387,6 +399,9 @@ func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -432,6 +447,9 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -477,6 +495,9 @@ func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string)
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}
@@ -522,6 +543,9 @@ func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) 
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
 			} else {
 				m.Distinct[sk] = struct{}{}
 			}

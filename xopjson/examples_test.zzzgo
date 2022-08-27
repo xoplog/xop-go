@@ -2,6 +2,18 @@ package xopjson_test
 
 import "github.com/muir/xop-go/xopconst"
 
+type AnyObject struct {
+	I int
+	S string
+	A []string
+	P *AnyObject
+}
+
+var ExampleMetadataSingleAny = xopconst.Make{Key: "s-any", Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataLockedAny = xopconst.Make{Key: "l-any", Locked: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataMultipleAny = xopconst.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataDistinctAny = xopconst.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+
 // TODO: why the skips?
 // MACRO ZZZAttribute SKIP:Any,Enum,Float32,Float64
 var ExampleMetadataSingleZZZ = xopconst.Make{Key: "s-zzz", Namespace: "test"}.ZZZAttribute()

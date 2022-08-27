@@ -1,6 +1,8 @@
 
 # Ideas to ponder
 
+- is Attribute.ExampleValue() useful?  It's not enforcable at compile time for Any.
+
 - rename LogLine/Line to Entry?
 
 - Consider replacing SeedModifier with a seed modifier type...

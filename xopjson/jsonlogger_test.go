@@ -270,6 +270,41 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
+			name: "metadata any",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				ss := log.Sub().Fork("knife")
+				a := map[string]interface{}{
+					"foo":   "bar",
+					"count": 329,
+					"array": []int{8, 22},
+				}
+				b := map[string]interface{}{
+					"foo":   "baz",
+					"count": 10,
+					"array": []int{33, 39},
+				}
+				ss.Span().Any(ExampleMetadataSingleAny, a)
+				ss.Span().Any(ExampleMetadataSingleAny, b)
+				ss.Span().Any(ExampleMetadataLockedAny, a)
+				ss.Span().Any(ExampleMetadataLockedAny, b)
+				ss.Span().Any(ExampleMetadataMultipleAny, a)
+				ss.Span().Any(ExampleMetadataMultipleAny, b)
+				ss.Span().Any(ExampleMetadataDistinctAny, a)
+				ss.Span().Any(ExampleMetadataDistinctAny, a)
+				ss.Span().Any(ExampleMetadataDistinctAny, b)
+				log.Span().Any(ExampleMetadataSingleAny, a)
+				log.Span().Any(ExampleMetadataSingleAny, b)
+				log.Span().Any(ExampleMetadataLockedAny, a)
+				log.Span().Any(ExampleMetadataLockedAny, b)
+				log.Span().Any(ExampleMetadataMultipleAny, a)
+				log.Span().Any(ExampleMetadataMultipleAny, b)
+				log.Span().Any(ExampleMetadataDistinctAny, a)
+				log.Span().Any(ExampleMetadataDistinctAny, a)
+				log.Span().Any(ExampleMetadataDistinctAny, b)
+				log.Done()
+			},
+		},
+		{
 			name: "metadata multiples",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				// ss := log.Sub().Fork("a fork")
