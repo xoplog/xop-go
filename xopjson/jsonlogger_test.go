@@ -214,6 +214,14 @@ func TestParameters(t *testing.T) {
 				log.Done()
 			},
 		},
+		{
+			name: "one done",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				_ = log.Sub().Fork("a fork")
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
 	}
 
 	for _, tc := range jsonCases {

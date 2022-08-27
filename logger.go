@@ -37,8 +37,9 @@ type span struct {
 	linePool         sync.Pool    //nolint:structcheck // false report
 	boring           int32        // 0 = boring
 	buffered         bool         //nolint:structcheck // false report
-	stepCounter      int32        //nolint:structcheck // false report
-	forkCounter      int32        //nolint:structcheck // false report
+	description      string
+	stepCounter      int32 //nolint:structcheck // false report
+	forkCounter      int32 //nolint:structcheck // false report
 	spanNumber       int32
 	detached         bool
 	doneCount        int32
@@ -77,6 +78,7 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 		span: span{
 			seed:        seed.spanSeed.Copy(),
 			knownActive: 1,
+			description: descriptionOrName,
 		},
 		shared: shared{
 			FlushActive:    1,
@@ -158,6 +160,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			knownActive: 1,
 			spanNumber:  atomic.AddInt32(&old.shared.SpanCount, 1),
 			detached:    detached,
+			description: description,
 		},
 	}
 	alloc.Span.span = &alloc.span
@@ -239,6 +242,7 @@ func (log *Log) addMyselfAsDependent() bool {
 	if log.parent.span.activeDependents == nil {
 		log.parent.span.activeDependents = make(map[int32]*Log)
 	}
+	DebugPrint("add to active deps", log.span.description, ":", log.span.spanNumber)
 	log.parent.span.activeDependents[log.span.spanNumber] = log
 	return len(log.parent.span.activeDependents) == 1
 }
@@ -267,17 +271,20 @@ func (log *Log) hasActivity(startFlusher bool) {
 // Done can be synchronous or asynchronous depending on the SynchronousFlush
 // settings.
 func (log *Log) Done() {
+	DebugPrint("starting Done")
 	log.done(true, true, time.Now())
+	DebugPrint("done with Done")
 }
 
-func (log *Log) recursiveDone(done bool) (count int32) {
+func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
+	DebugPrint("recursive done on", done, log.span.description)
 	if done {
 		atomic.StoreInt32(&log.span.knownActive, 0)
 		count = atomic.AddInt32(&log.span.doneCount, 1)
 		log.span.base.Done(time.Now())
 	} else {
 		if atomic.SwapInt32(&log.span.knownActive, 0) == 1 {
-			log.span.base.Done(time.Now())
+			log.span.base.Done(now)
 		}
 	}
 	deps := func() []*Log {
@@ -290,13 +297,13 @@ func (log *Log) recursiveDone(done bool) (count int32) {
 		return deps
 	}()
 	for _, dep := range deps {
-		_ = dep.recursiveDone(done)
+		dep.done(done, false, now)
 	}
 	return
 }
 
 func (log *Log) done(explicit bool, doUp bool, now time.Time) {
-	postCount := log.recursiveDone(true)
+	postCount := log.recursiveDone(true, now)
 	if postCount > 1 && explicit {
 		log.Error().Msg("Done() called on log object when it was already Done()")
 	}
@@ -310,16 +317,15 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 		}() {
 			log.request.flush()
 		}
-		return
-	}
-	if !doUp {
+		DebugPrint("we're detached, finished done")
 		return
 	}
 	if log.parent == log {
-		// we're the request!
+		DebugPrint("in done, we're the request!")
 		if func() bool {
 			log.span.dependentLock.Lock()
 			defer log.span.dependentLock.Unlock()
+			DebugPrint("active detached", len(log.shared.ActiveDetached), "active deps", len(log.span.activeDependents))
 			return len(log.shared.ActiveDetached) == 0 &&
 				len(log.span.activeDependents) == 0
 		}() {
@@ -330,9 +336,10 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 	if func() bool {
 		log.parent.span.dependentLock.Lock()
 		defer log.parent.span.dependentLock.Unlock()
+		DebugPrint("delete from active deps", log.span.description, ":", log.span.spanNumber)
 		delete(log.parent.span.activeDependents, log.span.spanNumber)
 		return len(log.parent.span.activeDependents) == 0
-	}() {
+	}() && doUp {
 		log.parent.done(explicit, doUp, now)
 	}
 }
@@ -346,6 +353,7 @@ func (log *Log) flush() {
 	if log.settings.synchronousFlushWhenDone {
 		log.Flush()
 	} else {
+		DebugPrint("doing async flush")
 		go func() {
 			SmallSleepForTesting()
 			log.Flush()
@@ -354,8 +362,9 @@ func (log *Log) flush() {
 }
 
 func (log *Log) Flush() {
-	log.request.detachedDone()
-	log.request.recursiveDone(false)
+	now := time.Now()
+	log.request.detachedDone(now)
+	log.request.recursiveDone(false, now)
 	flushers := func() []xopbase.Request {
 		log.shared.FlusherLock.RLock()
 		defer log.shared.FlusherLock.RUnlock()
@@ -381,7 +390,7 @@ func (log *Log) Flush() {
 	wg.Wait()
 }
 
-func (log *Log) detachedDone() {
+func (log *Log) detachedDone(now time.Time) {
 	deps := func() []*Log {
 		log.request.span.dependentLock.Lock()
 		defer log.request.span.dependentLock.Unlock()
@@ -392,7 +401,7 @@ func (log *Log) detachedDone() {
 		return deps
 	}()
 	for _, dep := range deps {
-		_ = dep.recursiveDone(false)
+		_ = dep.recursiveDone(false, now)
 	}
 }
 
