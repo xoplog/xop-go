@@ -31,9 +31,10 @@ ${GOBIN}/enumer:;
 %.go : %.zzzgo tools/xopzzz/xopzzz.go $(TOOLS) Makefile
 	go run tools/xopzzz/xopzzz.go < $< > $@.tmp
 	-chmod +w $@
-	gofumpt < $@.tmp | goimports > $@
+	gofumpt -w $@.tmp 
+	goimports -w $@.tmp
+	-mv $@.tmp $@
 	-chmod -w $@
-	-rm $@.tmp
 
 calculate_coverage:
 	echo "mode: atomic" > coverage.txt

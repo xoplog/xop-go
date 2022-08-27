@@ -17,6 +17,7 @@ var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
 var packageRE = regexp.MustCompile(`^package (\w+)`)
 var conditionalRE = regexp.MustCompile(`^\s*//\s?CONDITIONAL (?:(?:ONLY:(\S+))|(?:SKIP:(\S+)))\s*$`)
 var endConditionalRE = regexp.MustCompile(`^\s*//\s?END CONDITIONAL\s*$`)
+var elseConditionalRE = regexp.MustCompile(`^\s*//\s?ELSE CONDITIONAL\s*$`)
 
 var macros = map[string]map[string]string{
 	// ZZZAttribute are the span-attributes in the main logger.  These
@@ -215,6 +216,8 @@ func macroExpand(indent string, macro string, skipList string) {
 					}
 				}
 				continue
+			} else if elseConditionalRE.MatchString(line) {
+				skipping = !skipping
 			} else if endConditionalRE.MatchString(line) {
 				skipping = false
 				continue

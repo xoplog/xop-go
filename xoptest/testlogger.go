@@ -3,6 +3,7 @@
 package xoptest
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -85,6 +86,7 @@ type Span struct {
 	short         string
 	Metadata      map[string]interface{}
 	MetadataTypes map[string]xoputil.BaseAttributeType
+	metadataSeen  map[string]interface{}
 	StartTime     time.Time
 	EndTime       int64
 	Name          string
@@ -379,6 +381,27 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			var key string
+			enc, err := json.Marshal(v)
+			if err != nil {
+				key = fmt.Sprintf("%+v", v)
+			} else {
+				key = string(enc)
+			}
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				seen := make(map[string]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				seen := seenRaw.(map[string]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -410,6 +433,24 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[bool]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[bool]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -441,6 +482,24 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[xopconst.Enum]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[xopconst.Enum]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -472,6 +531,24 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[float64]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[float64]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -503,6 +580,24 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[int64]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[int64]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -534,6 +629,24 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[trace.Trace]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[trace.Trace]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -565,6 +678,24 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[string]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[string]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {
@@ -596,6 +727,24 @@ func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			// ELSE CONDITIONAL
+			key := v
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				// ELSE CONDITIONAL
+				seen := make(map[time.Time]struct{})
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				// ELSE CONDITIONAL
+				seen := seenRaw.(map[time.Time]struct{})
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {

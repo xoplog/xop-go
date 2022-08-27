@@ -1,6 +1,7 @@
 package xoptest
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -81,10 +82,11 @@ type Span struct {
 	short         string
 	Metadata      map[string]interface{}
 	MetadataTypes map[string]xoputil.BaseAttributeType
+	metadataSeen  map[string]interface{}
 	StartTime     time.Time
 	EndTime       int64
 	Name          string
-	SequenceCode	string
+	SequenceCode  string
 }
 
 type Prefilling struct {
@@ -232,7 +234,7 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		SequenceCode: spanSequenceCode,
+		SequenceCode:  spanSequenceCode,
 	}
 	span.Spans = append(span.Spans, n)
 	span.testLogger.Spans = append(span.testLogger.Spans, n)
@@ -369,6 +371,39 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		if k.Distinct() {
+			//CONDITIONAL ONLY:Any
+			var key string
+			enc, err := json.Marshal(v)
+			if err != nil {
+				key = fmt.Sprintf("%+v", v)
+			} else {
+				key = string(enc)
+			}
+			//ELSE CONDITIONAL
+			key := v
+			//END CONDITIONAL
+			seenRaw, ok := s.metadataSeen[k.Key()]
+			if !ok {
+				//CONDITIONAL ONLY:Any
+				seen := make(map[string]struct{})
+				//ELSE CONDITIONAL
+				seen := make(map[zzz]struct{})
+				//END CONDITIONAL
+				s.metadataSeen[k.Key()] = seen
+				seen[key] = struct{}{}
+			} else {
+				//CONDITIONAL ONLY:Any
+				seen := seenRaw.(map[string]struct{})
+				//ELSE CONDITIONAL
+				seen := seenRaw.(map[zzz]struct{})
+				//END CONDITIONAL
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
 		if p, ok := s.Metadata[k.Key()]; ok {
 			s.Metadata[k.Key()] = append(p.([]interface{}), v)
 		} else {

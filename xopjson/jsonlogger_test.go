@@ -189,14 +189,82 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "metadata singles",
+			name: "metadata singles in request",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-				// TODO: debug non-detached fork
-				// ss := log.Sub().Fork("a fork")
 				log.Span().Bool(ExampleMetadataSingleBool, false)
 				log.Span().Bool(ExampleMetadataSingleBool, true)
 				log.Span().Bool(ExampleMetadataLockedBool, true)
 				log.Span().Bool(ExampleMetadataLockedBool, false)
+				log.Span().String(ExampleMetadataLockedString, "loki")
+				log.Span().String(ExampleMetadataLockedString, "thor")
+				log.Span().Int(ExampleMetadataLockedInt, 38)
+				log.Span().Int(ExampleMetadataLockedInt, -38)
+				log.Span().Int8(ExampleMetadataLockedInt8, 39)
+				log.Span().Int8(ExampleMetadataLockedInt8, -39)
+				log.Span().Int16(ExampleMetadataLockedInt16, 329)
+				log.Span().Int16(ExampleMetadataLockedInt16, -329)
+				log.Span().Int32(ExampleMetadataLockedInt32, -932)
+				log.Span().Int32(ExampleMetadataLockedInt32, 932)
+				log.Span().Int64(ExampleMetadataLockedInt64, -93232)
+				log.Span().Int64(ExampleMetadataLockedInt64, 93232)
+				log.Span().String(ExampleMetadataSingleString, "athena")
+				log.Span().Int(ExampleMetadataSingleInt, 3)
+				log.Span().Int8(ExampleMetadataSingleInt8, 9)
+				log.Span().Int16(ExampleMetadataSingleInt16, 29)
+				log.Span().Int32(ExampleMetadataSingleInt32, -32)
+				log.Span().Int64(ExampleMetadataSingleInt64, -3232)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata singles in span",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				ss := log.Sub().Fork("spoon")
+				ss.Span().Bool(ExampleMetadataSingleBool, false)
+				ss.Span().Bool(ExampleMetadataSingleBool, true)
+				ss.Span().Bool(ExampleMetadataLockedBool, true)
+				ss.Span().Bool(ExampleMetadataLockedBool, false)
+				ss.Span().String(ExampleMetadataLockedString, "loki")
+				ss.Span().String(ExampleMetadataLockedString, "thor")
+				ss.Span().Int(ExampleMetadataLockedInt, 38)
+				ss.Span().Int(ExampleMetadataLockedInt, -38)
+				ss.Span().Int8(ExampleMetadataLockedInt8, 39)
+				ss.Span().Int8(ExampleMetadataLockedInt8, -39)
+				ss.Span().Int16(ExampleMetadataLockedInt16, 329)
+				ss.Span().Int16(ExampleMetadataLockedInt16, -329)
+				ss.Span().Int32(ExampleMetadataLockedInt32, -932)
+				ss.Span().Int32(ExampleMetadataLockedInt32, 932)
+				ss.Span().Int64(ExampleMetadataLockedInt64, -93232)
+				ss.Span().Int64(ExampleMetadataLockedInt64, 93232)
+				ss.Span().String(ExampleMetadataSingleString, "athena")
+				ss.Span().Int(ExampleMetadataSingleInt, 3)
+				ss.Span().Int8(ExampleMetadataSingleInt8, 9)
+				ss.Span().Int16(ExampleMetadataSingleInt16, 29)
+				ss.Span().Int32(ExampleMetadataSingleInt32, -32)
+				ss.Span().Int64(ExampleMetadataSingleInt64, -3232)
+				ss.Span().Bool(ExampleMetadataSingleBool, false)
+				ss.Span().Bool(ExampleMetadataSingleBool, true)
+				ss.Span().Bool(ExampleMetadataLockedBool, true)
+				ss.Span().Bool(ExampleMetadataLockedBool, false)
+				ss.Span().String(ExampleMetadataLockedString, "loki")
+				ss.Span().String(ExampleMetadataLockedString, "thor")
+				ss.Span().Int(ExampleMetadataLockedInt, 38)
+				ss.Span().Int(ExampleMetadataLockedInt, -38)
+				ss.Span().Int8(ExampleMetadataLockedInt8, 39)
+				ss.Span().Int8(ExampleMetadataLockedInt8, -39)
+				ss.Span().Int16(ExampleMetadataLockedInt16, 329)
+				ss.Span().Int16(ExampleMetadataLockedInt16, -329)
+				ss.Span().Int32(ExampleMetadataLockedInt32, -932)
+				ss.Span().Int32(ExampleMetadataLockedInt32, 932)
+				ss.Span().Int64(ExampleMetadataLockedInt64, -93232)
+				ss.Span().Int64(ExampleMetadataLockedInt64, 93232)
+				ss.Span().String(ExampleMetadataSingleString, "athena")
+				ss.Span().Int(ExampleMetadataSingleInt, 3)
+				ss.Span().Int8(ExampleMetadataSingleInt8, 9)
+				ss.Span().Int16(ExampleMetadataSingleInt16, 29)
+				ss.Span().Int32(ExampleMetadataSingleInt32, -32)
+				ss.Span().Int64(ExampleMetadataSingleInt64, -3232)
 				xoptestutil.MicroNap()
 				log.Done()
 			},
@@ -358,8 +426,19 @@ func (c *checker) check(t *testing.T, data string) {
 		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
 		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
 			if c.config.hasAttributesObject {
-				assert.Equalf(t, span.Metadata, spanAttributes,
-					"attributes for span %s", span.Trace.Trace.SpanID())
+				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
+				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.attributes", false)
+			} else {
+				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+			}
+		}
+	}
+	for _, span := range c.tlog.Requests {
+		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
+		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
+			if c.config.hasAttributesObject {
+				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
+				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.request.attributes", false)
 			} else {
 				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
 			}
