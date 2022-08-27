@@ -6,6 +6,7 @@ GOBIN ?= ${GOPATH}/bin
 ZZZGO = $(wildcard *.zzzgo */*.zzzgo */*/*.zzzgo)
 ZZZGENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
 TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports ${GOBIN}/enumer
+TEST_ONLY =?
 
 all:	$(ZZZGENERATED) 
 	go generate ./...
@@ -14,9 +15,9 @@ all:	$(ZZZGENERATED)
 test:	$(ZZZGENERATED)
 	go generate ./...
 	go test -v ./xopjson/... -run TestASingleLine
-	go test -v ./xopjson/... -tags xoptesting -run TestParameters -failfast
-	go test -tags xoptesting ./... -failfast
-	go test -tags xoptesting -race ./... -failfast
+	go test -v ./xopjson/... -tags xoptesting -run TestParameters -failfast $(TEST_ONLY)
+	go test -tags xoptesting ./... -failfast $(TEST_ONLY)
+	go test -tags xoptesting -race ./... -failfast $(TEST_ONLY)
 
 ${GOBIN}/gofumpt:;
 	go install mvdan.cc/gofumpt@latest
