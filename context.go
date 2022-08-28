@@ -17,7 +17,10 @@ func (log *Log) IntoContext(ctx context.Context) context.Context {
 
 func FromContext(ctx context.Context) (*Log, bool) {
 	v := ctx.Value(contextKey)
-	return v.(*Log), v != nil
+	if v == nil {
+		return nil, false
+	}
+	return v.(*Log), true
 }
 
 func FromContextOrDefault(ctx context.Context) *Log {
@@ -36,7 +39,7 @@ func FromContextOrPanic(ctx context.Context) *Log {
 	return log
 }
 
-// CustomFromContext returns a convience function: it calls either
+// CustomFromContext returns a convenience function: it calls either
 // FromContextOrPanic() or FromContextOrDefault() and then calls a
 // function to adjust setting.
 func CustomFromContext(getLogFromContext func(context.Context) *Log, adjustSettings func(*Sub) *Sub) func(context.Context) *Log {
