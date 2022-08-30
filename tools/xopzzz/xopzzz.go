@@ -208,7 +208,7 @@ func macroExpand(indent string, macro string, skipList string) {
 				} else {
 					// SKIP
 					skipping = false
-					for _, n := range strings.Split(m[1], ",") {
+					for _, n := range strings.Split(m[2], ",") {
 						if n == name {
 							skipping = true
 							break

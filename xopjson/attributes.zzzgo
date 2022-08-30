@@ -36,7 +36,7 @@ type singleAttribute struct {
 	attribute
 	KeyValue []byte
 	Buf      [40]byte
-	keyLen	int
+	keyLen   int
 }
 
 type multiAttribute struct {
@@ -140,7 +140,7 @@ func (s *singleAttribute) init(k string) {
 	s.KeyValue = b.B
 }
 
-func (a *AttributeBuilder) addSingle(k string) (*singleAttribute , bool){
+func (a *AttributeBuilder) addSingle(k string) (*singleAttribute, bool) {
 	s, ok := a.singleMap[k]
 	if !ok {
 		if len(a.singles) == cap(a.singles) {
@@ -168,7 +168,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	//END CONDITIONAL
 	if !k.Multiple() {
 		s, preExisting := a.addSingle(k.Key())
-		if preExisting  {
+		if preExisting {
 			if k.Locked() {
 				return
 			} else {
@@ -211,7 +211,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 			if _, ok := m.Distinct[sk]; ok {
 				m.Builder.B = m.Builder.B[:lenBefore]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
-					m.Builder.B = m.Builder.B[0:len(m.Builder.B)-1]
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
 			} else {
 				m.Distinct[sk] = struct{}{}
