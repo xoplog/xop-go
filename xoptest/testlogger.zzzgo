@@ -159,7 +159,7 @@ func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xop
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		metadataSeen  : make(map[string]interface{}),
+		metadataSeen:  make(map[string]interface{}),
 	}
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
@@ -235,7 +235,7 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 		Name:          name,
 		Metadata:      make(map[string]interface{}),
 		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		metadataSeen  : make(map[string]interface{}),
+		metadataSeen:  make(map[string]interface{}),
 		SequenceCode:  spanSequenceCode,
 	}
 	span.Spans = append(span.Spans, n)
@@ -373,6 +373,11 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		//CONDITIONAL ONLY:Enum
+		value := v.String()
+		//ELSE CONDITIONAL
+		value := v
+		//END CONDITIONAL
 		if k.Distinct() {
 			//CONDITIONAL ONLY:Any
 			var key string
@@ -383,11 +388,11 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 				key = string(enc)
 			}
 			//ELSE CONDITIONAL
-			key := v
+			key := value
 			//END CONDITIONAL
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				//CONDITIONAL ONLY:Any
+				//CONDITIONAL ONLY:Any,Enum
 				seen := make(map[string]struct{})
 				//ELSE CONDITIONAL
 				seen := make(map[zzz]struct{})
@@ -395,7 +400,7 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				//CONDITIONAL ONLY:Any
+				//CONDITIONAL ONLY:Any,Enum
 				seen := seenRaw.(map[string]struct{})
 				//ELSE CONDITIONAL
 				seen := seenRaw.(map[zzz]struct{})
@@ -407,9 +412,9 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZArray
 		}
 	} else {
@@ -420,6 +425,10 @@ func (s *Span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZ
 		}
+		//CONDITIONAL ONLY:Enum
+		s.Metadata[k.Key()] = v.String()
+		//ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
+		//END CONDITIONAL
 	}
 }

@@ -306,6 +306,26 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
+			name: "metadata enum",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				ss := log.Sub().Step("stool")
+				ss.Span().EmbeddedEnum(SingleEnumTwo)
+				ss.Span().EmbeddedEnum(SingleEnumTwo)
+				ss.Span().EmbeddedEnum(SingleEnumThree)
+				ss.Span().EmbeddedEnum(LockedEnumTwo)
+				ss.Span().EmbeddedEnum(LockedEnumTwo)
+				ss.Span().EmbeddedEnum(LockedEnumThree)
+				log.Span().EmbeddedEnum(MultipleEnumTwo)
+				log.Span().EmbeddedEnum(MultipleEnumTwo)
+				log.Span().EmbeddedEnum(MultipleEnumThree)
+				log.Span().EmbeddedEnum(DistinctEnumTwo)
+				log.Span().EmbeddedEnum(DistinctEnumTwo)
+				log.Span().EmbeddedEnum(DistinctEnumThree)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
 			name: "metadata multiples",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				// ss := log.Sub().Fork("a fork")

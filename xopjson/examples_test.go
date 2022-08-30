@@ -18,6 +18,31 @@ var (
 	ExampleMetadataDistinctAny = xopconst.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
 )
 
+var (
+	ExampleMetadataSingleEnum   = xopconst.Make{Key: "s-enum", Namespace: "test"}.EmbeddedEnumAttribute()
+	ExampleMetadataLockedEnum   = xopconst.Make{Key: "l-enum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute()
+	ExampleMetadataMultipleEnum = xopconst.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute()
+	ExampleMetadataDistinctEnum = xopconst.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute()
+)
+
+var (
+	SingleEnumOne   = ExampleMetadataSingleEnum.Iota("one")
+	SingleEnumTwo   = ExampleMetadataSingleEnum.Iota("two")
+	SingleEnumThree = ExampleMetadataSingleEnum.Iota("Three")
+
+	LockedEnumOne   = ExampleMetadataLockedEnum.Iota("one")
+	LockedEnumTwo   = ExampleMetadataLockedEnum.Iota("two")
+	LockedEnumThree = ExampleMetadataLockedEnum.Iota("Three")
+
+	MultipleEnumOne   = ExampleMetadataMultipleEnum.Iota("one")
+	MultipleEnumTwo   = ExampleMetadataMultipleEnum.Iota("two")
+	MultipleEnumThree = ExampleMetadataMultipleEnum.Iota("Three")
+
+	DistinctEnumOne   = ExampleMetadataDistinctEnum.Iota("one")
+	DistinctEnumTwo   = ExampleMetadataDistinctEnum.Iota("two")
+	DistinctEnumThree = ExampleMetadataDistinctEnum.Iota("Three")
+)
+
 // TODO: why the skips?
 var ExampleMetadataSingleBool = xopconst.Make{Key: "s-bool", Namespace: "test"}.BoolAttribute()
 

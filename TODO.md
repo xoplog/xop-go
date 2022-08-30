@@ -52,6 +52,21 @@
 
 # Just do it (build ready)
 
+- dictionary support
+
+  - if BytesWriter is also a DictionaryConsumer... 
+  - for Static(), lookup if existing key.  If not, add to dictionary and output dictionary record
+    
+    `{"type":"dict", "pairs":{"string":"foo", "number":28}}`
+
+  - for metadata Enums, output dictionary record for enum.  When new value seen, output dictionary
+    record for each new value
+
+    `{"type":"dict", "enums":[{"enum":"name", "string":"foo", "value":4}]}`
+
+  - If BytesWriter is a LogRotator, then the first thing written after a rotation is the
+    accumulated dictionary
+
 - move xoputil to internal/xoputil -- at least for now since
   the APIs in xoputil are less stable than the rest of the code
 
@@ -163,6 +178,10 @@
   - add methods to query trace State
   - figure out a way to modify trace Baggage
   - add methods to query trace Baggage
+
+# Must figure out
+
+- enums based on `int` -- needing to implement `Int64()` is a problem
 
 # Not build ready 
 

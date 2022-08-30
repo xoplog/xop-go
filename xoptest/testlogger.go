@@ -383,6 +383,8 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			var key string
 			enc, err := json.Marshal(v)
@@ -405,9 +407,9 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAnyArray
 		}
 	} else {
@@ -418,6 +420,7 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAny
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -435,9 +438,11 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				// ELSE CONDITIONAL
@@ -454,9 +459,9 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBoolArray
 		}
 	} else {
@@ -467,6 +472,7 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBool
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -484,18 +490,17 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		value := v.String()
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
-				seen := make(map[xopconst.Enum]struct{})
+				seen := make(map[string]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
-				seen := seenRaw.(map[xopconst.Enum]struct{})
+				seen := seenRaw.(map[string]struct{})
 				if _, ok := seen[key]; ok {
 					return
 				}
@@ -503,9 +508,9 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnumArray
 		}
 	} else {
@@ -516,7 +521,7 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnum
 		}
-		s.Metadata[k.Key()] = v
+		s.Metadata[k.Key()] = v.String()
 	}
 }
 
@@ -533,9 +538,11 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				// ELSE CONDITIONAL
@@ -552,9 +559,9 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64Array
 		}
 	} else {
@@ -565,6 +572,7 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -582,9 +590,11 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				// ELSE CONDITIONAL
@@ -601,9 +611,9 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64Array
 		}
 	} else {
@@ -614,6 +624,7 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -631,9 +642,11 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				// ELSE CONDITIONAL
@@ -650,9 +663,9 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLinkArray
 		}
 	} else {
@@ -663,6 +676,7 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLink
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -680,9 +694,11 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				// ELSE CONDITIONAL
@@ -699,9 +715,9 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeStringArray
 		}
 	} else {
@@ -712,6 +728,7 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeString
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -729,9 +746,11 @@ func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
+		// ELSE CONDITIONAL
+		value := v
 		if k.Distinct() {
 			// ELSE CONDITIONAL
-			key := v
+			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				// ELSE CONDITIONAL
@@ -748,9 +767,9 @@ func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 			}
 		}
 		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), v)
+			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
-			s.Metadata[k.Key()] = []interface{}{v}
+			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTimeArray
 		}
 	} else {
@@ -761,6 +780,7 @@ func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
 		} else {
 			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTime
 		}
+		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }

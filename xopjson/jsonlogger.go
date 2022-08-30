@@ -539,7 +539,7 @@ func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 
 func (b *builder) AddEnum(v xopconst.Enum) {
 	// TODO: send dictionary and numbers
-	b.AddInt64(v.Int64())
+	b.AddString(v.String())
 }
 
 func (b *builder) Time(k string, t time.Time) {

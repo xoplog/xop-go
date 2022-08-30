@@ -45,7 +45,8 @@ func (span *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
 // are bundled together: the key is derrived from the type of the Enum.
 // Alternatively, use xopconst.KeyedEnumAttribute() to create functions
 // to add enum key/value pairs where the key and value are specified
-// separately.
+// separately.  See xopconst.SpanType for an example of creating an
+// EmbeddedEnum.
 // The return value does not need to be used.
 func (span *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
 	return span.Enum(kv.EnumAttribute(), kv)
