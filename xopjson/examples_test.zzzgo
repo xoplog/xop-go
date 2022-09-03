@@ -14,10 +14,10 @@ var ExampleMetadataLockedAny = xopat.Make{Key: "l-any", Locked: true, Namespace:
 var ExampleMetadataMultipleAny = xopat.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
 var ExampleMetadataDistinctAny = xopat.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
 
-var ExampleMetadataSingleEnum = xopat.Make{Key: "s-enum", Namespace: "test"}.EmbeddedEnumAttribute()
-var ExampleMetadataLockedEnum = xopat.Make{Key: "l-enum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute()
-var ExampleMetadataMultipleEnum = xopat.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute()
-var ExampleMetadataDistinctEnum = xopat.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute()
+var ExampleMetadataSingleEnum = xopat.Make{Key: "s-enum", Namespace: "test"}.IotaEnumAttribute()
+var ExampleMetadataLockedEnum = xopat.Make{Key: "l-enum", Locked: true, Namespace: "test"}.IotaEnumAttribute()
+var ExampleMetadataMultipleEnum = xopat.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.IotaEnumAttribute()
+var ExampleMetadataDistinctEnum = xopat.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.IotaEnumAttribute()
 
 var (
 	SingleEnumOne   = ExampleMetadataSingleEnum.Iota("one")

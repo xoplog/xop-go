@@ -24,7 +24,7 @@ var SpanSequenceCode = xopat.Make{Key: "span.seq", Namespace: "xop", Indexed: fa
 
 var SpanType = xopat.Make{Key: "span.type", Namespace: "xop", Indexed: true, Prominence: 11,
 	Description: "what kind of span this is.  Often added automatically.  eg: SpanTypeHTTPClientRequest"}.
-	EmbeddedEnumAttribute()
+	IotaEnumAttribute()
 
 var (
 	SpanTypeHTTPServerEndpoint = SpanType.Iota("endpoint")

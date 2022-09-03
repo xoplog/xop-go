@@ -19,10 +19,10 @@ var (
 )
 
 var (
-	ExampleMetadataSingleEnum   = xopat.Make{Key: "s-enum", Namespace: "test"}.EmbeddedEnumAttribute()
-	ExampleMetadataLockedEnum   = xopat.Make{Key: "l-enum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute()
-	ExampleMetadataMultipleEnum = xopat.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute()
-	ExampleMetadataDistinctEnum = xopat.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute()
+	ExampleMetadataSingleEnum   = xopat.Make{Key: "s-enum", Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataLockedEnum   = xopat.Make{Key: "l-enum", Locked: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataMultipleEnum = xopat.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataDistinctEnum = xopat.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.IotaEnumAttribute()
 )
 
 var (

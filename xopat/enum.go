@@ -133,17 +133,17 @@ func (e *IotaEnumAttribute) Iota(s string) EmbeddedEnum {
 	}
 }
 
-// EmbeddedEnumAttribute creates a new enum that embeds it's key with
+// IotaEnumAttribute creates a new enum that embeds it's key with
 // it's value.
-func (s Make) EmbeddedEnumAttribute() *IotaEnumAttribute {
-	e, err := s.TryEmbeddedEnumAttribute()
+func (s Make) IotaEnumAttribute() *IotaEnumAttribute {
+	e, err := s.TryIotaEnumAttribute()
 	if err != nil {
 		panic(err)
 	}
 	return e
 }
 
-func (s Make) TryEmbeddedEnumAttribute() (_ *IotaEnumAttribute, err error) {
+func (s Make) TryIotaEnumAttribute() (_ *IotaEnumAttribute, err error) {
 	ie := &IotaEnumAttribute{
 		EnumAttribute: EnumAttribute{
 			Attribute: s.attribute(EmbeddedEnum(enum{}), &err, AttributeTypeEnum),

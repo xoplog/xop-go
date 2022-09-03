@@ -17,6 +17,10 @@ that span attributes.
 Most span attributes are typed simply: int32, string, etc.  Any is also a valid
 type.
 
+For example:
+
+	log.Span().String(xopconst.URL, url.String())
+
 Enums
 
 Enums are another valid type.  Enums values require both a string representation and
@@ -27,10 +31,27 @@ key and value will match each other.  The disadvantage of embedded enums is that
 is only one key for the value and sometimes that doesn't provide enough flexiblity.
 
 There are multiple ways to pre-register enum keys and values but none of the methods
-are completely frictionless.  There is currently no good solution for using enums from
-third parties.  The issue is that an enum needs to provide both an integer value and a
-string and Go generics do not provide a solution since you cannot say that something must
-be ~int|~int64 and implement fmt.Stringer.  Since that isn't possible, enums must implement
-String() and Int64() methods and you cannot define methods on third-party types.
+are completely frictionless:
+
+	Make{}.EmbeddedEnumAttribute() // assign int and string values explicitly
+	Make{}.IotaEnumAttribute()     // assign string values, ints are automatic
+	Make{}.EnumAttribute() 	       // for values already implement .String() & .Int64()
+
+With Enum:
+
+	log.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
+
+With EmbeddedEnum:
+
+	log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
+
+There is currently no good solution for using enums from third
+parties.  The issue is that an enum needs to provide both an integer
+value and a string and Go generics do not provide a solution since
+you cannot say that something must be ~int|~int64 and implement
+fmt.Stringer.  Since that isn't possible, enums must implement
+String() and Int64() methods and you cannot define methods on
+third-party types.
+
 */
 package xopat
