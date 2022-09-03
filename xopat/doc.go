@@ -19,7 +19,13 @@ type.
 
 For example:
 
-	log.Span().String(xopconst.URL, url.String())
+	var URL = xopat.Make{Key: "http.url", Namespace: "OTEL", Indexed: true, Prominence: 12,
+		Description: "Full HTTP request URL in the form scheme://host[:port]/path?query[#fragment]." +
+		" Usually the fragment is not transmitted over HTTP, but if it is known," +
+		" it should be included nevertheless"}.
+		StringAttribute()
+
+	log.Span().String(URL, url.String())
 
 Enums
 

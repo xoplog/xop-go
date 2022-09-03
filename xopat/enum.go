@@ -155,6 +155,28 @@ func (s Make) TryIotaEnumAttribute() (_ *IotaEnumAttribute, err error) {
 	return ie, nil
 }
 
+// EmbeddedEnumAttribute creates a new enum that embeds it's key with
+// it's value.
+func (s Make) EmbeddedEnumAttribute() *EmbeddedEnumAttribute {
+	e, err := s.TryEmbeddedEnumAttribute()
+	if err != nil {
+		panic(err)
+	}
+	return e
+}
+
+func (s Make) TryEmbeddedEnumAttribute() (_ *EmbeddedEnumAttribute, err error) {
+	ie := &EmbeddedEnumAttribute{
+		EnumAttribute: EnumAttribute{
+			Attribute: s.attribute(EmbeddedEnum(enum{}), &err, AttributeTypeEnum),
+		},
+	}
+	if err != nil {
+		return nil, err
+	}
+	return ie, nil
+}
+
 // AddStringer is another way to construct
 func (e *EmbeddedEnumAttribute) AddStringer(v fmt.Stringer) EmbeddedEnum {
 	enum, err := e.TryAddStringer(v)
