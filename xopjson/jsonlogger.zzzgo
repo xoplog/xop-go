@@ -411,12 +411,16 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 		l.AppendBytes([]byte(`,"stack":[`))
 		for {
 			frame, more := frames.Next()
-			if !strings.Contains(frame.File, "runtime/") {
+			if strings.Contains(frame.File, "runtime/") {
 				break
 			}
 			l.Comma()
 			l.AppendByte('"')
-			l.AddStringBody(frame.File)
+			filename := frame.File
+			if l.span.request.logger.stackLineRewrite != nil {
+			filename = l.span.request.logger.stackLineRewrite(filename)
+			}
+			l.AddStringBody(filename)
 			l.AppendByte(':')
 			l.AddInt64(int64(frame.Line))
 			l.AppendByte('"')

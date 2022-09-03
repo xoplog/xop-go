@@ -85,9 +85,12 @@ func TestASingleLine(t *testing.T) {
 		xopjson.WithDuration("dur", xopjson.AsString),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithAttributesObject(true),
+		xopjson.WithStackLineRewrite(func(s string) string {
+			return "FOO-" + s
+		}),
 	)
 	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
-	log.Info().String("foo", "bar").Int("blast", 99).Msg("a test line")
+	log.Alert().String("foo", "bar").Int("blast", 99).Msg("a test line")
 	log.Done()
 	s := buffer.String()
 	t.Log(s)
@@ -96,11 +99,12 @@ func TestASingleLine(t *testing.T) {
 	assert.Contains(t, lines[0], `"span.id":`)
 	assert.Contains(t, lines[0], `"attributes":{`) // }
 	assert.Contains(t, lines[0], `"foo":"bar"`)
-	assert.Contains(t, lines[0], `"lvl":9`)
+	assert.Contains(t, lines[0], `"lvl":20`)
 	assert.Contains(t, lines[0], `"ts":`)
 	assert.Contains(t, lines[0], `"blast":99`)
+	assert.Contains(t, lines[0], `"stack":["FOO-`)
 	assert.NotContains(t, lines[0], `"trace.id":`)
-	assert.Contains(t, lines[1], `"trace.id":`)
+	assert.NotContains(t, lines[1], `"stack":[`)
 	assert.Contains(t, lines[1], `"span.id":`)
 	assert.Contains(t, lines[1], `"dur":"`)
 	assert.Contains(t, lines[1], `"request.ver":0`)
