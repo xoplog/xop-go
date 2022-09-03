@@ -17,13 +17,14 @@ import (
 )
 
 type Log struct {
-	request   *Log // XXX changed from *Span
-	span      *span
-	capSpan   *Span   // added
-	parent    *Log    // added
-	shared    *shared // shared between spans in a request
-	settings  LogSettings
-	prefilled xopbase.Prefilled // XXX double-check,  in request?
+	request       *Log              // The ancestor request-level Log
+	span          *span             // span associated with this Log
+	capSpan       *Span             // Span associated with this Log
+	parent        *Log              // immediate parent Log
+	shared        *shared           // shared between logs with same request-level Log
+	settings      LogSettings       // settings for this Log
+	prefilled     xopbase.Prefilled // XXX double-check,  in request?
+	nonSpanSubLog bool              // true if created by log.Sub().Log()
 }
 
 type Span struct {
@@ -41,12 +42,12 @@ type span struct {
 	description      string
 	stepCounter      int32 //nolint:structcheck // false report
 	forkCounter      int32 //nolint:structcheck // false report
-	spanNumber       int32
 	detached         bool
-	doneCount        int32
-	knownActive      int32
 	dependentLock    sync.Mutex
 	activeDependents map[int32]*Log
+	doneCount        int32
+	knownActive      int32
+	logNumber        int32
 }
 
 // shared is common between the loggers that share a search index
@@ -58,7 +59,7 @@ type shared struct {
 	FlushActive    int32                      // 1 == timer is running, 0 = timer is not running
 	Flushers       map[string]xopbase.Request // key is xopbase.Logger.ID() // XXX change key to int?
 	Description    string
-	SpanCount      int32
+	LogCount       int32
 	ActiveDetached map[int32]*Log
 }
 
@@ -78,8 +79,8 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 		},
 		span: span{
 			seed:        seed.spanSeed.Copy(),
-			knownActive: 1,
 			description: descriptionOrName,
+			knownActive: 1,
 		},
 		shared: shared{
 			FlushActive:    1,
@@ -122,12 +123,13 @@ func (sub *Sub) Log() *Log {
 	}
 	alloc := singleAlloc{
 		Log: Log{
-			request:  sub.log.request,
-			span:     sub.log.span,
-			capSpan:  sub.log.capSpan,
-			parent:   sub.log.parent,
-			shared:   sub.log.shared,
-			settings: sub.settings,
+			request:       sub.log.request,
+			span:          sub.log.span,
+			capSpan:       sub.log.capSpan,
+			parent:        sub.log.parent,
+			shared:        sub.log.shared,
+			settings:      sub.settings,
+			nonSpanSubLog: true,
 			// XXX prefilled?
 		},
 		Span: Span{
@@ -138,7 +140,7 @@ func (sub *Sub) Log() *Log {
 	alloc.Log.capSpan = &alloc.Span
 	log := &alloc.Log
 	log.sendPrefill()
-	log.addMyselfAsDependent()
+	log.hasActivity(false)
 	return log
 }
 
@@ -158,10 +160,10 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		},
 		span: span{
 			seed:        spanSeed,
-			knownActive: 1,
-			spanNumber:  atomic.AddInt32(&old.shared.SpanCount, 1),
 			detached:    detached,
 			description: description,
+			knownActive: 1,
+			logNumber:   atomic.AddInt32(&old.shared.LogCount, 1),
 		},
 	}
 	alloc.Span.span = &alloc.span
@@ -234,7 +236,7 @@ func (log *Log) addMyselfAsDependent() bool {
 		log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is detached")
 		log.request.span.dependentLock.Lock()
 		defer log.request.span.dependentLock.Unlock()
-		log.shared.ActiveDetached[log.span.spanNumber] = log
+		log.shared.ActiveDetached[log.span.logNumber] = log
 		return false
 	}
 	log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is attached")
@@ -243,8 +245,8 @@ func (log *Log) addMyselfAsDependent() bool {
 	if log.parent.span.activeDependents == nil {
 		log.parent.span.activeDependents = make(map[int32]*Log)
 	}
-	DebugPrint("add to active deps", log.span.description, ":", log.span.spanNumber)
-	log.parent.span.activeDependents[log.span.spanNumber] = log
+	DebugPrint("add to active deps", log.span.description, ":", log.span.logNumber)
+	log.parent.span.activeDependents[log.span.logNumber] = log
 	return len(log.parent.span.activeDependents) == 1
 }
 
@@ -263,22 +265,44 @@ func (log *Log) hasActivity(startFlusher bool) {
 	}
 }
 
-// Done is used to indicate that a log is complete.  All non-Detach()ed
-// logs that were created from this log are also considered complete.
+// Done is used to indicate that a log is complete.  Buffered base loggers
+// (implementing xopbase.Logger) wait for Done to be called before flushing their data.
+//
+// Requests (Log's created by seed.Request()) and detached logs (created by
+// log.Sub().Detach().Fork() or log.Sub().Detah().Step()) are considered
+// top-level logs.  A call to Done() on a top-level log marks all
+// sub-spans as Done() if they were not already marked done.
+//
+// Calling Done() on a log that is already done generates a logged error
+// message.
+//
+// Non-detached sub-spans (created by log.Sub().Fork() and log.Sub().Step())
+// are done when either Done is called on the sub-span or when their associated
+// top-level log is done.
+//
+// Sub-logs that are not spans (created by log.Sub().Log()) should not use
+// Done().  Any call to Done on such a sub-log will log an error and otherwise
+// be ignored.
+//
+// When all the logs associated with a Request are done, the Flush() is
+// automatically triggered.  The Flush() call can be
+// synchronous or asynchronous depending on the SynchronousFlush settings
+// of the request-level Log.
 //
 // Any logging activity after a Done() causes an error to be logged and may
 // trigger a call to Flush().
-//
-// Done can be synchronous or asynchronous depending on the SynchronousFlush
-// settings.
 func (log *Log) Done() {
+	if log.nonSpanSubLog {
+		log.Error().Static("invalid call to Done() in non-span sub-log")
+		return
+	}
 	DebugPrint("starting Done")
 	log.done(true, true, time.Now())
 	DebugPrint("done with Done")
 }
 
 func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
-	DebugPrint("recursive done on", done, log.span.description)
+	DebugPrint("recursive done on", done, log.span.description, log.span.logNumber)
 	if done {
 		atomic.StoreInt32(&log.span.knownActive, 0)
 		count = atomic.AddInt32(&log.span.doneCount, 1)
@@ -312,7 +336,7 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 		if func() bool {
 			log.request.span.dependentLock.Lock()
 			defer log.request.span.dependentLock.Unlock()
-			delete(log.shared.ActiveDetached, log.span.spanNumber)
+			delete(log.shared.ActiveDetached, log.span.logNumber)
 			return len(log.shared.ActiveDetached) == 0 &&
 				len(log.request.span.activeDependents) == 0
 		}() {
@@ -337,8 +361,8 @@ func (log *Log) done(explicit bool, doUp bool, now time.Time) {
 	if func() bool {
 		log.parent.span.dependentLock.Lock()
 		defer log.parent.span.dependentLock.Unlock()
-		DebugPrint("delete from active deps", log.span.description, ":", log.span.spanNumber)
-		delete(log.parent.span.activeDependents, log.span.spanNumber)
+		DebugPrint("delete from active deps", log.span.description, ":", log.span.logNumber)
+		delete(log.parent.span.activeDependents, log.span.logNumber)
 		return len(log.parent.span.activeDependents) == 0
 	}() && doUp {
 		log.parent.done(explicit, doUp, now)

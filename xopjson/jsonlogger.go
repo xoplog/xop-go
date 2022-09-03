@@ -378,7 +378,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	copy(prefilled.data, p.builder.B)
 	if len(m) > 0 {
 		msgBuffer := xoputil.JBuilder{
-			B: make([]byte, len(m)), // alloc-per-prefill
+			B: make([]byte, 0, len(m)), // alloc-per-prefill
 		}
 		msgBuffer.AddStringBody(m)
 		prefilled.preEncodedMsg = msgBuffer.B
