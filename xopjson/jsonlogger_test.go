@@ -80,6 +80,11 @@ type checker struct {
 
 func TestASingleLine(t *testing.T) {
 	var buffer xoputil.Buffer
+	t.Log("$GOPATH", os.Getenv("GOPATH"))
+	t.Log("$GOHOME", os.Getenv("GOHOME"))
+	t.Log("$HOME", os.Getenv("HOME"))
+	t.Log("$GITHUB_WORKSPACE", os.Getenv("GITHUB_WORKSPACE"))
+	t.Log("$GITHUB_PATH", os.Getenv("GITHUB_PATH"))
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
 		xopjson.WithEpochTime(time.Microsecond),
