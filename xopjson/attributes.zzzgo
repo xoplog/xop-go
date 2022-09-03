@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xoputil"
+	"github.com/muir/xop-go/xopat"
 )
 
 const numSinglePrealloc = 20
@@ -156,7 +156,7 @@ func (a *AttributeBuilder) addSingle(k string) (*singleAttribute, bool) {
 }
 
 //MACRO BaseAttribute
-func (a *AttributeBuilder) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
+func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true

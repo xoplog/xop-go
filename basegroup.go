@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 )
 
 type (
@@ -141,7 +142,7 @@ func (p prefillings) PrefillComplete(m string) xopbase.Prefilled {
 	return prefilled
 }
 
-func (p prefilleds) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p prefilleds) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	lines := make(lines, len(p))
 	for i, prefilled := range p {
 		lines[i] = prefilled.Line(level, t, pc)
@@ -167,13 +168,13 @@ func (l lines) Static(m string) {
 	}
 }
 
-func (l lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (l lines) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, line := range l {
 		line.Enum(k, v)
 	}
 }
 
-func (p prefillings) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (p prefillings) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, prefilling := range p {
 		prefilling.Enum(k, v)
 	}
@@ -299,49 +300,49 @@ func (l lines) Uint(k string, v uint64) {
 	}
 }
 
-func (s baseSpans) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+func (s baseSpans) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	for _, span := range s {
 		span.MetadataAny(k, v)
 	}
 }
 
-func (s baseSpans) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+func (s baseSpans) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	for _, span := range s {
 		span.MetadataBool(k, v)
 	}
 }
 
-func (s baseSpans) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (s baseSpans) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, span := range s {
 		span.MetadataEnum(k, v)
 	}
 }
 
-func (s baseSpans) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+func (s baseSpans) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	for _, span := range s {
 		span.MetadataFloat64(k, v)
 	}
 }
 
-func (s baseSpans) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
+func (s baseSpans) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	for _, span := range s {
 		span.MetadataInt64(k, v)
 	}
 }
 
-func (s baseSpans) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+func (s baseSpans) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	for _, span := range s {
 		span.MetadataLink(k, v)
 	}
 }
 
-func (s baseSpans) MetadataString(k *xopconst.StringAttribute, v string) {
+func (s baseSpans) MetadataString(k *xopat.StringAttribute, v string) {
 	for _, span := range s {
 		span.MetadataString(k, v)
 	}
 }
 
-func (s baseSpans) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+func (s baseSpans) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	for _, span := range s {
 		span.MetadataTime(k, v)
 	}

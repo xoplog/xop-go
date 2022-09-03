@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopbytes"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
@@ -385,7 +386,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return prefilled
 }
 
-func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
 	var l *line
 	lRaw := p.span.request.logger.linePool.Get()
@@ -531,13 +532,13 @@ func (b *builder) AddAny(v interface{}) {
 	}
 }
 
-func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.startAttributes()
 	b.AddSafeKey(k.Key()) // TODO: check attribute keys at registration time
 	b.AddEnum(v)
 }
 
-func (b *builder) AddEnum(v xopconst.Enum) {
+func (b *builder) AddEnum(v xopat.Enum) {
 	// TODO: send dictionary and numbers
 	b.AddString(v.String())
 }
@@ -644,21 +645,15 @@ func (b *builder) AddError(v error) {
 	b.AddString(v.Error())
 }
 
-func (s *span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) { s.attributes.MetadataAny(k, v) }
-func (s *span) MetadataBool(k *xopconst.BoolAttribute, v bool)      { s.attributes.MetadataBool(k, v) }
-func (s *span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
-	s.attributes.MetadataEnum(k, v)
-}
-func (s *span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{})  { s.attributes.MetadataAny(k, v) }
+func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool)       { s.attributes.MetadataBool(k, v) }
+func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) { s.attributes.MetadataEnum(k, v) }
+func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	s.attributes.MetadataFloat64(k, v)
 }
-func (s *span) MetadataInt64(k *xopconst.Int64Attribute, v int64) { s.attributes.MetadataInt64(k, v) }
-func (s *span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
-	s.attributes.MetadataLink(k, v)
-}
-func (s *span) MetadataString(k *xopconst.StringAttribute, v string) {
-	s.attributes.MetadataString(k, v)
-}
-func (s *span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) { s.attributes.MetadataTime(k, v) }
+func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64)     { s.attributes.MetadataInt64(k, v) }
+func (s *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) { s.attributes.MetadataLink(k, v) }
+func (s *span) MetadataString(k *xopat.StringAttribute, v string)  { s.attributes.MetadataString(k, v) }
+func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time)   { s.attributes.MetadataTime(k, v) }
 
 // end

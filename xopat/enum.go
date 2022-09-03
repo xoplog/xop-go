@@ -1,4 +1,4 @@
-package xopconst
+package xopat
 
 import (
 	"fmt"
@@ -6,28 +6,49 @@ import (
 	"sync/atomic"
 )
 
+// EnumAttributes are logged as strings or as integers depending
+// on the base logger used.
 type EnumAttribute struct{ Attribute }
 
 // EmbeddedEnumAttribute is a type of enum set that can be added
 // onto from multiple places.  For example, SpanType is a
-// IotaEnumAttribute and consumers of the xop can add additional
+// IotaEnumAttribute and consumers of xop can add additional
 // values to the enum.  Values must be kept distinct.
+//
+// Enum attributes are logged as strings or as integers depending
+// on the base logger used.
 type EmbeddedEnumAttribute struct{ EnumAttribute }
 
 // IotaEnumAttribute is a type of enum set that can be added
 // onto from multiple places.  For example, SpanType is a
 // IotaEnumAttribute and consumers of the xop can add additional
 // values to the enum.  Values are automatically kept distinct.
+//
+// Enum attributes are logged as strings or as integers depending
+// on the base logger used.
 type IotaEnumAttribute struct {
 	EnumAttribute
 	counter int64
 }
 
+// EmbeddedEnum is a value that can be passed to the Span.EmbeddedEnum()
+// method to add span-level metadata.  It encapsulates both the attribute
+// name and the attribute value in a single argument.
+//
+// EmbeddedEnum values can be construted with a EmbeddedEnumAttribute or
+// with an IotaEnumAttribute.
 type EmbeddedEnum interface {
 	EnumAttribute() *EnumAttribute
 	Enum
 }
 
+// Enum is a value that can be paired with an EnumAttribute to provide
+// a key/value metadata attribute for a span:
+//
+//   func (span *Span) Enum(k *xopconst.EnumAttribute, v xopconst.Enum)
+//
+// The key (*xopconst.EnumAttribute) and value (xopconst.Enum) are
+// provided separately, unlike with an EmbeddedEnum.
 type Enum interface {
 	Int64() int64
 	String() string
@@ -53,6 +74,30 @@ func (e enum) String() string {
 	return e.str
 }
 
+// EnumAttribute makes a new enum from a type that implments .String()
+//
+//	//go:generate go get github.com/dmarkham/enumer
+//	//go:generate go run github.com/dmarkham/enumer -linecomment -sql -json -text -yaml -gqlgen -type=SpanKindEnum
+//	type SpanKindEnum int
+//
+//	const (
+//		SpanKindServer   SpanKindEnum = iota // SERVER
+//		SpanKindClient                       // CLIENT
+//		SpanKindProducer                     // PRODUCER
+//		SpanKindConsumer                     // CONSUMER
+//		SpanKindInternal                     // INTERNAL
+//	)
+//
+//	func (e SpanKindEnum) Int64() int64 { return int64(e) }
+//
+//	var SpanKind = xopconst.Make{Key: "span.kind", Namespace: "OTAP", Indexed: true, Prominence: 30,
+// 		Description: "https://opentelemetry.io/docs/reference/specification/trace/api/#spankind" +
+// 			" Use one of SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer, SpanKindInternal"}.
+// 		EnumAttribute(SpanKindServer)
+//
+//	log := xop.NewSeed().Request("an example")
+//	log.Request().EmbeddedEnum(SpanTypeHTTPClientRequest)
+//
 func (s Make) EnumAttribute(exampleValue Enum) *EnumAttribute {
 	return &EnumAttribute{Attribute: s.attribute(exampleValue, nil, AttributeTypeEnum)}
 }
@@ -61,30 +106,23 @@ func (s Make) TryEnumAttribute(exampleValue Enum) (_ *EnumAttribute, err error) 
 	return &EnumAttribute{Attribute: s.attribute(exampleValue, &err, AttributeTypeEnum)}, err
 }
 
-func (s Make) TypedEnumAttribute(exampleValue interface{}) *EmbeddedEnumAttribute {
-	e, err := s.TryTypedEnumAttribute(exampleValue)
-	if err != nil {
-		panic(err)
-	}
-	return e
-}
-func (s Make) TryTypedEnumAttribute(exampleValue interface{}) (_ *EmbeddedEnumAttribute, err error) {
-	emb := &EmbeddedEnumAttribute{
-		EnumAttribute: EnumAttribute{
-			Attribute: s.attribute(exampleValue, &err, AttributeTypeEnum),
-		},
-	}
-	if err != nil {
-		return nil, err
-	}
-	if emb.EnumAttribute.Attribute.reflectType == nil {
-		return nil, fmt.Errorf("cannot make enum attribute with a nil value")
-	}
-	return emb, nil
-}
-
-// Iota creates new enums.  It cannotnot be combined with
-// Add, Add64, or TryAddStringer() etc.
+// Iota creates new enum values.
+//
+// For example:
+//
+//	var SpanType = xopconst.Make{Key: "span.type", Namespace: "xop", Indexed: true, Prominence: 11,
+//		Description: "what kind of span this is.  Often added automatically.  eg: SpanTypeHTTPClientRequest"}.
+//		EmbeddedEnumAttribute()
+//
+//	var (
+//		SpanTypeHTTPServerEndpoint = SpanType.Iota("endpoint")
+//		SpanTypeHTTPClientRequest  = SpanType.Iota("REST")
+//		SpanTypeCronJob            = SpanType.Iota("cron_job")
+//	)
+//
+//	log := xop.NewSeed().Request("an example")
+//	log.Request().EmbeddedEnum(SpanTypeHTTPClientRequest)
+//
 func (e *IotaEnumAttribute) Iota(s string) EmbeddedEnum {
 	old := atomic.AddInt64(&e.counter, 1)
 	e.Attribute.names.Store(old+1, s)
@@ -95,6 +133,8 @@ func (e *IotaEnumAttribute) Iota(s string) EmbeddedEnum {
 	}
 }
 
+// EmbeddedEnumAttribute creates a new enum that embeds it's key with
+// it's value.
 func (s Make) EmbeddedEnumAttribute() *IotaEnumAttribute {
 	e, err := s.TryEmbeddedEnumAttribute()
 	if err != nil {
@@ -115,6 +155,7 @@ func (s Make) TryEmbeddedEnumAttribute() (_ *IotaEnumAttribute, err error) {
 	return ie, nil
 }
 
+// AddStringer is another way to construct
 func (e *EmbeddedEnumAttribute) AddStringer(v fmt.Stringer) EmbeddedEnum {
 	enum, err := e.TryAddStringer(v)
 	if err != nil {

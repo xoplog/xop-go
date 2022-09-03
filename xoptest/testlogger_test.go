@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoputil"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestLogMethods(t *testing.T) {
 	if assert.NotEmpty(t, lines, "found some") {
 		assert.True(t, !lines[0].Timestamp.Before(start), "time seq")
 		assert.Equal(t, "basic trace message", lines[0].Message, "message")
-		assert.Equal(t, xopconst.TraceLevel, lines[0].Level, "level")
+		assert.Equal(t, xopnum.TraceLevel, lines[0].Level, "level")
 	}
 	f := log.Sub().Fork("forkie")
 	f.Span().Int(xopconst.HTTPStatusCode, 204)

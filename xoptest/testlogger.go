@@ -14,8 +14,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/muir/xop-go"
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoputil"
 )
 
@@ -112,7 +113,7 @@ type Prefilled struct {
 
 type Line struct {
 	Builder
-	Level     xopconst.Level
+	Level     xopnum.Level
 	Timestamp time.Time
 	Message   string
 	Text      string
@@ -275,7 +276,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	}
 }
 
-func (p *Prefilled) Line(level xopconst.Level, t time.Time, _ []uintptr) xopbase.Line {
+func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.Span.EndTime, t.UnixNano())
 	// TODO: stack traces
 	line := &Line{
@@ -355,7 +356,7 @@ func (b *Builder) Any(k string, v interface{}) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
-func (b *Builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.Data[k.Key()] = v.String()
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
 }
@@ -370,7 +371,7 @@ func (b *Builder) String(k string, v string)          { b.Any(k, v) }
 func (b *Builder) Time(k string, v time.Time)         { b.Any(k, v) }
 func (b *Builder) Uint(k string, v uint64)            { b.Any(k, v) }
 
-func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -425,7 +426,7 @@ func (s *Span) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
 	}
 }
 
-func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -477,7 +478,7 @@ func (s *Span) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	}
 }
 
-func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -525,7 +526,7 @@ func (s *Span) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
 	}
 }
 
-func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -577,7 +578,7 @@ func (s *Span) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
 	}
 }
 
-func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
+func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -629,7 +630,7 @@ func (s *Span) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	}
 }
 
-func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -681,7 +682,7 @@ func (s *Span) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
 	}
 }
 
-func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
+func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -733,7 +734,7 @@ func (s *Span) MetadataString(k *xopconst.StringAttribute, v string) {
 	}
 }
 
-func (s *Span) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()

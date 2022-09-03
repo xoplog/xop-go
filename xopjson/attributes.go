@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xoputil"
 )
 
@@ -161,7 +161,7 @@ func (a *AttributeBuilder) addSingle(k string) (*singleAttribute, bool) {
 	return s, ok
 }
 
-func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) {
+func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -217,7 +217,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopconst.AnyAttribute, v interface{}) 
 	}
 }
 
-func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
+func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -265,7 +265,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopconst.BoolAttribute, v bool) {
 	}
 }
 
-func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -313,7 +313,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopconst.EnumAttribute, v xopconst.En
 	}
 }
 
-func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float64) {
+func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -361,7 +361,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopconst.Float64Attribute, v float
 	}
 }
 
-func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
+func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -409,7 +409,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopconst.Int64Attribute, v int64) {
 	}
 }
 
-func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace) {
+func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -457,7 +457,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopconst.LinkAttribute, v trace.Trace
 	}
 }
 
-func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string) {
+func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
@@ -505,7 +505,7 @@ func (a *AttributeBuilder) MetadataString(k *xopconst.StringAttribute, v string)
 	}
 }
 
-func (a *AttributeBuilder) MetadataTime(k *xopconst.TimeAttribute, v time.Time) {
+func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true

@@ -1,6 +1,6 @@
 package xopjson_test
 
-import "github.com/muir/xop-go/xopconst"
+import "github.com/muir/xop-go/xopat"
 
 type AnyObject struct {
 	I int
@@ -9,15 +9,15 @@ type AnyObject struct {
 	P *AnyObject
 }
 
-var ExampleMetadataSingleAny = xopconst.Make{Key: "s-any", Namespace: "test"}.AnyAttribute(AnyObject{})
-var ExampleMetadataLockedAny = xopconst.Make{Key: "l-any", Locked: true, Namespace: "test"}.AnyAttribute(AnyObject{})
-var ExampleMetadataMultipleAny = xopconst.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
-var ExampleMetadataDistinctAny = xopconst.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataSingleAny = xopat.Make{Key: "s-any", Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataLockedAny = xopat.Make{Key: "l-any", Locked: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataMultipleAny = xopat.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+var ExampleMetadataDistinctAny = xopat.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
 
-var ExampleMetadataSingleEnum = xopconst.Make{Key: "s-enum", Namespace: "test"}.EmbeddedEnumAttribute()
-var ExampleMetadataLockedEnum = xopconst.Make{Key: "l-enum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute()
-var ExampleMetadataMultipleEnum = xopconst.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute()
-var ExampleMetadataDistinctEnum = xopconst.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute()
+var ExampleMetadataSingleEnum = xopat.Make{Key: "s-enum", Namespace: "test"}.EmbeddedEnumAttribute()
+var ExampleMetadataLockedEnum = xopat.Make{Key: "l-enum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute()
+var ExampleMetadataMultipleEnum = xopat.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute()
+var ExampleMetadataDistinctEnum = xopat.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute()
 
 var (
 	SingleEnumOne   = ExampleMetadataSingleEnum.Iota("one")
@@ -39,7 +39,7 @@ var (
 
 // TODO: why the skips?
 // MACRO ZZZAttribute SKIP:Any,Enum,Float32,Float64
-var ExampleMetadataSingleZZZ = xopconst.Make{Key: "s-zzz", Namespace: "test"}.ZZZAttribute()
-var ExampleMetadataLockedZZZ = xopconst.Make{Key: "l-zzz", Locked: true, Namespace: "test"}.ZZZAttribute()
-var ExampleMetadataMultipleZZZ = xopconst.Make{Key: "m-zzz", Multiple: true, Namespace: "test"}.ZZZAttribute()
-var ExampleMetadataDistinctZZZ = xopconst.Make{Key: "d-zzz", Multiple: true, Distinct: true, Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataSingleZZZ = xopat.Make{Key: "s-zzz", Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataLockedZZZ = xopat.Make{Key: "l-zzz", Locked: true, Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataMultipleZZZ = xopat.Make{Key: "m-zzz", Multiple: true, Namespace: "test"}.ZZZAttribute()
+var ExampleMetadataDistinctZZZ = xopat.Make{Key: "d-zzz", Multiple: true, Distinct: true, Namespace: "test"}.ZZZAttribute()

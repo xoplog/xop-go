@@ -22,7 +22,7 @@ var elseConditionalRE = regexp.MustCompile(`^\s*//\s?ELSE CONDITIONAL\s*$`)
 var macros = map[string]map[string]string{
 	// ZZZAttribute are the span-attributes in the main logger.  These
 	// turn into Span methods like Span.BoolAttribute() and a corresponding
-	// xopconst.BoolAttribute type.
+	// xopat.BoolAttribute type.
 	"ZZZAttribute": {
 		"Bool":     "bool",
 		"Float64":  "float64",
@@ -37,7 +37,7 @@ var macros = map[string]map[string]string{
 		"Any":      "interface{}",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
-		"Enum":     "xopconst.Enum",
+		"Enum":     "xopat.Enum",
 	},
 	// BaseAttributes are the span decorators that base loggers must
 	// implement.  These turn into things like Base.MetadataBool()
@@ -49,7 +49,7 @@ var macros = map[string]map[string]string{
 		"Link":    "trace.Trace",
 		"Any":     "interface{}",
 		"Time":    "time.Time",
-		"Enum":    "xopconst.Enum",
+		"Enum":    "xopat.Enum",
 	},
 	"IntsPlus": {
 		"Int":      "int",

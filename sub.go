@@ -10,6 +10,7 @@ import (
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 )
 
 // Sub holds an ephermal state of a log being tranformed to a new log.
@@ -26,8 +27,8 @@ type Detaching struct {
 type LogSettings struct {
 	prefillMsg               string
 	prefillData              []func(xopbase.Prefilling)
-	minimumLogLevel          xopconst.Level
-	stackFramesWanted        [xopconst.AlertLevel + 1]int // indexed
+	minimumLogLevel          xopnum.Level
+	stackFramesWanted        [xopnum.AlertLevel + 1]int // indexed
 	tagLinesWithSpanSequence bool
 	synchronousFlushWhenDone bool
 }
@@ -37,9 +38,9 @@ type LogSettings struct {
 // get stack traces.
 var DefaultSettings = func() LogSettings {
 	var settings LogSettings
-	settings.stackFramesWanted[xopconst.AlertLevel] = 20
-	settings.stackFramesWanted[xopconst.ErrorLevel] = 10
-	settings.minimumLogLevel = xopconst.TraceLevel
+	settings.stackFramesWanted[xopnum.AlertLevel] = 20
+	settings.stackFramesWanted[xopnum.ErrorLevel] = 10
+	settings.minimumLogLevel = xopnum.TraceLevel
 	settings.synchronousFlushWhenDone = true
 	return settings
 }()
@@ -109,7 +110,7 @@ func (sub *Sub) Step(msg string, mods ...SeedModifier) *Log {
 // a logging level.  Levels above the given level will be set to
 // get least this many.  Levels below the given level will be set
 // to receive at most this many.
-func (sub *Sub) StackFrames(level xopconst.Level, count int) *Sub {
+func (sub *Sub) StackFrames(level xopnum.Level, count int) *Sub {
 	sub.settings.StackFrames(level, count)
 	return sub
 }
@@ -118,8 +119,8 @@ func (sub *Sub) StackFrames(level xopconst.Level, count int) *Sub {
 // a logging level.  Levels above the given level will be set to
 // get least this many.  Levels below the given level will be set
 // to receive at most this many.
-func (settings *LogSettings) StackFrames(level xopconst.Level, frameCount int) {
-	for _, l := range xopconst.LevelValues() {
+func (settings *LogSettings) StackFrames(level xopnum.Level, frameCount int) {
+	for _, l := range xopnum.LevelValues() {
 		current := settings.stackFramesWanted[l]
 		if l <= level && current > frameCount {
 			settings.stackFramesWanted[l] = frameCount
@@ -149,14 +150,14 @@ func (settings *LogSettings) SynchronousFlush(b bool) {
 
 // MinLevel sets the minimum logging level below which logs will
 // be discarded.  The default is that no logs are discarded.
-func (sub *Sub) MinLevel(level xopconst.Level) *Sub {
+func (sub *Sub) MinLevel(level xopnum.Level) *Sub {
 	sub.settings.MinLevel(level)
 	return sub
 }
 
 // MinLevel sets the minimum logging level below which logs will
 // be discarded.  The default is that no logs are discarded.
-func (settings *LogSettings) MinLevel(level xopconst.Level) {
+func (settings *LogSettings) MinLevel(level xopnum.Level) {
 	settings.minimumLogLevel = level
 }
 

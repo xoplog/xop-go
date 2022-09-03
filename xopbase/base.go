@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopnum"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
@@ -54,21 +55,21 @@ type Span interface {
 	Span(ts time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
 	// MetadataAny adds a key/value pair to describe the span.
-	MetadataAny(*xopconst.AnyAttribute, interface{})
+	MetadataAny(*xopat.AnyAttribute, interface{})
 	// MetadataBool adds a key/value pair to describe the span.
-	MetadataBool(*xopconst.BoolAttribute, bool)
+	MetadataBool(*xopat.BoolAttribute, bool)
 	// MetadataEnum adds a key/value pair to describe the span.
-	MetadataEnum(*xopconst.EnumAttribute, xopconst.Enum)
+	MetadataEnum(*xopat.EnumAttribute, xopat.Enum)
 	// MetadataFloat64 adds a key/value pair to describe the span.
-	MetadataFloat64(*xopconst.Float64Attribute, float64)
+	MetadataFloat64(*xopat.Float64Attribute, float64)
 	// MetadataInt64 adds a key/value pair to describe the span.
-	MetadataInt64(*xopconst.Int64Attribute, int64)
+	MetadataInt64(*xopat.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
-	MetadataLink(*xopconst.LinkAttribute, trace.Trace)
+	MetadataLink(*xopat.LinkAttribute, trace.Trace)
 	// MetadataString adds a key/value pair to describe the span.
-	MetadataString(*xopconst.StringAttribute, string)
+	MetadataString(*xopat.StringAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
-	MetadataTime(*xopconst.TimeAttribute, time.Time)
+	MetadataTime(*xopat.TimeAttribute, time.Time)
 
 	// Boring true indicates that a span (or request) is boring.  The
 	// suggested meaning for this is that a boring request that is buffered
@@ -105,7 +106,7 @@ type Prefilled interface {
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
 	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
-	Line(xopconst.Level, time.Time, []uintptr) Line
+	Line(xopnum.Level, time.Time, []uintptr) Line
 }
 
 type Line interface {
@@ -125,7 +126,7 @@ type Line interface {
 }
 
 type ObjectParts interface {
-	Enum(*xopconst.EnumAttribute, xopconst.Enum)
+	Enum(*xopat.EnumAttribute, xopat.Enum)
 	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
 	// TODO: SubObject(string) SubObject

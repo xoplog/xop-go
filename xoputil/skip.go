@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
 )
 
 var SkipLine = skipLine{}
@@ -16,8 +16,8 @@ type skipLine struct{}
 
 var _ xopbase.Line = skipLine{}
 
-func (_ skipLine) AnyImmutable(string, interface{})                {}
-func (_ skipLine) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {}
+func (_ skipLine) AnyImmutable(string, interface{})          {}
+func (_ skipLine) Enum(k *xopat.EnumAttribute, v xopat.Enum) {}
 
 func (_ skipLine) Msg(string)      {}
 func (_ skipLine) Static(string)   {}

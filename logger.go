@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/mohae/deepcopy"
@@ -444,7 +445,7 @@ type Line struct {
 	skip bool
 }
 
-func (log *Log) logLine(level xopconst.Level) *Line {
+func (log *Log) logLine(level xopnum.Level) *Line {
 	skip := level < log.settings.minimumLogLevel
 	recycled := log.span.linePool.Get()
 	var ll *Line
@@ -458,7 +459,7 @@ func (log *Log) logLine(level xopconst.Level) *Line {
 		} else {
 			if ll.pc == nil {
 				ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
-					log.settings.stackFramesWanted[xopconst.AlertLevel])
+					log.settings.stackFramesWanted[xopnum.AlertLevel])
 			} else {
 				ll.pc = ll.pc[:cap(ll.pc)]
 			}
@@ -471,7 +472,7 @@ func (log *Log) logLine(level xopconst.Level) *Line {
 		}
 		if !skip && log.settings.stackFramesWanted[level] != 0 {
 			ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
-				log.settings.stackFramesWanted[xopconst.AlertLevel])
+				log.settings.stackFramesWanted[xopnum.AlertLevel])
 			n := runtime.Callers(3, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
@@ -523,18 +524,18 @@ func (line *Line) Static(msg string) {
 	line.log.hasActivity(true)
 }
 
-func (log *Log) Line(level xopconst.Level) *Line { return log.logLine(level) }
-func (log *Log) Debug() *Line                    { return log.Line(xopconst.DebugLevel) }
-func (log *Log) Trace() *Line                    { return log.Line(xopconst.TraceLevel) }
-func (log *Log) Info() *Line                     { return log.Line(xopconst.InfoLevel) }
-func (log *Log) Warn() *Line                     { return log.Line(xopconst.WarnLevel) }
+func (log *Log) Line(level xopnum.Level) *Line { return log.logLine(level) }
+func (log *Log) Debug() *Line                  { return log.Line(xopnum.DebugLevel) }
+func (log *Log) Trace() *Line                  { return log.Line(xopnum.TraceLevel) }
+func (log *Log) Info() *Line                   { return log.Line(xopnum.InfoLevel) }
+func (log *Log) Warn() *Line                   { return log.Line(xopnum.WarnLevel) }
 func (log *Log) Error() *Line {
 	log.notBoring()
-	return log.Line(xopconst.ErrorLevel)
+	return log.Line(xopnum.ErrorLevel)
 }
 func (log *Log) Alert() *Line {
 	log.notBoring()
-	return log.Line(xopconst.AlertLevel)
+	return log.Line(xopnum.AlertLevel)
 }
 
 func (line *Line) Msgs(v ...interface{})                    { line.Msg(fmt.Sprint(v...)) }
@@ -557,11 +558,11 @@ func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration
 func (line *Line) Float64(k string, v float64) *Line        { line.line.Float64(k, v); return line }
 func (line *Line) Float32(k string, v float32) *Line        { return line.Float64(k, float64(v)) }
 
-func (line *Line) EmbeddedEnum(k xopconst.EmbeddedEnum) *Line {
+func (line *Line) EmbeddedEnum(k xopat.EmbeddedEnum) *Line {
 	return line.Enum(k.EnumAttribute(), k)
 }
 
-func (line *Line) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) *Line {
+func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 	line.line.Enum(k, v)
 	return line
 }

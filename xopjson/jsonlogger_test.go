@@ -10,6 +10,7 @@ import (
 	"github.com/muir/xop-go/xopbytes"
 	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xopjson"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoptest/xoptestutil"
 	"github.com/muir/xop-go/xoputil"
@@ -503,7 +504,7 @@ func (c *checker) check(t *testing.T, data string) {
 }
 
 func (c *checker) line(t *testing.T, super supersetObject, generic map[string]interface{}) {
-	assert.NotEqual(t, xopconst.Level(0), super.Level, "level")
+	assert.NotEqual(t, xopnum.Level(0), super.Level, "level")
 	assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 	assert.NotEmpty(t, super.Msg, "message")
 	mns := c.messagesNotSeen[super.Msg]
