@@ -157,18 +157,18 @@ func (s Make) TryIotaEnumAttribute() (_ *IotaEnumAttribute, err error) {
 
 // EmbeddedEnumAttribute creates a new enum that embeds it's key with
 // it's value.
-func (s Make) EmbeddedEnumAttribute() *EmbeddedEnumAttribute {
-	e, err := s.TryEmbeddedEnumAttribute()
+func (s Make) EmbeddedEnumAttribute(exampleValue interface{}) *EmbeddedEnumAttribute {
+	e, err := s.TryEmbeddedEnumAttribute(exampleValue)
 	if err != nil {
 		panic(err)
 	}
 	return e
 }
 
-func (s Make) TryEmbeddedEnumAttribute() (_ *EmbeddedEnumAttribute, err error) {
+func (s Make) TryEmbeddedEnumAttribute(exampleValue interface{}) (_ *EmbeddedEnumAttribute, err error) {
 	ie := &EmbeddedEnumAttribute{
 		EnumAttribute: EnumAttribute{
-			Attribute: s.attribute(EmbeddedEnum(enum{}), &err, AttributeTypeEnum),
+			Attribute: s.attribute(exampleValue, &err, AttributeTypeEnum),
 		},
 	}
 	if err != nil {

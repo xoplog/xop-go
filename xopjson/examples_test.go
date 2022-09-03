@@ -2,7 +2,10 @@
 
 package xopjson_test
 
-import "github.com/muir/xop-go/xopat"
+import (
+	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopconst"
+)
 
 type AnyObject struct {
 	I int
@@ -19,10 +22,10 @@ var (
 )
 
 var (
-	ExampleMetadataSingleEnum   = xopat.Make{Key: "s-enum", Namespace: "test"}.IotaEnumAttribute()
-	ExampleMetadataLockedEnum   = xopat.Make{Key: "l-enum", Locked: true, Namespace: "test"}.IotaEnumAttribute()
-	ExampleMetadataMultipleEnum = xopat.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.IotaEnumAttribute()
-	ExampleMetadataDistinctEnum = xopat.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataSingleEnum   = xopat.Make{Key: "s-ienum", Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataLockedEnum   = xopat.Make{Key: "l-ienum", Locked: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataMultipleEnum = xopat.Make{Key: "m-ienum", Multiple: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataDistinctEnum = xopat.Make{Key: "d-ienum", Multiple: true, Distinct: true, Namespace: "test"}.IotaEnumAttribute()
 )
 
 var (
@@ -41,6 +44,53 @@ var (
 	DistinctEnumOne   = ExampleMetadataDistinctEnum.Iota("one")
 	DistinctEnumTwo   = ExampleMetadataDistinctEnum.Iota("two")
 	DistinctEnumThree = ExampleMetadataDistinctEnum.Iota("Three")
+)
+
+var (
+	ExampleMetadataSingleEEnum   = xopat.Make{Key: "s-eenum", Namespace: "test"}.EmbeddedEnumAttribute(threeType(1))
+	ExampleMetadataLockedEEnum   = xopat.Make{Key: "l-eenum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute(1)
+	ExampleMetadataMultipleEEnum = xopat.Make{Key: "m-eenum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute(int64(1))
+	ExampleMetadataDistinctEEnum = xopat.Make{Key: "d-eenum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute(threeType(1))
+)
+
+type threeType int
+
+func (t threeType) String() string {
+	switch t {
+	case 1:
+		return "one"
+	case 2:
+		return "two"
+	case 3:
+		return "three"
+	default:
+		return "other"
+	}
+}
+
+var (
+	SingleEEnumOne   = ExampleMetadataSingleEEnum.AddStringer(threeType(1))
+	SingleEEnumTwo   = ExampleMetadataSingleEEnum.AddStringer(threeType(2))
+	SingleEEnumThree = ExampleMetadataSingleEEnum.AddStringer(threeType(3))
+
+	LockedEEnumOne   = ExampleMetadataLockedEEnum.Add(1, "one")
+	LockedEEnumTwo   = ExampleMetadataLockedEEnum.Add(2, "two")
+	LockedEEnumThree = ExampleMetadataLockedEEnum.Add(3, "three")
+
+	MultipleEEnumOne   = ExampleMetadataMultipleEEnum.Add64(int64(1), "one")
+	MultipleEEnumTwo   = ExampleMetadataMultipleEEnum.Add64(int64(2), "two")
+	MultipleEEnumThree = ExampleMetadataMultipleEEnum.Add64(int64(3), "three")
+
+	DistinctEEnumOne   = ExampleMetadataDistinctEEnum.AddStringer(threeType(1))
+	DistinctEEnumTwo   = ExampleMetadataDistinctEEnum.AddStringer(threeType(2))
+	DistinctEEnumThree = ExampleMetadataDistinctEEnum.AddStringer(threeType(3))
+)
+
+var (
+	ExampleMetadataSingleXEnum   = xopat.Make{Key: "s-xenum", Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+	ExampleMetadataLockedXEnum   = xopat.Make{Key: "l-xenum", Locked: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+	ExampleMetadataMultipleXEnum = xopat.Make{Key: "m-xenum", Multiple: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+	ExampleMetadataDistinctXEnum = xopat.Make{Key: "d-xenum", Multiple: true, Distinct: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
 )
 
 // TODO: why the skips?
