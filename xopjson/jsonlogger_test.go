@@ -92,14 +92,10 @@ func TestASingleLine(t *testing.T) {
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithAttributesObject(true),
 		xopjson.WithStackLineRewrite(func(s string) string {
-			if p := os.Getenv("GOPATH"); p != "" {
-				return strings.TrimPrefix(s, p)
-			}
-			if p := os.Getenv("GOHOME"); p != "" {
-				return strings.TrimPrefix(s, p)
-			}
-			if p := os.Getenv("HOME"); p != "" {
-				return strings.TrimPrefix(s, p)
+			for _, path := range []string{"GOPATH", "GOHOME", "GITHUB_WORKSPACE", "HOME"} {
+				if p := os.Getenv(path); p != "" {
+					return strings.TrimPrefix(s, p)
+				}
 			}
 			return s
 		}),
