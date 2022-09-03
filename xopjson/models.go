@@ -52,6 +52,7 @@ type Logger struct {
 	linePool              sync.Pool // filled with *line
 	preallocatedKeys      [100]byte
 	durationKey           []byte
+	stackLineRewrite      func(string) string
 	// TODO: prefilledPool	sync.Pool
 	// TODO: timeKey []byte
 	// TODO: timestampKey          []byte
@@ -269,5 +270,11 @@ func WithQuotedEpochTime(units time.Duration) Option {
 func WithGoroutineID(b bool) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.withGoroutine = b
+	}
+}
+
+func WithStackLineRewrite(f func(string) string) Option {
+	return func(l *Logger, _ *xoputil.Prealloc) {
+		l.stackLineRewrite = f
 	}
 }

@@ -469,6 +469,8 @@ type Line struct {
 	skip bool
 }
 
+const stackFramesToExclude = 4
+
 func (log *Log) logLine(level xopnum.Level) *Line {
 	skip := level < log.settings.minimumLogLevel
 	recycled := log.span.linePool.Get()
@@ -487,7 +489,7 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 			} else {
 				ll.pc = ll.pc[:cap(ll.pc)]
 			}
-			n := runtime.Callers(3, ll.pc)
+			n := runtime.Callers(stackFramesToExclude, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
 	} else {
@@ -497,7 +499,7 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 		if !skip && log.settings.stackFramesWanted[level] != 0 {
 			ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
 				log.settings.stackFramesWanted[xopnum.AlertLevel])
-			n := runtime.Callers(3, ll.pc)
+			n := runtime.Callers(stackFramesToExclude, ll.pc)
 			ll.pc = ll.pc[:n]
 		}
 	}

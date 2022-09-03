@@ -2,6 +2,7 @@ package xopjson_test
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -85,9 +86,21 @@ func TestASingleLine(t *testing.T) {
 		xopjson.WithDuration("dur", xopjson.AsString),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithAttributesObject(true),
+		xopjson.WithStackLineRewrite(func(s string) string {
+			if p := os.Getenv("GOPATH"); p != "" {
+				return strings.TrimPrefix(s, p)
+			}
+			if p := os.Getenv("GOHOME"); p != "" {
+				return strings.TrimPrefix(s, p)
+			}
+			if p := os.Getenv("HOME"); p != "" {
+				return strings.TrimPrefix(s, p)
+			}
+			return s
+		}),
 	)
 	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
-	log.Info().String("foo", "bar").Int("blast", 99).Msg("a test line")
+	log.Alert().String("foo", "bar").Int("blast", 99).Msg("a test line")
 	log.Done()
 	s := buffer.String()
 	t.Log(s)
@@ -96,10 +109,11 @@ func TestASingleLine(t *testing.T) {
 	assert.Contains(t, lines[0], `"span.id":`)
 	assert.Contains(t, lines[0], `"attributes":{`) // }
 	assert.Contains(t, lines[0], `"foo":"bar"`)
-	assert.Contains(t, lines[0], `"lvl":9`)
+	assert.Contains(t, lines[0], `"lvl":20`)
 	assert.Contains(t, lines[0], `"ts":`)
 	assert.Contains(t, lines[0], `"blast":99`)
 	assert.NotContains(t, lines[0], `"trace.id":`)
+	assert.Contains(t, lines[0], `"stack":["/src/github.com/muir/xop-go/xopjson/jsonlogger_test.go:`)
 	assert.Contains(t, lines[1], `"trace.id":`)
 	assert.Contains(t, lines[1], `"span.id":`)
 	assert.Contains(t, lines[1], `"dur":"`)
