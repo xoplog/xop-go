@@ -8,7 +8,8 @@ type contextKeyType struct{}
 
 var contextKey = contextKeyType{}
 
-// TODO: have a default log that prints
+// Default serves as a fallback logger if FromContextOrDefault
+// does not find a logger.  Unless modified, it discards all logs.
 var Default = NewSeed().Request("discard")
 
 func (log *Log) IntoContext(ctx context.Context) context.Context {
@@ -42,6 +43,9 @@ func FromContextOrPanic(ctx context.Context) *Log {
 // CustomFromContext returns a convenience function: it calls either
 // FromContextOrPanic() or FromContextOrDefault() and then calls a
 // function to adjust setting.
+//
+// Pass FromContextOrPanic or FromContextOrDefault as the first argument
+// and a function to adjust settings as the second argument.
 func CustomFromContext(getLogFromContext func(context.Context) *Log, adjustSettings func(*Sub) *Sub) func(context.Context) *Log {
 	return func(ctx context.Context) *Log {
 		log := getLogFromContext(ctx)

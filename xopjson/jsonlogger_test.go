@@ -387,6 +387,16 @@ func TestParameters(t *testing.T) {
 				log.Done()
 			},
 		},
+		{
+			name: "prefill",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				p := log.Sub().PrefillFloat64("f", 23).PrefillText("pre!").Log()
+				p.Error().Int16("i16", int16(7)).Msg("pf")
+				log.Alert().Int32("i32", int32(77)).Msgf("pf %s", "bar")
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
 	}
 
 	for _, tc := range jsonCases {

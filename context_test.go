@@ -9,14 +9,14 @@ import (
 
 func TestIntoContext(t *testing.T) {
 	log := NewSeed().Request("myLog")
-	ctx := context.TODO()
+	ctx := context.Background()
 	ctxWithLog := log.IntoContext(ctx)
 	assert.Equal(t, log, ctxWithLog.Value(contextKey))
 }
 
 func TestFromContext(t *testing.T) {
 	log := NewSeed().Request("myLog")
-	ctx := context.TODO()
+	ctx := context.Background()
 	ctxLog, ok := FromContext(ctx)
 	assert.False(t, ok)
 	assert.Nil(t, ctxLog)
@@ -27,7 +27,7 @@ func TestFromContext(t *testing.T) {
 }
 
 func TestFromContextOrDefault(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	log := FromContextOrDefault(ctx)
 	assert.Equal(t, Default, log)
 	log = NewSeed().Request("myLog")
@@ -36,7 +36,7 @@ func TestFromContextOrDefault(t *testing.T) {
 }
 
 func TestFromContextOrPanic(t *testing.T) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	assert.Panics(t, func() { _ = FromContextOrPanic(ctx) })
 	log := NewSeed().Request("myLog")
 	ctxLog := log.IntoContext(ctx)
@@ -44,12 +44,13 @@ func TestFromContextOrPanic(t *testing.T) {
 }
 
 func TestCustomFromContext(t *testing.T) {
-	getDefaultLogFromContext := func(ctx context.Context) *Log {
-		return Default
+	adjustSettings := func(sub *Sub) *Sub {
+		return sub.PrefillText("banana")
 	}
-	noOpAdjustSettings := func(sub *Sub) *Sub {
-		return sub
-	}
-	customFromContextFun := CustomFromContext(getDefaultLogFromContext, noOpAdjustSettings)
-	assert.Equal(t, Default, customFromContextFun(context.TODO()))
+	customLogFun := CustomFromContext(FromContextOrDefault, adjustSettings)
+	customLog := customLogFun(context.Background())
+	defer customLog.Done()
+	assert.NotEqual(t, Default, customLog, "logs are not equal")
+	assert.NotEqual(t, Default.Settings(), customLog.Settings(), "default settings")
+	assert.Equal(t, Default.Sub().PrefillText("banana").Log().Settings(), customLog.Settings(), "modified settings")
 }
