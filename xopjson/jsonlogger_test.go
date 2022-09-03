@@ -10,6 +10,7 @@ import (
 	"github.com/muir/xop-go/xopbytes"
 	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xopjson"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoptest/xoptestutil"
 	"github.com/muir/xop-go/xoputil"
@@ -306,7 +307,7 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "metadata enum",
+			name: "metadata iota enum",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				ss := log.Sub().Step("stool")
 				ss.Span().EmbeddedEnum(SingleEnumTwo)
@@ -321,6 +322,46 @@ func TestParameters(t *testing.T) {
 				log.Span().EmbeddedEnum(DistinctEnumTwo)
 				log.Span().EmbeddedEnum(DistinctEnumTwo)
 				log.Span().EmbeddedEnum(DistinctEnumThree)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata embedded enum",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				ss := log.Sub().Step("stool")
+				ss.Span().EmbeddedEnum(SingleEEnumTwo)
+				ss.Span().EmbeddedEnum(SingleEEnumTwo)
+				ss.Span().EmbeddedEnum(SingleEEnumThree)
+				ss.Span().EmbeddedEnum(LockedEEnumTwo)
+				ss.Span().EmbeddedEnum(LockedEEnumTwo)
+				ss.Span().EmbeddedEnum(LockedEEnumThree)
+				log.Span().EmbeddedEnum(MultipleEEnumTwo)
+				log.Span().EmbeddedEnum(MultipleEEnumTwo)
+				log.Span().EmbeddedEnum(MultipleEEnumThree)
+				log.Span().EmbeddedEnum(DistinctEEnumTwo)
+				log.Span().EmbeddedEnum(DistinctEEnumTwo)
+				log.Span().EmbeddedEnum(DistinctEEnumThree)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata enum",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				ss := log.Sub().Step("stool")
+				ss.Span().Enum(ExampleMetadataSingleXEnum, xopconst.SpanKindServer)
+				ss.Span().Enum(ExampleMetadataSingleXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataSingleXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataLockedXEnum, xopconst.SpanKindServer)
+				ss.Span().Enum(ExampleMetadataLockedXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataLockedXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindServer)
+				ss.Span().Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataDistinctXEnum, xopconst.SpanKindServer)
+				ss.Span().Enum(ExampleMetadataDistinctXEnum, xopconst.SpanKindClient)
+				ss.Span().Enum(ExampleMetadataDistinctXEnum, xopconst.SpanKindClient)
 				xoptestutil.MicroNap()
 				log.Done()
 			},
@@ -503,7 +544,7 @@ func (c *checker) check(t *testing.T, data string) {
 }
 
 func (c *checker) line(t *testing.T, super supersetObject, generic map[string]interface{}) {
-	assert.NotEqual(t, xopconst.Level(0), super.Level, "level")
+	assert.NotEqual(t, xopnum.Level(0), super.Level, "level")
 	assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
 	assert.NotEmpty(t, super.Msg, "message")
 	mns := c.messagesNotSeen[super.Msg]

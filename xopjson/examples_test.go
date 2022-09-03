@@ -2,7 +2,10 @@
 
 package xopjson_test
 
-import "github.com/muir/xop-go/xopconst"
+import (
+	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopconst"
+)
 
 type AnyObject struct {
 	I int
@@ -12,17 +15,17 @@ type AnyObject struct {
 }
 
 var (
-	ExampleMetadataSingleAny   = xopconst.Make{Key: "s-any", Namespace: "test"}.AnyAttribute(AnyObject{})
-	ExampleMetadataLockedAny   = xopconst.Make{Key: "l-any", Locked: true, Namespace: "test"}.AnyAttribute(AnyObject{})
-	ExampleMetadataMultipleAny = xopconst.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
-	ExampleMetadataDistinctAny = xopconst.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataSingleAny   = xopat.Make{Key: "s-any", Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataLockedAny   = xopat.Make{Key: "l-any", Locked: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataMultipleAny = xopat.Make{Key: "m-any", Multiple: true, Namespace: "test"}.AnyAttribute(AnyObject{})
+	ExampleMetadataDistinctAny = xopat.Make{Key: "d-any", Multiple: true, Distinct: true, Namespace: "test"}.AnyAttribute(AnyObject{})
 )
 
 var (
-	ExampleMetadataSingleEnum   = xopconst.Make{Key: "s-enum", Namespace: "test"}.EmbeddedEnumAttribute()
-	ExampleMetadataLockedEnum   = xopconst.Make{Key: "l-enum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute()
-	ExampleMetadataMultipleEnum = xopconst.Make{Key: "m-enum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute()
-	ExampleMetadataDistinctEnum = xopconst.Make{Key: "d-enum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute()
+	ExampleMetadataSingleEnum   = xopat.Make{Key: "s-ienum", Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataLockedEnum   = xopat.Make{Key: "l-ienum", Locked: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataMultipleEnum = xopat.Make{Key: "m-ienum", Multiple: true, Namespace: "test"}.IotaEnumAttribute()
+	ExampleMetadataDistinctEnum = xopat.Make{Key: "d-ienum", Multiple: true, Distinct: true, Namespace: "test"}.IotaEnumAttribute()
 )
 
 var (
@@ -43,47 +46,94 @@ var (
 	DistinctEnumThree = ExampleMetadataDistinctEnum.Iota("Three")
 )
 
-// TODO: why the skips?
-var ExampleMetadataSingleBool = xopconst.Make{Key: "s-bool", Namespace: "test"}.BoolAttribute()
+var (
+	ExampleMetadataSingleEEnum   = xopat.Make{Key: "s-eenum", Namespace: "test"}.EmbeddedEnumAttribute(threeType(1))
+	ExampleMetadataLockedEEnum   = xopat.Make{Key: "l-eenum", Locked: true, Namespace: "test"}.EmbeddedEnumAttribute(1)
+	ExampleMetadataMultipleEEnum = xopat.Make{Key: "m-eenum", Multiple: true, Namespace: "test"}.EmbeddedEnumAttribute(int64(1))
+	ExampleMetadataDistinctEEnum = xopat.Make{Key: "d-eenum", Multiple: true, Distinct: true, Namespace: "test"}.EmbeddedEnumAttribute(threeType(1))
+)
+
+type threeType int
+
+func (t threeType) String() string {
+	switch t {
+	case 1:
+		return "one"
+	case 2:
+		return "two"
+	case 3:
+		return "three"
+	default:
+		return "other"
+	}
+}
 
 var (
-	ExampleMetadataLockedBool       = xopconst.Make{Key: "l-bool", Locked: true, Namespace: "test"}.BoolAttribute()
-	ExampleMetadataMultipleBool     = xopconst.Make{Key: "m-bool", Multiple: true, Namespace: "test"}.BoolAttribute()
-	ExampleMetadataDistinctBool     = xopconst.Make{Key: "d-bool", Multiple: true, Distinct: true, Namespace: "test"}.BoolAttribute()
-	ExampleMetadataSingleDuration   = xopconst.Make{Key: "s-time.Duration", Namespace: "test"}.DurationAttribute()
-	ExampleMetadataLockedDuration   = xopconst.Make{Key: "l-time.Duration", Locked: true, Namespace: "test"}.DurationAttribute()
-	ExampleMetadataMultipleDuration = xopconst.Make{Key: "m-time.Duration", Multiple: true, Namespace: "test"}.DurationAttribute()
-	ExampleMetadataDistinctDuration = xopconst.Make{Key: "d-time.Duration", Multiple: true, Distinct: true, Namespace: "test"}.DurationAttribute()
-	ExampleMetadataSingleInt        = xopconst.Make{Key: "s-int", Namespace: "test"}.IntAttribute()
-	ExampleMetadataLockedInt        = xopconst.Make{Key: "l-int", Locked: true, Namespace: "test"}.IntAttribute()
-	ExampleMetadataMultipleInt      = xopconst.Make{Key: "m-int", Multiple: true, Namespace: "test"}.IntAttribute()
-	ExampleMetadataDistinctInt      = xopconst.Make{Key: "d-int", Multiple: true, Distinct: true, Namespace: "test"}.IntAttribute()
-	ExampleMetadataSingleInt16      = xopconst.Make{Key: "s-int16", Namespace: "test"}.Int16Attribute()
-	ExampleMetadataLockedInt16      = xopconst.Make{Key: "l-int16", Locked: true, Namespace: "test"}.Int16Attribute()
-	ExampleMetadataMultipleInt16    = xopconst.Make{Key: "m-int16", Multiple: true, Namespace: "test"}.Int16Attribute()
-	ExampleMetadataDistinctInt16    = xopconst.Make{Key: "d-int16", Multiple: true, Distinct: true, Namespace: "test"}.Int16Attribute()
-	ExampleMetadataSingleInt32      = xopconst.Make{Key: "s-int32", Namespace: "test"}.Int32Attribute()
-	ExampleMetadataLockedInt32      = xopconst.Make{Key: "l-int32", Locked: true, Namespace: "test"}.Int32Attribute()
-	ExampleMetadataMultipleInt32    = xopconst.Make{Key: "m-int32", Multiple: true, Namespace: "test"}.Int32Attribute()
-	ExampleMetadataDistinctInt32    = xopconst.Make{Key: "d-int32", Multiple: true, Distinct: true, Namespace: "test"}.Int32Attribute()
-	ExampleMetadataSingleInt64      = xopconst.Make{Key: "s-int64", Namespace: "test"}.Int64Attribute()
-	ExampleMetadataLockedInt64      = xopconst.Make{Key: "l-int64", Locked: true, Namespace: "test"}.Int64Attribute()
-	ExampleMetadataMultipleInt64    = xopconst.Make{Key: "m-int64", Multiple: true, Namespace: "test"}.Int64Attribute()
-	ExampleMetadataDistinctInt64    = xopconst.Make{Key: "d-int64", Multiple: true, Distinct: true, Namespace: "test"}.Int64Attribute()
-	ExampleMetadataSingleInt8       = xopconst.Make{Key: "s-int8", Namespace: "test"}.Int8Attribute()
-	ExampleMetadataLockedInt8       = xopconst.Make{Key: "l-int8", Locked: true, Namespace: "test"}.Int8Attribute()
-	ExampleMetadataMultipleInt8     = xopconst.Make{Key: "m-int8", Multiple: true, Namespace: "test"}.Int8Attribute()
-	ExampleMetadataDistinctInt8     = xopconst.Make{Key: "d-int8", Multiple: true, Distinct: true, Namespace: "test"}.Int8Attribute()
-	ExampleMetadataSingleLink       = xopconst.Make{Key: "s-trace.Trace", Namespace: "test"}.LinkAttribute()
-	ExampleMetadataLockedLink       = xopconst.Make{Key: "l-trace.Trace", Locked: true, Namespace: "test"}.LinkAttribute()
-	ExampleMetadataMultipleLink     = xopconst.Make{Key: "m-trace.Trace", Multiple: true, Namespace: "test"}.LinkAttribute()
-	ExampleMetadataDistinctLink     = xopconst.Make{Key: "d-trace.Trace", Multiple: true, Distinct: true, Namespace: "test"}.LinkAttribute()
-	ExampleMetadataSingleString     = xopconst.Make{Key: "s-string", Namespace: "test"}.StringAttribute()
-	ExampleMetadataLockedString     = xopconst.Make{Key: "l-string", Locked: true, Namespace: "test"}.StringAttribute()
-	ExampleMetadataMultipleString   = xopconst.Make{Key: "m-string", Multiple: true, Namespace: "test"}.StringAttribute()
-	ExampleMetadataDistinctString   = xopconst.Make{Key: "d-string", Multiple: true, Distinct: true, Namespace: "test"}.StringAttribute()
-	ExampleMetadataSingleTime       = xopconst.Make{Key: "s-time.Time", Namespace: "test"}.TimeAttribute()
-	ExampleMetadataLockedTime       = xopconst.Make{Key: "l-time.Time", Locked: true, Namespace: "test"}.TimeAttribute()
-	ExampleMetadataMultipleTime     = xopconst.Make{Key: "m-time.Time", Multiple: true, Namespace: "test"}.TimeAttribute()
-	ExampleMetadataDistinctTime     = xopconst.Make{Key: "d-time.Time", Multiple: true, Distinct: true, Namespace: "test"}.TimeAttribute()
+	SingleEEnumOne   = ExampleMetadataSingleEEnum.AddStringer(threeType(1))
+	SingleEEnumTwo   = ExampleMetadataSingleEEnum.AddStringer(threeType(2))
+	SingleEEnumThree = ExampleMetadataSingleEEnum.AddStringer(threeType(3))
+
+	LockedEEnumOne   = ExampleMetadataLockedEEnum.Add(1, "one")
+	LockedEEnumTwo   = ExampleMetadataLockedEEnum.Add(2, "two")
+	LockedEEnumThree = ExampleMetadataLockedEEnum.Add(3, "three")
+
+	MultipleEEnumOne   = ExampleMetadataMultipleEEnum.Add64(int64(1), "one")
+	MultipleEEnumTwo   = ExampleMetadataMultipleEEnum.Add64(int64(2), "two")
+	MultipleEEnumThree = ExampleMetadataMultipleEEnum.Add64(int64(3), "three")
+
+	DistinctEEnumOne   = ExampleMetadataDistinctEEnum.AddStringer(threeType(1))
+	DistinctEEnumTwo   = ExampleMetadataDistinctEEnum.AddStringer(threeType(2))
+	DistinctEEnumThree = ExampleMetadataDistinctEEnum.AddStringer(threeType(3))
+)
+
+var (
+	ExampleMetadataSingleXEnum   = xopat.Make{Key: "s-xenum", Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+	ExampleMetadataLockedXEnum   = xopat.Make{Key: "l-xenum", Locked: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+	ExampleMetadataMultipleXEnum = xopat.Make{Key: "m-xenum", Multiple: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+	ExampleMetadataDistinctXEnum = xopat.Make{Key: "d-xenum", Multiple: true, Distinct: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
+)
+
+// TODO: why the skips?
+var ExampleMetadataSingleBool = xopat.Make{Key: "s-bool", Namespace: "test"}.BoolAttribute()
+
+var (
+	ExampleMetadataLockedBool       = xopat.Make{Key: "l-bool", Locked: true, Namespace: "test"}.BoolAttribute()
+	ExampleMetadataMultipleBool     = xopat.Make{Key: "m-bool", Multiple: true, Namespace: "test"}.BoolAttribute()
+	ExampleMetadataDistinctBool     = xopat.Make{Key: "d-bool", Multiple: true, Distinct: true, Namespace: "test"}.BoolAttribute()
+	ExampleMetadataSingleDuration   = xopat.Make{Key: "s-time.Duration", Namespace: "test"}.DurationAttribute()
+	ExampleMetadataLockedDuration   = xopat.Make{Key: "l-time.Duration", Locked: true, Namespace: "test"}.DurationAttribute()
+	ExampleMetadataMultipleDuration = xopat.Make{Key: "m-time.Duration", Multiple: true, Namespace: "test"}.DurationAttribute()
+	ExampleMetadataDistinctDuration = xopat.Make{Key: "d-time.Duration", Multiple: true, Distinct: true, Namespace: "test"}.DurationAttribute()
+	ExampleMetadataSingleInt        = xopat.Make{Key: "s-int", Namespace: "test"}.IntAttribute()
+	ExampleMetadataLockedInt        = xopat.Make{Key: "l-int", Locked: true, Namespace: "test"}.IntAttribute()
+	ExampleMetadataMultipleInt      = xopat.Make{Key: "m-int", Multiple: true, Namespace: "test"}.IntAttribute()
+	ExampleMetadataDistinctInt      = xopat.Make{Key: "d-int", Multiple: true, Distinct: true, Namespace: "test"}.IntAttribute()
+	ExampleMetadataSingleInt16      = xopat.Make{Key: "s-int16", Namespace: "test"}.Int16Attribute()
+	ExampleMetadataLockedInt16      = xopat.Make{Key: "l-int16", Locked: true, Namespace: "test"}.Int16Attribute()
+	ExampleMetadataMultipleInt16    = xopat.Make{Key: "m-int16", Multiple: true, Namespace: "test"}.Int16Attribute()
+	ExampleMetadataDistinctInt16    = xopat.Make{Key: "d-int16", Multiple: true, Distinct: true, Namespace: "test"}.Int16Attribute()
+	ExampleMetadataSingleInt32      = xopat.Make{Key: "s-int32", Namespace: "test"}.Int32Attribute()
+	ExampleMetadataLockedInt32      = xopat.Make{Key: "l-int32", Locked: true, Namespace: "test"}.Int32Attribute()
+	ExampleMetadataMultipleInt32    = xopat.Make{Key: "m-int32", Multiple: true, Namespace: "test"}.Int32Attribute()
+	ExampleMetadataDistinctInt32    = xopat.Make{Key: "d-int32", Multiple: true, Distinct: true, Namespace: "test"}.Int32Attribute()
+	ExampleMetadataSingleInt64      = xopat.Make{Key: "s-int64", Namespace: "test"}.Int64Attribute()
+	ExampleMetadataLockedInt64      = xopat.Make{Key: "l-int64", Locked: true, Namespace: "test"}.Int64Attribute()
+	ExampleMetadataMultipleInt64    = xopat.Make{Key: "m-int64", Multiple: true, Namespace: "test"}.Int64Attribute()
+	ExampleMetadataDistinctInt64    = xopat.Make{Key: "d-int64", Multiple: true, Distinct: true, Namespace: "test"}.Int64Attribute()
+	ExampleMetadataSingleInt8       = xopat.Make{Key: "s-int8", Namespace: "test"}.Int8Attribute()
+	ExampleMetadataLockedInt8       = xopat.Make{Key: "l-int8", Locked: true, Namespace: "test"}.Int8Attribute()
+	ExampleMetadataMultipleInt8     = xopat.Make{Key: "m-int8", Multiple: true, Namespace: "test"}.Int8Attribute()
+	ExampleMetadataDistinctInt8     = xopat.Make{Key: "d-int8", Multiple: true, Distinct: true, Namespace: "test"}.Int8Attribute()
+	ExampleMetadataSingleLink       = xopat.Make{Key: "s-trace.Trace", Namespace: "test"}.LinkAttribute()
+	ExampleMetadataLockedLink       = xopat.Make{Key: "l-trace.Trace", Locked: true, Namespace: "test"}.LinkAttribute()
+	ExampleMetadataMultipleLink     = xopat.Make{Key: "m-trace.Trace", Multiple: true, Namespace: "test"}.LinkAttribute()
+	ExampleMetadataDistinctLink     = xopat.Make{Key: "d-trace.Trace", Multiple: true, Distinct: true, Namespace: "test"}.LinkAttribute()
+	ExampleMetadataSingleString     = xopat.Make{Key: "s-string", Namespace: "test"}.StringAttribute()
+	ExampleMetadataLockedString     = xopat.Make{Key: "l-string", Locked: true, Namespace: "test"}.StringAttribute()
+	ExampleMetadataMultipleString   = xopat.Make{Key: "m-string", Multiple: true, Namespace: "test"}.StringAttribute()
+	ExampleMetadataDistinctString   = xopat.Make{Key: "d-string", Multiple: true, Distinct: true, Namespace: "test"}.StringAttribute()
+	ExampleMetadataSingleTime       = xopat.Make{Key: "s-time.Time", Namespace: "test"}.TimeAttribute()
+	ExampleMetadataLockedTime       = xopat.Make{Key: "l-time.Time", Locked: true, Namespace: "test"}.TimeAttribute()
+	ExampleMetadataMultipleTime     = xopat.Make{Key: "m-time.Time", Multiple: true, Namespace: "test"}.TimeAttribute()
+	ExampleMetadataDistinctTime     = xopat.Make{Key: "d-time.Time", Multiple: true, Distinct: true, Namespace: "test"}.TimeAttribute()
 )

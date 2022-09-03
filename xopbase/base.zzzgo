@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
+	"github.com/muir/xop-go/xopat"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
@@ -53,7 +54,7 @@ type Span interface {
 
 	// MACRO BaseAttribute
 	// MetadataZZZ adds a key/value pair to describe the span.
-	MetadataZZZ(*xopconst.ZZZAttribute, zzz)
+	MetadataZZZ(*xopat.ZZZAttribute, zzz)
 
 	// Boring true indicates that a span (or request) is boring.  The
 	// suggested meaning for this is that a boring request that is buffered
@@ -74,7 +75,7 @@ type Span interface {
 
 	// Done is called when (1) log.Done is called on the log corresponding
 	// to this span; (2) log.Done is called on a parent log of the log
-	// corresponding to this span, and the log is not Detach()ed; or 
+	// corresponding to this span, and the log is not Detach()ed; or
 	// (3) preceeding Flush() if there has been logging activity since the
 	// last call to Flush(), Done(), or the start of the span.
 	Done(time.Time)
@@ -90,7 +91,7 @@ type Prefilled interface {
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
 	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
-	Line(xopconst.Level, time.Time, []uintptr) Line
+	Line(xopnum.Level, time.Time, []uintptr) Line
 }
 
 type Line interface {
@@ -110,7 +111,7 @@ type Line interface {
 }
 
 type ObjectParts interface {
-	Enum(*xopconst.EnumAttribute, xopconst.Enum)
+	Enum(*xopat.EnumAttribute, xopat.Enum)
 	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
 	// TODO: SubObject(string) SubObject

@@ -8,7 +8,7 @@ import (
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopbytes"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
@@ -95,7 +95,7 @@ type prefilled struct {
 
 type line struct {
 	*builder
-	level                xopconst.Level
+	level                xopnum.Level
 	timestamp            time.Time
 	prefillMsgPreEncoded []byte
 }

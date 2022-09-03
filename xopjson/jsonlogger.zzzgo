@@ -10,7 +10,8 @@ import (
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopbytes"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
@@ -383,7 +384,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return prefilled
 }
 
-func (p *prefilled) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
 	var l *line
 	lRaw := p.span.request.logger.linePool.Get()
@@ -529,13 +530,13 @@ func (b *builder) AddAny(v interface{}) {
 	}
 }
 
-func (b *builder) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.startAttributes()
 	b.AddSafeKey(k.Key()) // TODO: check attribute keys at registration time
 	b.AddEnum(v)
 }
 
-func (b *builder) AddEnum(v xopconst.Enum) {
+func (b *builder) AddEnum(v xopat.Enum) {
 	// TODO: send dictionary and numbers
 	b.AddString(v.String())
 }
@@ -643,6 +644,6 @@ func (b *builder) AddError(v error) {
 }
 
 // MACRO BaseAttribute
-func (s *span) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) { s.attributes.MetadataZZZ(k, v) }
+func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) { s.attributes.MetadataZZZ(k, v) }
 
 // end

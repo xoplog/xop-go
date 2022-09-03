@@ -1,4 +1,4 @@
-package xopconst
+package xopat
 
 var reservedKeys = map[string]struct{}{
 	"dur":           {},

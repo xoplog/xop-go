@@ -1,4 +1,6 @@
-package xopconst
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
+package xopat
 
 import (
 	"encoding/json"
@@ -16,7 +18,13 @@ import (
 // TODO: TableAttribute?
 // TODO: URLAttribute?
 
-// Attribute represents an "any" attribute for a span.
+// Attribute is the base type for the keys that are used to add
+// key/value metadata to spans.  The actual keys are matched to the
+// values to provide compile-time type checking on the metadata calls.
+// For example:
+//
+//	func (span *Span) String(k *xopconst.StringAttribute, v string) *Span
+//
 type Attribute struct {
 	properties   Make
 	number       int
@@ -39,33 +47,31 @@ var DefaultNamespace = os.Args[0]
 
 // Make is used to construct attributes.
 // Some keys are reserved.  See https://github.com/muir/xop-go/blob/main/xopconst/reserved.go
-// for the list of reserved keys.  Some keys are already registered. 
+// for the list of reserved keys.  Some keys are already registered.
 type Make struct {
-	Key          string // the attribute name
-	Description  string // the attribute description
-	Namespace    string // the namespace for this attribute (otherwise DefaultNamespace is used)
-	Indexed      bool   // hint: this attribute should be indexed
-	Prominence   int    // hint: how important is this attribute (lower is more important)
-	Multiple     bool   // keep all values if the attribute is given multiple times
-	Distinct     bool   // when keeping all values, only keep distinct values (not supported for interface{})
-	Ranged       bool   // hint: comparisons between values are meaningful (eg: time, integers)
-	Locked       bool   // only keep the first value
-	AppenderFunc func() ArrayAppender
+	Key         string // the attribute name
+	Description string // the attribute description
+	Namespace   string // the namespace for this attribute (otherwise DefaultNamespace is used)
+	Indexed     bool   // hint: this attribute should be indexed
+	Prominence  int    // hint: how important is this attribute (lower is more important)
+	Multiple    bool   // keep all values if the attribute is given multiple times
+	Distinct    bool   // when keeping all values, only keep distinct values (not supported for interface{})
+	Ranged      bool   // hint: comparisons between values are meaningful (eg: time, integers)
+	Locked      bool   // only keep the first value
 }
 
-type ArrayAppender interface {
-	AppendAny(interface{})
-}
-
-var lock sync.RWMutex
-var registeredNames = make(map[string]*Attribute)
-var allAttributes []*Attribute
+var (
+	lock            sync.RWMutex
+	registeredNames = make(map[string]*Attribute)
+	allAttributes   []*Attribute
+)
 
 // Can't use MACRO for these since default values are needed
 
 func (s Make) LinkAttribute() *LinkAttribute {
 	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, nil, AttributeTypeLink)}
 }
+
 func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
 	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err, AttributeTypeLink)}, err
 }
@@ -73,6 +79,7 @@ func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
 func (s Make) StringAttribute() *StringAttribute {
 	return &StringAttribute{Attribute: s.attribute("", nil, AttributeTypeString)}
 }
+
 func (s Make) TryStringAttribute() (_ *StringAttribute, err error) {
 	return &StringAttribute{Attribute: s.attribute("", &err, AttributeTypeString)}, err
 }
@@ -80,6 +87,7 @@ func (s Make) TryStringAttribute() (_ *StringAttribute, err error) {
 func (s Make) BoolAttribute() *BoolAttribute {
 	return &BoolAttribute{Attribute: s.attribute(false, nil, AttributeTypeBool)}
 }
+
 func (s Make) TryBoolAttribute() (_ *BoolAttribute, err error) {
 	return &BoolAttribute{Attribute: s.attribute(false, &err, AttributeTypeBool)}, err
 }
@@ -87,6 +95,7 @@ func (s Make) TryBoolAttribute() (_ *BoolAttribute, err error) {
 func (s Make) TimeAttribute() *TimeAttribute {
 	return &TimeAttribute{Attribute: s.attribute(time.Time{}, nil, AttributeTypeEnum)}
 }
+
 func (s Make) TryTimeAttribute() (_ *TimeAttribute, err error) {
 	return &TimeAttribute{Attribute: s.attribute(time.Time{}, &err, AttributeTypeEnum)}, err
 }
@@ -94,6 +103,7 @@ func (s Make) TryTimeAttribute() (_ *TimeAttribute, err error) {
 func (s Make) AnyAttribute(exampleValue interface{}) *AnyAttribute {
 	return &AnyAttribute{Attribute: s.attribute(exampleValue, nil, AttributeTypeAny)}
 }
+
 func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err error) {
 	return &AnyAttribute{Attribute: s.attribute(exampleValue, &err, AttributeTypeAny)}, err
 }
@@ -101,6 +111,7 @@ func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err er
 func (s Make) Int64Attribute() *Int64Attribute {
 	return &Int64Attribute{Attribute: s.attribute(int64(0), nil, AttributeTypeInt64)}
 }
+
 func (s Make) TryInt64Attribute() (_ *Int64Attribute, err error) {
 	return &Int64Attribute{Attribute: s.attribute(int64(0), &err, AttributeTypeInt64)}, err
 }
@@ -125,7 +136,7 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 	if _, ok := reservedKeys[s.Key]; ok {
 		return Attribute{}, fmt.Errorf("key is reserved for internal use '%s'", s.Key)
 	}
-		
+
 	if s.Namespace == "" {
 		s.Namespace = DefaultNamespace
 	}
@@ -175,30 +186,119 @@ func (r Attribute) EnumName(v int64) string {
 	return ""
 }
 
-// MACRO IntsPlus SKIP:Int64
-func (s Make) ZZZAttribute() *ZZZAttribute {
-	return &ZZZAttribute{Int64Attribute{Attribute: s.attribute(zzz(0), nil, AttributeTypeZZZ)}}
+func (s Make) DurationAttribute() *DurationAttribute {
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(time.Duration(0), nil, AttributeTypeDuration)}}
 }
-func (s Make) TryZZZAttribute() (_ *ZZZAttribute, err error) {
-	return &ZZZAttribute{Int64Attribute{Attribute: s.attribute(zzz(0), &err, AttributeTypeZZZ)}}, err
+
+func (s Make) TryDurationAttribute() (_ *DurationAttribute, err error) {
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(time.Duration(0), &err, AttributeTypeDuration)}}, err
+}
+
+func (s Make) IntAttribute() *IntAttribute {
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(int(0), nil, AttributeTypeInt)}}
+}
+
+func (s Make) TryIntAttribute() (_ *IntAttribute, err error) {
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(int(0), &err, AttributeTypeInt)}}, err
+}
+
+func (s Make) Int16Attribute() *Int16Attribute {
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(int16(0), nil, AttributeTypeInt16)}}
+}
+
+func (s Make) TryInt16Attribute() (_ *Int16Attribute, err error) {
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(int16(0), &err, AttributeTypeInt16)}}, err
+}
+
+func (s Make) Int32Attribute() *Int32Attribute {
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(int32(0), nil, AttributeTypeInt32)}}
+}
+
+func (s Make) TryInt32Attribute() (_ *Int32Attribute, err error) {
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(int32(0), &err, AttributeTypeInt32)}}, err
+}
+
+func (s Make) Int8Attribute() *Int8Attribute {
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(int8(0), nil, AttributeTypeInt8)}}
+}
+
+func (s Make) TryInt8Attribute() (_ *Int8Attribute, err error) {
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(int8(0), &err, AttributeTypeInt8)}}, err
 }
 
 type AttributeType int
 
 const (
 	AttributeTypeUnknown AttributeType = iota
-	//MACRO ZZZAttribute
-	AttributeTypeZZZ
+	AttributeTypeAny
+	AttributeTypeBool
+	AttributeTypeDuration
+	AttributeTypeEnum
+	AttributeTypeFloat32
+	AttributeTypeFloat64
+	AttributeTypeInt
+	AttributeTypeInt16
+	AttributeTypeInt32
+	AttributeTypeInt64
+	AttributeTypeInt8
+	AttributeTypeLink
+	AttributeTypeString
+	AttributeTypeTime
 )
 
-//MACRO IntsPlus SKIP:Int64
-// ZZZAttribute is a just an Int64Attribute that with
+// DurationAttribute is a just an Int64Attribute that with
 // SubType() == AttributeTypeDuration.  A base logger may
 // look at SubType() to provide specialized behavior.
-type ZZZAttribute struct{Int64Attribute}
+type DurationAttribute struct{ Int64Attribute }
 
-//MACRO ZZZAttribute SKIP:Enum,Duration,Int,Int8,Int16,Int32
-// ZZZAttribute represents an attribute key that can be used
-// with zzz values.
-type ZZZAttribute struct{ Attribute }
+// IntAttribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type IntAttribute struct{ Int64Attribute }
 
+// Int16Attribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type Int16Attribute struct{ Int64Attribute }
+
+// Int32Attribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type Int32Attribute struct{ Int64Attribute }
+
+// Int8Attribute is a just an Int64Attribute that with
+// SubType() == AttributeTypeDuration.  A base logger may
+// look at SubType() to provide specialized behavior.
+type Int8Attribute struct{ Int64Attribute }
+
+// AnyAttribute represents an attribute key that can be used
+// with interface{} values.
+type AnyAttribute struct{ Attribute }
+
+// BoolAttribute represents an attribute key that can be used
+// with bool values.
+type BoolAttribute struct{ Attribute }
+
+// Float32Attribute represents an attribute key that can be used
+// with float32 values.
+type Float32Attribute struct{ Attribute }
+
+// Float64Attribute represents an attribute key that can be used
+// with float64 values.
+type Float64Attribute struct{ Attribute }
+
+// Int64Attribute represents an attribute key that can be used
+// with int64 values.
+type Int64Attribute struct{ Attribute }
+
+// LinkAttribute represents an attribute key that can be used
+// with trace.Trace values.
+type LinkAttribute struct{ Attribute }
+
+// StringAttribute represents an attribute key that can be used
+// with string values.
+type StringAttribute struct{ Attribute }
+
+// TimeAttribute represents an attribute key that can be used
+// with time.Time values.
+type TimeAttribute struct{ Attribute }

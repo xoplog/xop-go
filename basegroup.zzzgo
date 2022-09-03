@@ -6,7 +6,8 @@ import (
 
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopnum"
 )
 
 type baseLoggers []xopbase.Logger
@@ -133,7 +134,7 @@ func (p prefillings) PrefillComplete(m string) xopbase.Prefilled {
 	return prefilled
 }
 
-func (p prefilleds) Line(level xopconst.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p prefilleds) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	lines := make(lines, len(p))
 	for i, prefilled := range p {
 		lines[i] = prefilled.Line(level, t, pc)
@@ -159,13 +160,13 @@ func (l lines) Static(m string) {
 	}
 }
 
-func (l lines) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (l lines) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, line := range l {
 		line.Enum(k, v)
 	}
 }
 
-func (p prefillings) Enum(k *xopconst.EnumAttribute, v xopconst.Enum) {
+func (p prefillings) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, prefilling := range p {
 		prefilling.Enum(k, v)
 	}
@@ -186,7 +187,7 @@ func (l lines) ZZZ(k string, v zzz) {
 }
 
 //MACRO BaseAttribute
-func (s baseSpans) MetadataZZZ(k *xopconst.ZZZAttribute, v zzz) {
+func (s baseSpans) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	for _, span := range s {
 		span.MetadataZZZ(k, v)
 	}

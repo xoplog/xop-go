@@ -2,7 +2,7 @@ package xop
 
 import (
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopat"
 
 	"github.com/mohae/deepcopy"
 )
@@ -32,19 +32,19 @@ func (span *Span) eft() *Span {
 
 // Int64 adds a int64 key/value attribute to the current Span.
 // The return value does not need to be used.
-func (span *Span) Int64(k *xopconst.Int64Attribute, v int64) *Span {
+func (span *Span) Int64(k *xopat.Int64Attribute, v int64) *Span {
 	span.base.MetadataInt64(k, v)
 	return span.eft()
 }
 
 // EmbeddedEnum adds a kev/value attribute to the Span.  The key and the value
 // are bundled together: the key is derrived from the type of the Enum.
-// Alternatively, use xopconst.KeyedEnumAttribute() to create functions
+// Alternatively, use xopat.KeyedEnumAttribute() to create functions
 // to add enum key/value pairs where the key and value are specified
-// separately.  See xopconst.SpanType for an example of creating an 
+// separately.  See xopconst.SpanType for an example of creating an
 // EmbeddedEnum.
 // The return value does not need to be used.
-func (span *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
+func (span *Span) EmbeddedEnum(kv xopat.EmbeddedEnum) *Span {
 	return span.Enum(kv.EnumAttribute(), kv)
 }
 
@@ -57,7 +57,7 @@ func (span *Span) EmbeddedEnum(kv xopconst.EmbeddedEnum) *Span {
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
 // The return value does not need to be used.
-func (span *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
+func (span *Span) AnyImmutable(k *xopat.AnyAttribute, v interface{}) *Span {
 	span.base.MetadataAny(k, v)
 	return span.eft()
 }
@@ -69,7 +69,7 @@ func (span *Span) AnyImmutable(k *xopconst.AnyAttribute, v interface{}) *Span {
 // for the type of the value, that type may or may not be checked depending
 // on the base logger being used.
 // The return value does not need to be used.
-func (span *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
+func (span *Span) Any(k *xopat.AnyAttribute, v interface{}) *Span {
 	if span.log.span.referencesKept {
 		v = deepcopy.Copy(v)
 	}
@@ -80,7 +80,7 @@ func (span *Span) Any(k *xopconst.AnyAttribute, v interface{}) *Span {
 //MACRO BaseAttribute SKIP:Any,Int64
 // ZZZ adds a zzz key/value attribute to the current Span.
 // The return value does not need to be used.
-func (span *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
+func (span *Span) ZZZ(k *xopat.ZZZAttribute, v zzz) *Span {
 	span.base.MetadataZZZ(k, v)
 	return span.eft()
 }
@@ -89,7 +89,7 @@ func (span *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
 // MACRO IntsPlus SKIP:Int64
 // ZZZ adds a zzz key/value attribute to the current Span.
 // The return value does not need to be used.
-func (span *Span) ZZZ(k *xopconst.ZZZAttribute, v zzz) *Span {
+func (span *Span) ZZZ(k *xopat.ZZZAttribute, v zzz) *Span {
 	span.base.MetadataInt64(&k.Int64Attribute, int64(v))
 	return span.eft()
 }

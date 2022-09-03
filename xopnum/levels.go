@@ -1,10 +1,12 @@
-package xopconst
+package xopnum
 
 import (
 	"sync/atomic"
 )
 
 //go:generate enumer -type=Level -linecomment -json -sql
+
+type Level int32
 
 const (
 	// Open Telemetry puts tracing as lower level than debugging.  Why?
@@ -21,8 +23,6 @@ const (
 )
 
 const MaxLevel = AlertLevel
-
-type Level int32
 
 func (level *Level) AtomicLoad() Level {
 	return Level(atomic.LoadInt32((*int32)(level)))
