@@ -114,7 +114,7 @@ func TestASingleLine(t *testing.T) {
 	assert.Contains(t, lines[0], `"ts":`)
 	assert.Contains(t, lines[0], `"blast":99`)
 	assert.NotContains(t, lines[0], `"trace.id":`)
-	assert.Contains(t, lines[0], `"stack":["/src/github.com/muir/xop-go/xopjson/jsonlogger_test.go:`)
+	assert.Regexp(t, `"stack":\["[^"]*/xopjson/jsonlogger_test\.go:`, lines[0])
 	assert.Contains(t, lines[1], `"trace.id":`)
 	assert.Contains(t, lines[1], `"span.id":`)
 	assert.Contains(t, lines[1], `"dur":"`)
