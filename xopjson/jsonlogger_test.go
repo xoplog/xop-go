@@ -119,6 +119,7 @@ func TestParameters(t *testing.T) {
 		settings     func(settings *xop.LogSettings)
 		waitForFlush bool
 		checkConfig  checkConfig
+		extraFlushes int
 	}{
 		{
 			name: "buffered",
@@ -164,8 +165,9 @@ func TestParameters(t *testing.T) {
 	}
 
 	messageCases := []struct {
-		name string
-		do   func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger)
+		name         string
+		extraFlushes int
+		do           func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger)
 	}{
 		{
 			name: "one span",
@@ -401,6 +403,35 @@ func TestParameters(t *testing.T) {
 				log.Done()
 			},
 		},
+		{
+			name:         "add/remove loggers with a seed",
+			extraFlushes: 2,
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				tlog2 := xoptest.New(t)
+				r2 := log.Span().Seed(xop.WithBase(tlog2)).Request("R2")
+				r3 := r2.Span().Seed(xop.WithoutBase(tlog2)).Request("R3")
+				r2.Info().Static("log to both test loggers")
+				r3.Info().Static("log to just the original set")
+				xoptestutil.MicroNap()
+				log.Done()
+				r2.Done()
+				r3.Done()
+			},
+		},
+		{
+			name: "add/remove loggers with a span",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				tlog2 := xoptest.New(t)
+				s2 := log.Sub().Step("R2", xop.WithBase(tlog2))
+				s3 := s2.Sub().Detach().Fork("R3", xop.WithoutBase(tlog2))
+				s2.Info().Static("log to both test loggers")
+				s3.Info().Static("log to just the original set")
+				xoptestutil.MicroNap()
+				s2.Done()
+				s3.Done()
+				log.Done()
+			},
+		},
 	}
 
 	for _, tc := range jsonCases {
@@ -437,14 +468,15 @@ func TestParameters(t *testing.T) {
 
 					mc.do(t, log, tlog)
 
+					expectedFlushes := 1 + tc.extraFlushes + mc.extraFlushes
 					if tc.waitForFlush {
 						assert.Eventually(t, func() bool {
-							return xoptestutil.EventCount(tlog, xoptest.FlushEvent) > 0
+							return xoptestutil.EventCount(tlog, xoptest.FlushEvent) >= expectedFlushes
 						}, time.Second, time.Millisecond*3)
 					}
 					t.Log("\n", buffer.String())
 					xoptestutil.DumpEvents(t, tlog)
-					assert.Equal(t, 1, xoptestutil.EventCount(tlog, xoptest.FlushEvent), "count of flush")
+					assert.Equal(t, expectedFlushes, xoptestutil.EventCount(tlog, xoptest.FlushEvent), "count of flush")
 					newChecker(t, tlog, tc.checkConfig).check(t, buffer.String())
 				})
 			}
