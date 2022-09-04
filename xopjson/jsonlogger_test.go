@@ -453,6 +453,30 @@ func TestParameters(t *testing.T) {
 				log.Done()
 			},
 		},
+		{
+			name: "lots of types",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				log.Warn().Int("int", 439).Int8("int8", 82).Int16("int16", 829).
+					Int32("int32", 4328).Int64("int64", -2382).
+					Uint("uint", 439).Uint8("uint8", 82).Uint16("uint16", 829).
+					Uint32("uint32", 4328).Uint64("uint64", 2382).
+					String("foo", "bar").Bool("on/off", true).
+					Float32("f32", 92.2).
+					Float64("f64", 292.1).
+					Any("any", map[string]interface{}{"x": "y", "z": 19}).
+					AnyImmutable("anyim", map[string]interface{}{"x": "y", "z": 19}).
+					Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
+					EmbeddedEnum(LockedEEnumTwo).
+					Msgs("ha", true)
+				xoptestutil.MicroNap()
+				log.Done()
+
+				// TODO: Link("me", log.Span().Bundle().Trace).
+				// TODO: Time("clock", time.Now().Round(time.Millisecond)).
+				// TODO: Duration("wait", 10*time.Second).
+				// TODO: Error("oops", fmt.Errorf("uh oh")).
+			},
+		},
 	}
 
 	for _, tc := range jsonCases {
