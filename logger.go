@@ -276,6 +276,9 @@ func (log *Log) hasActivity(startFlusher bool) {
 				DebugPrint("restarting timer", log.shared.FlushDelay)
 				log.shared.FlushTimer.Reset(log.shared.FlushDelay)
 			}
+			if wasDone := atomic.LoadInt32(&log.span.doneCount); wasDone != 0 {
+				log.Error().Static("XOP: log was already done, but was used again")
+			}
 		}
 	}
 }
@@ -308,7 +311,7 @@ func (log *Log) hasActivity(startFlusher bool) {
 // trigger a call to Flush().
 func (log *Log) Done() {
 	if log.nonSpanSubLog {
-		log.Error().Static("invalid call to Done() in non-span sub-log")
+		log.Error().Static("XOP: invalid call to Done() in non-span sub-log")
 		return
 	}
 	DebugPrint("starting Done {", log.span.description, log.span.logNumber)
@@ -346,7 +349,8 @@ func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
 func (log *Log) done(explicit bool, now time.Time) {
 	postCount := log.recursiveDone(true, now)
 	if postCount > 1 && explicit {
-		log.Error().Msg("Done() called on log object when it was already Done()")
+		DebugPrint("donecount=", postCount, "logging error")
+		log.Error().Static("XOP: Done() called on log object when it was already Done()")
 	}
 	if log.span.detached {
 		if func() bool {

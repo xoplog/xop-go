@@ -422,13 +422,34 @@ func TestParameters(t *testing.T) {
 			name: "add/remove loggers with a span",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				tlog2 := xoptest.New(t)
-				s2 := log.Sub().Step("R2", xop.WithBase(tlog2))
-				s3 := s2.Sub().Detach().Fork("R3", xop.WithoutBase(tlog2))
+				s2 := log.Sub().Step("S2", xop.WithBase(tlog2))
+				s3 := s2.Sub().Detach().Fork("S3", xop.WithoutBase(tlog2))
 				s2.Info().Static("log to both test loggers")
 				s3.Info().Static("log to just the original set")
 				xoptestutil.MicroNap()
 				s2.Done()
 				s3.Done()
+				log.Done()
+			},
+		},
+		{
+			name:         "log after done",
+			extraFlushes: 1,
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				s2 := log.Sub().Step("S2")
+				s2.Info().Int8("i8", 9).Msg("a line before done")
+				xoptestutil.MicroNap()
+				s2.Done()
+				assert.Empty(t, tlog.FindLines(xoptest.TextContains("XOP: log was already done, but was used again")), "no err")
+				s2.Info().Int16("i16", 940).Msg("a post-done line, should trigger an error log")
+				assert.NotEmpty(t, tlog.FindLines(xoptest.TextContains("XOP: log was already done, but was used again")), "no err")
+				assert.Empty(t, tlog.FindLines(xoptest.TextContains("called on log object when it was already Done")), "no err")
+				xoptestutil.MicroNap()
+				s2.Done()
+				assert.NotEmpty(t, tlog.FindLines(xoptest.TextContains("called on log object when it was already Done")), "now err")
+				log.Flush()
+				s2.Warn().Int32("i32", 940940).Msg("another post-done line, should trigger an error log")
+				xoptestutil.MicroNap()
 				log.Done()
 			},
 		},
