@@ -598,29 +598,64 @@ func (log *Log) Alert() *Line {
 }
 
 func (line *Line) Msgs(v ...interface{})                    { line.Msg(fmt.Sprint(v...)) }
-func (line *Line) Int(k string, v int) *Line                { line.line.Int(k, int64(v)); return line }
-func (line *Line) Int8(k string, v int8) *Line              { line.line.Int(k, int64(v)); return line }
-func (line *Line) Int16(k string, v int16) *Line            { line.line.Int(k, int64(v)); return line }
-func (line *Line) Int32(k string, v int32) *Line            { line.line.Int(k, int64(v)); return line }
-func (line *Line) Int64(k string, v int64) *Line            { line.line.Int(k, v); return line }
-func (line *Line) Uint(k string, v uint) *Line              { line.line.Uint(k, uint64(v)); return line }
-func (line *Line) Uint8(k string, v uint8) *Line            { line.line.Uint(k, uint64(v)); return line }
-func (line *Line) Uint16(k string, v uint16) *Line          { line.line.Uint(k, uint64(v)); return line }
-func (line *Line) Uint32(k string, v uint32) *Line          { line.line.Uint(k, uint64(v)); return line }
-func (line *Line) Uint64(k string, v uint64) *Line          { line.line.Uint(k, v); return line }
 func (line *Line) String(k string, v string) *Line          { line.line.String(k, v); return line }
 func (line *Line) Bool(k string, v bool) *Line              { line.line.Bool(k, v); return line }
 func (line *Line) Time(k string, v time.Time) *Line         { line.line.Time(k, v); return line }
 func (line *Line) Error(k string, v error) *Line            { line.line.Error(k, v); return line }
 func (line *Line) Link(k string, v trace.Trace) *Line       { line.line.Link(k, v); return line }
 func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration(k, v); return line }
-func (line *Line) Float64(k string, v float64) *Line        { line.line.Float64(k, v); return line }
-func (line *Line) Float32(k string, v float32) *Line        { return line.Float64(k, float64(v)) }
 
+func (line *Line) Int(k string, v int) *Line {
+	line.line.Int(k, int64(v), xopbase.IntDataType)
+	return line
+}
+func (line *Line) Int8(k string, v int8) *Line {
+	line.line.Int(k, int64(v), xopbase.Int8DataType)
+	return line
+}
+func (line *Line) Int16(k string, v int16) *Line {
+	line.line.Int(k, int64(v), xopbase.Int16DataType)
+	return line
+}
+func (line *Line) Int32(k string, v int32) *Line {
+	line.line.Int(k, int64(v), xopbase.Int32DataType)
+	return line
+}
+func (line *Line) Int64(k string, v int64) *Line {
+	line.line.Int(k, v, xopbase.Int64DataType)
+	return line
+}
+func (line *Line) Uint(k string, v uint) *Line {
+	line.line.Uint(k, uint64(v), xopbase.UintDataType)
+	return line
+}
+func (line *Line) Uint8(k string, v uint8) *Line {
+	line.line.Uint(k, uint64(v), xopbase.Uint8DataType)
+	return line
+}
+func (line *Line) Uint16(k string, v uint16) *Line {
+	line.line.Uint(k, uint64(v), xopbase.Uint16DataType)
+	return line
+}
+func (line *Line) Uint32(k string, v uint32) *Line {
+	line.line.Uint(k, uint64(v), xopbase.Uint32DataType)
+	return line
+}
+func (line *Line) Uint64(k string, v uint64) *Line {
+	line.line.Uint(k, v, xopbase.Uint64DataType)
+	return line
+}
+func (line *Line) Float64(k string, v float64) *Line {
+	line.line.Float64(k, v, xopbase.Float64DataType)
+	return line
+}
+func (line *Line) Float32(k string, v float32) *Line {
+	line.line.Float64(k, float64(v), xopbase.Float32DataType)
+	return line
+}
 func (line *Line) EmbeddedEnum(k xopat.EmbeddedEnum) *Line {
 	return line.Enum(k.EnumAttribute(), k)
 }
-
 func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 	line.line.Enum(k, v)
 	return line

@@ -96,12 +96,14 @@ type Prefilling struct {
 
 type Builder struct {
 	Data   map[string]interface{}
+	DataType map[string]xopbase.DataType
 	Span   *Span
 	kvText []string
 }
 
 type Prefilled struct {
 	Data   map[string]interface{}
+	DataType map[string]xopbase.DataType
 	Span   *Span
 	Msg    string
 	kvText []string
@@ -258,6 +260,7 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
 			Data: make(map[string]interface{}),
+			DataType: make(map[string]xopbase.DataType),
 			Span: span,
 		},
 	}
@@ -266,6 +269,7 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
 		Data:   p.Data,
+		DataType: p.DataType,
 		Span:   p.Span,
 		kvText: p.kvText,
 		Msg:    m,
@@ -278,6 +282,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.L
 	line := &Line{
 		Builder: Builder{
 			Data: make(map[string]interface{}),
+			DataType: make(map[string]xopbase.DataType),
 			Span: p.Span,
 		},
 		Level:     level,
@@ -285,6 +290,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.L
 	}
 	for k, v := range p.Data {
 		line.Data[k] = v
+		line.DataType[k] = p.DataType[k]
 	}
 	if len(p.kvText) != 0 {
 		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
@@ -347,18 +353,24 @@ func (line Line) send(text string) {
 	line.Span.Lines = append(line.Span.Lines, &line)
 }
 
-func (b *Builder) Any(k string, v interface{}) {
+func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
 	b.Data[k] = v
+	b.DataType[k] = dt
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	b.Data[k.Key()] = v.String()
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
+	ks := k.Key()
+	b.Data[ks] = v.String()
+	b.DataType[ks] = xopbase.EnumDataType
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
-// MACRO BaseData SKIP:Any
-func (b *Builder) ZZZ(k string, v zzz) { b.Any(k, v) }
+// MACRO BaseDataWithoutType 
+func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v, xopbase.ZZZDataType) }
+
+// MACRO BaseDataWithType 
+func (b *Builder) ZZZ(k string, v zzz, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // MACRO BaseAttribute
 func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {

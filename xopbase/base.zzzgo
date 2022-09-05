@@ -120,7 +120,10 @@ type ObjectParts interface {
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
 	// TODO: ExternalReference(name string, itemID string, storageID string)
 
-	// MACRO BaseData
+	// MACRO BaseDataWithType
+	ZZZ(string, zzz, DataType)
+
+	// MACRO BaseDataWithoutType
 	ZZZ(string, zzz)
 }
 
@@ -136,3 +139,13 @@ type Encoder interface {
 	ProducesText() bool
 	Encode(elementName string, data interface{}) ([]byte, error)
 }
+
+//go:generate enumer -type=DataType -linecomment -json -sql
+
+type DataType int 
+
+const (
+	EnumDataType DataType = iota
+	// MACRO AllData
+	ZZZDataType DataType = iota
+)
