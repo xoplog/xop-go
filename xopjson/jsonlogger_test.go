@@ -2,11 +2,13 @@ package xopjson_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/muir/xop-go"
+	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopbytes"
 	"github.com/muir/xop-go/xopconst"
@@ -492,8 +494,6 @@ func TestParameters(t *testing.T) {
 				p.Warn().Time("now", time.Now().Round(time.Millisecond)).Msgs("time!")
 				xoptestutil.MicroNap()
 				log.Done()
-
-				// TODO: Error("oops", fmt.Errorf("uh oh")).
 			},
 		},
 		{
@@ -510,6 +510,15 @@ func TestParameters(t *testing.T) {
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				p := log.Sub().PrefillLink("me", log.Span().Bundle().Trace).Log()
 				p.Warn().Link("me, again", log.Span().Bundle().Trace).Static("trace")
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "type error",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				p := log.Sub().PrefillError("question", fmt.Errorf("why would you pre-fill an error?")).Log()
+				p.Warn().Error("answer", fmt.Errorf("I don't know, why would you prefill an error")).Msgs(time.Now())
 				xoptestutil.MicroNap()
 				log.Done()
 			},
@@ -763,8 +772,10 @@ func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xo
 		switch types[k] {
 		case xopbase.LinkDataType:
 			a[k] = map[string]interface{}{
-				"xop.link": v,
+				"xop.link": v.(trace.Trace).String(),
 			}
+		case xopbase.ErrorDataType:
+			a[k] = v.(error).Error()
 		default:
 			a[k] = v
 		}

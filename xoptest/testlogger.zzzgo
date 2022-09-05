@@ -367,7 +367,7 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 }
 
 func (b *Builder) Link(k string, v trace.Trace) {
-	b.Data[k] = v.String()
+	b.Data[k] = v
 	b.DataType[k] = xopbase.LinkDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
 }

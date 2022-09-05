@@ -289,3 +289,8 @@ func WithStackLineRewrite(f func(string) string) Option {
 // For Go, decoding a quoted integer into an int64 works just fine.
 //
 // TODO
+
+// WithErrorEncoder changes the encoding of error values.
+// The default encoding is simply a string: error.Error().
+//
+// TODO
