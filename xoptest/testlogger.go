@@ -99,16 +99,18 @@ type Prefilling struct {
 }
 
 type Builder struct {
-	Data   map[string]interface{}
-	Span   *Span
-	kvText []string
+	Data     map[string]interface{}
+	DataType map[string]xopbase.DataType
+	Span     *Span
+	kvText   []string
 }
 
 type Prefilled struct {
-	Data   map[string]interface{}
-	Span   *Span
-	Msg    string
-	kvText []string
+	Data     map[string]interface{}
+	DataType map[string]xopbase.DataType
+	Span     *Span
+	Msg      string
+	kvText   []string
 }
 
 type Line struct {
@@ -261,18 +263,20 @@ func (span *Span) NoPrefill() xopbase.Prefilled {
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
-			Data: make(map[string]interface{}),
-			Span: span,
+			Data:     make(map[string]interface{}),
+			DataType: make(map[string]xopbase.DataType),
+			Span:     span,
 		},
 	}
 }
 
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
-		Data:   p.Data,
-		Span:   p.Span,
-		kvText: p.kvText,
-		Msg:    m,
+		Data:     p.Data,
+		DataType: p.DataType,
+		Span:     p.Span,
+		kvText:   p.kvText,
+		Msg:      m,
 	}
 }
 
@@ -281,14 +285,16 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.L
 	// TODO: stack traces
 	line := &Line{
 		Builder: Builder{
-			Data: make(map[string]interface{}),
-			Span: p.Span,
+			Data:     make(map[string]interface{}),
+			DataType: make(map[string]xopbase.DataType),
+			Span:     p.Span,
 		},
 		Level:     level,
 		Timestamp: t,
 	}
 	for k, v := range p.Data {
 		line.Data[k] = v
+		line.DataType[k] = p.DataType[k]
 	}
 	if len(p.kvText) != 0 {
 		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
@@ -351,25 +357,30 @@ func (line Line) send(text string) {
 	line.Span.Lines = append(line.Span.Lines, &line)
 }
 
-func (b *Builder) Any(k string, v interface{}) {
+func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
 	b.Data[k] = v
+	b.DataType[k] = dt
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	b.Data[k.Key()] = v.String()
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", k.Key(), v.String(), v.Int64()))
+	ks := k.Key()
+	b.Data[ks] = v.String()
+	b.DataType[ks] = xopbase.EnumDataType
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
-func (b *Builder) Bool(k string, v bool)              { b.Any(k, v) }
-func (b *Builder) Duration(k string, v time.Duration) { b.Any(k, v) }
-func (b *Builder) Error(k string, v error)            { b.Any(k, v) }
-func (b *Builder) Float64(k string, v float64)        { b.Any(k, v) }
-func (b *Builder) Int(k string, v int64)              { b.Any(k, v) }
-func (b *Builder) Link(k string, v trace.Trace)       { b.Any(k, v) }
-func (b *Builder) String(k string, v string)          { b.Any(k, v) }
-func (b *Builder) Time(k string, v time.Time)         { b.Any(k, v) }
-func (b *Builder) Uint(k string, v uint64)            { b.Any(k, v) }
+func (b *Builder) Any(k string, v interface{})        { b.any(k, v, xopbase.AnyDataType) }
+func (b *Builder) Bool(k string, v bool)              { b.any(k, v, xopbase.BoolDataType) }
+func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
+func (b *Builder) Error(k string, v error)            { b.any(k, v, xopbase.ErrorDataType) }
+func (b *Builder) Link(k string, v trace.Trace)       { b.any(k, v, xopbase.LinkDataType) }
+func (b *Builder) String(k string, v string)          { b.any(k, v, xopbase.StringDataType) }
+func (b *Builder) Time(k string, v time.Time)         { b.any(k, v, xopbase.TimeDataType) }
+
+func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Int(k string, v int64, dt xopbase.DataType)       { b.any(k, v, dt) }
+func (b *Builder) Uint(k string, v uint64, dt xopbase.DataType)     { b.any(k, v, dt) }
 
 func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	func() {

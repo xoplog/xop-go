@@ -6,6 +6,7 @@ import (
 
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 )
 
 // Sub holds an ephermal state of a log being tranformed to a new log.
@@ -69,7 +70,7 @@ func (log *Log) Sub() *Sub {
 // Detach followed by Fork() or Step() create a sub-span/log that is detached from
 // it's parent.  A Done() on the parent does not imply Done() on the detached
 // log.
-func (sub Sub) Detach() *Detaching { 
+func (sub Sub) Detach() *Detaching {
 	sub.detached = true
 	return &Detaching{
 		sub: &sub,
@@ -226,7 +227,7 @@ func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 	})
 }
 
-// MACRO BaseData SKIP:Any
+// MACRO BaseDataWithoutType SKIP:Any
 // PrefillZZZ is used to set a data element that is included on every log
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
@@ -238,5 +239,20 @@ func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
 func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.ZZZ(k, v)
+	})
+}
+
+// MACRO BaseDataWithType
+// PrefillZZZ is used to set a data element that is included on every log
+// line.
+// PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+	sub.settings.PrefillZZZ(k, v)
+	return sub
+}
+func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.ZZZ(k, v, xopbase.ZZZDataType)
 	})
 }

@@ -1,8 +1,8 @@
 package xoputil
 
 import (
-	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopbase"
 )
 
 var SkipLine = skipLine{}
@@ -11,12 +11,15 @@ type skipLine struct{}
 
 var _ xopbase.Line = skipLine{}
 
-func (_ skipLine) AnyImmutable(string, interface{})                {}
+func (_ skipLine) AnyImmutable(string, interface{})          {}
 func (_ skipLine) Enum(k *xopat.EnumAttribute, v xopat.Enum) {}
 
 func (_ skipLine) Msg(string)      {}
 func (_ skipLine) Static(string)   {}
 func (_ skipLine) Template(string) {}
 
-//MACRO BaseData
+//MACRO BaseDataWithoutType
 func (_ skipLine) ZZZ(string, zzz) {}
+
+//MACRO BaseDataWithType
+func (_ skipLine) ZZZ(string, zzz, xopbase.DataType) {}

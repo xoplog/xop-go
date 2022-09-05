@@ -204,18 +204,6 @@ func (p prefillings) Error(k string, v error) {
 	}
 }
 
-func (p prefillings) Float64(k string, v float64) {
-	for _, prefilling := range p {
-		prefilling.Float64(k, v)
-	}
-}
-
-func (p prefillings) Int(k string, v int64) {
-	for _, prefilling := range p {
-		prefilling.Int(k, v)
-	}
-}
-
 func (p prefillings) Link(k string, v trace.Trace) {
 	for _, prefilling := range p {
 		prefilling.Link(k, v)
@@ -234,9 +222,21 @@ func (p prefillings) Time(k string, v time.Time) {
 	}
 }
 
-func (p prefillings) Uint(k string, v uint64) {
+func (p prefillings) Float64(k string, v float64, dt xopbase.DataType) {
 	for _, prefilling := range p {
-		prefilling.Uint(k, v)
+		prefilling.Float64(k, v, dt)
+	}
+}
+
+func (p prefillings) Int(k string, v int64, dt xopbase.DataType) {
+	for _, prefilling := range p {
+		prefilling.Int(k, v, dt)
+	}
+}
+
+func (p prefillings) Uint(k string, v uint64, dt xopbase.DataType) {
+	for _, prefilling := range p {
+		prefilling.Uint(k, v, dt)
 	}
 }
 
@@ -264,18 +264,6 @@ func (l lines) Error(k string, v error) {
 	}
 }
 
-func (l lines) Float64(k string, v float64) {
-	for _, line := range l {
-		line.Float64(k, v)
-	}
-}
-
-func (l lines) Int(k string, v int64) {
-	for _, line := range l {
-		line.Int(k, v)
-	}
-}
-
 func (l lines) Link(k string, v trace.Trace) {
 	for _, line := range l {
 		line.Link(k, v)
@@ -294,9 +282,21 @@ func (l lines) Time(k string, v time.Time) {
 	}
 }
 
-func (l lines) Uint(k string, v uint64) {
+func (l lines) Float64(k string, v float64, dt xopbase.DataType) {
 	for _, line := range l {
-		line.Uint(k, v)
+		line.Float64(k, v, dt)
+	}
+}
+
+func (l lines) Int(k string, v int64, dt xopbase.DataType) {
+	for _, line := range l {
+		line.Int(k, v, dt)
+	}
+}
+
+func (l lines) Uint(k string, v uint64, dt xopbase.DataType) {
+	for _, line := range l {
+		line.Uint(k, v, dt)
 	}
 }
 

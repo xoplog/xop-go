@@ -172,17 +172,31 @@ func (p prefillings) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	}
 }
 
-// MACRO BaseData
+// MACRO BaseDataWithoutType
 func (p prefillings) ZZZ(k string, v zzz) {
 	for _, prefilling := range p {
 		prefilling.ZZZ(k, v)
 	}
 }
 
-// MACRO BaseData
+// MACRO BaseDataWithType
+func (p prefillings) ZZZ(k string, v zzz, dt xopbase.DataType) {
+	for _, prefilling := range p {
+		prefilling.ZZZ(k, v, dt)
+	}
+}
+
+// MACRO BaseDataWithoutType
 func (l lines) ZZZ(k string, v zzz) {
 	for _, line := range l {
 		line.ZZZ(k, v)
+	}
+}
+
+// MACRO BaseDataWithType
+func (l lines) ZZZ(k string, v zzz, dt xopbase.DataType) {
+	for _, line := range l {
+		line.ZZZ(k, v, dt)
 	}
 }
 

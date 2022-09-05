@@ -135,16 +135,17 @@ type ObjectParts interface {
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
 	// TODO: ExternalReference(name string, itemID string, storageID string)
 
+	Float64(string, float64, DataType)
+	Int(string, int64, DataType)
+	Uint(string, uint64, DataType)
+
 	Any(string, interface{})
 	Bool(string, bool)
 	Duration(string, time.Duration)
 	Error(string, error)
-	Float64(string, float64)
-	Int(string, int64)
 	Link(string, trace.Trace)
 	String(string, string)
 	Time(string, time.Time)
-	Uint(string, uint64)
 }
 
 // TODO
@@ -159,3 +160,30 @@ type Encoder interface {
 	ProducesText() bool
 	Encode(elementName string, data interface{}) ([]byte, error)
 }
+
+//go:generate enumer -type=DataType -linecomment -json -sql
+
+type DataType int
+
+const (
+	EnumDataType     DataType = iota
+	AnyDataType      DataType = iota
+	BoolDataType     DataType = iota
+	DurationDataType DataType = iota
+	ErrorDataType    DataType = iota
+	Float32DataType  DataType = iota
+	Float64DataType  DataType = iota
+	IntDataType      DataType = iota
+	Int16DataType    DataType = iota
+	Int32DataType    DataType = iota
+	Int64DataType    DataType = iota
+	Int8DataType     DataType = iota
+	LinkDataType     DataType = iota
+	StringDataType   DataType = iota
+	TimeDataType     DataType = iota
+	UintDataType     DataType = iota
+	Uint16DataType   DataType = iota
+	Uint32DataType   DataType = iota
+	Uint64DataType   DataType = iota
+	Uint8DataType    DataType = iota
+)
