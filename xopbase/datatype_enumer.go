@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-const _DataTypeName = "EnumDataTypeAnyDataTypeBoolDataTypeDurationDataTypeErrorDataTypeFloat32DataTypeFloat64DataTypeIntDataTypeInt16DataTypeInt32DataTypeInt64DataTypeInt8DataTypeLinkDataTypeStringDataTypeTimeDataTypeUintDataTypeUint16DataTypeUint32DataTypeUint64DataTypeUint8DataType"
+const _DataTypeName = "EnumDataTypeEnumArrayDataTypeAnyDataTypeBoolDataTypeDurationDataTypeErrorDataTypeFloat32DataTypeFloat64DataTypeIntDataTypeInt16DataTypeInt32DataTypeInt64DataTypeInt8DataTypeLinkDataTypeStringDataTypeTimeDataTypeUintDataTypeUint16DataTypeUint32DataTypeUint64DataTypeUint8DataTypeAnyArrayDataTypeBoolArrayDataTypeDurationArrayDataTypeErrorArrayDataTypeFloat32ArrayDataTypeFloat64ArrayDataTypeIntArrayDataTypeInt16ArrayDataTypeInt32ArrayDataTypeInt64ArrayDataTypeInt8ArrayDataTypeLinkArrayDataTypeStringArrayDataTypeTimeArrayDataTypeUintArrayDataTypeUint16ArrayDataTypeUint32ArrayDataTypeUint64ArrayDataTypeUint8ArrayDataType"
 
-var _DataTypeIndex = [...]uint16{0, 12, 23, 35, 51, 64, 79, 94, 105, 118, 131, 144, 156, 168, 182, 194, 206, 220, 234, 248, 261}
+var _DataTypeIndex = [...]uint16{0, 12, 29, 40, 52, 68, 81, 96, 111, 122, 135, 148, 161, 173, 185, 199, 211, 223, 237, 251, 265, 278, 294, 311, 332, 350, 370, 390, 406, 424, 442, 460, 477, 494, 513, 530, 547, 566, 585, 604, 622}
 
-const _DataTypeLowerName = "enumdatatypeanydatatypebooldatatypedurationdatatypeerrordatatypefloat32datatypefloat64datatypeintdatatypeint16datatypeint32datatypeint64datatypeint8datatypelinkdatatypestringdatatypetimedatatypeuintdatatypeuint16datatypeuint32datatypeuint64datatypeuint8datatype"
+const _DataTypeLowerName = "enumdatatypeenumarraydatatypeanydatatypebooldatatypedurationdatatypeerrordatatypefloat32datatypefloat64datatypeintdatatypeint16datatypeint32datatypeint64datatypeint8datatypelinkdatatypestringdatatypetimedatatypeuintdatatypeuint16datatypeuint32datatypeuint64datatypeuint8datatypeanyarraydatatypeboolarraydatatypedurationarraydatatypeerrorarraydatatypefloat32arraydatatypefloat64arraydatatypeintarraydatatypeint16arraydatatypeint32arraydatatypeint64arraydatatypeint8arraydatatypelinkarraydatatypestringarraydatatypetimearraydatatypeuintarraydatatypeuint16arraydatatypeuint32arraydatatypeuint64arraydatatypeuint8arraydatatype"
 
 func (i DataType) String() string {
 	if i < 0 || i >= DataType(len(_DataTypeIndex)-1) {
@@ -27,93 +27,173 @@ func (i DataType) String() string {
 func _DataTypeNoOp() {
 	var x [1]struct{}
 	_ = x[EnumDataType-(0)]
-	_ = x[AnyDataType-(1)]
-	_ = x[BoolDataType-(2)]
-	_ = x[DurationDataType-(3)]
-	_ = x[ErrorDataType-(4)]
-	_ = x[Float32DataType-(5)]
-	_ = x[Float64DataType-(6)]
-	_ = x[IntDataType-(7)]
-	_ = x[Int16DataType-(8)]
-	_ = x[Int32DataType-(9)]
-	_ = x[Int64DataType-(10)]
-	_ = x[Int8DataType-(11)]
-	_ = x[LinkDataType-(12)]
-	_ = x[StringDataType-(13)]
-	_ = x[TimeDataType-(14)]
-	_ = x[UintDataType-(15)]
-	_ = x[Uint16DataType-(16)]
-	_ = x[Uint32DataType-(17)]
-	_ = x[Uint64DataType-(18)]
-	_ = x[Uint8DataType-(19)]
+	_ = x[EnumArrayDataType-(1)]
+	_ = x[AnyDataType-(2)]
+	_ = x[BoolDataType-(3)]
+	_ = x[DurationDataType-(4)]
+	_ = x[ErrorDataType-(5)]
+	_ = x[Float32DataType-(6)]
+	_ = x[Float64DataType-(7)]
+	_ = x[IntDataType-(8)]
+	_ = x[Int16DataType-(9)]
+	_ = x[Int32DataType-(10)]
+	_ = x[Int64DataType-(11)]
+	_ = x[Int8DataType-(12)]
+	_ = x[LinkDataType-(13)]
+	_ = x[StringDataType-(14)]
+	_ = x[TimeDataType-(15)]
+	_ = x[UintDataType-(16)]
+	_ = x[Uint16DataType-(17)]
+	_ = x[Uint32DataType-(18)]
+	_ = x[Uint64DataType-(19)]
+	_ = x[Uint8DataType-(20)]
+	_ = x[AnyArrayDataType-(21)]
+	_ = x[BoolArrayDataType-(22)]
+	_ = x[DurationArrayDataType-(23)]
+	_ = x[ErrorArrayDataType-(24)]
+	_ = x[Float32ArrayDataType-(25)]
+	_ = x[Float64ArrayDataType-(26)]
+	_ = x[IntArrayDataType-(27)]
+	_ = x[Int16ArrayDataType-(28)]
+	_ = x[Int32ArrayDataType-(29)]
+	_ = x[Int64ArrayDataType-(30)]
+	_ = x[Int8ArrayDataType-(31)]
+	_ = x[LinkArrayDataType-(32)]
+	_ = x[StringArrayDataType-(33)]
+	_ = x[TimeArrayDataType-(34)]
+	_ = x[UintArrayDataType-(35)]
+	_ = x[Uint16ArrayDataType-(36)]
+	_ = x[Uint32ArrayDataType-(37)]
+	_ = x[Uint64ArrayDataType-(38)]
+	_ = x[Uint8ArrayDataType-(39)]
 }
 
-var _DataTypeValues = []DataType{EnumDataType, AnyDataType, BoolDataType, DurationDataType, ErrorDataType, Float32DataType, Float64DataType, IntDataType, Int16DataType, Int32DataType, Int64DataType, Int8DataType, LinkDataType, StringDataType, TimeDataType, UintDataType, Uint16DataType, Uint32DataType, Uint64DataType, Uint8DataType}
+var _DataTypeValues = []DataType{EnumDataType, EnumArrayDataType, AnyDataType, BoolDataType, DurationDataType, ErrorDataType, Float32DataType, Float64DataType, IntDataType, Int16DataType, Int32DataType, Int64DataType, Int8DataType, LinkDataType, StringDataType, TimeDataType, UintDataType, Uint16DataType, Uint32DataType, Uint64DataType, Uint8DataType, AnyArrayDataType, BoolArrayDataType, DurationArrayDataType, ErrorArrayDataType, Float32ArrayDataType, Float64ArrayDataType, IntArrayDataType, Int16ArrayDataType, Int32ArrayDataType, Int64ArrayDataType, Int8ArrayDataType, LinkArrayDataType, StringArrayDataType, TimeArrayDataType, UintArrayDataType, Uint16ArrayDataType, Uint32ArrayDataType, Uint64ArrayDataType, Uint8ArrayDataType}
 
 var _DataTypeNameToValueMap = map[string]DataType{
 	_DataTypeName[0:12]:         EnumDataType,
 	_DataTypeLowerName[0:12]:    EnumDataType,
-	_DataTypeName[12:23]:        AnyDataType,
-	_DataTypeLowerName[12:23]:   AnyDataType,
-	_DataTypeName[23:35]:        BoolDataType,
-	_DataTypeLowerName[23:35]:   BoolDataType,
-	_DataTypeName[35:51]:        DurationDataType,
-	_DataTypeLowerName[35:51]:   DurationDataType,
-	_DataTypeName[51:64]:        ErrorDataType,
-	_DataTypeLowerName[51:64]:   ErrorDataType,
-	_DataTypeName[64:79]:        Float32DataType,
-	_DataTypeLowerName[64:79]:   Float32DataType,
-	_DataTypeName[79:94]:        Float64DataType,
-	_DataTypeLowerName[79:94]:   Float64DataType,
-	_DataTypeName[94:105]:       IntDataType,
-	_DataTypeLowerName[94:105]:  IntDataType,
-	_DataTypeName[105:118]:      Int16DataType,
-	_DataTypeLowerName[105:118]: Int16DataType,
-	_DataTypeName[118:131]:      Int32DataType,
-	_DataTypeLowerName[118:131]: Int32DataType,
-	_DataTypeName[131:144]:      Int64DataType,
-	_DataTypeLowerName[131:144]: Int64DataType,
-	_DataTypeName[144:156]:      Int8DataType,
-	_DataTypeLowerName[144:156]: Int8DataType,
-	_DataTypeName[156:168]:      LinkDataType,
-	_DataTypeLowerName[156:168]: LinkDataType,
-	_DataTypeName[168:182]:      StringDataType,
-	_DataTypeLowerName[168:182]: StringDataType,
-	_DataTypeName[182:194]:      TimeDataType,
-	_DataTypeLowerName[182:194]: TimeDataType,
-	_DataTypeName[194:206]:      UintDataType,
-	_DataTypeLowerName[194:206]: UintDataType,
-	_DataTypeName[206:220]:      Uint16DataType,
-	_DataTypeLowerName[206:220]: Uint16DataType,
-	_DataTypeName[220:234]:      Uint32DataType,
-	_DataTypeLowerName[220:234]: Uint32DataType,
-	_DataTypeName[234:248]:      Uint64DataType,
-	_DataTypeLowerName[234:248]: Uint64DataType,
-	_DataTypeName[248:261]:      Uint8DataType,
-	_DataTypeLowerName[248:261]: Uint8DataType,
+	_DataTypeName[12:29]:        EnumArrayDataType,
+	_DataTypeLowerName[12:29]:   EnumArrayDataType,
+	_DataTypeName[29:40]:        AnyDataType,
+	_DataTypeLowerName[29:40]:   AnyDataType,
+	_DataTypeName[40:52]:        BoolDataType,
+	_DataTypeLowerName[40:52]:   BoolDataType,
+	_DataTypeName[52:68]:        DurationDataType,
+	_DataTypeLowerName[52:68]:   DurationDataType,
+	_DataTypeName[68:81]:        ErrorDataType,
+	_DataTypeLowerName[68:81]:   ErrorDataType,
+	_DataTypeName[81:96]:        Float32DataType,
+	_DataTypeLowerName[81:96]:   Float32DataType,
+	_DataTypeName[96:111]:       Float64DataType,
+	_DataTypeLowerName[96:111]:  Float64DataType,
+	_DataTypeName[111:122]:      IntDataType,
+	_DataTypeLowerName[111:122]: IntDataType,
+	_DataTypeName[122:135]:      Int16DataType,
+	_DataTypeLowerName[122:135]: Int16DataType,
+	_DataTypeName[135:148]:      Int32DataType,
+	_DataTypeLowerName[135:148]: Int32DataType,
+	_DataTypeName[148:161]:      Int64DataType,
+	_DataTypeLowerName[148:161]: Int64DataType,
+	_DataTypeName[161:173]:      Int8DataType,
+	_DataTypeLowerName[161:173]: Int8DataType,
+	_DataTypeName[173:185]:      LinkDataType,
+	_DataTypeLowerName[173:185]: LinkDataType,
+	_DataTypeName[185:199]:      StringDataType,
+	_DataTypeLowerName[185:199]: StringDataType,
+	_DataTypeName[199:211]:      TimeDataType,
+	_DataTypeLowerName[199:211]: TimeDataType,
+	_DataTypeName[211:223]:      UintDataType,
+	_DataTypeLowerName[211:223]: UintDataType,
+	_DataTypeName[223:237]:      Uint16DataType,
+	_DataTypeLowerName[223:237]: Uint16DataType,
+	_DataTypeName[237:251]:      Uint32DataType,
+	_DataTypeLowerName[237:251]: Uint32DataType,
+	_DataTypeName[251:265]:      Uint64DataType,
+	_DataTypeLowerName[251:265]: Uint64DataType,
+	_DataTypeName[265:278]:      Uint8DataType,
+	_DataTypeLowerName[265:278]: Uint8DataType,
+	_DataTypeName[278:294]:      AnyArrayDataType,
+	_DataTypeLowerName[278:294]: AnyArrayDataType,
+	_DataTypeName[294:311]:      BoolArrayDataType,
+	_DataTypeLowerName[294:311]: BoolArrayDataType,
+	_DataTypeName[311:332]:      DurationArrayDataType,
+	_DataTypeLowerName[311:332]: DurationArrayDataType,
+	_DataTypeName[332:350]:      ErrorArrayDataType,
+	_DataTypeLowerName[332:350]: ErrorArrayDataType,
+	_DataTypeName[350:370]:      Float32ArrayDataType,
+	_DataTypeLowerName[350:370]: Float32ArrayDataType,
+	_DataTypeName[370:390]:      Float64ArrayDataType,
+	_DataTypeLowerName[370:390]: Float64ArrayDataType,
+	_DataTypeName[390:406]:      IntArrayDataType,
+	_DataTypeLowerName[390:406]: IntArrayDataType,
+	_DataTypeName[406:424]:      Int16ArrayDataType,
+	_DataTypeLowerName[406:424]: Int16ArrayDataType,
+	_DataTypeName[424:442]:      Int32ArrayDataType,
+	_DataTypeLowerName[424:442]: Int32ArrayDataType,
+	_DataTypeName[442:460]:      Int64ArrayDataType,
+	_DataTypeLowerName[442:460]: Int64ArrayDataType,
+	_DataTypeName[460:477]:      Int8ArrayDataType,
+	_DataTypeLowerName[460:477]: Int8ArrayDataType,
+	_DataTypeName[477:494]:      LinkArrayDataType,
+	_DataTypeLowerName[477:494]: LinkArrayDataType,
+	_DataTypeName[494:513]:      StringArrayDataType,
+	_DataTypeLowerName[494:513]: StringArrayDataType,
+	_DataTypeName[513:530]:      TimeArrayDataType,
+	_DataTypeLowerName[513:530]: TimeArrayDataType,
+	_DataTypeName[530:547]:      UintArrayDataType,
+	_DataTypeLowerName[530:547]: UintArrayDataType,
+	_DataTypeName[547:566]:      Uint16ArrayDataType,
+	_DataTypeLowerName[547:566]: Uint16ArrayDataType,
+	_DataTypeName[566:585]:      Uint32ArrayDataType,
+	_DataTypeLowerName[566:585]: Uint32ArrayDataType,
+	_DataTypeName[585:604]:      Uint64ArrayDataType,
+	_DataTypeLowerName[585:604]: Uint64ArrayDataType,
+	_DataTypeName[604:622]:      Uint8ArrayDataType,
+	_DataTypeLowerName[604:622]: Uint8ArrayDataType,
 }
 
 var _DataTypeNames = []string{
 	_DataTypeName[0:12],
-	_DataTypeName[12:23],
-	_DataTypeName[23:35],
-	_DataTypeName[35:51],
-	_DataTypeName[51:64],
-	_DataTypeName[64:79],
-	_DataTypeName[79:94],
-	_DataTypeName[94:105],
-	_DataTypeName[105:118],
-	_DataTypeName[118:131],
-	_DataTypeName[131:144],
-	_DataTypeName[144:156],
-	_DataTypeName[156:168],
-	_DataTypeName[168:182],
-	_DataTypeName[182:194],
-	_DataTypeName[194:206],
-	_DataTypeName[206:220],
-	_DataTypeName[220:234],
-	_DataTypeName[234:248],
-	_DataTypeName[248:261],
+	_DataTypeName[12:29],
+	_DataTypeName[29:40],
+	_DataTypeName[40:52],
+	_DataTypeName[52:68],
+	_DataTypeName[68:81],
+	_DataTypeName[81:96],
+	_DataTypeName[96:111],
+	_DataTypeName[111:122],
+	_DataTypeName[122:135],
+	_DataTypeName[135:148],
+	_DataTypeName[148:161],
+	_DataTypeName[161:173],
+	_DataTypeName[173:185],
+	_DataTypeName[185:199],
+	_DataTypeName[199:211],
+	_DataTypeName[211:223],
+	_DataTypeName[223:237],
+	_DataTypeName[237:251],
+	_DataTypeName[251:265],
+	_DataTypeName[265:278],
+	_DataTypeName[278:294],
+	_DataTypeName[294:311],
+	_DataTypeName[311:332],
+	_DataTypeName[332:350],
+	_DataTypeName[350:370],
+	_DataTypeName[370:390],
+	_DataTypeName[390:406],
+	_DataTypeName[406:424],
+	_DataTypeName[424:442],
+	_DataTypeName[442:460],
+	_DataTypeName[460:477],
+	_DataTypeName[477:494],
+	_DataTypeName[494:513],
+	_DataTypeName[513:530],
+	_DataTypeName[530:547],
+	_DataTypeName[547:566],
+	_DataTypeName[566:585],
+	_DataTypeName[585:604],
+	_DataTypeName[604:622],
 }
 
 // DataTypeString retrieves an enum value from the enum constants string name.

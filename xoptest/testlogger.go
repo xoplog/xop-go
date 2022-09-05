@@ -17,7 +17,6 @@ import (
 	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopnum"
-	"github.com/muir/xop-go/xoputil"
 )
 
 //go:generate enumer -type=EventType -linecomment -json -sql
@@ -76,22 +75,22 @@ type traceInfo struct {
 }
 
 type Span struct {
-	lock          sync.Mutex
-	testLogger    *TestLogger
-	Trace         trace.Bundle
-	IsRequest     bool
-	Parent        *Span
-	Spans         []*Span
-	RequestLines  []*Line
-	Lines         []*Line
-	short         string
-	Metadata      map[string]interface{}
-	MetadataTypes map[string]xoputil.BaseAttributeType
-	metadataSeen  map[string]interface{}
-	StartTime     time.Time
-	EndTime       int64
-	Name          string
-	SequenceCode  string
+	lock         sync.Mutex
+	testLogger   *TestLogger
+	Trace        trace.Bundle
+	IsRequest    bool
+	Parent       *Span
+	Spans        []*Span
+	RequestLines []*Line
+	Lines        []*Line
+	short        string
+	Metadata     map[string]interface{}
+	MetadataType map[string]xopbase.DataType
+	metadataSeen map[string]interface{}
+	StartTime    time.Time
+	EndTime      int64
+	Name         string
+	SequenceCode string
 }
 
 type Prefilling struct {
@@ -158,15 +157,15 @@ func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xop
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
-		testLogger:    log,
-		IsRequest:     true,
-		Trace:         span,
-		short:         log.setShort(span, name),
-		StartTime:     ts,
-		Name:          name,
-		Metadata:      make(map[string]interface{}),
-		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		metadataSeen:  make(map[string]interface{}),
+		testLogger:   log,
+		IsRequest:    true,
+		Trace:        span,
+		short:        log.setShort(span, name),
+		StartTime:    ts,
+		Name:         name,
+		Metadata:     make(map[string]interface{}),
+		MetadataType: make(map[string]xopbase.DataType),
+		metadataSeen: make(map[string]interface{}),
 	}
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
@@ -235,15 +234,15 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	n := &Span{
-		testLogger:    span.testLogger,
-		Trace:         traceSpan,
-		short:         span.testLogger.setShort(traceSpan, name),
-		StartTime:     ts,
-		Name:          name,
-		Metadata:      make(map[string]interface{}),
-		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		metadataSeen:  make(map[string]interface{}),
-		SequenceCode:  spanSequenceCode,
+		testLogger:   span.testLogger,
+		Trace:        traceSpan,
+		short:        span.testLogger.setShort(traceSpan, name),
+		StartTime:    ts,
+		Name:         name,
+		Metadata:     make(map[string]interface{}),
+		MetadataType: make(map[string]xopbase.DataType),
+		metadataSeen: make(map[string]interface{}),
+		SequenceCode: spanSequenceCode,
 	}
 	span.Spans = append(span.Spans, n)
 	span.testLogger.Spans = append(span.testLogger.Spans, n)
@@ -427,7 +426,7 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAnyArray
+			s.MetadataType[k.Key()] = xopbase.AnyArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -435,7 +434,7 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeAny
+			s.MetadataType[k.Key()] = xopbase.AnyDataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
@@ -479,7 +478,7 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBoolArray
+			s.MetadataType[k.Key()] = xopbase.BoolArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -487,7 +486,7 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeBool
+			s.MetadataType[k.Key()] = xopbase.BoolDataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
@@ -528,7 +527,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnumArray
+			s.MetadataType[k.Key()] = xopbase.EnumArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -536,7 +535,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeEnum
+			s.MetadataType[k.Key()] = xopbase.EnumDataType
 		}
 		s.Metadata[k.Key()] = v.String()
 	}
@@ -579,7 +578,7 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64Array
+			s.MetadataType[k.Key()] = xopbase.Float64ArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -587,7 +586,7 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeFloat64
+			s.MetadataType[k.Key()] = xopbase.Float64DataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
@@ -631,7 +630,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64Array
+			s.MetadataType[k.Key()] = xopbase.Int64ArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -639,7 +638,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeInt64
+			s.MetadataType[k.Key()] = xopbase.Int64DataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
@@ -683,7 +682,7 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLinkArray
+			s.MetadataType[k.Key()] = xopbase.LinkArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -691,7 +690,7 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeLink
+			s.MetadataType[k.Key()] = xopbase.LinkDataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
@@ -735,7 +734,7 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeStringArray
+			s.MetadataType[k.Key()] = xopbase.StringArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -743,7 +742,7 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeString
+			s.MetadataType[k.Key()] = xopbase.StringDataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
@@ -787,7 +786,7 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTimeArray
+			s.MetadataType[k.Key()] = xopbase.TimeArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -795,7 +794,7 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeTime
+			s.MetadataType[k.Key()] = xopbase.TimeDataType
 		}
 		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v

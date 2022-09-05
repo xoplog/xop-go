@@ -146,6 +146,9 @@ type DataType int
 
 const (
 	EnumDataType DataType = iota
+	EnumArrayDataType DataType = iota
 	// MACRO AllData
 	ZZZDataType DataType = iota
+	// MACRO AllData
+	ZZZArrayDataType DataType = iota
 )

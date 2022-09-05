@@ -9,6 +9,7 @@ import (
 
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xoputil"
 )
 
@@ -29,7 +30,7 @@ type AttributeBuilder struct {
 	multiBuf     [numMultiPrealloc]multiAttribute
 	singles      []singleAttribute
 	multis       []multiAttribute
-	Type         xoputil.BaseAttributeType
+	Type         xopbase.DataType
 	singleMap    map[string]*singleAttribute
 	multiMap     map[string]*multiAttribute
 	anyChanged   bool
@@ -55,7 +56,7 @@ type multiAttribute struct {
 type attribute struct {
 	Name    []byte
 	Changed bool
-	Type    xoputil.BaseAttributeType
+	Type    xopbase.DataType
 }
 
 func (a *AttributeBuilder) Init(s *span) {
@@ -180,7 +181,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeAny
+		s.Type = xopbase.AnyDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -194,7 +195,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeAnyArray
+	m.Type = xopbase.AnyDataType
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
 	lenBefore := len(m.Builder.B)
@@ -232,7 +233,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeBool
+		s.Type = xopbase.BoolDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -244,7 +245,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeBoolArray
+	m.Type = xopbase.BoolDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddBool(v)
 	if k.Distinct() {
@@ -280,7 +281,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeEnum
+		s.Type = xopbase.EnumDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -292,7 +293,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeEnumArray
+	m.Type = xopbase.EnumDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddEnum(v)
 	if k.Distinct() {
@@ -328,7 +329,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeFloat64
+		s.Type = xopbase.Float64DataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -340,7 +341,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeFloat64Array
+	m.Type = xopbase.Float64DataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddFloat64(v)
 	if k.Distinct() {
@@ -376,7 +377,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeInt64
+		s.Type = xopbase.Int64DataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -388,7 +389,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeInt64Array
+	m.Type = xopbase.Int64DataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddInt64(v)
 	if k.Distinct() {
@@ -424,7 +425,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeLink
+		s.Type = xopbase.LinkDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -436,7 +437,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeLinkArray
+	m.Type = xopbase.LinkDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddLink(v)
 	if k.Distinct() {
@@ -472,7 +473,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeString
+		s.Type = xopbase.StringDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -484,7 +485,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeStringArray
+	m.Type = xopbase.StringDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddString(v)
 	if k.Distinct() {
@@ -520,7 +521,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeTime
+		s.Type = xopbase.TimeDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -532,7 +533,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeTimeArray
+	m.Type = xopbase.TimeDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddTime(v)
 	if k.Distinct() {

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoptest"
-	"github.com/muir/xop-go/xoputil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +39,7 @@ func TestLogMethods(t *testing.T) {
 	if assert.NotEmpty(t, tLog.Spans, "have a sub-span") {
 		assert.Equal(t, ".A", tLog.Spans[0].SequenceCode, "span sequence for fork")
 		assert.Equal(t, int64(204), tLog.Spans[0].Metadata["http.status_code"], "an explicit attribute")
-		assert.Equal(t, xoputil.BaseAttributeTypeInt64, tLog.Spans[0].MetadataTypes["http.status_code"], "http status code attribute type")
+		assert.Equal(t, xopbase.Int64DataType, tLog.Spans[0].MetadataType["http.status_code"], "http status code attribute type")
 	}
 }
 
