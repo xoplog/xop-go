@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/muir/xop-go"
+	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopbytes"
 	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xopjson"
@@ -492,8 +493,6 @@ func TestParameters(t *testing.T) {
 				xoptestutil.MicroNap()
 				log.Done()
 
-				// TODO: Link("me", log.Span().Bundle().Trace).
-				// TODO: Duration("wait", 10*time.Second).
 				// TODO: Error("oops", fmt.Errorf("uh oh")).
 			},
 		},
@@ -502,6 +501,15 @@ func TestParameters(t *testing.T) {
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				p := log.Sub().PrefillDuration("1m", time.Minute).Log()
 				p.Warn().Duration("hour", time.Hour).Msg("duration")
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "type trace",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				p := log.Sub().PrefillLink("me", log.Span().Bundle().Trace).Log()
+				p.Warn().Link("me, again", log.Span().Bundle().Trace).Static("trace")
 				xoptestutil.MicroNap()
 				log.Done()
 			},
@@ -644,9 +652,9 @@ func (c *checker) check(t *testing.T, data string) {
 		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
 			if c.config.hasAttributesObject {
 				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
-				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.attributes", false)
+				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.span.attributes", false)
 			} else {
-				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
 			}
 		}
 	}
@@ -655,9 +663,9 @@ func (c *checker) check(t *testing.T, data string) {
 		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
 			if c.config.hasAttributesObject {
 				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
-				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.request.attributes", false)
+				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.request.attributes", false)
 			} else {
-				compareData(t, span.Metadata, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
 			}
 		}
 	}
@@ -676,10 +684,10 @@ func (c *checker) line(t *testing.T, super supersetObject, generic map[string]in
 	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
 	assert.Equal(t, int(line.Level), super.Level, "level")
 	if c.config.hasAttributesObject {
-		compareData(t, line.Data, "xoptest.Data", super.Attributes, "xopjson.Attributes", false)
+		compareData(t, line.Data, line.DataType, "xoptest.Data", super.Attributes, "xopjson.Attributes", false)
 	} else {
 		assert.Empty(t, super.Attributes)
-		compareData(t, line.Data, "xoptest.Data", generic, "xopjson.Generic", true)
+		compareData(t, line.Data, line.DataType, "xoptest.Data", generic, "xopjson.Generic", true)
 	}
 }
 
@@ -746,9 +754,20 @@ func combineAttributes(from map[string]interface{}, attributes map[string]interf
 	}
 }
 
-func compareData(t *testing.T, a map[string]interface{}, aDesc string, b map[string]interface{}, bDesc string, ignoreExtra bool) {
-	if len(a) == 0 && len(b) == 0 {
+func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xopbase.DataType, aDesc string, b map[string]interface{}, bDesc string, ignoreExtra bool) {
+	if len(aOrig) == 0 && len(b) == 0 {
 		return
+	}
+	a := make(map[string]interface{})
+	for k, v := range aOrig {
+		switch types[k] {
+		case xopbase.LinkDataType:
+			a[k] = map[string]interface{}{
+				"xop.link": v,
+			}
+		default:
+			a[k] = v
+		}
 	}
 	if ignoreExtra {
 		tmp := make(map[string]interface{})

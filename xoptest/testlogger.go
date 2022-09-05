@@ -183,7 +183,7 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 		ti.spanCount++
 		ti.spans[span.Trace.GetSpanID().String()] = ti.spanCount
 		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
-		log.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
+		log.t.Log("Start span " + short + "=" + span.Trace.String() + " " + name)
 		return short
 	}
 	log.traceCount++
@@ -195,7 +195,7 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 		},
 	}
 	short := fmt.Sprintf("T%d.%d", log.traceCount, 1)
-	log.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
+	log.t.Log("Start span " + short + "=" + span.Trace.String() + " " + name)
 	return short
 }
 
@@ -370,11 +370,16 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
+func (b *Builder) Link(k string, v trace.Trace) {
+	b.Data[k] = v.String()
+	b.DataType[k] = xopbase.LinkDataType
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
+}
+
 func (b *Builder) Any(k string, v interface{})        { b.any(k, v, xopbase.AnyDataType) }
 func (b *Builder) Bool(k string, v bool)              { b.any(k, v, xopbase.BoolDataType) }
 func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
 func (b *Builder) Error(k string, v error)            { b.any(k, v, xopbase.ErrorDataType) }
-func (b *Builder) Link(k string, v trace.Trace)       { b.any(k, v, xopbase.LinkDataType) }
 func (b *Builder) String(k string, v string)          { b.any(k, v, xopbase.StringDataType) }
 func (b *Builder) Time(k string, v time.Time)         { b.any(k, v, xopbase.TimeDataType) }
 
