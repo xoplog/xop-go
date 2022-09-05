@@ -28,7 +28,7 @@ func Log(log xop.Log) *rest.RequestOpts {
 			step.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
 			step.Span().String(xopconst.URL, r.URL.String())
 			step.Span().String(xopconst.HTTPMethod, r.Method)
-			r.Header.Set("traceparent", step.Span().Trace().HeaderString())
+			r.Header.Set("traceparent", step.Span().Trace().String())
 			if !step.Span().TraceBaggage().IsZero() {
 				r.Header.Set("baggage", step.Span().TraceBaggage().String())
 			}

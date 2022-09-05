@@ -101,7 +101,7 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeString(s.trace.Trace.SpanIDString())
 	if !s.trace.TraceParent.IsZero() {
 		rq.AddSafeKey("trace.parent")
-		rq.AppendString(s.trace.TraceParent.HeaderString())
+		rq.AppendString(s.trace.TraceParent.String())
 	}
 	if !s.trace.State.IsZero() {
 		rq.AddSafeKey("trace.state")
@@ -579,7 +579,7 @@ func (b *builder) Link(k string, v trace.Trace) {
 
 func (b *builder) AddLink(v trace.Trace) {
 	b.AppendBytes([]byte(`{"xop.link":"`))
-	b.AppendString(v.HeaderString())
+	b.AppendString(v.String())
 	b.AppendBytes([]byte(`"}`))
 }
 

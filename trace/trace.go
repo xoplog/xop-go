@@ -88,7 +88,7 @@ func (t Trace) GetSpanID() HexBytes8   { return t.spanID }
 func (t Trace) GetFlags() HexBytes1    { return t.flags }
 func (t Trace) IsZero() bool           { return t.traceID.IsZero() }
 func (t Trace) IDString() string       { return t.traceIDString }
-func (t Trace) HeaderString() string   { return t.headerString }
+func (t Trace) String() string         { return t.headerString }
 func (t Trace) TraceIDString() string  { return t.headerString[3:35] }
 func (t Trace) SpanIDString() string   { return t.headerString[36:52] }
 

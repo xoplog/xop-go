@@ -179,7 +179,7 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 		ti.spanCount++
 		ti.spans[span.Trace.GetSpanID().String()] = ti.spanCount
 		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
-		log.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
+		log.t.Log("Start span " + short + "=" + span.Trace.String() + " " + name)
 		return short
 	}
 	log.traceCount++
@@ -191,7 +191,7 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 		},
 	}
 	short := fmt.Sprintf("T%d.%d", log.traceCount, 1)
-	log.t.Log("Start span " + short + "=" + span.Trace.HeaderString() + " " + name)
+	log.t.Log("Start span " + short + "=" + span.Trace.String() + " " + name)
 	return short
 }
 
@@ -366,7 +366,13 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
-// MACRO BaseDataWithoutType 
+func (b *Builder) Link(k string, v trace.Trace) {
+	b.Data[k] = v.String()
+	b.DataType[k] = xopbase.LinkDataType
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
+}
+
+// MACRO BaseDataWithoutType SKIP:Link
 func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v, xopbase.ZZZDataType) }
 
 // MACRO BaseDataWithType 
