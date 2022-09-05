@@ -1,0 +1,65 @@
+package xop
+
+import (
+	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopbase"
+
+	"github.com/mohae/deepcopy"
+)
+
+// AnyImmutable can be used to log something that is not going to be further modified
+// after this call.
+func (line *Line) AnyImmutable(k string, v interface{}) *Line { line.line.Any(k, v); return line }
+
+// Any can be used to log something that might be modified after this call.  If any base
+// logger does not immediately serialize, then the object will be copied using
+// https://github.com/mohae/deepcopy 's Copy().
+func (line *Line) Any(k string, v interface{}) *Line {
+	if line.skip {
+		return line
+	}
+	if line.log.span.referencesKept {
+		// TODO: make copy function configurable
+		v = deepcopy.Copy(v)
+	}
+	line.line.Any(k, v)
+	return line
+}
+
+// TODO: func (l *Log) Guage(name string, value float64, )
+// TODO: func (l *Log) AdjustCounter(name string, value float64, )
+// TODO: func (l *Log) Event
+
+func (line *Line) Float32(k string, v float32) *Line {
+	line.line.Float64(k, float64(v), xopbase.Float32DataType)
+	return line
+}
+
+func (line *Line) EmbeddedEnum(k xopat.EmbeddedEnum) *Line {
+	return line.Enum(k.EnumAttribute(), k)
+}
+func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
+	line.line.Enum(k, v)
+	return line
+}
+
+// MACRO BaseDataWithoutType SKIP:Any
+func (line *Line) ZZZ(k string, v zzz) *Line { line.line.ZZZ(k, v); return line }
+
+// MACRO BaseDataWithType
+func (line *Line) ZZZ(k string, v zzz) *Line {
+	line.line.ZZZ(k, v, xopbase.ZZZDataType)
+	return line
+}
+
+// MACRO Ints SKIP:Int64
+func (line *Line) ZZZ(k string, v zzz) *Line {
+	line.line.Int64(k, int64(v), xopbase.ZZZDataType)
+	return line
+}
+
+// MACRO Uints SKIP:Uint64
+func (line *Line) ZZZ(k string, v zzz) *Line {
+	line.line.Uint64(k, uint64(v), xopbase.ZZZDataType)
+	return line
+}

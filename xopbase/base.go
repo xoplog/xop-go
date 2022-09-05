@@ -136,8 +136,8 @@ type ObjectParts interface {
 	// TODO: ExternalReference(name string, itemID string, storageID string)
 
 	Float64(string, float64, DataType)
-	Int(string, int64, DataType)
-	Uint(string, uint64, DataType)
+	Int64(string, int64, DataType)
+	Uint64(string, uint64, DataType)
 
 	Any(string, interface{})
 	Bool(string, bool)

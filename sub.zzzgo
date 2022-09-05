@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopconst"
 	"github.com/muir/xop-go/xopnum"
@@ -206,6 +207,34 @@ func (log *Log) sendPrefill() {
 	log.prefilled = prefilling.PrefillComplete(log.settings.prefillMsg)
 }
 
+// PrefillEmbeddedEnum is used to set a data element that is included on every log
+// line.
+// PrefillEmbeddedEnum is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillEmbeddedEnum(k xopat.EmbeddedEnum) *Sub {
+	sub.settings.PrefillEmbeddedEnum(k)
+	return sub
+}
+func (settings *LogSettings) PrefillEmbeddedEnum(k xopat.EmbeddedEnum) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Enum(k.EnumAttribute(), k)
+	})
+}
+
+// PrefillEnum is used to set a data element that is included on every log
+// line.
+// PrefillEnum is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) *Sub {
+	sub.settings.PrefillEnum(k, v)
+	return sub
+}
+func (settings *LogSettings) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Enum(k, v)
+	})
+}
+
 // PrefillAny is used to set a data element that is included on every log
 // line.  Values provided with PrefillAny will be copied
 // using https://github.com/mohae/deepcopy 's Copy().
@@ -254,5 +283,49 @@ func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
 func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.ZZZ(k, v, xopbase.ZZZDataType)
+	})
+}
+
+// MACRO Ints SKIP:Int64
+// PrefillZZZ is used to set a data element that is included on every log
+// line.
+// PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+	sub.settings.PrefillZZZ(k, v)
+	return sub
+}
+func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Int64(k, int64(v), xopbase.ZZZDataType)
+	})
+}
+
+// MACRO Uints SKIP:Uint64
+// PrefillZZZ is used to set a data element that is included on every log
+// line.
+// PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+	sub.settings.PrefillZZZ(k, v)
+	return sub
+}
+func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Uint64(k, uint64(v), xopbase.ZZZDataType)
+	})
+}
+
+// PrefillFloat32 is used to set a data element that is included on every log
+// line.
+// PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
+	sub.settings.PrefillFloat32(k, v)
+	return sub
+}
+func (settings *LogSettings) PrefillFloat32(k string, v float32) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Float64(k, float64(v), xopbase.Float32DataType)
 	})
 }

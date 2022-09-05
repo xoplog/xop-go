@@ -456,6 +456,17 @@ func TestParameters(t *testing.T) {
 		{
 			name: "lots of types",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				p := log.Sub().PrefillInt("int", 439).PrefillInt8("int8", 82).PrefillInt16("int16", 829).
+					PrefillInt32("int32", 4328).PrefillInt64("int64", -2382).
+					PrefillUint("uint", 439).PrefillUint8("uint8", 82).PrefillUint16("uint16", 829).
+					PrefillUint32("uint32", 4328).PrefillUint64("uint64", 2382).
+					PrefillString("foo", "bar").PrefillBool("on/off", true).
+					PrefillFloat32("f32", 92.2).
+					PrefillFloat64("f64", 292.1).
+					PrefillAny("any", map[string]interface{}{"x": "y", "z": 19}).
+					PrefillEnum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
+					PrefillEmbeddedEnum(LockedEEnumTwo).
+					Log()
 				log.Warn().Int("int", 439).Int8("int8", 82).Int16("int16", 829).
 					Int32("int32", 4328).Int64("int64", -2382).
 					Uint("uint", 439).Uint8("uint8", 82).Uint16("uint16", 829).
@@ -468,11 +479,24 @@ func TestParameters(t *testing.T) {
 					Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 					EmbeddedEnum(LockedEEnumTwo).
 					Msgs("ha", true)
+				p.Error().Static("prefilled!")
 				xoptestutil.MicroNap()
 				log.Done()
 
 				// TODO: Link("me", log.Span().Bundle().Trace).
-				// TODO: Time("clock", time.Now().Round(time.Millisecond)).
+				// TODO: Duration("wait", 10*time.Second).
+				// TODO: Error("oops", fmt.Errorf("uh oh")).
+			},
+		},
+		{
+			name: "type time",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				p := log.Sub().PrefillTime("-1m", time.Now().Add(-time.Minute).Round(time.Millisecond)).Log()
+				p.Warn().Time("now", time.Now().Round(time.Millisecond))
+				xoptestutil.MicroNap()
+				log.Done()
+
+				// TODO: Link("me", log.Span().Bundle().Trace).
 				// TODO: Duration("wait", 10*time.Second).
 				// TODO: Error("oops", fmt.Errorf("uh oh")).
 			},

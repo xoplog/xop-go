@@ -75,8 +75,8 @@ var macros = map[string]map[string]string{
 	// BaseData are the data types that are supported on a per-line basis
 	// Note: Enum is not included since it needs special handling every time
 	"BaseData": {
-		"Int":      "int64",  // TODO: change to Int64
-		"Uint":     "uint64", // TODO: change to Uint64
+		"Int64":    "int64",
+		"Uint64":   "uint64",
 		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",
@@ -96,8 +96,8 @@ var macros = map[string]map[string]string{
 		"Duration": "time.Duration",
 	},
 	"BaseDataWithType": {
-		"Int":     "int64",  // TODO: change to Int64
-		"Uint":    "uint64", // TODO: change to Uint64
+		"Int64":   "int64",
+		"Uint64":  "uint64",
 		"Float64": "float64",
 	},
 	"AllData": {
