@@ -32,5 +32,5 @@ func (_ skipLine) String(string, string)          {}
 func (_ skipLine) Time(string, time.Time)         {}
 
 func (_ skipLine) Float64(string, float64, xopbase.DataType) {}
-func (_ skipLine) Int(string, int64, xopbase.DataType)       {}
-func (_ skipLine) Uint(string, uint64, xopbase.DataType)     {}
+func (_ skipLine) Int64(string, int64, xopbase.DataType)     {}
+func (_ skipLine) Uint64(string, uint64, xopbase.DataType)   {}

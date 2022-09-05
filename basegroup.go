@@ -228,15 +228,15 @@ func (p prefillings) Float64(k string, v float64, dt xopbase.DataType) {
 	}
 }
 
-func (p prefillings) Int(k string, v int64, dt xopbase.DataType) {
+func (p prefillings) Int64(k string, v int64, dt xopbase.DataType) {
 	for _, prefilling := range p {
-		prefilling.Int(k, v, dt)
+		prefilling.Int64(k, v, dt)
 	}
 }
 
-func (p prefillings) Uint(k string, v uint64, dt xopbase.DataType) {
+func (p prefillings) Uint64(k string, v uint64, dt xopbase.DataType) {
 	for _, prefilling := range p {
-		prefilling.Uint(k, v, dt)
+		prefilling.Uint64(k, v, dt)
 	}
 }
 
@@ -288,15 +288,15 @@ func (l lines) Float64(k string, v float64, dt xopbase.DataType) {
 	}
 }
 
-func (l lines) Int(k string, v int64, dt xopbase.DataType) {
+func (l lines) Int64(k string, v int64, dt xopbase.DataType) {
 	for _, line := range l {
-		line.Int(k, v, dt)
+		line.Int64(k, v, dt)
 	}
 }
 
-func (l lines) Uint(k string, v uint64, dt xopbase.DataType) {
+func (l lines) Uint64(k string, v uint64, dt xopbase.DataType) {
 	for _, line := range l {
-		line.Uint(k, v, dt)
+		line.Uint64(k, v, dt)
 	}
 }
 

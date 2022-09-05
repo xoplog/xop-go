@@ -405,7 +405,7 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 		}
 	}
 	l.AppendByte('{') // }
-	l.Int("lvl", int64(level), 0)
+	l.Int64("lvl", int64(level), 0)
 	l.Time("ts", t)
 	if len(pc) > 0 {
 		// TODO: debug this!
@@ -591,13 +591,13 @@ func (b *builder) Bool(k string, v bool) {
 	b.AddBool(v)
 }
 
-func (b *builder) Int(k string, v int64, _ xopbase.DataType) {
+func (b *builder) Int64(k string, v int64, _ xopbase.DataType) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AddInt64(v)
 }
 
-func (b *builder) Uint(k string, v uint64, _ xopbase.DataType) {
+func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AddUint64(v)

@@ -379,8 +379,8 @@ func (b *Builder) String(k string, v string)          { b.any(k, v, xopbase.Stri
 func (b *Builder) Time(k string, v time.Time)         { b.any(k, v, xopbase.TimeDataType) }
 
 func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
-func (b *Builder) Int(k string, v int64, dt xopbase.DataType)       { b.any(k, v, dt) }
-func (b *Builder) Uint(k string, v uint64, dt xopbase.DataType)     { b.any(k, v, dt) }
+func (b *Builder) Int64(k string, v int64, dt xopbase.DataType)     { b.any(k, v, dt) }
+func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType)   { b.any(k, v, dt) }
 
 func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	func() {
