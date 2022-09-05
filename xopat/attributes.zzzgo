@@ -106,6 +106,20 @@ func (s Make) TryInt64Attribute() (_ *Int64Attribute, err error) {
 	return &Int64Attribute{Attribute: s.attribute(int64(0), &err, AttributeTypeInt64)}, err
 }
 
+func (s Make) Float64Attribute() *Float64Attribute {
+	return &Float64Attribute{Attribute: s.attribute(float64(0), nil, AttributeTypeFloat64)}
+}
+func (s Make) TryFloat64Attribute() (_ *Float64Attribute, err error) {
+	return &Float64Attribute{Attribute: s.attribute(float64(0), &err, AttributeTypeFloat64)}, err
+}
+
+func (s Make) Float32Attribute() *Float32Attribute {
+	return &Float32Attribute{Attribute: s.attribute(float32(0), nil, AttributeTypeFloat32)}
+}
+func (s Make) TryFloat32Attribute() (_ *Float32Attribute, err error) {
+	return &Float32Attribute{Attribute: s.attribute(float32(0), &err, AttributeTypeFloat32)}, err
+}
+
 func (s Make) attribute(exampleValue interface{}, ep *error, subType AttributeType) Attribute {
 	a, err := s.make(exampleValue, subType)
 	if err != nil {

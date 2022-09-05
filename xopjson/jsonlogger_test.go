@@ -228,6 +228,61 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
+			name: "metadata traces",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				s2 := log.Sub().Fork("S2")
+				s3 := s2.Sub().Fork("S3")
+				log.Span().Link(ExampleMetadataSingleLink, s2.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataSingleLink, s3.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataLockedLink, s2.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataLockedLink, s3.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataMultipleLink, s2.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataMultipleLink, s3.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataMultipleLink, s3.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataDistinctLink, s2.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataDistinctLink, s3.Span().Bundle().Trace)
+				log.Span().Link(ExampleMetadataDistinctLink, s3.Span().Bundle().Trace)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata float64",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				log.Span().Float64(ExampleMetadataSingleFloat64, 40.3)
+				log.Span().Float64(ExampleMetadataSingleFloat64, 40.4)
+				log.Span().Float64(ExampleMetadataLockedFloat64, 30.5)
+				log.Span().Float64(ExampleMetadataLockedFloat64, 30.6)
+				log.Span().Float64(ExampleMetadataMultipleFloat64, 10.7)
+				log.Span().Float64(ExampleMetadataMultipleFloat64, 10.8)
+				log.Span().Float64(ExampleMetadataMultipleFloat64, 10.7)
+				log.Span().Float64(ExampleMetadataDistinctFloat64, 20.8)
+				log.Span().Float64(ExampleMetadataDistinctFloat64, 20.7)
+				log.Span().Float64(ExampleMetadataDistinctFloat64, 20.8)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata time",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				t1 := time.Now().Round(time.Second)
+				t2 := t1.Add(time.Minute)
+				log.Span().Time(ExampleMetadataSingleTime, t1)
+				log.Span().Time(ExampleMetadataSingleTime, t2)
+				log.Span().Time(ExampleMetadataLockedTime, t1)
+				log.Span().Time(ExampleMetadataLockedTime, t2)
+				log.Span().Time(ExampleMetadataMultipleTime, t1)
+				log.Span().Time(ExampleMetadataMultipleTime, t2)
+				log.Span().Time(ExampleMetadataMultipleTime, t2)
+				log.Span().Time(ExampleMetadataDistinctTime, t1)
+				log.Span().Time(ExampleMetadataDistinctTime, t2)
+				log.Span().Time(ExampleMetadataDistinctTime, t2)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
 			name: "metadata singles in span",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 				ss := log.Sub().Fork("spoon")
@@ -384,6 +439,29 @@ func TestParameters(t *testing.T) {
 				log.Span().Int(ExampleMetadataMultipleInt, 3)
 				log.Span().Int(ExampleMetadataMultipleInt, 5)
 				log.Span().Int(ExampleMetadataMultipleInt, 7)
+				xoptestutil.MicroNap()
+				log.Done()
+			},
+		},
+		{
+			name: "metadata distinct",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				// ss := log.Sub().Fork("a fork")
+				log.Span().Bool(ExampleMetadataDistinctBool, true)
+				log.Span().Bool(ExampleMetadataDistinctBool, true)
+				log.Span().Bool(ExampleMetadataDistinctBool, false)
+				log.Span().Int(ExampleMetadataDistinctInt, 3)
+				log.Span().Int(ExampleMetadataDistinctInt, 5)
+				log.Span().Int(ExampleMetadataDistinctInt, 3)
+				log.Span().Int(ExampleMetadataDistinctInt, 7)
+				log.Span().Int64(ExampleMetadataDistinctInt64, 73)
+				log.Span().Int64(ExampleMetadataDistinctInt64, 75)
+				log.Span().Int64(ExampleMetadataDistinctInt64, 73)
+				log.Span().Int64(ExampleMetadataDistinctInt64, 77)
+				log.Span().String(ExampleMetadataDistinctString, "abc")
+				log.Span().String(ExampleMetadataDistinctString, "abc")
+				log.Span().String(ExampleMetadataDistinctString, "def")
+				log.Span().String(ExampleMetadataDistinctString, "abc")
 				xoptestutil.MicroNap()
 				log.Done()
 			},
@@ -661,9 +739,9 @@ func (c *checker) check(t *testing.T, data string) {
 		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
 			if c.config.hasAttributesObject {
 				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
-				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.span.attributes", false)
+				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.attributes", false)
 			} else {
-				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
 			}
 		}
 	}
@@ -672,9 +750,9 @@ func (c *checker) check(t *testing.T, data string) {
 		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
 			if c.config.hasAttributesObject {
 				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
-				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.request.attributes", false)
+				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.request.attributes", false)
 			} else {
-				compareData(t, span.Metadata, nil, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
 			}
 		}
 	}
@@ -763,20 +841,42 @@ func combineAttributes(from map[string]interface{}, attributes map[string]interf
 	}
 }
 
+var xoptestConvert map[xopbase.DataType]func(interface{}) interface{}
+
+func init() {
+	xoptestConvert = map[xopbase.DataType]func(interface{}) interface{}{
+		xopbase.ErrorDataType: func(generic interface{}) interface{} {
+			return generic.(error).Error()
+		},
+		xopbase.LinkDataType: func(generic interface{}) interface{} {
+			return map[string]interface{}{
+				"xop.link": generic.(trace.Trace).String(),
+			}
+		},
+		xopbase.LinkArrayDataType:  genArrayConvert(xopbase.LinkDataType),
+		xopbase.ErrorArrayDataType: genArrayConvert(xopbase.ErrorDataType),
+	}
+}
+
+func genArrayConvert(edt xopbase.DataType) func(interface{}) interface{} {
+	return func(generic interface{}) interface{} {
+		var sl []interface{}
+		for _, element := range generic.([]interface{}) {
+			sl = append(sl, xoptestConvert[edt](element))
+		}
+		return sl
+	}
+}
+
 func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xopbase.DataType, aDesc string, b map[string]interface{}, bDesc string, ignoreExtra bool) {
 	if len(aOrig) == 0 && len(b) == 0 {
 		return
 	}
 	a := make(map[string]interface{})
 	for k, v := range aOrig {
-		switch types[k] {
-		case xopbase.LinkDataType:
-			a[k] = map[string]interface{}{
-				"xop.link": v.(trace.Trace).String(),
-			}
-		case xopbase.ErrorDataType:
-			a[k] = v.(error).Error()
-		default:
+		if f, ok := xoptestConvert[types[k]]; ok {
+			a[k] = f(v)
+		} else {
 			a[k] = v
 		}
 	}

@@ -12,10 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/muir/xop-go"
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopat"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopnum"
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xoputil"
 )
 
 //go:generate enumer -type=EventType -linecomment -json -sql
@@ -72,22 +71,22 @@ type traceInfo struct {
 }
 
 type Span struct {
-	lock          sync.Mutex
-	testLogger    *TestLogger
-	Trace         trace.Bundle
-	IsRequest     bool
-	Parent        *Span
-	Spans         []*Span
-	RequestLines  []*Line
-	Lines         []*Line
-	short         string
-	Metadata      map[string]interface{}
-	MetadataTypes map[string]xoputil.BaseAttributeType
-	metadataSeen  map[string]interface{}
-	StartTime     time.Time
-	EndTime       int64
-	Name          string
-	SequenceCode  string
+	lock         sync.Mutex
+	testLogger   *TestLogger
+	Trace        trace.Bundle
+	IsRequest    bool
+	Parent       *Span
+	Spans        []*Span
+	RequestLines []*Line
+	Lines        []*Line
+	short        string
+	Metadata     map[string]interface{}
+	MetadataType map[string]xopbase.DataType
+	metadataSeen map[string]interface{}
+	StartTime    time.Time
+	EndTime      int64
+	Name         string
+	SequenceCode string
 }
 
 type Prefilling struct {
@@ -95,18 +94,18 @@ type Prefilling struct {
 }
 
 type Builder struct {
-	Data   map[string]interface{}
+	Data     map[string]interface{}
 	DataType map[string]xopbase.DataType
-	Span   *Span
-	kvText []string
+	Span     *Span
+	kvText   []string
 }
 
 type Prefilled struct {
-	Data   map[string]interface{}
+	Data     map[string]interface{}
 	DataType map[string]xopbase.DataType
-	Span   *Span
-	Msg    string
-	kvText []string
+	Span     *Span
+	Msg      string
+	kvText   []string
 }
 
 type Line struct {
@@ -154,15 +153,15 @@ func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xop
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
-		testLogger:    log,
-		IsRequest:     true,
-		Trace:         span,
-		short:         log.setShort(span, name),
-		StartTime:     ts,
-		Name:          name,
-		Metadata:      make(map[string]interface{}),
-		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		metadataSeen:  make(map[string]interface{}),
+		testLogger:   log,
+		IsRequest:    true,
+		Trace:        span,
+		short:        log.setShort(span, name),
+		StartTime:    ts,
+		Name:         name,
+		Metadata:     make(map[string]interface{}),
+		MetadataType: make(map[string]xopbase.DataType),
+		metadataSeen: make(map[string]interface{}),
 	}
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
@@ -231,15 +230,15 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	n := &Span{
-		testLogger:    span.testLogger,
-		Trace:         traceSpan,
-		short:         span.testLogger.setShort(traceSpan, name),
-		StartTime:     ts,
-		Name:          name,
-		Metadata:      make(map[string]interface{}),
-		MetadataTypes: make(map[string]xoputil.BaseAttributeType),
-		metadataSeen:  make(map[string]interface{}),
-		SequenceCode:  spanSequenceCode,
+		testLogger:   span.testLogger,
+		Trace:        traceSpan,
+		short:        span.testLogger.setShort(traceSpan, name),
+		StartTime:    ts,
+		Name:         name,
+		Metadata:     make(map[string]interface{}),
+		MetadataType: make(map[string]xopbase.DataType),
+		metadataSeen: make(map[string]interface{}),
+		SequenceCode: spanSequenceCode,
 	}
 	span.Spans = append(span.Spans, n)
 	span.testLogger.Spans = append(span.testLogger.Spans, n)
@@ -259,20 +258,20 @@ func (span *Span) NoPrefill() xopbase.Prefilled {
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
-			Data: make(map[string]interface{}),
+			Data:     make(map[string]interface{}),
 			DataType: make(map[string]xopbase.DataType),
-			Span: span,
+			Span:     span,
 		},
 	}
 }
 
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
-		Data:   p.Data,
+		Data:     p.Data,
 		DataType: p.DataType,
-		Span:   p.Span,
-		kvText: p.kvText,
-		Msg:    m,
+		Span:     p.Span,
+		kvText:   p.kvText,
+		Msg:      m,
 	}
 }
 
@@ -281,9 +280,9 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.L
 	// TODO: stack traces
 	line := &Line{
 		Builder: Builder{
-			Data: make(map[string]interface{}),
+			Data:     make(map[string]interface{}),
 			DataType: make(map[string]xopbase.DataType),
-			Span: p.Span,
+			Span:     p.Span,
 		},
 		Level:     level,
 		Timestamp: t,
@@ -375,7 +374,7 @@ func (b *Builder) Link(k string, v trace.Trace) {
 // MACRO BaseDataWithoutType SKIP:Link
 func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v, xopbase.ZZZDataType) }
 
-// MACRO BaseDataWithType 
+// MACRO BaseDataWithType
 func (b *Builder) ZZZ(k string, v zzz, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // MACRO BaseAttribute
@@ -434,7 +433,7 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			s.Metadata[k.Key()] = append(p.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZArray
+			s.MetadataType[k.Key()] = xopbase.ZZZArrayDataType
 		}
 	} else {
 		if _, ok := s.Metadata[k.Key()]; ok {
@@ -442,7 +441,7 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 				return
 			}
 		} else {
-			s.MetadataTypes[k.Key()] = xoputil.BaseAttributeTypeZZZ
+			s.MetadataType[k.Key()] = xopbase.ZZZDataType
 		}
 		//CONDITIONAL ONLY:Enum
 		s.Metadata[k.Key()] = v.String()

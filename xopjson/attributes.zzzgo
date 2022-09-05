@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/muir/xop-go/xoputil"
 	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xoputil"
 )
 
 const numSinglePrealloc = 20
@@ -23,7 +24,7 @@ type AttributeBuilder struct {
 	multiBuf     [numMultiPrealloc]multiAttribute
 	singles      []singleAttribute
 	multis       []multiAttribute
-	Type         xoputil.BaseAttributeType
+	Type         xopbase.DataType
 	singleMap    map[string]*singleAttribute
 	multiMap     map[string]*multiAttribute
 	anyChanged   bool
@@ -49,7 +50,7 @@ type multiAttribute struct {
 type attribute struct {
 	Name    []byte
 	Changed bool
-	Type    xoputil.BaseAttributeType
+	Type    xopbase.DataType
 }
 
 func (a *AttributeBuilder) Init(s *span) {
@@ -177,7 +178,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		} else {
 			s.keyLen = len(s.KeyValue)
 		}
-		s.Type = xoputil.BaseAttributeTypeZZZ
+		s.Type = xopbase.ZZZDataType
 		b := builder{
 			span: a.span,
 			JBuilder: xoputil.JBuilder{
@@ -195,7 +196,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		return
 	}
 	m := a.addMulti(k.Key())
-	m.Type = xoputil.BaseAttributeTypeZZZArray
+	m.Type = xopbase.ZZZDataType
 	//CONDITIONAL ONLY:Any
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
