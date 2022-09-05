@@ -482,6 +482,15 @@ func TestParameters(t *testing.T) {
 				p.Error().Static("prefilled!")
 				xoptestutil.MicroNap()
 				log.Done()
+			},
+		},
+		{
+			name: "type time",
+			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+				p := log.Sub().PrefillTime("-1m", time.Now().Add(-time.Minute).Round(time.Millisecond)).Log()
+				p.Warn().Time("now", time.Now().Round(time.Millisecond)).Msgs("time!")
+				xoptestutil.MicroNap()
+				log.Done()
 
 				// TODO: Link("me", log.Span().Bundle().Trace).
 				// TODO: Duration("wait", 10*time.Second).
@@ -489,16 +498,12 @@ func TestParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "type time",
+			name: "type duration",
 			do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-				p := log.Sub().PrefillTime("-1m", time.Now().Add(-time.Minute).Round(time.Millisecond)).Log()
-				p.Warn().Time("now", time.Now().Round(time.Millisecond))
+				p := log.Sub().PrefillDuration("1m", time.Minute).Log()
+				p.Warn().Duration("hour", time.Hour).Msg("duration")
 				xoptestutil.MicroNap()
 				log.Done()
-
-				// TODO: Link("me", log.Span().Bundle().Trace).
-				// TODO: Duration("wait", 10*time.Second).
-				// TODO: Error("oops", fmt.Errorf("uh oh")).
 			},
 		},
 	}
@@ -511,8 +516,8 @@ func TestParameters(t *testing.T) {
 				t.Run(mc.name, func(t *testing.T) {
 					var buffer xoputil.Buffer
 					joptions := []xopjson.Option{
-						xopjson.WithEpochTime(time.Microsecond),
-						xopjson.WithDuration("dur", xopjson.AsMicros),
+						xopjson.WithTimeFormat(time.RFC3339Nano),
+						xopjson.WithDuration("dur", xopjson.AsNanos),
 						xopjson.WithSpanStarts(true),
 						xopjson.WithBufferedLines(8 * 1024 * 1024),
 						xopjson.WithAttributesObject(true),
@@ -703,7 +708,7 @@ func (c *checker) span(t *testing.T, super supersetObject, generic map[string]in
 		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
 	}
 	c.sequencing[super.SpanID] = super.SpanVersion
-	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
+	assert.Less(t, super.Duration, int64(time.Second*10), "duration")
 }
 
 func (c *checker) request(t *testing.T, super supersetObject, generic map[string]interface{}) {
@@ -732,7 +737,7 @@ func (c *checker) request(t *testing.T, super supersetObject, generic map[string
 		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
 	}
 	c.sequencing[super.SpanID] = super.RequestVersion
-	assert.Less(t, super.Duration, int64(time.Second*10/time.Microsecond), "duration")
+	assert.Less(t, super.Duration, int64(time.Second*10), "duration")
 }
 
 func combineAttributes(from map[string]interface{}, attributes map[string]interface{}) {
