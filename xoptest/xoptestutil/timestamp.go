@@ -43,19 +43,22 @@ var formats = []struct {
 	},
 	{
 		fmt: time.RFC3339,
-		re:  regexp.MustCompile(`^\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ\d\d:\d\d`),
+		//2022-09-04T21:29:59-07:00
+		re: regexp.MustCompile(`^\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\d(?:Z|[-+]\d\d:\d\d)$`),
 	},
 	{
 		fmt: time.RFC3339Nano,
-		re:  regexp.MustCompile(`^\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\d\.\d+Z\d\d:\d\d`),
+		re:  regexp.MustCompile(`^\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\d\.\d+(?:Z|[-+]\d\d:\d\d)$`),
 	},
 	{
 		fmt: time.ANSIC,
-		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d? \d\d:\d\d:\d\d \d\d\d\d$`),
+		// Sun Sep  4 22:08:53 2022
+		re: regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?: \d|\d\d) \d\d:\d\d:\d\d \d\d\d\d$`),
 	},
 	{
+		// Sun Sep  4 22:13:15 PDT 2022
 		fmt: time.UnixDate,
-		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d? \d\d:\d\d:\d\d [A-Z]{3} \d\d\d\d$`),
+		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?: \d|\d\d) \d\d:\d\d:\d\d [A-Z]{3} \d\d\d\d$`),
 	},
 	{
 		fmt: time.RubyDate,
@@ -106,7 +109,7 @@ func init() {
 			}
 		default:
 			formats[i].compiled = func(s string) (time.Time, error) {
-				return time.Parse(s, format.fmt)
+				return time.Parse(format.fmt, s)
 			}
 		}
 	}
@@ -161,7 +164,11 @@ func (ts *TS) UnmarshalJSON(b []byte) error {
 			return err
 		}
 		last := atomic.LoadInt32(&lastIndexFound)
-		if t, err := formats[last].compiled(s); err != nil {
+		if formats[last].re.MatchString(s) {
+			t, err := formats[last].compiled(s)
+			if err != nil {
+				return err
+			}
 			*ts = TS{t}
 			return nil
 		}
@@ -173,6 +180,7 @@ func (ts *TS) UnmarshalJSON(b []byte) error {
 				}
 				*ts = TS{t}
 				atomic.StoreInt32(&lastIndexFound, int32(i))
+				return nil
 			}
 		}
 		return fmt.Errorf("no for time format")

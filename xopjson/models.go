@@ -278,3 +278,14 @@ func WithStackLineRewrite(f func(string) string) Option {
 		l.stackLineRewrite = f
 	}
 }
+
+// WithRoundedIntegersAsStrings changes the encoding of int64 values
+// tha are outside the range that can be exactly represented by
+// a float64.  JSON treats "numbers" as floats.  Integers that are
+// in the range [-2**53, 2**53] can be exactly represented as
+// float64s, but integers outside that range cannot.  When this is
+// true, then integers outside this range will be converted to strings.
+//
+// For Go, decoding a quoted integer into an int64 works just fine.
+//
+// TODO
