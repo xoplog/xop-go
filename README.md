@@ -1,12 +1,28 @@
 # xop - Golang structured log generation combined with tracing (Cross Obserability Platform)
 
 [![GoDoc](https://godoc.org/github.com/muir/xop-go?status.png)](https://pkg.go.dev/github.com/muir/xop-go)
+![unit tests](https://github.com/muir/xop-go/actions/workflows/go.yml/badge.svg)
+[![report card](https://goreportcard.com/badge/github.com/muir/xop-go)](https://goreportcard.com/report/github.com/muir/xop-go)
+[![codecov](https://codecov.io/gh/muir/xop-go/branch/main/graph/badge.svg)](https://codecov.io/gh/muir/xop-go)
 
 # Development status
 
-In development, not ready for use.
+In development, almost ready for use.
 
 # Context
+
+Observability code and technique is rapidly evolving.  The Open Telemetry 
+project is the focus of most of the energy now.  Until Open Telemetry 
+releases a Go logger, there still isn't a well integrated logs and traces
+package.
+
+That is beginning to change.  There is now a 
+[Zap/OTEL integration](https://github.com/uptrace/opentelemetry-go-extra/tree/main/otelzap).
+
+Xop is currently the only Go structured logs and tracing system.  Performance-wise,
+it's better that Zap, and about on par with Zerolog.
+
+Where Xop shines is in API design.
 
 ## The problem with the existing model
 
