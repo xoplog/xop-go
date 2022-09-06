@@ -126,6 +126,13 @@ var macros = map[string]map[string]string{
 		"HexBytes8":  "8",
 		"HexBytes16": "16",
 	},
+	// Enumer is all of the generated enumers, used for generating a test
+	"Enumer": {
+		"DataType":     "xopbase",
+		"EventType":    "xoptest",
+		"Level":        "xopnum",
+		"SpanKindEnum": "xopconst",
+	},
 }
 
 var allLines []string
