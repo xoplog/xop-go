@@ -58,7 +58,7 @@ var formats = []struct {
 	{
 		// Sun Sep  4 22:13:15 PDT 2022
 		fmt: time.UnixDate,
-		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?: \d|\d\d) \d\d:\d\d:\d\d [A-Z]{3,5} \d\d\d\d$`),
+		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?: \d|\d\d) \d\d:\d\d:\d\d [A-Z]{2,5} \d\d\d\d$`),
 	},
 	{
 		fmt: time.RubyDate,
@@ -66,7 +66,7 @@ var formats = []struct {
 	},
 	{
 		fmt: time.RFC822,
-		re:  regexp.MustCompile(`^\d\d (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d \d\d:\d\d [A-Z]{3,5}$`),
+		re:  regexp.MustCompile(`^\d\d (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d \d\d:\d\d [A-Z]{2,5}$`),
 	},
 	{
 		fmt: time.RFC822Z,
@@ -74,11 +74,11 @@ var formats = []struct {
 	},
 	{
 		fmt: time.RFC850,
-		re:  regexp.MustCompile(`^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), \d\d-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d\d \d\d:\d\d:\d\d [A-Z]{3,5}$`),
+		re:  regexp.MustCompile(`^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), \d\d-(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d\d \d\d:\d\d:\d\d [A-Z]{2,5}$`),
 	},
 	{
 		fmt: time.RFC1123,
-		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun), \d\d (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d\d\d \d\d:\d\d:\d\d [A-Z]{3,5}$`),
+		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun), \d\d (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d\d\d \d\d:\d\d:\d\d [A-Z]{2,5}$`),
 	},
 	{
 		fmt: time.RFC1123Z,
