@@ -43,6 +43,7 @@ var escapes = [256]bool{
 	'\t': true,
 }
 
+/*
 func (b *JBuilder) escapeb(n []byte) {
 	l := len(n)
 	j := 0
@@ -96,6 +97,7 @@ func (b *JBuilder) escapeb(n []byte) {
 	}
 	b.B = append(b.B, n[j:]...)
 }
+*/
 
 func (b *JBuilder) escapes(s string) {
 	n := len(s)
@@ -164,6 +166,7 @@ func (b *JBuilder) AddStringBody(s string) {
 	b.B = append(b.B, s...)
 }
 
+/*
 func (b *JBuilder) AddEscapeBytes(n []byte) {
 	for _, c := range n {
 		if escapes[c] {
@@ -173,6 +176,7 @@ func (b *JBuilder) AddEscapeBytes(n []byte) {
 	}
 	b.B = append(b.B, n...)
 }
+*/
 
 /*
 // Interface adds the field key with i marshaled using reflection.

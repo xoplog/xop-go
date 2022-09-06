@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	debugTlog  = true
-	debugTspan = true
+	debugTlog     = true
+	debugTspan    = true
+	needsEscaping = `"\<'` + "\n\r\t\b\x00"
 )
 
 type supersetObject struct {
@@ -184,7 +185,7 @@ func TestParameters(t *testing.T) {
 
 				ss := log.Sub().Detach().Fork("a fork")
 				xoptestutil.MicroNap()
-				ss.Alert().String("frightening", "stuff").Static("like a rock")
+				ss.Alert().String("frightening", "stuff").Static("like a rock" + needsEscaping)
 				ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
 				xoptestutil.MicroNap()
@@ -205,8 +206,8 @@ func TestParameters(t *testing.T) {
 				log.Span().Bool(ExampleMetadataSingleBool, true)
 				log.Span().Bool(ExampleMetadataLockedBool, true)
 				log.Span().Bool(ExampleMetadataLockedBool, false)
-				log.Span().String(ExampleMetadataLockedString, "loki")
-				log.Span().String(ExampleMetadataLockedString, "thor")
+				log.Span().String(ExampleMetadataLockedString, "loki"+needsEscaping)
+				log.Span().String(ExampleMetadataLockedString, "thor"+needsEscaping)
 				log.Span().Int(ExampleMetadataLockedInt, 38)
 				log.Span().Int(ExampleMetadataLockedInt, -38)
 				log.Span().Int8(ExampleMetadataLockedInt8, 39)
@@ -302,7 +303,7 @@ func TestParameters(t *testing.T) {
 				ss.Span().Int32(ExampleMetadataLockedInt32, 932)
 				ss.Span().Int64(ExampleMetadataLockedInt64, -93232)
 				ss.Span().Int64(ExampleMetadataLockedInt64, 93232)
-				ss.Span().String(ExampleMetadataSingleString, "athena")
+				ss.Span().String(ExampleMetadataSingleString, "athena"+needsEscaping)
 				ss.Span().Int(ExampleMetadataSingleInt, 3)
 				ss.Span().Int8(ExampleMetadataSingleInt8, 9)
 				ss.Span().Int16(ExampleMetadataSingleInt16, 29)
@@ -542,6 +543,7 @@ func TestParameters(t *testing.T) {
 					PrefillUint("uint", 439).PrefillUint8("uint8", 82).PrefillUint16("uint16", 829).
 					PrefillUint32("uint32", 4328).PrefillUint64("uint64", 2382).
 					PrefillString("foo", "bar").PrefillBool("on/off", true).
+					PrefillString("needsEscaping", needsEscaping).
 					PrefillFloat32("f32", 92.2).
 					PrefillFloat64("f64", 292.1).
 					PrefillAny("any", map[string]interface{}{"x": "y", "z": 19}).
@@ -553,6 +555,7 @@ func TestParameters(t *testing.T) {
 					Uint("uint", 439).Uint8("uint8", 82).Uint16("uint16", 829).
 					Uint32("uint32", 4328).Uint64("uint64", 2382).
 					String("foo", "bar").Bool("on/off", true).
+					String("needsEscaping2", needsEscaping).
 					Float32("f32", 92.2).
 					Float64("f64", 292.1).
 					Any("any", map[string]interface{}{"x": "y", "z": 19}).
