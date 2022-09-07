@@ -58,3 +58,6 @@ golanglint:
 lint:;
 	golangci-lint run
 	
+misspell:;
+	go install github.com/client9/misspell/cmd/misspell@latest
+	misspell -error `find . -name \*.md`

@@ -144,7 +144,7 @@
 - Performmance
 
   - mark all places in the code where an allocation happens `// allocate`
-  - Use sync.Pool agressively to reduce allocations
+  - Use sync.Pool aggressively to reduce allocations
 
     - xop.Logger
 
@@ -159,7 +159,7 @@
 
      Rebuild https://github.com/Workiva/go-datastructures/blob/master/queue/ring.go to be
      "LossyPool" that queues upto 32 items (tossing any extra) and returning immedately if
-     there aren't any availble.  Use generics so no casting is needed.
+     there aren't any available.  Use generics so no casting is needed.
 
   - AttributeBuilder needs a JSON-specific version
 
@@ -167,7 +167,7 @@
     - 64 buffers?
     - 64 bytes each?
 
-  - how to make protobuf faster (when building OTEL compatability):
+  - how to make protobuf faster (when building OTEL compatibility):
     [notes](https://blog.najaryan.net/posts/partial-protobuf-encoding/?s=09)
 
   - can *Sub be Sub instead?  Would that have better performance? 
