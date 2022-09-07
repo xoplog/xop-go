@@ -60,4 +60,16 @@ lint:;
 	
 misspell:;
 	go install github.com/client9/misspell/cmd/misspell@latest
-	misspell -error `find . -name \*.md`
+	misspell -w `find . -name \*.md`
+
+OTEL_TAG="v1.12.0"
+
+../opentelemetry-specification:
+	cd ..; git clone https://github.com/open-telemetry/opentelemetry-specification.git
+
+../opentelemetry-go:
+	cd ..; git clone https://github.com/open-telemetry/opentelemetry-go.git
+
+otel-generate: ../opentelemetry-specification ../opentelemetry-go
+	cd ../opentelemetry-specification && git pull && git checkout tags/$(OTEL_TAG)
+
