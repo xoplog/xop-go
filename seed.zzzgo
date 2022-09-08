@@ -1,6 +1,7 @@
 package xop
 
 import (
+	"context"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -12,6 +13,18 @@ type Seed struct {
 	settings LogSettings
 }
 
+func (seed Seed) Copy(mods ...SeedModifier) Seed {
+	return Seed{
+		
+		
+}
+
+
+// SeedReactiveCallback is used to modify seeds as they are just sprouting
+// The selfIndex parameter can be used with WithReactiveReplaced or
+// WithReactiveRemoved.
+type SeedReactiveCallback func(ctx context.Context, seed Seed, selfIndex int, nameOrDescription string, isChildSpan bool) Seed
+
 type spanSeed struct {
 	traceBundle      trace.Bundle
 	spanSequenceCode string
@@ -19,12 +32,15 @@ type spanSeed struct {
 	loggers          loggers
 	config           Config
 	flushDelay       time.Duration
+	reactive         seedReactiveCallbacks
+	ctx              context.Context
 }
 
-func (s spanSeed) Copy() spanSeed {
+func (s spanSeed) copy() spanSeed {
 	n := s
 	n.loggers = s.loggers.Copy()
 	n.traceBundle = s.traceBundle.Copy()
+	n.reactive = s.reactive.Copy()
 	return n
 }
 
@@ -57,6 +73,37 @@ func (seed Seed) applyMods(mods []SeedModifier) Seed {
 		mod(&seed)
 	}
 	return seed
+}
+
+// WithReactive provides a callback that is used to modify seeds as they
+// are in the process of sprouting.  Just as a seed is being used to create
+// a request of sub-span, all reactive functions will be called.  Such
+// functions must return a valid seed.  The seed they start with will be
+// valid, so they can simply return that seed.
+func WithReactive(f SeedReactiveCallback) SeedModifier {
+	return func(s *Seed) {
+		s.reactive = append(s.reactive, f)
+	}
+}
+
+func WithReactiveReplaced(index int, f SeedReactiveCallback) SeedModifier {
+	return func(s *Seed) {
+		s.reactive[index] = f
+	}
+}
+
+func WithReactiveRemoved(index int) SeedModifier {
+	return func(s *Seed) {
+		s.reactive = append(s.reactive[:index], s.reactive[index+1:]...)
+	}
+}
+
+// WithContext puts a context into the seed.  That context will be
+// passed through to the base layer Request and Seed functions.
+func WithContext(ctx context.Context) SeedModifier {
+	return func(s *Seed) {
+		s.ctx = ctx
+	}
 }
 
 func WithBundle(bundle trace.Bundle) SeedModifier {

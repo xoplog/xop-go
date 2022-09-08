@@ -1,0 +1,46 @@
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
+/*
+Package xopotel provides a gateway from xop into open telemetry
+using OTEL's top-level APIs.
+
+This gateway can be used either as a base layer for xop allowing
+xop to output through OTEL; or it can be used to bridge the gap
+between an application that is otherwise using OTEL and a library
+that is expects to be provided with a xop logger.
+*/
+package xopotel
+
+import (
+	"github.com/google/uuid"
+	"github.com/muir/xop-go/xopbase"
+
+	"go.opentelemetry.io/otel/trace"
+)
+
+type BaseLogger struct {
+	tracer trace.Tracer
+	id     string
+}
+
+var _ xopbase.Logger = &BaseLogger{}
+
+func OTELSeed(tracer trace.Tracer) xopbase.SeedModifier {
+	
+}
+
+func NewLogger(tracer trace.Tracer) *BaseLogger {
+	return &BaseLogger{
+		tracer: tracer,
+		id:     "otel-" + uuid.New().String(),
+	}
+}
+
+func (logger *BaseLogger) ID() string           { return logger.id }
+func (logger *BaseLogger) ReferencesKept() bool { return true }
+func (logger *BaseLogger) Buffered() bool       { return false }
+
+func (logger *BaseLogger) Request(ts time.Time, span trace.Bundle, description string) Request {
+	ctx, span := logger.Start(context.Background(), description, opts ...SpanStartOption)
+		// WithSpanKind (internal, etc)
+}

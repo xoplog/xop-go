@@ -3,6 +3,7 @@
 package xopbase
 
 import (
+	"context"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -13,7 +14,12 @@ import (
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
-	Request(ts time.Time, span trace.Bundle, description string) Request
+	// Request beings a new span that represents the start of an
+	// operation: either a call to a server, a cron-job, or an event
+	// being processed.  The provided Context is a pass-through from
+	// the Seed and if the seed does not provide a context, the context
+	// can be nil.
+	Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) Request
 
 	// ID returns a unique id for this instance of a logger.  This
 	// is used to prevent duplicate Requets from being created when
@@ -52,7 +58,7 @@ type Request interface {
 
 type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
-	Span(ts time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) Span
+	Span(ctx context.Context, ts time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
 	// MetadataAny adds a key/value pair to describe the span.
 	MetadataAny(*xopat.AnyAttribute, interface{})
