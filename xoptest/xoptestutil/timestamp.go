@@ -62,8 +62,9 @@ var formats = []struct {
 		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?: \d|\d\d) \d\d:\d\d:\d\d [A-Z]{2,5} \d\d\d\d$`),
 	},
 	{
+		// Thu Sep 08 04:21:27 +0000 2022
 		fmt: time.RubyDate,
-		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thr|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d? \d\d:\d\d:\d\d [-+]\d\d\d\d \d\d\d\d$`),
+		re:  regexp.MustCompile(`^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d\d? \d\d:\d\d:\d\d [-+]\d\d\d\d \d\d\d\d$`),
 	},
 	{
 		fmt: time.RFC822,
