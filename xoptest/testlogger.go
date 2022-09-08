@@ -126,6 +126,7 @@ type Event struct {
 	Line *Line
 	Span *Span
 	Msg  string
+	Done bool
 }
 
 func (log *TestLogger) Log() *xop.Log {
@@ -198,7 +199,7 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 	return short
 }
 
-func (span *Span) Done(t time.Time) {
+func (span *Span) Done(t time.Time, final bool) {
 	atomic.StoreInt64(&span.EndTime, t.UnixNano())
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
@@ -206,11 +207,13 @@ func (span *Span) Done(t time.Time) {
 		span.testLogger.Events = append(span.testLogger.Events, &Event{
 			Type: RequestDone,
 			Span: span,
+			Done: final,
 		})
 	} else {
 		span.testLogger.Events = append(span.testLogger.Events, &Event{
 			Type: SpanDone,
 			Span: span,
+			Done: final,
 		})
 	}
 }

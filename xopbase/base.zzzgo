@@ -78,7 +78,16 @@ type Span interface {
 	// corresponding to this span, and the log is not Detach()ed; or
 	// (3) preceeding Flush() if there has been logging activity since the
 	// last call to Flush(), Done(), or the start of the span.
-	Done(time.Time)
+	//
+	// final is true when the log is done, it is false when Done is called
+	// prior to a Flush().  Just because Done was called with final does not
+	// mean that Done won't be called again.  Any further calls would only 
+	// happen due a bug in the application: logging things after calling
+	// log.Done.
+	//
+	// If the application never calls log.Done(), then final will never
+	// be true.
+	Done(endTime time.Time, final bool)
 }
 
 type Prefilling interface {

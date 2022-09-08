@@ -1,9 +1,5 @@
 package xopnum
 
-import (
-	"sync/atomic"
-)
-
 //go:generate enumer -type=Level -linecomment -json -sql
 
 type Level int32

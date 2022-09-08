@@ -13,6 +13,7 @@ import (
 
 func TestDecode(t *testing.T) {
 	cases := []struct {
+		name       string
 		timeFormat string
 		divide     time.Duration
 		gmt        bool
@@ -35,37 +36,45 @@ func TestDecode(t *testing.T) {
 			rounding: time.Second,
 		},
 		{
+			name:       "rfc3339 GMT",
 			timeFormat: time.RFC3339,
 			rounding:   time.Second,
 			gmt:        true,
 		},
 		{
+			name:       "rfc3339",
 			timeFormat: time.RFC3339,
 			rounding:   time.Second,
 		},
 		{
+			name:       "rfc3339 nano",
 			timeFormat: time.RFC3339Nano,
 			rounding:   time.Microsecond,
 		},
 		{
+			name:       "rfc3339 nano gmt",
 			timeFormat: time.RFC3339Nano,
 			rounding:   time.Microsecond,
 			gmt:        true,
 		},
 		{
+			name:       "ansic",
 			timeFormat: time.ANSIC,
 			gmt:        true,
 			rounding:   time.Second,
 		},
 		{
+			name:       "unixdate",
 			timeFormat: time.UnixDate,
 			rounding:   time.Second,
 		},
 		{
+			name:       "rubydate",
 			timeFormat: time.RubyDate,
 			rounding:   time.Second,
 		},
 		{
+			name:       "rfc822",
 			timeFormat: time.RFC822,
 			gmt:        true,
 			rounding:   time.Minute,
@@ -74,7 +83,10 @@ func TestDecode(t *testing.T) {
 
 	for _, tc := range cases {
 		tc := tc
-		name := tc.timeFormat
+		name := tc.name
+		if name == "" {
+			name = tc.timeFormat
+		}
 		if name == "" {
 			name = tc.divide.String()
 		}
