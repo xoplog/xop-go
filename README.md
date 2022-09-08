@@ -39,7 +39,7 @@ standard for what log fields mean.  The closest for this is the naming semantics
 that are included in the Open Telementry project.
 
 Once the logs are generated, good logging systems tag each line with trance and
-span identifiers, but the logs are still stored, searched, and dispalyed as
+span identifiers, but the logs are still stored, searched, and displayed as
 lines.  Most of the value comes from the context of the log so recording them
 as lines removes misses the point.
 
@@ -130,7 +130,7 @@ Should this be enforced?  XXX how?
 
 Spans have a text description
 
-Spans have arbitray key/value pairs that are added as users create
+Spans have arbitrary key/value pairs that are added as users create
 the span.
 
 Spans have a W3C-compatible id
@@ -151,7 +151,7 @@ Log lines can have key/value pairs
 
 If the key is "span" then the value should be full span reference
 
-The key of "type" should be displayed prominately by the front-end and
+The key of "type" should be displayed prominently by the front-end and
 the following types are suggested:
 
 - "reference": requires a "span" and referes to that span
@@ -262,7 +262,7 @@ to the individual base loggers.
 The data associated with spans, traces, and requests must come from pre-registered
 keys.
 
-# Philosphy
+# Philosophy
 
 Xop is opinionated.  It gently nudges in certain directions.  Perhaps
 the biggest nudge is that there is no support for generating

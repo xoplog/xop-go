@@ -1,9 +1,5 @@
 package xopnum
 
-import (
-	"sync/atomic"
-)
-
 //go:generate enumer -type=Level -linecomment -json -sql
 
 type Level int32
@@ -23,11 +19,3 @@ const (
 )
 
 const MaxLevel = AlertLevel
-
-func (level *Level) AtomicLoad() Level {
-	return Level(atomic.LoadInt32((*int32)(level)))
-}
-
-func (level *Level) AtomicStore(newLevel Level) {
-	atomic.StoreInt32((*int32)(level), int32(newLevel))
-}

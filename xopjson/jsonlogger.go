@@ -323,7 +323,7 @@ func (s *span) FlushAttributes() {
 	}
 }
 
-func (s *span) Done(t time.Time) {
+func (s *span) Done(t time.Time, _ bool) {
 	atomic.StoreInt64(&s.endTime, t.UnixNano())
 	s.FlushAttributes()
 }

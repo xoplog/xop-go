@@ -320,10 +320,10 @@ func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
 	if done {
 		atomic.StoreInt32(&log.span.knownActive, 0)
 		count = atomic.AddInt32(&log.span.doneCount, 1)
-		log.span.base.Done(time.Now())
+		log.span.base.Done(time.Now(), true)
 	} else {
 		if atomic.SwapInt32(&log.span.knownActive, 0) == 1 {
-			log.span.base.Done(now)
+			log.span.base.Done(now, false)
 		}
 	}
 	deps := func() []*Log {

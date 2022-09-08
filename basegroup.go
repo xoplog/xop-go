@@ -102,9 +102,9 @@ func (s baseSpans) Span(t time.Time, span trace.Bundle, descriptionOrName string
 	return baseSpans
 }
 
-func (s baseSpans) Done(t time.Time) {
+func (s baseSpans) Done(t time.Time, final bool) {
 	for _, span := range s {
-		span.Done(t)
+		span.Done(t, final)
 	}
 }
 
