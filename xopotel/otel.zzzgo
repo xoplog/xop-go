@@ -10,6 +10,7 @@ that is expects to be provided with a xop logger.
 package xopotel
 
 import (
+	"context"
 	"time"
 
 	"github.com/muir/xop-go"
@@ -26,8 +27,33 @@ type BaseLogger struct {
 
 // var _ xopbase.Logger = &BaseLogger{}
 
-func OTELSeed(tracer oteltrace.Tracer) xop.SeedModifier {
-	return xop.WithReactive(nil)
+func OTELSeed(topCtx context.Context, tracer oteltrace.Tracer) xop.SeedModifier {
+	return xop.WithReactive(func(ctx context.Context, seed xop.Seed, selfIndex int, nameOrDescription string, isChildSpan bool) xop.Seed {
+		if ctx == nil {
+			ctx = topCtx
+		}
+		if isChildSpan {
+			ctx, span := tracer.Start(ctx, nameOrDescription)
+			return seed.Copy(
+				xop.WithContext(ctx),
+				xop.WithSpan(span.SpanContext().SpanID()),
+			)
+		}
+		ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithNewRoot())
+		bundle := seed.Bundle()
+		if bundle.TraceParent.IsZero() {
+			bundle.State.SetString(span.SpanContext().TraceState().String())
+			bundle.Trace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
+			bundle.Trace.Version().Set([1]byte{1})
+			bundle.Trace.TraceID().Set(span.SpanContext().TraceID())
+		}
+		bundle.Trace.SpanID().Set(span.SpanContext().SpanID())
+		return seed.Copy(
+			xop.WithContext(ctx),
+			xop.WithBundle(bundle),
+		)
+	})
+	// ctx, span := logger.Start(context.Background(), description, opts ...SpanStartOption)
 }
 
 func NewLogger(tracer oteltrace.Tracer) *BaseLogger {

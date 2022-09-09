@@ -34,14 +34,16 @@ func (cbs seedReactiveCallbacks) Copy() seedReactiveCallbacks {
 }
 
 type spanSeed struct {
-	traceBundle      trace.Bundle
-	spanSequenceCode string
-	description      string
-	loggers          loggers
-	config           Config
-	flushDelay       time.Duration
-	reactive         seedReactiveCallbacks
-	ctx              context.Context
+	traceBundle          trace.Bundle
+	spanSequenceCode     string
+	description          string
+	loggers              loggers
+	config               Config
+	flushDelay           time.Duration
+	reactive             seedReactiveCallbacks
+	ctx                  context.Context
+	currentReactiveIndex int
+	reactiveReplaced     bool
 }
 
 func (s spanSeed) copy(withHistory bool) spanSeed {
@@ -94,15 +96,13 @@ func WithReactive(f SeedReactiveCallback) SeedModifier {
 	}
 }
 
-func WithReactiveReplaced(index int, f SeedReactiveCallback) SeedModifier {
+// WithReactiveReplaced may only be used from within a call to a reactive
+// function.  The current reactive function is the one that will be replaced.
+// To remove a reactive function, call WithReactiveReplaced with nil.
+func WithReactiveReplaced(f SeedReactiveCallback) SeedModifier {
 	return func(s *Seed) {
-		s.reactive[index] = f
-	}
-}
-
-func WithReactiveRemoved(index int) SeedModifier {
-	return func(s *Seed) {
-		s.reactive = append(s.reactive[:index], s.reactive[index+1:]...)
+		s.reactive[s.currentReactiveIndex] = f
+		s.reactiveReplaced = true
 	}
 }
 
@@ -120,6 +120,12 @@ func WithBundle(bundle trace.Bundle) SeedModifier {
 	}
 }
 
+func WithSpan(spanID [8]byte) SeedModifier {
+	return func(s *Seed) {
+		s.traceBundle.Trace.SpanID().Set(spanID)
+	}
+}
+
 func WithTrace(trace trace.Trace) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle.Trace = trace
@@ -132,12 +138,43 @@ func WithSettings(f func(*LogSettings)) SeedModifier {
 	}
 }
 
-func (seed Seed) Trace() trace.Bundle {
+func (seed Seed) Bundle() trace.Bundle {
 	return seed.traceBundle
 }
 
-func (seed Seed) SubSpan() Seed {
-	seed.traceBundle = seed.traceBundle.Copy()
-	seed.traceBundle.Trace.RandomizeSpanID()
+func (seed Seed) react(isRequest bool, description string) Seed {
+	if isRequest {
+		seed.traceBundle.Trace.RebuildSetNonZero()
+	} else {
+		seed.traceBundle = seed.traceBundle.Copy()
+		seed.traceBundle.Trace.RandomizeSpanID()
+	}
+	if len(seed.reactive) == 0 {
+		return seed
+	}
+	var nilSeen bool
+	for i := 0; i < len(seed.reactive); {
+		f := seed.reactive[i]
+		if f == nil {
+			nilSeen = true
+			i++
+			continue
+		}
+		seed.currentReactiveIndex = i
+		seed.reactiveReplaced = false
+		seed = f(seed.ctx, seed, i, description, !isRequest)
+		if !seed.reactiveReplaced {
+			i++
+		}
+	}
+	if nilSeen {
+		reactive := make(seedReactiveCallbacks, 0, len(seed.reactive))
+		for _, f := range seed.reactive {
+			if f != nil {
+				reactive = append(reactive, f)
+			}
+		}
+		seed.reactive = reactive
+	}
 	return seed
 }

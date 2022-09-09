@@ -89,10 +89,11 @@ func (d *Detaching) Fork(msg string, mods ...SeedModifier) *Log { return d.sub.F
 // it is assumed to be done with the current log is finished.  The new log
 // has its own span.
 func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.capSpan.Seed(mods...).SubSpan()
+	seed := sub.log.capSpan.Seed(mods...)
 	counter := int(atomic.AddInt32(&sub.log.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter-1)
-	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings, sub.detached)
+	seed.settings = sub.settings
+	return sub.log.newChildLog(seed, msg, sub.detached)
 }
 
 // Step creates a new log that does not need to be terminated -- it
@@ -101,10 +102,11 @@ func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
 // is that there is a parent log that is creating various sub-logs using
 // Step over and over as it does different things.
 func (sub *Sub) Step(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.capSpan.Seed(mods...).SubSpan()
+	seed := sub.log.capSpan.Seed(mods...)
 	counter := int(atomic.AddInt32(&sub.log.span.stepCounter, 1))
 	seed.spanSequenceCode += "." + strconv.Itoa(counter)
-	return sub.log.newChildLog(seed.spanSeed, msg, sub.settings, sub.detached)
+	seed.settings = sub.settings
+	return sub.log.newChildLog(seed, msg, sub.detached)
 }
 
 // StackFrames sets the number of stack frames to include at

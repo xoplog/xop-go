@@ -79,6 +79,21 @@ func (x *HexBytes8) SetBytes(b []byte) {
 	hex.Encode(x.h[:], x.b[:])
 }
 
+func (x *HexBytes1) Set(b [1]byte) {
+	x.b = b
+	hex.Encode(x.h[:], x.b[:])
+}
+
+func (x *HexBytes16) Set(b [16]byte) {
+	x.b = b
+	hex.Encode(x.h[:], x.b[:])
+}
+
+func (x *HexBytes8) Set(b [8]byte) {
+	x.b = b
+	hex.Encode(x.h[:], x.b[:])
+}
+
 func (x *HexBytes1) SetString(s string) {
 	setBytesFromString(x.b[:], s)
 	hex.Encode(x.h[:], x.b[:])

@@ -61,7 +61,7 @@ type shared struct {
 }
 
 func (seed Seed) Request(descriptionOrName string) *Log {
-	seed.traceBundle.Trace.RebuildSetNonZero()
+	seed = seed.react(true, descriptionOrName)
 
 	type singleAlloc struct {
 		Log    Log
@@ -144,7 +144,9 @@ func (sub *Sub) Log() *Log {
 	return log
 }
 
-func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogSettings, detached bool) *Log {
+func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
+	seed = seed.react(false, description)
+
 	type singleAlloc struct {
 		Log  Log
 		Span Span
@@ -155,11 +157,11 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			request:  old.request,
 			parent:   old,
 			shared:   old.shared,
-			settings: settings,
+			settings: seed.settings,
 			// XXX prefilled?
 		},
 		span: span{
-			seed:        spanSeed,
+			seed:        seed.spanSeed,
 			detached:    detached,
 			description: description,
 			knownActive: 1,
@@ -172,8 +174,8 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	alloc.Log.span = &alloc.span
 	log := &alloc.Log
 
-	log.span.base = old.span.base.Span(spanSeed.ctx, time.Now(), spanSeed.traceBundle, description, log.span.seed.spanSequenceCode)
-	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {
+	log.span.base = old.span.base.Span(seed.ctx, time.Now(), seed.traceBundle, description, log.span.seed.spanSequenceCode)
+	if len(seed.loggers.Added) == 0 && len(seed.loggers.Removed) == 0 {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
 	} else {
@@ -186,13 +188,13 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		} else {
 			spanSet[log.span.base.ID()] = log.span.base
 		}
-		for _, removed := range spanSeed.loggers.Removed {
+		for _, removed := range seed.loggers.Removed {
 			id := removed.ID()
 			DebugPrint("remove flusher", id)
 			delete(spanSet, id)
 		}
 		ts := time.Now()
-		for _, added := range spanSeed.loggers.Added {
+		for _, added := range seed.loggers.Added {
 			id := added.ID()
 			if _, ok := spanSet[id]; ok {
 				DebugPrint("ignoring additional flusher, in span set", id)
