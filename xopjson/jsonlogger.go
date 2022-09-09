@@ -3,6 +3,7 @@
 package xopjson
 
 import (
+	"context"
 	"encoding/json"
 	"runtime"
 	"strings"
@@ -55,7 +56,7 @@ func (logger *Logger) Close() {
 	logger.writer.Close()
 }
 
-func (logger *Logger) Request(ts time.Time, trace trace.Bundle, name string) xopbase.Request {
+func (logger *Logger) Request(_ context.Context, ts time.Time, trace trace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
 			logger:    logger,
@@ -218,7 +219,7 @@ func (r *request) Flush() {
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
 
-func (s *span) Span(ts time.Time, trace trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (s *span) Span(_ context.Context, ts time.Time, trace trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &span{
 		logger:       s.logger,
 		writer:       s.writer,

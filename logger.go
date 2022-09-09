@@ -75,7 +75,7 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 			// XXX prefilled?
 		},
 		span: span{
-			seed:        seed.spanSeed.Copy(),
+			seed:        seed.spanSeed.copy(false),
 			description: descriptionOrName,
 			knownActive: 1,
 		},
@@ -95,7 +95,7 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(time.Now(), log.span.seed.traceBundle, descriptionOrName)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
@@ -172,7 +172,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	alloc.Log.span = &alloc.span
 	log := &alloc.Log
 
-	log.span.base = old.span.base.Span(time.Now(), spanSeed.traceBundle, description, log.span.seed.spanSequenceCode)
+	log.span.base = old.span.base.Span(spanSeed.ctx, time.Now(), spanSeed.traceBundle, description, log.span.seed.spanSequenceCode)
 	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
@@ -207,7 +207,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 				DebugPrint("ignoring additional flusher, already in flusher set", id)
 				continue
 			}
-			req := added.Request(ts, log.request.span.seed.traceBundle, log.shared.Description)
+			req := added.Request(log.request.span.seed.ctx, ts, log.request.span.seed.traceBundle, log.shared.Description)
 			spanSet[id] = req
 			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
 			DebugPrint("adding flusher to flusher set", id)

@@ -15,10 +15,25 @@ type Seed struct {
 	settings LogSettings
 }
 
+func (seed Seed) Copy(mods ...SeedModifier) Seed {
+	return Seed{
+		spanSeed: seed.spanSeed.copy(true),
+		settings: seed.settings.Copy(),
+	}
+}
+
 // SeedReactiveCallback is used to modify seeds as they are just sprouting
 // The selfIndex parameter can be used with WithReactiveReplaced or
 // WithReactiveRemoved.
 type SeedReactiveCallback func(ctx context.Context, seed Seed, selfIndex int, nameOrDescription string, isChildSpan bool) Seed
+
+type seedReactiveCallbacks []SeedReactiveCallback
+
+func (cbs seedReactiveCallbacks) Copy() seedReactiveCallbacks {
+	n := make(seedReactiveCallbacks, len(cbs))
+	copy(n, cbs)
+	return n
+}
 
 type spanSeed struct {
 	traceBundle      trace.Bundle
@@ -27,14 +42,15 @@ type spanSeed struct {
 	loggers          loggers
 	config           Config
 	flushDelay       time.Duration
-	reactive         []SeedReactiveCallback
+	reactive         seedReactiveCallbacks
 	ctx              context.Context
 }
 
-func (s spanSeed) copy() spanSeed {
+func (s spanSeed) copy(withHistory bool) spanSeed {
 	n := s
-	n.loggers = s.loggers.Copy()
+	n.loggers = s.loggers.Copy(withHistory)
 	n.traceBundle = s.traceBundle.Copy()
+	n.reactive = s.reactive.Copy()
 	return n
 }
 
@@ -55,7 +71,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 // spanID is randomized.
 func (span *Span) Seed(mods ...SeedModifier) Seed {
 	seed := Seed{
-		spanSeed: span.seed.Copy(),
+		spanSeed: span.seed.copy(false),
 		settings: span.log.settings.Copy(),
 	}
 	seed.spanSeed.traceBundle.Trace.RandomizeSpanID()

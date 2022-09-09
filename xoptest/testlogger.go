@@ -3,6 +3,7 @@
 package xoptest
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -91,6 +92,7 @@ type Span struct {
 	EndTime      int64
 	Name         string
 	SequenceCode string
+	Ctx          context.Context
 }
 
 type Prefilling struct {
@@ -154,7 +156,7 @@ func (log *TestLogger) Close()                       {}
 func (log *TestLogger) Buffered() bool               { return false }
 func (log *TestLogger) ReferencesKept() bool         { return true }
 func (log *TestLogger) SetErrorReporter(func(error)) {}
-func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopbase.Request {
+func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bundle, name string) xopbase.Request {
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
@@ -167,6 +169,7 @@ func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xop
 		Metadata:     make(map[string]interface{}),
 		MetadataType: make(map[string]xopbase.DataType),
 		metadataSeen: make(map[string]interface{}),
+		Ctx:          ctx,
 	}
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
@@ -231,7 +234,7 @@ func (span *Span) Boring(bool)                  {}
 func (span *Span) ID() string                   { return span.testLogger.id }
 func (span *Span) SetErrorReporter(func(error)) {}
 
-func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
 	span.lock.Lock()
@@ -246,6 +249,7 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 		MetadataType: make(map[string]xopbase.DataType),
 		metadataSeen: make(map[string]interface{}),
 		SequenceCode: spanSequenceCode,
+		Ctx:          ctx,
 	}
 	span.Spans = append(span.Spans, n)
 	span.testLogger.Spans = append(span.testLogger.Spans, n)

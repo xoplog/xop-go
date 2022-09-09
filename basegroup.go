@@ -3,6 +3,7 @@
 package xop
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -34,9 +35,9 @@ var (
 	_ xopbase.Prefilling = prefillings{}
 )
 
-func (l baseLoggers) StartRequests(ts time.Time, span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
+func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
-		req := l[0].Request(ts, span, descriptionOrName)
+		req := l[0].Request(ctx, ts, span, descriptionOrName)
 		return req, map[string]xopbase.Request{l[0].ID(): req}
 	}
 	m := make(map[string]xopbase.Request)
@@ -50,7 +51,7 @@ func (l baseLoggers) StartRequests(ts time.Time, span trace.Bundle, descriptionO
 			// duplicate!
 			continue
 		}
-		req := logger.Request(ts, span, descriptionOrName)
+		req := logger.Request(ctx, ts, span, descriptionOrName)
 		r.baseRequests = append(r.baseRequests, req)
 		r.baseSpans = append(r.baseSpans, req.(xopbase.Span))
 		m[id] = req
@@ -94,10 +95,10 @@ func (s baseRequests) Flush() {
 	wg.Wait()
 }
 
-func (s baseSpans) Span(t time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
+func (s baseSpans) Span(ctx context.Context, t time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
 	baseSpans := make(baseSpans, len(s))
 	for i, ele := range s {
-		baseSpans[i] = ele.Span(t, span, descriptionOrName, spanSequenceCode)
+		baseSpans[i] = ele.Span(ctx, t, span, descriptionOrName, spanSequenceCode)
 	}
 	return baseSpans
 }
