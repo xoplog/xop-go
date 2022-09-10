@@ -140,6 +140,14 @@ func WithSettings(f func(*LogSettings)) SeedModifier {
 	}
 }
 
+func CombineSeedModfiers(mods ...SeedModifier) SeedModifier {
+	return func(s *Seed) {
+		for _, f := range mods {
+			f(s)
+		}
+	}
+}
+
 func (seed Seed) Bundle() trace.Bundle {
 	return seed.traceBundle
 }

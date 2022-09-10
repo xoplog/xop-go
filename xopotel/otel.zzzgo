@@ -6,71 +6,282 @@ This gateway can be used either as a base layer for xop allowing
 xop to output through OTEL; or it can be used to bridge the gap
 between an application that is otherwise using OTEL and a library
 that is expects to be provided with a xop logger.
+
+OTEL supports far fewer data types than xop.  Mostly, xop types
+can be converted cleanly, but links are a special case: links can
+only be added to OTEL spans when the span is created.  Since xop
+allows links to be made at any time, MetadataLink()s will be added as
+ephemeral sub-spans.  Distinct, Multiple, and Locked attributes will
+be ignored for links.
 */
 package xopotel
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/muir/xop-go"
 	"github.com/muir/xop-go/trace"
+	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xopnum"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-type BaseLogger struct {
-	tracer oteltrace.Tracer
-	id     string
-}
-
-// var _ xopbase.Logger = &BaseLogger{}
-
-func OTELSeed(topCtx context.Context, tracer oteltrace.Tracer) xop.SeedModifier {
-	return xop.WithReactive(func(ctx context.Context, seed xop.Seed, selfIndex int, nameOrDescription string, isChildSpan bool) xop.Seed {
-		if ctx == nil {
-			ctx = topCtx
-		}
-		if isChildSpan {
-			ctx, span := tracer.Start(ctx, nameOrDescription)
+func SeedModifier(ctx context.Context, tracer oteltrace.Tracer) xop.SeedModifier {
+	return xop.CombineSeedModfiers(
+		xop.WithBase(&Logger{
+			id: "otel-" + uuid.New().String(),
+		}),
+		xop.WithContext(ctx),
+		xop.WithReactive(func(ctx context.Context, seed xop.Seed, selfIndex int, nameOrDescription string, isChildSpan bool) xop.Seed {
+			if isChildSpan {
+				ctx, span := tracer.Start(ctx, nameOrDescription)
+				return seed.Copy(
+					xop.WithContext(ctx),
+					xop.WithSpan(span.SpanContext().SpanID()),
+				)
+			}
+			ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithNewRoot())
+			bundle := seed.Bundle()
+			if bundle.TraceParent.IsZero() {
+				bundle.State.SetString(span.SpanContext().TraceState().String())
+				bundle.Trace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
+				bundle.Trace.Version().Set([1]byte{1})
+				bundle.Trace.TraceID().Set(span.SpanContext().TraceID())
+			}
+			bundle.Trace.SpanID().Set(span.SpanContext().SpanID())
 			return seed.Copy(
 				xop.WithContext(ctx),
-				xop.WithSpan(span.SpanContext().SpanID()),
+				xop.WithBundle(bundle),
 			)
-		}
-		ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithNewRoot())
-		bundle := seed.Bundle()
-		if bundle.TraceParent.IsZero() {
-			bundle.State.SetString(span.SpanContext().TraceState().String())
-			bundle.Trace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
-			bundle.Trace.Version().Set([1]byte{1})
-			bundle.Trace.TraceID().Set(span.SpanContext().TraceID())
-		}
-		bundle.Trace.SpanID().Set(span.SpanContext().SpanID())
-		return seed.Copy(
-			xop.WithContext(ctx),
-			xop.WithBundle(bundle),
-		)
-	})
-	// ctx, span := logger.Start(context.Background(), description, opts ...SpanStartOption)
+		}),
+	)
 }
 
-func NewLogger(tracer oteltrace.Tracer) *BaseLogger {
-	return &BaseLogger{
-		tracer: tracer,
-		id:     "otel-" + uuid.New().String(),
+func (logger *Logger) ID() string           { return logger.id }
+func (logger *Logger) ReferencesKept() bool { return true }
+func (logger *Logger) Buffered() bool       { return false }
+
+func (logger *Logger) Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Request {
+	span := oteltrace.SpanFromContext(ctx)
+	return &Span{
+		logger: logger,
+		span:   span,
+		ctx:    ctx,
 	}
 }
 
-func (logger *BaseLogger) ID() string           { return logger.id }
-func (logger *BaseLogger) ReferencesKept() bool { return true }
-func (logger *BaseLogger) Buffered() bool       { return false }
+func (span *Span) Flush()                         {}
+func (span *Span) SetErrorReporter(f func(error)) {}
+func (span *Span) Boring(_ bool)                  {}
+func (span *Span) ID() string                     { return span.logger.id }
+func (span *Span) Done(endTime time.Time, final bool) {
+	if !final {
+		return
+	}
+}
 
-type Request interface{}
+func (span *Span) Span(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Span {
+	return span.logger.Request(ctx, ts, span, description)
+}
 
-func (logger *BaseLogger) Request(ts time.Time, span trace.Bundle, description string) Request {
-	// ctx, span := logger.Start(context.Background(), description, opts ...SpanStartOption)
-	// WithSpanKind (internal, etc)
-	return nil
+func (span *Span) NoPrefill() xopbase.Prefilled {
+	return &Prefilled{
+		Builder: Builder{
+			span: span,
+		},
+	}
+}
+
+func (span *Span) StartPrefill() xopbase.Prefilling {
+	return &Prefilling{
+		Builder: Builder{
+			span: span,
+		},
+	}
+}
+
+func (prefill *Prefilling) PrefillComplete(msg string) xopbase.Prefilled {
+	return &Prefilled{
+		Builder: prefill.Builder,
+	}
+}
+
+func (prefilled *Prefilled) Line(level xopnum.Level, _ time.Time, stack []uintptr) xopbase.Line {
+	// TODO: get line from a pool
+	line := &Line{}
+	line.span = prefilled.span
+	line.attributes = line.prealloc[:0]
+	line.attributes = append(line.attributes, span.spanPrefill...)
+	line.attributes = append(line.attributes, prefilled.attributes...)
+	line.attributes = append(line.attributes,
+		logSeverityKey.String(level.String()),
+	)
+	// TODO: stack trace
+	// semconv.ExceptionStacktraceKey.String
+	return line
+}
+
+func (line *Line) Static(msg string) { return line.Msg(msg) }
+func (line *Line) Msg(string) {
+	line.span.span.AddEvent("log", trace.WithAttributes(line.attributes))
+	// TODO: return line to pool
+}
+
+var templateRE = regexp.MustCompile(`\{.+?\}`)
+
+func (line *Line) Template(template string) {
+	kv := make(map[string]int)
+	for i, a := range line.attributes {
+		kv[string(a.Key)] = i
+	}
+	msg := templateRE.ReplaceAllStringFunc(line.Message, func(k string) string {
+		k = k[1 : len(k)-1]
+		if i, ok := kv[k]; ok {
+			a := line.attributes[i]
+			switch a.Value.Type() {
+			case attributes.BOOL:
+				return strconv.FormatBool(a.Value.AsBool())
+			case attributes.INT64:
+				return strconv.FormatInt(a.Value.AsInt64(), 10)
+			case attributes.FLOAT64:
+				return strconv.FormatFloat(a.Value.AsInt64(), 64, "e")
+			case attributes.STRING:
+				return a.Value.AsString()
+			case attributes.BOOLSLICE:
+				return fmt.Sprint(a.Value.AsBoolSlice())
+			case attributes.INT64SLICE:
+				return fmt.Sprint(a.Value.AsInt64Slice())
+			case attributes.FLOAT64SLICE:
+				return fmt.Sprint(a.Value.AsFloat64Slice())
+			case attributes.STRINGSLICE:
+				return fmt.Sprint(a.Value.AsStringSlice())
+			default:
+				return "{" + k + "}"
+			}
+		}
+		return "''"
+	})
+	line.Msg(msg)
+}
+
+func (span *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
+	traceState, _ := oteltrace.ParseTraceState(v.Trace.State.String())
+	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
+		oteltrace.Link{
+			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+				TraceID:    v.Trace.TraceID().Array(),
+				SpanID:     v.Trace.SpanID().Array(),
+				TraceFlags: v.Trace.Flags().Array()[0],
+				TraceState: traceState,
+				Remote:     true,
+			}),
+		},
+	))
+	subspan.End()
+}
+
+//MACRO BaseAttribute SKIP:Link
+func (span *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	key := k.Key()
+	//CONDITIONAL ONLY:Enum
+	value := v.String()
+	//CONDITIONAL ONLY:Time
+	value := v.Format(time.RFC3339Nano)
+	//CONDITIONAL ONLY:Duration
+	value := int64(v)
+	//CONDITIONAL ONLY:Any
+	enc, err := json.Marshal(v)
+	var value string
+	if err != nil {
+		value = fmt.Errorf("could not marshal %T value: %s", v, err)
+	} else {
+		value = string(enc)
+	}
+	//CONDITIONAL ONLY:Int64,String,Float64,Bool
+	value := v
+	//END CONDITIONAL
+	if !k.Multiple() {
+		if k.Locked() {
+			span.lock.Lock()
+			defer span.lock.Unlock()
+			//CONDITIONAL ONLY:Enum,Time,String,Any
+			if span.priorString == nil {
+				span.priorString = map[string]struct{}{
+					value: {},
+				}
+			} else {
+				if _, ok := span.priorString[value]; ok {
+					return
+				}
+				span.priorString[value] = struct{}{}
+			}
+			//CONDITIONAL ELSE
+			if span.priorZZZ == nil {
+				span.priorZZZ = map[string]struct{}{
+					value: {},
+				}
+			} else {
+				if _, ok := span.priorZZZ[value]; ok {
+					return
+				}
+				span.priorZZZ[value] = struct{}{}
+			}
+			//CONDITIONAL END
+		}
+		//CONDITIONAL ONLY:Enum,Time,String,Any
+		span.span.SetAttributes(attribute.String(key, value))
+		//CONDITIONAL ELSE
+		span.span.SetAttributes(attribute.ZZZ(key, value))
+		//CONDITIONAL END
+		return
+	}
+	span.lock.Lock()
+	defer span.lock.Unlock()
+	if k.Distinct() {
+		seenRaw, ok := span.priorDistinct[key]
+		if !ok {
+			//CONDITIONAL ONLY:Enum,Time,String,Any
+			seen := make(map[string]struct{})
+			//ELSE CONDITIONAL
+			seen := make(map[zzz]struct{})
+			//END CONDITIONAL
+			span.priorDistinct[key] = seen
+			seen[value] = struct{}{}
+		} else {
+			//CONDITIONAL ONLY:Enum,Time,String,Any
+			seen := seenRaw.(map[string]struct{})
+			//ELSE CONDITIONAL
+			seen := seenRaw.(map[zzz]struct{})
+			//END CONDITIONAL
+			if _, ok := seen[value]; ok {
+				return
+			}
+			seen[value] = struct{}{}
+		}
+	}
+	//CONDITIONAL ONLY:Enum,Time,String,Any
+	if span.priorStringSlices == nil {
+		span.priorStringSlices = make(map[string][]zzz)
+	}
+	s := span.priorStringSlices[key]
+	s = append(s, value)
+	span.priorStringSlices[key] = s
+	span.span.SetAttributes(attribute.StringSlice(key, s))
+	//ELSE CONDITIONAL
+	if span.priorZZZSlices == nil {
+		span.priorZZZSlices = make(map[string][]zzz)
+	}
+	s := span.priorZZZSlices[key]
+	s = append(s, value)
+	span.priorZZZSlices[key] = s
+	span.span.SetAttributes(attribute.ZZZSlice(key, s))
+	//END CONDITIONAL
 }
