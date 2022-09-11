@@ -9,6 +9,35 @@
 
 In development, almost ready for use.
 
+Expect the following changes
+
+- API changes as additional features are added
+
+  Currently xop has no metrics support.  That will change and adding
+  metrics will probably be the biggest API change
+
+- Repo will split:
+
+  So that users of xop are somewhat insulated from version changes,
+  the repo will split up.
+
+  - main xop top-level 
+  - utility/support functions like xopat
+  - bundled base loggers and xopbase
+  - indiviual base loggers that have imports
+
+    - xopotel
+
+- Additional gateway base loggers will be written
+
+  To make xop the best logging library for library writers, a full compliment
+  of xop -> logger gateways will be written.
+
+  - zap
+  - logrus
+  - zerolog
+  - onelog 
+
 # Context
 
 Observability code and technique is rapidly evolving.  The Open Telemetry 

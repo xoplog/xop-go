@@ -142,6 +142,7 @@ var macros = map[string]map[string]string{
 		"Int64Slice":   "[]int64",
 		"Float64Slice": "[]float64",
 		"BoolSlice":    "[]bool",
+		"Stringer":     "fmt.Stringer",
 	},
 }
 

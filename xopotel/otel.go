@@ -39,7 +39,7 @@ import (
 
 func SeedModifier(ctx context.Context, tracer oteltrace.Tracer) xop.SeedModifier {
 	return xop.CombineSeedModfiers(
-		xop.WithBase(&Logger{
+		xop.WithBase(&logger{
 			id: "otel-" + uuid.New().String(),
 		}),
 		xop.WithContext(ctx),
@@ -68,42 +68,43 @@ func SeedModifier(ctx context.Context, tracer oteltrace.Tracer) xop.SeedModifier
 	)
 }
 
-func (logger *Logger) ID() string           { return logger.id }
-func (logger *Logger) ReferencesKept() bool { return true }
-func (logger *Logger) Buffered() bool       { return false }
+func (logger *logger) ID() string           { return logger.id }
+func (logger *logger) ReferencesKept() bool { return true }
+func (logger *logger) Buffered() bool       { return false }
+func (logger *logger) Close()               {}
 
-func (logger *Logger) Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Request {
-	span := oteltrace.SpanFromContext(ctx)
-	return &Span{
+func (logger *logger) Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Request {
+	otelspan := oteltrace.SpanFromContext(ctx)
+	return &span{
 		logger: logger,
-		span:   span,
+		span:   otelspan,
 		ctx:    ctx,
 	}
 }
 
-func (span *Span) Flush()                         {}
-func (span *Span) SetErrorReporter(f func(error)) {}
-func (span *Span) Boring(_ bool)                  {}
-func (span *Span) ID() string                     { return span.logger.id }
-func (span *Span) Done(endTime time.Time, final bool) {
+func (span *span) Flush()                         {}
+func (span *span) SetErrorReporter(f func(error)) {}
+func (span *span) Boring(_ bool)                  {}
+func (span *span) ID() string                     { return span.logger.id }
+func (span *span) Done(endTime time.Time, final bool) {
 	if !final {
 		return
 	}
 }
 
-func (span *Span) Span(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Span {
+func (span *span) Span(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Span {
 	return span.logger.Request(ctx, ts, span, description)
 }
 
-func (span *Span) NoPrefill() xopbase.Prefilled {
-	return &Prefilled{
-		Builder: Builder{
+func (span *span) NoPrefill() xopbase.Prefilled {
+	return &prefilled{
+		Builder: builder{
 			span: span,
 		},
 	}
 }
 
-func (span *Span) StartPrefill() xopbase.Prefilling {
+func (span *span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
 			span: span,
@@ -111,15 +112,15 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 	}
 }
 
-func (prefill *Prefilling) PrefillComplete(msg string) xopbase.Prefilled {
-	return &Prefilled{
+func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
+	return &prefilled{
 		Builder: prefill.Builder,
 	}
 }
 
-func (prefilled *Prefilled) Line(level xopnum.Level, _ time.Time, stack []uintptr) xopbase.Line {
+func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintptr) xopbase.Line {
 	// TODO: get line from a pool
-	line := &Line{}
+	line := &line{}
 	line.span = prefilled.span
 	line.attributes = line.prealloc[:0]
 	line.attributes = append(line.attributes, span.spanPrefill...)
@@ -132,15 +133,15 @@ func (prefilled *Prefilled) Line(level xopnum.Level, _ time.Time, stack []uintpt
 	return line
 }
 
-func (line *Line) Static(msg string) { return line.Msg(msg) }
-func (line *Line) Msg(string) {
+func (line *line) Static(msg string) { return line.Msg(msg) }
+func (line *line) Msg(string) {
 	line.span.span.AddEvent("log", trace.WithAttributes(line.attributes))
 	// TODO: return line to pool
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
 
-func (line *Line) Template(template string) {
+func (line *line) Template(template string) {
 	kv := make(map[string]int)
 	for i, a := range line.attributes {
 		kv[string(a.Key)] = i
@@ -175,7 +176,7 @@ func (line *Line) Template(template string) {
 	line.Msg(msg)
 }
 
-func (span *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
+func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
 	traceState, _ := oteltrace.ParseTraceState(v.Trace.State.String())
 	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
 		oteltrace.Link{
@@ -191,7 +192,74 @@ func (span *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
 	subspan.End()
 }
 
-func (span *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
+	builder.attributes = append(builder.Attributes, attributes.Stringer(k.Key(), v))
+}
+
+func (builder *builder) Any(k string, v interface{}) {
+	switch vt := v.(type) {
+	case bool:
+		builder.attributes = append(builder.Attributes, attributes.Bool(k, v))
+	case []bool:
+		builder.attributes = append(builder.Attributes, attributes.BoolSlice(k, v))
+	case float64:
+		builder.attributes = append(builder.Attributes, attributes.Float64(k, v))
+	case []float64:
+		builder.attributes = append(builder.Attributes, attributes.Float64Slice(k, v))
+	case int64:
+		builder.attributes = append(builder.Attributes, attributes.Int64(k, v))
+	case []int64:
+		builder.attributes = append(builder.Attributes, attributes.Int64Slice(k, v))
+	case string:
+		builder.attributes = append(builder.Attributes, attributes.String(k, v))
+	case []string:
+		builder.attributes = append(builder.Attributes, attributes.StringSlice(k, v))
+	case fmt.Stringer:
+		builder.attributes = append(builder.Attributes, attributes.Stringer(k, v))
+
+	default:
+		enc, err := json.Marshal(v)
+		if err != nil {
+			builder.attributes = append(builder.Attributes, attributes.String(k+"-error", err.Error()))
+		} else {
+			builder.attributes = append(builder.Attributes, attributes.String(k, string(enc)))
+		}
+	}
+}
+
+func (builder *builder) Time(k string, v time.Time) {
+	builder.attributes = append(builder.Attributes, attributes.String(k, v.Format(time.RFC3339Nano)))
+}
+
+func (builder *builder) Duration(k string, v time.Duration) {
+	builder.attributes = append(builder.Attributes, attributes.Stringer(k, v))
+}
+
+func (builder *builder) Error(k string, v error) {
+	builder.attributes = append(builder.Attributes, attributes.String(k, v.Error()))
+}
+
+func (builder *builder) Bool(k string, v value) {
+	builder.attributes = append(builder.Attributes, attributes.Bool(k, v))
+}
+
+func (builder *builder) Float64(k string, v value) {
+	builder.attributes = append(builder.Attributes, attributes.Float64(k, v))
+}
+
+func (builder *builder) Int64(k string, v value) {
+	builder.attributes = append(builder.Attributes, attributes.Int64(k, v))
+}
+
+func (builder *builder) String(k string, v value) {
+	builder.attributes = append(builder.Attributes, attributes.String(k, v))
+}
+
+func (builder *builder) Uint64(k string, v value) {
+	builder.attributes = append(builder.Attributes, attributes.Uint64(k, v))
+}
+
+func (span *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	key := k.Key()
 	enc, err := json.Marshal(v)
 	var value string
@@ -258,7 +326,7 @@ func (span *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	span.span.SetAttributes(attribute.StringSlice(key, s))
 }
 
-func (span *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	key := k.Key()
 	value := v
 	if !k.Multiple() {
@@ -288,7 +356,7 @@ func (span *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	span.span.SetAttributes(attribute.BoolSlice(key, s))
 }
 
-func (span *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	key := k.Key()
 	value := v.String()
 	if !k.Multiple() {
@@ -349,7 +417,7 @@ func (span *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	span.span.SetAttributes(attribute.StringSlice(key, s))
 }
 
-func (span *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
+func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	key := k.Key()
 	value := v
 	if !k.Multiple() {
@@ -379,7 +447,7 @@ func (span *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	span.span.SetAttributes(attribute.Float64Slice(key, s))
 }
 
-func (span *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	key := k.Key()
 	value := v
 	if !k.Multiple() {
@@ -409,7 +477,7 @@ func (span *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	span.span.SetAttributes(attribute.Int64Slice(key, s))
 }
 
-func (span *Span) MetadataString(k *xopat.StringAttribute, v string) {
+func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 	key := k.Key()
 	value := v
 	if !k.Multiple() {
@@ -470,7 +538,7 @@ func (span *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	span.span.SetAttributes(attribute.StringSlice(key, s))
 }
 
-func (span *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	key := k.Key()
 	value := v.Format(time.RFC3339Nano)
 	if !k.Multiple() {

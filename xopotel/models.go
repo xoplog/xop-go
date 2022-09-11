@@ -5,19 +5,20 @@ import (
 	"sync"
 
 	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xopnum"
 
 	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-type Logger struct {
-	tracer   oteltrace.Tracer
-	id       string
+type logger struct {
+	tracer oteltrace.Tracer
+	id     string
 }
 
-type Span struct {
+type span struct {
 	span              oteltrace.Span
-	logger            *Logger
+	logger            *logger
 	ctx               context.Context
 	lock              sync.Mutex
 	priorBoolSlices   map[string][]bool
@@ -29,27 +30,38 @@ type Span struct {
 	priorString       map[string]struct{}
 	priorInt          map[string]struct{}
 	metadataSeen      map[string]interface{}
-	spanPrefill	[]attribute.KeyValue // holds spanID & traceID 
+	spanPrefill       []attribute.KeyValue // holds spanID & traceID
 }
 
-type Prefilling struct {
-	Builder
+type prefilling struct {
+	builder
 }
 
-type Prefilled struct {
-	Builder
+type prefilled struct {
+	builder
 }
 
-type Line struct {
+type line struct {
+	builder
 	prealloc [15]attribute.KeyValue
-	Builder
+	level    xopnum.Level
 }
 
-type Builder struct {
-	prefill []attribute.KeyValue
-	span    *Span
+type builder struct {
+	attributes []attribute.KeyValue
+	span       *span
 }
 
-var _ xopbase.Logger = &BaseLogger{}
-var _ xopbase.Request = &Span{}
-var _ xopbase.Span = &Span{}
+var _ xopbase.Logger = &logger{}
+var _ xopbase.Request = &span{}
+var _ xopbase.Span = &span{}
+var _ xopbase.Line = &line{}
+var _ xopbase.Prefilling = &prefilling{}
+var _ xopbase.Prefilled = &prefilled{}
+
+// This block copied from https://github.com/uptrace/opentelemetry-go-extra/blob/main/otelzap/otelzap.go
+var (
+	logSeverityKey = attribute.Key("log.severity")
+	logMessageKey  = attribute.Key("log.message")
+	logTemplateKey = attribute.Key("log.template")
+)
