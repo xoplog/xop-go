@@ -133,6 +133,16 @@ var macros = map[string]map[string]string{
 		"Level":        "xopnum",
 		"SpanKindEnum": "xopconst",
 	},
+	"OTELAttributes": {
+		"String":       "string",
+		"Int64":        "int64",
+		"Float64":      "float64",
+		"Bool":         "bool",
+		"StringSlice":  "[]string",
+		"Int64Slice":   "[]int64",
+		"Float64Slice": "[]float64",
+		"BoolSlice":    "[]bool",
+	},
 }
 
 var allLines []string

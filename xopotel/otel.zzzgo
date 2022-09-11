@@ -188,6 +188,31 @@ func (span *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
 	subspan.End()
 }
 
+func (builder *Builder) Enum(k *xopat.EnumAttribute, xopat.Enum) {
+	builder.attributes = append(builder.Attributes, attributes.Stringer(k.Key(), v))
+}
+	
+func (builder *Builder) Any(k string, v interface{}) {
+	switch vt := v.(type) {
+	// MACRO OTELAttributes
+	case zzz:
+		builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
+
+	default:
+		enc, err := json.Marshal(v)
+		if err != nil {
+		builder.attributes = append(builder.Attributes, attributes.String(k+"-error", err.Error()))
+		} else {
+		builder.attributes = append(builder.Attributes, attributes.String(k, string(enc))
+		}
+	}
+}
+
+// MACRO BaseData SKIP:Any,Link,Error,Time,Duration
+func (builder *Builder) ZZZ(k string, v value) {
+	builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
+}
+
 //MACRO BaseAttribute SKIP:Link
 func (span *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	key := k.Key()
