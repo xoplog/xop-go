@@ -15,6 +15,8 @@ only be added to OTEL spans when the span is created.  Since xop
 allows links to be made at any time, MetadataLink()s will be added as
 ephemeral sub-spans.  Distinct, Multiple, and Locked attributes will
 be ignored for links.
+
+OTEL does not support unsigned ints so they get formatted as strings.
 */
 package xopotel
 
@@ -73,7 +75,7 @@ func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 func (logger *logger) Close()               {}
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Request {
+func (logger *logger) Request(ctx context.Context, ts time.Time, _ trace.Bundle, description string) xopbase.Request {
 	otelspan := oteltrace.SpanFromContext(ctx)
 	return &span{
 		logger: logger,
@@ -92,7 +94,8 @@ func (span *span) Done(endTime time.Time, final bool) {
 	}
 }
 
-func (span *span) Span(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Span {
+// TODO: store span sequence code
+func (span *span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, description string, spanSequenceCode string) xopbase.Span {
 	return span.logger.Request(ctx, ts, span, description)
 }
 
@@ -176,22 +179,6 @@ func (line *line) Template(template string) {
 	line.Msg(msg)
 }
 
-func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
-	traceState, _ := oteltrace.ParseTraceState(v.Trace.State.String())
-	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
-		oteltrace.Link{
-			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-				TraceID:    v.Trace.TraceID().Array(),
-				SpanID:     v.Trace.SpanID().Array(),
-				TraceFlags: v.Trace.Flags().Array()[0],
-				TraceState: traceState,
-				Remote:     true,
-			}),
-		},
-	))
-	subspan.End()
-}
-
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	builder.attributes = append(builder.Attributes, attributes.Stringer(k.Key(), v))
 }
@@ -239,24 +226,40 @@ func (builder *builder) Error(k string, v error) {
 	builder.attributes = append(builder.Attributes, attributes.String(k, v.Error()))
 }
 
-func (builder *builder) Bool(k string, v value) {
+func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+	traceState, _ := oteltrace.ParseTraceState("")
+	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
+		oteltrace.Link{
+			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+				TraceID:    v.TraceID().Array(),
+				SpanID:     v.SpanID().Array(),
+				TraceFlags: v.Flags().Array()[0],
+				TraceState: traceState,
+				Remote:     true, // information not available
+			}),
+		},
+	))
+	subspan.End()
+}
+
+func (builder *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
+	builder.attributes = append(builder.Attributes, attributes.String(k, strconv.FormatUint(v, 10)))
+}
+
+func (builder *builder) Bool(k string, v bool) {
 	builder.attributes = append(builder.Attributes, attributes.Bool(k, v))
 }
 
-func (builder *builder) Float64(k string, v value) {
-	builder.attributes = append(builder.Attributes, attributes.Float64(k, v))
-}
-
-func (builder *builder) Int64(k string, v value) {
-	builder.attributes = append(builder.Attributes, attributes.Int64(k, v))
-}
-
-func (builder *builder) String(k string, v value) {
+func (builder *builder) String(k string, v string) {
 	builder.attributes = append(builder.Attributes, attributes.String(k, v))
 }
 
-func (builder *builder) Uint64(k string, v value) {
-	builder.attributes = append(builder.Attributes, attributes.Uint64(k, v))
+func (builder *builder) Float64(k string, v float64, _ xopbase.DataType) {
+	builder.attributes = append(builder.Attributes, attributes.Float64(k, v))
+}
+
+func (builder *builder) Int64(k string, v int64, _ xopbase.DataType) {
+	builder.attributes = append(builder.Attributes, attributes.Int64(k, v))
 }
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {

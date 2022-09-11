@@ -12,8 +12,9 @@ import (
 )
 
 type logger struct {
-	tracer oteltrace.Tracer
-	id     string
+	tracer    oteltrace.Tracer
+	id        string
+	doLogging bool
 }
 
 type span struct {

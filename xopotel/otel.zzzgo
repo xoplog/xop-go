@@ -13,6 +13,8 @@ only be added to OTEL spans when the span is created.  Since xop
 allows links to be made at any time, MetadataLink()s will be added as
 ephemeral sub-spans.  Distinct, Multiple, and Locked attributes will
 be ignored for links.
+
+OTEL does not support unsigned ints so they get formatted as strings.
 */
 package xopotel
 
@@ -34,10 +36,11 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-func SeedModifier(ctx context.Context, tracer oteltrace.Tracer) xop.SeedModifier {
+func SeedModifier(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
 	return xop.CombineSeedModfiers(
 		xop.WithBase(&logger{
 			id: "otel-" + uuid.New().String(),
+			doLogging: doLogging,
 		}),
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, selfIndex int, nameOrDescription string, isChildSpan bool) xop.Seed {
@@ -68,9 +71,9 @@ func SeedModifier(ctx context.Context, tracer oteltrace.Tracer) xop.SeedModifier
 func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
-func (logger *logger) Close() {} 
+func (logger *logger) Close()               {}
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Request {
+func (logger *logger) Request(ctx context.Context, ts time.Time, _ trace.Bundle, description string) xopbase.Request {
 	otelspan := oteltrace.SpanFromContext(ctx)
 	return &span{
 		logger: logger,
@@ -89,7 +92,8 @@ func (span *span) Done(endTime time.Time, final bool) {
 	}
 }
 
-func (span *span) Span(ctx context.Context, ts time.Time, span trace.Bundle, description string) xopbase.Span {
+// TODO: store span sequence code
+func (span *span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, description string, spanSequenceCode string) xopbase.Span {
 	return span.logger.Request(ctx, ts, span, description)
 }
 
@@ -116,6 +120,9 @@ func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 }
 
 func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintptr) xopbase.Line {
+	if !prefilled.span.logger.doLogging || !prefilled.span.span.IsRecording() {
+		return xoputil.SkipLine
+	}
 	// TODO: get line from a pool
 	line := &line{}
 	line.span = prefilled.span
@@ -173,22 +180,6 @@ func (line *line) Template(template string) {
 	line.Msg(msg)
 }
 
-func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Bundle) {
-	traceState, _ := oteltrace.ParseTraceState(v.Trace.State.String())
-	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
-		oteltrace.Link{
-			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-				TraceID:    v.Trace.TraceID().Array(),
-				SpanID:     v.Trace.SpanID().Array(),
-				TraceFlags: v.Trace.Flags().Array()[0],
-				TraceState: traceState,
-				Remote:     true,
-			}),
-		},
-	))
-	subspan.End()
-}
-
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	builder.attributes = append(builder.Attributes, attributes.Stringer(k.Key(), v))
 }
@@ -221,8 +212,35 @@ func (builder *builder) Error(k string, v error) {
 	builder.attributes = append(builder.Attributes, attributes.String(k, v.Error()))
 }
 
-// MACRO BaseData SKIP:Any,Link,Error,Time,Duration
-func (builder *builder) ZZZ(k string, v value) {
+func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+	traceState, _ := oteltrace.ParseTraceState("")
+	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
+		oteltrace.Link{
+			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+				TraceID:    v.TraceID().Array(),
+				SpanID:     v.SpanID().Array(),
+				TraceFlags: v.Flags().Array()[0],
+				TraceState: traceState,
+				Remote:     true, // information not available
+			}),
+		},
+	))
+	subspan.End()
+}
+
+func (builder *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
+	builder.attributes = append(builder.Attributes, attributes.String(k, strconv.FormatUint(v, 10)))
+}
+
+func (builder *builder) Link(k string, v trace.Trace) 
+
+// MACRO BaseData ONLY:String,Bool
+func (builder *builder) ZZZ(k string, v zzz) {
+	builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
+}
+
+// MACRO BaseData ONLY:Int64,Float64
+func (builder *builder) ZZZ(k string, v zzz, _ xopbase.DataType) {
 	builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
 }
 
