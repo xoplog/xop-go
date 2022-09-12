@@ -41,9 +41,8 @@ type prefilled struct {
 
 type line struct {
 	builder
-	prealloc   [15]attribute.KeyValue
-	eoPrealloc [2]oteltrace.EventOption
-	level      xopnum.Level
+	prealloc [15]attribute.KeyValue
+	level    xopnum.Level
 }
 
 type builder struct {
