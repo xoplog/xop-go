@@ -1,23 +1,5 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-/*
-Package xopotel provides a gateway from xop into open telemetry
-using OTEL's top-level APIs.
-
-This gateway can be used either as a base layer for xop allowing
-xop to output through OTEL; or it can be used to bridge the gap
-between an application that is otherwise using OTEL and a library
-that is expects to be provided with a xop logger.
-
-OTEL supports far fewer data types than xop.  Mostly, xop types
-can be converted cleanly, but links are a special case: links can
-only be added to OTEL spans when the span is created.  Since xop
-allows links to be made at any time, MetadataLink()s will be added as
-ephemeral sub-spans.  Distinct, Multiple, and Locked attributes will
-be ignored for links.
-
-OTEL does not support unsigned ints so they get formatted as strings.
-*/
 package xopotel
 
 import (
@@ -253,8 +235,12 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	tmpSpan.End()
 }
 
-func (builder *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.String(k, strconv.FormatUint(v, 10)))
+func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
+	if dt == xopbase.Uint64DataType {
+		builder.attributes = append(builder.attributes, attribute.String(k, strconv.FormatUint(v, 10)))
+	} else {
+		builder.attributes = append(builder.attributes, attribute.Int64(k, int64(v)))
+	}
 }
 
 func (builder *builder) Link(k string, v trace.Trace) {
