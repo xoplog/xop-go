@@ -94,6 +94,18 @@ func (x *HexBytes8) Set(b [8]byte) {
 	hex.Encode(x.h[:], x.b[:])
 }
 
+func (x *HexBytes1) Array() [1]byte {
+	return x.b
+}
+
+func (x *HexBytes16) Array() [16]byte {
+	return x.b
+}
+
+func (x *HexBytes8) Array() [8]byte {
+	return x.b
+}
+
 func (x *HexBytes1) SetString(s string) {
 	setBytesFromString(x.b[:], s)
 	hex.Encode(x.h[:], x.b[:])

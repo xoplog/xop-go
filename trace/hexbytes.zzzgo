@@ -44,6 +44,11 @@ func (x *ZZZ) Set(b [zzz]byte) {
 }
 
 // MACRO HexBytes
+func (x *ZZZ) Array() [zzz]byte {
+	return x.b
+}
+
+// MACRO HexBytes
 func (x *ZZZ) SetString(s string) {
 	setBytesFromString(x.b[:], s)
 	hex.Encode(x.h[:], x.b[:])

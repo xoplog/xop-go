@@ -406,7 +406,6 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
 			var key string
@@ -443,7 +442,6 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.AnyDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -461,19 +459,15 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[bool]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[bool]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -495,7 +489,6 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.BoolDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -515,7 +508,6 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	if k.Multiple() {
 		value := v.String()
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
@@ -561,19 +553,15 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[float64]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[float64]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -595,7 +583,6 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.Float64DataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -613,19 +600,15 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[int64]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[int64]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -647,7 +630,6 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.Int64DataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -665,19 +647,15 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[trace.Trace]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[trace.Trace]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -699,7 +677,6 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.LinkDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -717,19 +694,15 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[string]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[string]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -751,7 +724,6 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.StringDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -769,19 +741,15 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[time.Time]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[time.Time]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -803,7 +771,6 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.TimeDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }

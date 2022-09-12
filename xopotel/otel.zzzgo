@@ -30,6 +30,7 @@ import (
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopnum"
+	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
@@ -39,7 +40,7 @@ import (
 func SeedModifier(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
 	return xop.CombineSeedModfiers(
 		xop.WithBase(&logger{
-			id: "otel-" + uuid.New().String(),
+			id:        "otel-" + uuid.New().String(),
 			doLogging: doLogging,
 		}),
 		xop.WithContext(ctx),
@@ -94,20 +95,20 @@ func (span *span) Done(endTime time.Time, final bool) {
 
 // TODO: store span sequence code
 func (span *span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, description string, spanSequenceCode string) xopbase.Span {
-	return span.logger.Request(ctx, ts, span, description)
+	return span.logger.Request(ctx, ts, bundle, description)
 }
 
 func (span *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
-		Builder: builder{
+		builder: builder{
 			span: span,
 		},
 	}
 }
 
 func (span *span) StartPrefill() xopbase.Prefilling {
-	return &Prefilling{
-		Builder: Builder{
+	return &prefilling{
+		builder: builder{
 			span: span,
 		},
 	}
@@ -115,7 +116,7 @@ func (span *span) StartPrefill() xopbase.Prefilling {
 
 func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 	return &prefilled{
-		Builder: prefill.Builder,
+		builder: prefill.builder,
 	}
 }
 
@@ -127,20 +128,27 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintpt
 	line := &line{}
 	line.span = prefilled.span
 	line.attributes = line.prealloc[:0]
-	line.attributes = append(line.attributes, span.spanPrefill...)
+	line.attributes = append(line.attributes, prefilled.span.spanPrefill...)
 	line.attributes = append(line.attributes, prefilled.attributes...)
-	line.attributes = append(line.attributes,
-		logSeverityKey.String(level.String()),
-	)
+	line.spanStartOptions = nil
+	line.spanStartOptions = append(line.spanStartOptions, prefilled.spanStartOptions...)
 	// TODO: stack trace
 	// semconv.ExceptionStacktraceKey.String
 	return line
 }
 
-func (line *line) Static(msg string) { return line.Msg(msg) }
-func (line *line) Msg(string) {
-	line.span.span.AddEvent("log", trace.WithAttributes(line.attributes))
+func (line *line) Static(msg string) { line.Msg(msg) }
+
+func (line *line) Msg(msg string) {
+	line.attributes = append(line.attributes, logMessageKey.String(msg)) 
+	if len(line.spanStartOptions) == 0 {
+	line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
+	return
 	// TODO: return line to pool
+	}
+	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, line.level.String(), line.spanStartOptions...)
+	tmpSpan.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
+	tmpSpan.End()
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -150,26 +158,26 @@ func (line *line) Template(template string) {
 	for i, a := range line.attributes {
 		kv[string(a.Key)] = i
 	}
-	msg := templateRE.ReplaceAllStringFunc(line.Message, func(k string) string {
+	msg := templateRE.ReplaceAllStringFunc(template, func(k string) string {
 		k = k[1 : len(k)-1]
 		if i, ok := kv[k]; ok {
 			a := line.attributes[i]
 			switch a.Value.Type() {
-			case attributes.BOOL:
+			case attribute.BOOL:
 				return strconv.FormatBool(a.Value.AsBool())
-			case attributes.INT64:
+			case attribute.INT64:
 				return strconv.FormatInt(a.Value.AsInt64(), 10)
-			case attributes.FLOAT64:
-				return strconv.FormatFloat(a.Value.AsInt64(), 64, "e")
-			case attributes.STRING:
+			case attribute.FLOAT64:
+				return strconv.FormatFloat(a.Value.AsFloat64(), 'g', -1, 64)
+			case attribute.STRING:
 				return a.Value.AsString()
-			case attributes.BOOLSLICE:
+			case attribute.BOOLSLICE:
 				return fmt.Sprint(a.Value.AsBoolSlice())
-			case attributes.INT64SLICE:
+			case attribute.INT64SLICE:
 				return fmt.Sprint(a.Value.AsInt64Slice())
-			case attributes.FLOAT64SLICE:
+			case attribute.FLOAT64SLICE:
 				return fmt.Sprint(a.Value.AsFloat64Slice())
-			case attributes.STRINGSLICE:
+			case attribute.STRINGSLICE:
 				return fmt.Sprint(a.Value.AsStringSlice())
 			default:
 				return "{" + k + "}"
@@ -181,67 +189,78 @@ func (line *line) Template(template string) {
 }
 
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	builder.attributes = append(builder.Attributes, attributes.Stringer(k.Key(), v))
+	builder.attributes = append(builder.attributes, attribute.Stringer(k.Key(), v))
 }
 
 func (builder *builder) Any(k string, v interface{}) {
-	switch vt := v.(type) {
+	switch typed := v.(type) {
 	// MACRO OTELAttributes
 	case zzz:
-		builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
+		builder.attributes = append(builder.attributes, attribute.ZZZ(k, typed))
 
 	default:
 		enc, err := json.Marshal(v)
 		if err != nil {
-			builder.attributes = append(builder.Attributes, attributes.String(k+"-error", err.Error()))
+			builder.attributes = append(builder.attributes, attribute.String(k+"-error", err.Error()))
 		} else {
-			builder.attributes = append(builder.Attributes, attributes.String(k, string(enc)))
+			builder.attributes = append(builder.attributes, attribute.String(k, string(enc)))
 		}
 	}
 }
 
 func (builder *builder) Time(k string, v time.Time) {
-	builder.attributes = append(builder.Attributes, attributes.String(k, v.Format(time.RFC3339Nano)))
+	builder.attributes = append(builder.attributes, attribute.String(k, v.Format(time.RFC3339Nano)))
 }
 
 func (builder *builder) Duration(k string, v time.Duration) {
-	builder.attributes = append(builder.Attributes, attributes.Stringer(k, v))
+	builder.attributes = append(builder.attributes, attribute.Stringer(k, v))
 }
 
 func (builder *builder) Error(k string, v error) {
-	builder.attributes = append(builder.Attributes, attributes.String(k, v.Error()))
+	builder.attributes = append(builder.attributes, attribute.String(k, v.Error()))
 }
 
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
-	traceState, _ := oteltrace.ParseTraceState("")
-	_, subspan := tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
+	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
 		oteltrace.Link{
 			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
 				TraceID:    v.TraceID().Array(),
 				SpanID:     v.SpanID().Array(),
-				TraceFlags: v.Flags().Array()[0],
-				TraceState: traceState,
+				TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
+				TraceState: emptyTraceState, // TODO: is this right?
 				Remote:     true, // information not available
 			}),
 		},
 	))
-	subspan.End()
+	tmpSpan.End()
 }
 
 func (builder *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
-	builder.attributes = append(builder.Attributes, attributes.String(k, strconv.FormatUint(v, 10)))
+	builder.attributes = append(builder.attributes, attribute.String(k, strconv.FormatUint(v, 10)))
 }
 
-func (builder *builder) Link(k string, v trace.Trace) 
+func (builder *builder) Link(k string, v trace.Trace) {
+	builder.spanStartOptions = append(builder.spanStartOptions, oteltrace.WithLinks(
+		oteltrace.Link{
+			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+				TraceID:    v.TraceID().Array(),
+				SpanID:     v.SpanID().Array(),
+				TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
+				TraceState: emptyTraceState,
+				Remote:     true, // information not available
+			}),
+		},
+	))
+}
 
 // MACRO BaseData ONLY:String,Bool
 func (builder *builder) ZZZ(k string, v zzz) {
-	builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
+	builder.attributes = append(builder.attributes, attribute.ZZZ(k, v))
 }
 
 // MACRO BaseData ONLY:Int64,Float64
 func (builder *builder) ZZZ(k string, v zzz, _ xopbase.DataType) {
-	builder.attributes = append(builder.Attributes, attributes.ZZZ(k, v))
+	builder.attributes = append(builder.attributes, attribute.ZZZ(k, v))
 }
 
 //MACRO BaseAttribute SKIP:Link
@@ -257,7 +276,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	enc, err := json.Marshal(v)
 	var value string
 	if err != nil {
-		value = fmt.Errorf("could not marshal %T value: %s", v, err)
+		value = fmt.Sprintf("[zopotel] could not marshal %T value: %s", v, err)
 	} else {
 		value = string(enc)
 	}
@@ -268,48 +287,32 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		if k.Locked() {
 			span.lock.Lock()
 			defer span.lock.Unlock()
-			//CONDITIONAL ONLY:Enum,Time,String,Any
-			if span.priorString == nil {
-				span.priorString = map[string]struct{}{
-					value: {},
-				}
-			} else {
-				if _, ok := span.priorString[value]; ok {
-					return
-				}
-				span.priorString[value] = struct{}{}
+			if span.hasPrior == nil {
+				span.hasPrior = make(map[string]struct{})
 			}
-			//CONDITIONAL ELSE
-			if span.priorZZZ == nil {
-				span.priorZZZ = map[string]struct{}{
-					value: {},
-				}
-			} else {
-				if _, ok := span.priorZZZ[value]; ok {
-					return
-				}
-				span.priorZZZ[value] = struct{}{}
+			if _, ok := span.hasPrior[key]; ok {
+				return
 			}
-			//CONDITIONAL END
+			span.hasPrior[key] = struct{}{}
 		}
 		//CONDITIONAL ONLY:Enum,Time,String,Any
 		span.span.SetAttributes(attribute.String(key, value))
-		//CONDITIONAL ELSE
+		//ELSE CONDITIONAL
 		span.span.SetAttributes(attribute.ZZZ(key, value))
-		//CONDITIONAL END
+		//END CONDITIONAL
 		return
 	}
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
-		seenRaw, ok := span.priorDistinct[key]
+		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			//CONDITIONAL ONLY:Enum,Time,String,Any
 			seen := make(map[string]struct{})
 			//ELSE CONDITIONAL
 			seen := make(map[zzz]struct{})
 			//END CONDITIONAL
-			span.priorDistinct[key] = seen
+			span.metadataSeen[key] = seen
 			seen[value] = struct{}{}
 		} else {
 			//CONDITIONAL ONLY:Enum,Time,String,Any
@@ -325,7 +328,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	}
 	//CONDITIONAL ONLY:Enum,Time,String,Any
 	if span.priorStringSlices == nil {
-		span.priorStringSlices = make(map[string][]zzz)
+		span.priorStringSlices = make(map[string][]string)
 	}
 	s := span.priorStringSlices[key]
 	s = append(s, value)

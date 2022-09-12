@@ -255,6 +255,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 				continue
 			} else if elseConditionalRE.MatchString(line) {
 				skipping = !skipping
+				continue
 			} else if endConditionalRE.MatchString(line) {
 				skipping = false
 				continue
