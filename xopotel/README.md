@@ -3,9 +3,11 @@ Package xopotel provides a gateway from xop into open telemetry
 using OTEL's top-level APIs.
 
 This gateway can be used either as a base layer for xop allowing
-xop to output through OTEL; or it can be used to bridge the gap
+xop to output through OTEL (`OTELBase()`); or it can be used to bridge the gap
 between an application that is otherwise using OTEL and a library
-that expects to be provided with a xop logger.
+that expects to be provided with a xop logger (`SingleSpan`).
+
+`SingleSpan()` can be used to add log events to an existing OTEL span.
 
 OTEL supports far fewer data types than xop.  Mostly, xop types
 can be converted cleanly, but links are a special case: links can

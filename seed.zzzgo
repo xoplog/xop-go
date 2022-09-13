@@ -23,7 +23,7 @@ func (seed Seed) Copy(mods ...SeedModifier) Seed {
 // SeedReactiveCallback is used to modify seeds as they are just sprouting
 // The selfIndex parameter can be used with WithReactiveReplaced or
 // WithReactiveRemoved.
-type SeedReactiveCallback func(ctx context.Context, seed Seed, selfIndex int, nameOrDescription string, isChildSpan bool) Seed
+type SeedReactiveCallback func(ctx context.Context, seed Seed, nameOrDescription string, isChildSpan bool) Seed
 
 type seedReactiveCallbacks []SeedReactiveCallback
 
@@ -85,11 +85,32 @@ func (seed Seed) applyMods(mods []SeedModifier) Seed {
 	return seed
 }
 
+// Request creates a new top-level span (a request).  Use when
+// starting something new, like receiving an http request or
+// starting a cron job.
+func (seed Seed) Request(descriptionOrName string) *Log {
+	seed = seed.react(true, descriptionOrName)
+	return seed.request(descriptionOrName)
+}
+
+// SubSpan creates a new top-level span (a request) but 
+// initializes the span/trace data as if it were a subspan.
+// The traceID must already be set.  Use this with caution,
+// it is meant for handing off from spans created elsewhere.
+func (seed Seed) SubSpan(descriptionOrName string) *Log {
+	seed = seed.react(false, descriptionOrName)
+	return seed.request(descriptionOrName)
+}
+
+
 // WithReactive provides a callback that is used to modify seeds as they
 // are in the process of sprouting.  Just as a seed is being used to create
 // a request of sub-span, all reactive functions will be called.  Such
 // functions must return a valid seed.  The seed they start with will be
 // valid, so they can simply return that seed.
+//
+// When WithReactive is called from a SeedReactiveCallback, the new reactive
+// function is only evaluated on descendent seeds.
 func WithReactive(f SeedReactiveCallback) SeedModifier {
 	return func(s *Seed) {
 		s.reactive = append(s.reactive, f)
@@ -161,7 +182,8 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 		return seed
 	}
 	var nilSeen bool
-	for i := 0; i < len(seed.reactive); {
+	initialCount := len(seed.reactive)
+	for i := 0; i < initialCount; i++{
 		f := seed.reactive[i]
 		if f == nil {
 			nilSeen = true
@@ -170,10 +192,7 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 		}
 		seed.currentReactiveIndex = i
 		seed.reactiveReplaced = false
-		seed = f(seed.ctx, seed, i, description, !isRequest)
-		if !seed.reactiveReplaced {
-			i++
-		}
+		seed = f(seed.ctx, seed, description, !isRequest)
 	}
 	if nilSeen {
 		reactive := make(seedReactiveCallbacks, 0, len(seed.reactive))

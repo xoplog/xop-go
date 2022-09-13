@@ -60,9 +60,7 @@ type shared struct {
 	WaitingForDetached bool // true only when request is Done but is not yet flushed due to detached
 }
 
-func (seed Seed) Request(descriptionOrName string) *Log {
-	seed = seed.react(true, descriptionOrName)
-
+func (seed Seed) request(descriptionOrName string) *Log {
 	type singleAlloc struct {
 		Log    Log
 		shared shared

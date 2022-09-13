@@ -22,14 +22,47 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-func SeedModifier(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
+// SingleSpan allows xop to add logs to an existing OTEL span.  xop will call
+// End() on that span when log.Done() is called.
+func SingleSpan(ctx context.Context, extraModifiers ...xop.SeedModifier) *xop.Log {
+	span := oteltrace.SpanFromContext(ctx)
+	var xoptrace trace.Trace
+	xoptrace.TraceID().Set(span.SpanContext().TraceID())
+	xoptrace.SpanID().Set(span.SpanContext().SpanID())
+	xoptrace.Flags().Set([1]byte{span.SpanContext().Flags()})
+	xoptrace.Version().Set([1]byte{1})
+	return xop.NewSeed(
+		xop.CombineModifiers(extraModifiers...),
+		xop.WithContext(ctx),
+		xop.WithTrace(xoptrace),
+		xop.WithBase(&logger{
+			id:        "otel-" + uuid.New().String(),
+			doLogging: true,
+		}),
+		// The first time through, we do not want to change the spanID,
+		// but on subsequent calls, we do.
+		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
+			return seed.Copy(xop.WithReactiveReplaced(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
+				ctx, span := tracer.Start(ctx, nameOrDescription)
+				return seed.Copy(
+					xop.WithContext(ctx),
+					xop.WithSpan(span.SpanContext().SpanID()),
+				)
+			}))
+		}),
+	)
+}
+
+// OTELBase provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
+// so that xop logs are output through the OTEL Tracer
+func OTELBase(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
 	return xop.CombineSeedModfiers(
 		xop.WithBase(&logger{
 			id:        "otel-" + uuid.New().String(),
 			doLogging: doLogging,
 		}),
 		xop.WithContext(ctx),
-		xop.WithReactive(func(ctx context.Context, seed xop.Seed, selfIndex int, nameOrDescription string, isChildSpan bool) xop.Seed {
+		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
 			if isChildSpan {
 				ctx, span := tracer.Start(ctx, nameOrDescription)
 				return seed.Copy(
