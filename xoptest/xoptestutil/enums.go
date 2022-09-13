@@ -1,6 +1,6 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-package xopjson_test
+package xoptestutil
 
 import (
 	"github.com/muir/xop-go/xopat"

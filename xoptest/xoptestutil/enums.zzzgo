@@ -1,6 +1,9 @@
-package xopjson_test
+package xoptestutil
 
-import "github.com/muir/xop-go/xopat"
+import (
+	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopconst"
+)
 
 type AnyObject struct {
 	I int
