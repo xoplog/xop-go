@@ -22,44 +22,48 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-// SingleSpan allows xop to add logs to an existing OTEL span.  xop will call
-// End() on that span when log.Done() is called.
-func SingleSpan(ctx context.Context, extraModifiers ...xop.SeedModifier) *xop.Log {
+// SpanLog allows xop to add logs to an existing OTEL span.  log.Done() will be
+// ignored for this span.
+func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
 	span := oteltrace.SpanFromContext(ctx)
 	var xoptrace trace.Trace
 	xoptrace.TraceID().Set(span.SpanContext().TraceID())
 	xoptrace.SpanID().Set(span.SpanContext().SpanID())
-	xoptrace.Flags().Set([1]byte{span.SpanContext().Flags()})
+	xoptrace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
 	xoptrace.Version().Set([1]byte{1})
 	return xop.NewSeed(
-		xop.CombineModifiers(extraModifiers...),
+		xop.CombineSeedModifiers(extraModifiers...),
 		xop.WithContext(ctx),
 		xop.WithTrace(xoptrace),
 		xop.WithBase(&logger{
-			id:        "otel-" + uuid.New().String(),
-			doLogging: true,
+			id:         "otel-" + uuid.New().String(),
+			doLogging:  true,
+			ignoreDone: span,
+			tracer:     span.TracerProvider().Tracer(""),
 		}),
 		// The first time through, we do not want to change the spanID,
-		// but on subsequent calls, we do.
+		// but on subsequent calls, we do so the outer reactive function
+		// just sets the future function.
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
 			return seed.Copy(xop.WithReactiveReplaced(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
-				ctx, span := tracer.Start(ctx, nameOrDescription)
+				ctx, span := span.TracerProvider().Tracer("").Start(ctx, nameOrDescription)
 				return seed.Copy(
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
 				)
 			}))
 		}),
-	)
+	).SubSpan(name)
 }
 
-// OTELBase provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
-// so that xop logs are output through the OTEL Tracer
-func OTELBase(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
-	return xop.CombineSeedModfiers(
+// BaseLogger provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
+// so that xop logs are output through the OTEL Tracer.
+func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
+	return xop.CombineSeedModifiers(
 		xop.WithBase(&logger{
 			id:        "otel-" + uuid.New().String(),
 			doLogging: doLogging,
+			tracer:    tracer,
 		}),
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
@@ -109,6 +113,11 @@ func (span *span) Done(endTime time.Time, final bool) {
 	if !final {
 		return
 	}
+	if span.logger.ignoreDone == span.span {
+		// skip Done for spans passed in to SpanLog()
+		return
+	}
+	span.span.End()
 }
 
 // TODO: store span sequence code
@@ -333,6 +342,9 @@ func (span *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[string]struct{})
@@ -376,6 +388,9 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[bool]struct{})
@@ -419,6 +434,9 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[string]struct{})
@@ -462,6 +480,9 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[float64]struct{})
@@ -505,6 +526,9 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[int64]struct{})
@@ -548,6 +572,9 @@ func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[string]struct{})
@@ -591,6 +618,9 @@ func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	if k.Distinct() {
+		if span.metadataSeen == nil {
+			span.metadataSeen = make(map[string]interface{})
+		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
 			seen := make(map[string]struct{})

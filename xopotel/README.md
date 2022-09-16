@@ -1,13 +1,21 @@
 
-Package xopotel provides a gateway from xop into open telemetry
-using OTEL's top-level APIs.
+Package xopotel provides gateways/connections between 
+[xop](https://github.com/muir/xop-go) 
+[OpenTelemetry](https://opentelemetry.io/).
 
-This gateway can be used either as a base layer for xop allowing
-xop to output through OTEL (`OTELBase()`); or it can be used to bridge the gap
-between an application that is otherwise using OTEL and a library
-that expects to be provided with a xop logger (`SingleSpan`).
+## `SpanLog`
 
-`SingleSpan()` can be used to add log events to an existing OTEL span.
+`SpanLog()` allows xop to be used as a logger to add "Events" to an 
+existing OTEL span.
+
+## `BaseLogger`
+
+`BaseLogger()` creates a `xopbase.Logger` that can be used as a
+to gateway xop logs and spans into OTEL.
+
+## Compatability
+
+### Data types
 
 OTEL supports far fewer data types than xop.  Mostly, xop types
 can be converted cleanly, but links are a special case: links can
@@ -18,3 +26,4 @@ be ignored for links.
 
 OTEL does not support unsigned ints. `uint64` will be converted to a
 string and smaller unsigned ints will convert to `int64`.
+

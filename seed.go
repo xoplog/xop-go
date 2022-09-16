@@ -160,7 +160,7 @@ func WithSettings(f func(*LogSettings)) SeedModifier {
 	}
 }
 
-func CombineSeedModfiers(mods ...SeedModifier) SeedModifier {
+func CombineSeedModifiers(mods ...SeedModifier) SeedModifier {
 	return func(s *Seed) {
 		for _, f := range mods {
 			f(s)
