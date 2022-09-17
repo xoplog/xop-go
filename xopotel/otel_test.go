@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopotel"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoptest/xoptestutil"
@@ -234,33 +235,35 @@ func (c *checker) check(t *testing.T, data string) {
 }
 
 func (c *checker) span(t *testing.T, otel OTELSpan) {
-	/*
-		assert.Empty(t, super.Level, "no level expected")
-		var prior int
-		var ok bool
-		if assert.NotEmpty(t, super.SpanID, "has span id") {
-			prior, ok = c.sequencing[super.SpanID]
+	assert.NotEmpty(t, otel.Name, "span name")
+	assert.False(t, otel.StartTime.IsZero(), "start time set")
+	assert.False(t, otel.EndTime.IsZero(), "end time set")
+	assert.NotEmpty(t, otel.SpanContext.TraceID, "trace id")
+	assert.NotEmpty(t, otel.SpanContext.SpanID, "span id")
+	c.accumulatedSpans[otel.SpanContext.SpanID] = toData(otel.Attributes)
+}
+
+type typedData struct {
+	data  map[string]interface{}
+	types map[string]xopbase.DataType
+}
+
+func toData(attributes []OTELAttribute) typedData {
+	td := typedData{
+		data:  make(map[string]interface{}),
+		types: make(map[string]xopbase.DataType),
+	}
+	for _, a := range attributes {
+		var dt xopbase.DataType
+		switch a.Value.Type {
+		case "STRING":
+			dt = xopbase.StringDataType
+		default:
+			dt = xopbase.AnyDataType
 		}
-		if super.SpanVersion > 0 {
-			if assert.True(t, ok, "has prior version") {
-				assert.Equal(t, prior+1, super.SpanVersion, "version is in sequence")
-			}
-			assert.NotEmpty(t, super.Duration, "duration is set")
-			assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
-		} else {
-			assert.False(t, ok, "no prior version expected")
-			assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
-			assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
-			c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
-		}
-		if c.config.hasAttributesObject {
-			combineAttributes(super.Attributes, c.accumulatedSpans[super.SpanID])
-		} else {
-			combineAttributes(generic, c.accumulatedSpans[super.SpanID])
-		}
-		c.sequencing[super.SpanID] = super.SpanVersion
-		assert.Less(t, super.Duration, int64(time.Second*10), "duration")
-	*/
+		td.data[a.Key] = a.Value.Value
+		td.types[a.Key] = dt
+	}
 }
 
 /*
