@@ -17,6 +17,7 @@ var MessageCases = []struct {
 	Name         string
 	ExtraFlushes int
 	Do           func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger)
+	SkipOTEL     bool
 }{
 	{
 		Name: "one span",
@@ -362,6 +363,7 @@ var MessageCases = []struct {
 	{
 		Name:         "log after done",
 		ExtraFlushes: 1,
+		SkipOTEL:     true,
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			s2 := log.Sub().Step("S2")
 			s2.Info().Int8("i8", 9).Msg("a line before done")

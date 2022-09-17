@@ -3,6 +3,7 @@ package xopotel_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,9 @@ func TestASingleLine(t *testing.T) {
 func TestSpanLog(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
+		if mc.SkipOTEL {
+			continue
+		}
 		t.Run(mc.Name, func(t *testing.T) {
 			var buffer xoputil.Buffer
 
@@ -78,10 +82,6 @@ func TestSpanLog(t *testing.T) {
 			tracerProvider.ForceFlush(context.Background())
 			t.Log("logged:", buffer.String())
 			assert.NotEmpty(t, buffer.String())
-
-			var otel OTELSpan
-			err = json.Unmarshal([]byte(buffer.String()), &otel)
-			require.NoError(t, err, "unmarshal to otelspan")
 		})
 	}
 }
@@ -147,10 +147,23 @@ type OTELSpan struct {
 	InstrumentationLibrary OTELInstrumentationLibrary
 }
 
+type checker struct {
+	tlog             *xoptest.TestLogger
+	spansSeen        []bool
+	requestsSeen     []bool
+	messagesNotSeen  map[string][]int
+	spanIndex        map[string]int
+	requestIndex     map[string]int
+	accumulatedSpans map[string]map[string]interface{}
+	sequencing       map[string]int
+}
+
+const debugTlog = true
+const debugTspan = true
+
 func newChecker(t *testing.T, tlog *xoptest.TestLogger) *checker {
 	c := &checker{
 		tlog:             tlog,
-		config:           config,
 		spansSeen:        make([]bool, len(tlog.Spans)),
 		requestsSeen:     make([]bool, len(tlog.Requests)),
 		messagesNotSeen:  make(map[string][]int),
@@ -183,14 +196,6 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger) *checker {
 		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanIDString())
 		c.requestIndex[request.Trace.Trace.SpanIDString()] = i
 	}
-	for spanID, versions := range c.sequencing {
-		if c.config.minVersions == c.config.maxVersions {
-			assert.Equal(t, versions, c.config.minVersions, "version count for span %s", spanID)
-		} else {
-			assert.GreaterOrEqualf(t, versions, c.config.minVersions, "version count for span %s", spanID)
-			assert.LessOrEqualf(t, versions, c.config.maxVersions, "version count for span %s", spanID)
-		}
-	}
 	return c
 }
 
@@ -199,133 +204,66 @@ func (c *checker) check(t *testing.T, data string) {
 		if line == "" {
 			continue
 		}
-		var generic map[string]interface{}
-		err := json.Unmarshal([]byte(line), &generic)
-		require.NoErrorf(t, err, "decode to generic '%s'", line)
 
-		var super supersetObject
-		err = json.Unmarshal([]byte(line), &super)
-		require.NoErrorf(t, err, "decode to super: %s", line)
+		var otel OTELSpan
+		err := json.Unmarshal([]byte(line), &otel)
+		require.NoError(t, err, "unmarshal to otelspan")
 
-		switch super.Type {
-		case "", "line":
-			t.Logf("check line: %s", line)
-			c.line(t, super, generic)
-		case "span":
-			t.Logf("check span: %s", line)
-			c.span(t, super, generic)
-		case "request":
-			t.Logf("check request: %s", line)
-			c.request(t, super, generic)
-		}
+		c.span(t, otel)
 	}
-	for _, ia := range c.messagesNotSeen {
-		for _, li := range ia {
-			line := c.tlog.Lines[li]
-			t.Errorf("line '%s' not found in JSON output", line.Text)
-		}
-	}
-	for _, span := range c.tlog.Spans {
-		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
-		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
-			if c.config.hasAttributesObject {
-				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
-				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.attributes", false)
-			} else {
-				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+	/*
+		for _, ia := range c.messagesNotSeen {
+			for _, li := range ia {
+				line := c.tlog.Lines[li]
+				t.Errorf("line '%s' not found in JSON output", line.Text)
 			}
 		}
-	}
-	for _, span := range c.tlog.Requests {
-		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
-		if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
-			if c.config.hasAttributesObject {
-				t.Logf("comparing metadata: %+v vs %+v", span.Metadata, spanAttributes)
-				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.request.attributes", false)
-			} else {
-				compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+		for _, span := range c.tlog.Spans {
+			spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
+			if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
+				// compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
 			}
 		}
-	}
-}
-
-func (c *checker) line(t *testing.T, super supersetObject, generic map[string]interface{}) {
-	assert.NotEqual(t, xopnum.Level(0), super.Level, "level")
-	assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
-	assert.NotEmpty(t, super.Msg, "message")
-	mns := c.messagesNotSeen[super.Msg]
-	if !assert.NotNilf(t, mns, "test line with message '%s'", super.Msg) {
-		return
-	}
-	line := c.tlog.Lines[mns[0]]
-	c.messagesNotSeen[super.Msg] = c.messagesNotSeen[super.Msg][1:]
-	assert.Truef(t, super.Timestamp.Round(time.Millisecond).Equal(line.Timestamp.Round(time.Millisecond)), "timestamps %s vs %s", line.Timestamp, super.Timestamp)
-	assert.Equal(t, int(line.Level), super.Level, "level")
-	if c.config.hasAttributesObject {
-		compareData(t, line.Data, line.DataType, "xoptest.Data", super.Attributes, "xopjson.Attributes", false)
-	} else {
-		assert.Empty(t, super.Attributes)
-		compareData(t, line.Data, line.DataType, "xoptest.Data", generic, "xopjson.Generic", true)
-	}
-}
-
-func (c *checker) span(t *testing.T, super supersetObject, generic map[string]interface{}) {
-	assert.Empty(t, super.Level, "no level expected")
-	var prior int
-	var ok bool
-	if assert.NotEmpty(t, super.SpanID, "has span id") {
-		prior, ok = c.sequencing[super.SpanID]
-	}
-	if super.SpanVersion > 0 {
-		if assert.True(t, ok, "has prior version") {
-			assert.Equal(t, prior+1, super.SpanVersion, "version is in sequence")
+		for _, span := range c.tlog.Requests {
+			spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
+			if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
+					// compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
+			}
 		}
-		assert.NotEmpty(t, super.Duration, "duration is set")
-		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
-	} else {
-		assert.False(t, ok, "no prior version expected")
-		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
-		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
-		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
-	}
-	if c.config.hasAttributesObject {
-		combineAttributes(super.Attributes, c.accumulatedSpans[super.SpanID])
-	} else {
-		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
-	}
-	c.sequencing[super.SpanID] = super.SpanVersion
-	assert.Less(t, super.Duration, int64(time.Second*10), "duration")
+	*/
 }
 
-func (c *checker) request(t *testing.T, super supersetObject, generic map[string]interface{}) {
-	assert.Empty(t, super.Level, "no level expected")
-	var prior int
-	var ok bool
-	if assert.NotEmpty(t, super.SpanID, "has span id") {
-		prior, ok = c.sequencing[super.SpanID]
-	}
-	if super.RequestVersion > 0 {
-		if assert.True(t, ok, "has prior version") {
-			assert.Equal(t, prior+1, super.RequestVersion, "version is in sequence")
+func (c *checker) span(t *testing.T, otel OTELSpan) {
+	/*
+		assert.Empty(t, super.Level, "no level expected")
+		var prior int
+		var ok bool
+		if assert.NotEmpty(t, super.SpanID, "has span id") {
+			prior, ok = c.sequencing[super.SpanID]
 		}
-		assert.NotEmpty(t, super.Duration, "duration is set")
-		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
-	} else {
-		assert.False(t, ok, "no prior version expected")
-		assert.NotEmpty(t, super.TraceID, "has trace id")
-		assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
-		assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
-		c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
-	}
-	if c.config.hasAttributesObject {
-		combineAttributes(super.Attributes, c.accumulatedSpans[super.SpanID])
-	} else {
-		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
-	}
-	c.sequencing[super.SpanID] = super.RequestVersion
-	assert.Less(t, super.Duration, int64(time.Second*10), "duration")
+		if super.SpanVersion > 0 {
+			if assert.True(t, ok, "has prior version") {
+				assert.Equal(t, prior+1, super.SpanVersion, "version is in sequence")
+			}
+			assert.NotEmpty(t, super.Duration, "duration is set")
+			assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
+		} else {
+			assert.False(t, ok, "no prior version expected")
+			assert.False(t, super.Timestamp.IsZero(), "timestamp is set")
+			assert.Nil(t, c.accumulatedSpans[super.SpanID], "has prior")
+			c.accumulatedSpans[super.SpanID] = make(map[string]interface{})
+		}
+		if c.config.hasAttributesObject {
+			combineAttributes(super.Attributes, c.accumulatedSpans[super.SpanID])
+		} else {
+			combineAttributes(generic, c.accumulatedSpans[super.SpanID])
+		}
+		c.sequencing[super.SpanID] = super.SpanVersion
+		assert.Less(t, super.Duration, int64(time.Second*10), "duration")
+	*/
 }
 
+/*
 func combineAttributes(from map[string]interface{}, attributes map[string]interface{}) {
 	for k, v := range from {
 		attributes[k] = v
@@ -401,3 +339,4 @@ func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xo
 	}
 	assert.Equalf(t, aRedone, bRedone, "%s vs %s", aDesc, bDesc)
 }
+*/
