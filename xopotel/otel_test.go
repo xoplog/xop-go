@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/muir/xop-go"
+	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopotel"
 	"github.com/muir/xop-go/xoptest"
@@ -74,15 +76,17 @@ func TestSpanLog(t *testing.T) {
 
 			tracer := tracerProvider.Tracer("")
 
-			ctx, span := tracer.Start(ctx, mc.Name)
-			log := xopotel.SpanLog(ctx, mc.Name)
 			tlog := xoptest.New(t)
+			ctx, span := tracer.Start(ctx, mc.Name)
+			log := xopotel.SpanLog(ctx, mc.Name).Span().Seed(xop.WithBase(tlog)).SubSpan("adding-tlog")
 			mc.Do(t, log, tlog)
 
 			span.End()
 			tracerProvider.ForceFlush(context.Background())
 			t.Log("logged:", buffer.String())
 			assert.NotEmpty(t, buffer.String())
+
+			newChecker(t, tlog).check(t, buffer.String())
 		})
 	}
 }
@@ -130,15 +134,15 @@ type OTELLink struct {
 }
 
 type OTELSpan struct {
-	Name        string
-	SpanContext *OTELSpanContext
-	Parent      *OTELSpanContext
-	SpanKind    int
-	StartTime   time.Time
-	EndTime     time.Time
-	Attributes  []OTELAttribute
-	Links       []OTELLink
-	// TODO: Links
+	Name                   string
+	SpanContext            *OTELSpanContext
+	Parent                 *OTELSpanContext
+	SpanKind               int
+	StartTime              time.Time
+	EndTime                time.Time
+	Attributes             []OTELAttribute
+	Links                  []OTELLink
+	Events                 []OTELEvent
 	Status                 OTELStatus
 	DroppedAttributes      int
 	DroppedEvents          int
@@ -155,7 +159,7 @@ type checker struct {
 	messagesNotSeen  map[string][]int
 	spanIndex        map[string]int
 	requestIndex     map[string]int
-	accumulatedSpans map[string]map[string]interface{}
+	accumulatedSpans map[string]typedData
 	sequencing       map[string]int
 }
 
@@ -170,7 +174,7 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger) *checker {
 		messagesNotSeen:  make(map[string][]int),
 		spanIndex:        make(map[string]int),
 		requestIndex:     make(map[string]int),
-		accumulatedSpans: make(map[string]map[string]interface{}),
+		accumulatedSpans: make(map[string]typedData),
 		sequencing:       make(map[string]int),
 	}
 	for i, line := range tlog.Lines {
@@ -212,13 +216,13 @@ func (c *checker) check(t *testing.T, data string) {
 
 		c.span(t, otel)
 	}
-	/*
-		for _, ia := range c.messagesNotSeen {
-			for _, li := range ia {
-				line := c.tlog.Lines[li]
-				t.Errorf("line '%s' not found in JSON output", line.Text)
-			}
+	for _, ia := range c.messagesNotSeen {
+		for _, li := range ia {
+			line := c.tlog.Lines[li]
+			t.Errorf("line '%s' not found in OTEL output", line.Text)
 		}
+	}
+	/*
 		for _, span := range c.tlog.Spans {
 			spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
 			if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
@@ -241,6 +245,28 @@ func (c *checker) span(t *testing.T, otel OTELSpan) {
 	assert.NotEmpty(t, otel.SpanContext.TraceID, "trace id")
 	assert.NotEmpty(t, otel.SpanContext.SpanID, "span id")
 	c.accumulatedSpans[otel.SpanContext.SpanID] = toData(otel.Attributes)
+
+	for _, line := range otel.Events {
+		c.line(t, line, otel)
+	}
+}
+
+func (c *checker) line(t *testing.T, line OTELEvent, span OTELSpan) {
+	ld := toData(line.Attributes)
+	msgI, ok := ld.data["log.message"]
+	if !assert.True(t, ok, "line has log.message attribute") {
+		return
+	}
+	msg := msgI.(string)
+	delete(ld.data, "log.message")
+	lineIndicies := c.messagesNotSeen[msg]
+	if !assert.Equalf(t, 1, len(lineIndicies), "count lines with msg '%s'", msg) {
+		return
+	}
+	delete(c.messagesNotSeen, msg)
+	testLine := c.tlog.Lines[lineIndicies[0]]
+
+	compareData(t, testLine.Data, testLine.DataType, "xoptest", ld.data, "xopotel", false)
 }
 
 type typedData struct {
@@ -264,6 +290,7 @@ func toData(attributes []OTELAttribute) typedData {
 		td.data[a.Key] = a.Value.Value
 		td.types[a.Key] = dt
 	}
+	return td
 }
 
 /*
@@ -272,6 +299,7 @@ func combineAttributes(from map[string]interface{}, attributes map[string]interf
 		attributes[k] = v
 	}
 }
+*/
 
 var xoptestConvert map[xopbase.DataType]func(interface{}) interface{}
 
@@ -342,4 +370,3 @@ func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xo
 	}
 	assert.Equalf(t, aRedone, bRedone, "%s vs %s", aDesc, bDesc)
 }
-*/
