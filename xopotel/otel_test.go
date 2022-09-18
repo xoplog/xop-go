@@ -3,12 +3,12 @@ package xopotel_test
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopotel"
 	"github.com/muir/xop-go/xoptest"
@@ -132,6 +132,8 @@ type OTELLink struct {
 	Attributes            []OTELAttribute
 	DroppedAttributeCount int
 }
+
+// TODO: set SpanKind
 
 type OTELSpan struct {
 	Name                   string
@@ -308,13 +310,23 @@ func init() {
 		xopbase.ErrorDataType: func(generic interface{}) interface{} {
 			return generic.(error).Error()
 		},
-		xopbase.LinkDataType: func(generic interface{}) interface{} {
-			return map[string]interface{}{
-				"xop.link": generic.(trace.Trace).String(),
+		xopbase.DurationDataType: func(generic interface{}) interface{} {
+			return generic.(time.Duration).String()
+		},
+		xopbase.Uint64DataType: func(generic interface{}) interface{} {
+			return strconv.FormatUint(generic.(uint64), 10)
+		},
+		xopbase.AnyDataType: func(generic interface{}) interface{} {
+			enc, err := json.Marshal(generic)
+			if err != nil {
+				return err.Error()
+			} else {
+				return string(enc)
 			}
 		},
-		xopbase.LinkArrayDataType:  genArrayConvert(xopbase.LinkDataType),
-		xopbase.ErrorArrayDataType: genArrayConvert(xopbase.ErrorDataType),
+		xopbase.ErrorArrayDataType:    genArrayConvert(xopbase.ErrorDataType),
+		xopbase.DurationArrayDataType: genArrayConvert(xopbase.DurationDataType),
+		xopbase.AnyArrayDataType:      genArrayConvert(xopbase.AnyDataType),
 	}
 }
 

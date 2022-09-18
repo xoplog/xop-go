@@ -1,5 +1,14 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
+/*
+In xop, the logger is divided into a top-level logger and a lower-level
+logger.  The top-level logger is what users use to add logs to their
+programs.  The lower-level logger is used to send those logs somewhere
+useful.  Xopjson, xoptest, and xopotel are all examples.
+
+Package xopbase defines the base-level loggers for xop.  In OpenTelemetry,
+these are called "exporters".  In logr, they are called "LogSinks".
+*/
 package xopbase
 
 import (

@@ -142,6 +142,7 @@ func (span *span) StartPrefill() xopbase.Prefilling {
 }
 
 func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
+	prefill.prefillMsg = msg
 	return &prefilled{
 		builder: prefill.builder,
 	}
@@ -159,6 +160,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintpt
 	line.attributes = append(line.attributes, prefilled.attributes...)
 	line.spanStartOptions = nil
 	line.spanStartOptions = append(line.spanStartOptions, prefilled.spanStartOptions...)
+	line.prefillMsg = prefilled.prefillMsg
 	// TODO: stack trace
 	// semconv.ExceptionStacktraceKey.String
 	return line
@@ -167,7 +169,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintpt
 func (line *line) Static(msg string) { line.Msg(msg) }
 
 func (line *line) Msg(msg string) {
-	line.attributes = append(line.attributes, logMessageKey.String(msg))
+	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg))
 	if len(line.spanStartOptions) == 0 {
 		line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
 		return

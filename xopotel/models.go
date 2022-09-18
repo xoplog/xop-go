@@ -50,6 +50,7 @@ type builder struct {
 	attributes       []attribute.KeyValue
 	spanStartOptions []oteltrace.SpanStartOption
 	span             *span
+	prefillMsg       string
 }
 
 var _ xopbase.Logger = &logger{}
@@ -60,5 +61,7 @@ var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
 var logMessageKey = attribute.Key("log.message") // copied from https://github.com/uptrace/opentelemetry-go-extra/blob/main/otelzap/otelzap.go
+var spanIsLinkAttributeKey = attribute.Key("span.is-link-attribute")
+var spanIsLinkEventKey = attribute.Key("span.is-link-event")
 
 var emptyTraceState oteltrace.TraceState
