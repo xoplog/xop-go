@@ -29,7 +29,7 @@ var MessageCases = []struct {
 			log.Trace().Msg("basic trace message")
 			log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 
-			ss := log.Sub().Detach().Fork("a fork")
+			ss := log.Sub().Detach().Fork("a fork one span")
 			MicroNap()
 			ss.Alert().String("frightening", "stuff").Static("like a rock" + NeedsEscaping)
 			ss.Span().String(xopconst.EndpointRoute, "/some/thing")
@@ -280,7 +280,7 @@ var MessageCases = []struct {
 	{
 		Name: "metadata multiples",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-			// ss := log.Sub().Fork("a fork")
+			// ss := log.Sub().Fork("a fork metadata multiples")
 			log.Span().Bool(ExampleMetadataMultipleBool, true)
 			log.Span().Bool(ExampleMetadataMultipleBool, true)
 			log.Span().Int(ExampleMetadataMultipleInt, 3)
@@ -293,7 +293,7 @@ var MessageCases = []struct {
 	{
 		Name: "metadata distinct",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-			// ss := log.Sub().Fork("a fork")
+			// ss := log.Sub().Fork("a fork metadata distinct")
 			log.Span().Bool(ExampleMetadataDistinctBool, true)
 			log.Span().Bool(ExampleMetadataDistinctBool, true)
 			log.Span().Bool(ExampleMetadataDistinctBool, false)
@@ -316,7 +316,7 @@ var MessageCases = []struct {
 	{
 		Name: "one done",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-			_ = log.Sub().Fork("a fork")
+			_ = log.Sub().Fork("a fork one done")
 			MicroNap()
 			log.Done()
 		},

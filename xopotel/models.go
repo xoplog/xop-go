@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
 	"github.com/muir/xop-go/xopnum"
 
@@ -20,6 +21,7 @@ type logger struct {
 
 type span struct {
 	span               oteltrace.Span
+	XXX                string
 	logger             *logger
 	ctx                context.Context
 	lock               sync.Mutex
@@ -47,10 +49,11 @@ type line struct {
 }
 
 type builder struct {
-	attributes       []attribute.KeyValue
-	spanStartOptions []oteltrace.SpanStartOption
-	span             *span
-	prefillMsg       string
+	attributes []attribute.KeyValue
+	span       *span
+	prefillMsg string
+	linkKey    string
+	linkValue  trace.Trace
 }
 
 var _ xopbase.Logger = &logger{}

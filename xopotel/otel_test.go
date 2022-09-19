@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/muir/xop-go"
+	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopbase"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xopotel"
 	"github.com/muir/xop-go/xoptest"
 	"github.com/muir/xop-go/xoptest/xoptestutil"
@@ -68,9 +70,9 @@ func TestSpanLog(t *testing.T) {
 			tracerProvider := sdktrace.NewTracerProvider(
 				sdktrace.WithBatcher(exporter),
 			)
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
 			defer func() {
-				err := tracerProvider.Shutdown(ctx)
+				err := tracerProvider.Shutdown(context.Background())
 				assert.NoError(t, err, "shutdown")
 			}()
 
@@ -82,6 +84,7 @@ func TestSpanLog(t *testing.T) {
 			mc.Do(t, log, tlog)
 
 			span.End()
+			cancel()
 			tracerProvider.ForceFlush(context.Background())
 			t.Log("logged:", buffer.String())
 			assert.NotEmpty(t, buffer.String())
@@ -163,6 +166,7 @@ type checker struct {
 	requestIndex     map[string]int
 	accumulatedSpans map[string]typedData
 	sequencing       map[string]int
+	later            []func()
 }
 
 const debugTlog = true
@@ -218,10 +222,13 @@ func (c *checker) check(t *testing.T, data string) {
 
 		c.span(t, otel)
 	}
+	for _, f := range c.later {
+		f()
+	}
 	for _, ia := range c.messagesNotSeen {
 		for _, li := range ia {
 			line := c.tlog.Lines[li]
-			t.Errorf("line '%s' not found in OTEL output", line.Text)
+			t.Errorf("line '%s' not found in OTEL output", line.Message)
 		}
 	}
 	/*
@@ -240,21 +247,41 @@ func (c *checker) check(t *testing.T, data string) {
 	*/
 }
 
-func (c *checker) span(t *testing.T, otel OTELSpan) {
-	assert.NotEmpty(t, otel.Name, "span name")
-	assert.False(t, otel.StartTime.IsZero(), "start time set")
-	assert.False(t, otel.EndTime.IsZero(), "end time set")
-	assert.NotEmpty(t, otel.SpanContext.TraceID, "trace id")
-	assert.NotEmpty(t, otel.SpanContext.SpanID, "span id")
-	c.accumulatedSpans[otel.SpanContext.SpanID] = toData(otel.Attributes)
+func (c *checker) span(t *testing.T, span OTELSpan) {
+	t.Logf("checking span %s (%s) with %d links and %d events",
+		span.Name, span.SpanContext.SpanID, len(span.Links), len(span.Events))
+	assert.NotEmpty(t, span.Name, "span name")
+	assert.False(t, span.StartTime.IsZero(), "start time set")
+	assert.False(t, span.EndTime.IsZero(), "end time set")
+	assert.NotEmpty(t, span.SpanContext.TraceID, "trace id")
+	assert.NotEmpty(t, span.SpanContext.SpanID, "span id")
+	c.accumulatedSpans[span.SpanContext.SpanID] = toData(span.Attributes)
 
-	for _, line := range otel.Events {
-		c.line(t, line, otel)
+	if len(span.Attributes) == 1 {
+		switch span.Attributes[0].Key {
+		case "span.is-link-event":
+			// span is just a fake link attribute and the entire span
+			// should be considered an event.
+			if assert.Equal(t, 1, len(span.Events), "link-event span event count") {
+				c.line(t, span.Events[0], &span)
+			}
+			return
+		case "span.is-link-attribute":
+			// span is just additional metadata on it's parent span
+			c.later = append(c.later, func() {
+				addLink(t, c.accumulatedSpans[span.Parent.SpanID], &span)
+			})
+		}
+	}
+
+	for _, line := range span.Events {
+		c.line(t, line, nil)
 	}
 }
 
-func (c *checker) line(t *testing.T, line OTELEvent, span OTELSpan) {
+func (c *checker) line(t *testing.T, line OTELEvent, linkSpan *OTELSpan) {
 	ld := toData(line.Attributes)
+	addLink(t, ld, linkSpan)
 	msgI, ok := ld.data["log.message"]
 	if !assert.True(t, ok, "line has log.message attribute") {
 		return
@@ -268,7 +295,24 @@ func (c *checker) line(t *testing.T, line OTELEvent, span OTELSpan) {
 	delete(c.messagesNotSeen, msg)
 	testLine := c.tlog.Lines[lineIndicies[0]]
 
+	_, err := xopnum.LevelString(line.Name)
+	assert.NoErrorf(t, err, "event 'name' is a valid log level: %s", line.Name)
+
 	compareData(t, testLine.Data, testLine.DataType, "xoptest", ld.data, "xopotel", false)
+}
+
+func addLink(t *testing.T, td typedData, span *OTELSpan) {
+	if span == nil {
+		return
+	}
+	if assert.Equalf(t, 1, len(span.Links), "count of metadata link in span %s", span.SpanContext.SpanID) {
+		td.data[span.Name] = []string{
+			"link",
+			span.Links[0].SpanContext.TraceID,
+			span.Links[0].SpanContext.SpanID,
+		}
+		td.types[span.Name] = xopbase.LinkDataType
+	}
 }
 
 type typedData struct {
@@ -286,6 +330,7 @@ func toData(attributes []OTELAttribute) typedData {
 		switch a.Value.Type {
 		case "STRING":
 			dt = xopbase.StringDataType
+		// TODO Add the rest of the know value types
 		default:
 			dt = xopbase.AnyDataType
 		}
@@ -313,6 +358,10 @@ func init() {
 		xopbase.DurationDataType: func(generic interface{}) interface{} {
 			return generic.(time.Duration).String()
 		},
+		xopbase.LinkDataType: func(generic interface{}) interface{} {
+			link := generic.(trace.Trace)
+			return []string{"link", link.TraceID().String(), link.SpanID().String()}
+		},
 		xopbase.Uint64DataType: func(generic interface{}) interface{} {
 			return strconv.FormatUint(generic.(uint64), 10)
 		},
@@ -327,6 +376,7 @@ func init() {
 		xopbase.ErrorArrayDataType:    genArrayConvert(xopbase.ErrorDataType),
 		xopbase.DurationArrayDataType: genArrayConvert(xopbase.DurationDataType),
 		xopbase.AnyArrayDataType:      genArrayConvert(xopbase.AnyDataType),
+		xopbase.LinkArrayDataType:     genArrayConvert(xopbase.LinkDataType),
 	}
 }
 

@@ -2,6 +2,7 @@ package xop
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -14,10 +15,11 @@ type Seed struct {
 }
 
 func (seed Seed) Copy(mods ...SeedModifier) Seed {
-	return Seed{
+	seed = Seed{
 		spanSeed: seed.spanSeed.copy(true),
 		settings: seed.settings.Copy(),
 	}
+	return seed.applyMods(mods)
 }
 
 // SeedReactiveCallback is used to modify seeds as they are just sprouting
@@ -43,7 +45,6 @@ type spanSeed struct {
 	reactive             seedReactiveCallbacks
 	ctx                  context.Context
 	currentReactiveIndex int
-	reactiveReplaced     bool
 }
 
 func (s spanSeed) copy(withHistory bool) spanSeed {
@@ -121,8 +122,8 @@ func WithReactive(f SeedReactiveCallback) SeedModifier {
 // To remove a reactive function, call WithReactiveReplaced with nil.
 func WithReactiveReplaced(f SeedReactiveCallback) SeedModifier {
 	return func(s *Seed) {
+		fmt.Println("XXX WithReactiveReplaced", s.currentReactiveIndex)
 		s.reactive[s.currentReactiveIndex] = f
-		s.reactiveReplaced = true
 	}
 }
 
@@ -178,10 +179,12 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 		seed.traceBundle.Trace.RandomizeSpanID()
 	}
 	if len(seed.reactive) == 0 {
+		fmt.Println("XXX no reactive", description)
 		return seed
 	}
 	var nilSeen bool
 	initialCount := len(seed.reactive)
+	fmt.Println("XXX reactive count", initialCount, description)
 	for i := 0; i < initialCount; i++ {
 		f := seed.reactive[i]
 		if f == nil {
@@ -190,8 +193,10 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 			continue
 		}
 		seed.currentReactiveIndex = i
-		seed.reactiveReplaced = false
 		seed = f(seed.ctx, seed, description, !isRequest)
+		if seed.reactive[i] == nil {
+			nilSeen = true
+		}
 	}
 	if nilSeen {
 		reactive := make(seedReactiveCallbacks, 0, len(seed.reactive))

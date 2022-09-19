@@ -118,9 +118,9 @@ type Line struct {
 	Builder
 	Level     xopnum.Level
 	Timestamp time.Time
-	Message   string
-	Text      string
-	Tmpl      bool
+	Message   string // Prefill text + line text (template evaluated)
+	Text      string // Complete text of line including key=value pairs
+	Tmpl      string // un-evaluated template
 }
 
 type Event struct {
@@ -203,6 +203,7 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 }
 
 func (span *Span) Done(t time.Time, final bool) {
+	span.testLogger.t.Log("XXX done called on", span.Name)
 	atomic.StoreInt64(&span.EndTime, t.UnixNano())
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
@@ -328,18 +329,18 @@ func (line *Line) Msg(m string) {
 var templateRE = regexp.MustCompile(`\{.+?\}`)
 
 func (line *Line) Template(m string) {
-	line.Tmpl = true
-	line.Message += m
+	line.Tmpl = line.Message + m
 	used := make(map[string]struct{})
-	text := line.Span.short + ": " +
-		templateRE.ReplaceAllStringFunc(line.Message, func(k string) string {
-			k = k[1 : len(k)-1]
-			if v, ok := line.Data[k]; ok {
-				used[k] = struct{}{}
-				return fmt.Sprint(v)
-			}
-			return "''"
-		})
+	msg := templateRE.ReplaceAllStringFunc(line.Tmpl, func(k string) string {
+		k = k[1 : len(k)-1]
+		if v, ok := line.Data[k]; ok {
+			used[k] = struct{}{}
+			return fmt.Sprint(v)
+		}
+		return "''"
+	})
+	line.Message = msg
+	text := line.Span.short + ": " + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)

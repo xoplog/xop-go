@@ -242,13 +242,11 @@ func (log *Log) addMyselfAsDependent() bool {
 		return false
 	}
 	if log.span.detached {
-		log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is detached")
 		log.request.span.dependentLock.Lock()
 		defer log.request.span.dependentLock.Unlock()
 		log.shared.ActiveDetached[log.span.logNumber] = log
 		return false
 	}
-	log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is attached")
 	log.parent.span.dependentLock.Lock()
 	defer log.parent.span.dependentLock.Unlock()
 	if log.parent.span.activeDependents == nil {
