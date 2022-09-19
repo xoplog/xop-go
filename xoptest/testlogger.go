@@ -363,25 +363,6 @@ func (line Line) send(text string) {
 	line.Span.Lines = append(line.Span.Lines, &line)
 }
 
-func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
-	b.Data[k] = v
-	b.DataType[k] = dt
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
-}
-
-func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	ks := k.Key()
-	b.Data[ks] = v.String()
-	b.DataType[ks] = xopbase.EnumDataType
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
-}
-
-func (b *Builder) Link(k string, v trace.Trace) {
-	b.Data[k] = v
-	b.DataType[k] = xopbase.LinkDataType
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
-}
-
 func (line *Line) TemplateOrMessage() string {
 	if line.Tmpl != "" {
 		return line.Tmpl

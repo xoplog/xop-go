@@ -164,6 +164,10 @@ func (settings *LogSettings) MinLevel(level xopnum.Level) {
 	settings.minimumLogLevel = level
 }
 
+func (settings LogSettings) GetMinLevel() xopnum.Level {
+	return settings.minimumLogLevel
+}
+
 // TagLinesWithSpanSequence controls if the span sequence
 // indicator (see Fork() and Step()) should be included in
 // the prefill data on each line.

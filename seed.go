@@ -4,7 +4,6 @@ package xop
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -124,7 +123,6 @@ func WithReactive(f SeedReactiveCallback) SeedModifier {
 // To remove a reactive function, call WithReactiveReplaced with nil.
 func WithReactiveReplaced(f SeedReactiveCallback) SeedModifier {
 	return func(s *Seed) {
-		fmt.Println("XXX WithReactiveReplaced", s.currentReactiveIndex)
 		s.reactive[s.currentReactiveIndex] = f
 	}
 }
@@ -181,12 +179,10 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 		seed.traceBundle.Trace.RandomizeSpanID()
 	}
 	if len(seed.reactive) == 0 {
-		fmt.Println("XXX no reactive", description)
 		return seed
 	}
 	var nilSeen bool
 	initialCount := len(seed.reactive)
-	fmt.Println("XXX reactive count", initialCount, description)
 	for i := 0; i < initialCount; i++ {
 		f := seed.reactive[i]
 		if f == nil {
