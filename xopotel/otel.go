@@ -25,7 +25,6 @@ import (
 // SpanLog allows xop to add logs to an existing OTEL span.  log.Done() will be
 // ignored for this span.
 func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
-	fmt.Println("XXX SpanLog", name)
 	span := oteltrace.SpanFromContext(ctx)
 	var xoptrace trace.Trace
 	xoptrace.TraceID().Set(span.SpanContext().TraceID())
@@ -46,12 +45,10 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 		// but on subsequent calls, we do so the outer reactive function
 		// just sets the future function.
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
-			fmt.Println("XXX first stage reactive", nameOrDescription)
 			return seed.Copy(
 				xop.WithReactiveReplaced(
 					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
 						ctx, span := span.TracerProvider().Tracer("").Start(ctx, nameOrDescription)
-						fmt.Printf("XXX created span %s for %s\n", span.SpanContext().SpanID().String(), nameOrDescription)
 						return seed.Copy(
 							xop.WithContext(ctx),
 							xop.WithSpan(span.SpanContext().SpanID()),
@@ -108,12 +105,10 @@ func (logger *logger) Close()               {}
 
 func (logger *logger) Request(ctx context.Context, ts time.Time, _ trace.Bundle, description string) xopbase.Request {
 	otelspan := oteltrace.SpanFromContext(ctx)
-	fmt.Printf("XXX using span %s for %s\n", otelspan.SpanContext().SpanID().String(), description)
 	return &span{
 		logger: logger,
 		span:   otelspan,
 		ctx:    ctx,
-		XXX:    description,
 	}
 }
 
@@ -123,16 +118,12 @@ func (span *span) Boring(_ bool)                  {}
 func (span *span) ID() string                     { return span.logger.id }
 func (span *span) Done(endTime time.Time, final bool) {
 	if !final {
-		fmt.Println("XXX Not callding done on (not final)", span.XXX)
 		return
 	}
 	if span.logger.ignoreDone == span.span {
 		// skip Done for spans passed in to SpanLog()
-		fmt.Println("XXX Not callding done on (single)", span.logger.ignoreDone.SpanContext().SpanID().String(), span.span.SpanContext().SpanID().String())
-		fmt.Println("XXX Not callding done on (single)", span.XXX)
 		return
 	}
-	fmt.Println("XXX callding done on", span.XXX)
 	span.span.End()
 }
 
@@ -158,7 +149,7 @@ func (span *span) StartPrefill() xopbase.Prefilling {
 }
 
 func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
-	prefill.prefillMsg = msg
+	prefill.builder.prefillMsg = msg
 	return &prefilled{
 		builder: prefill.builder,
 	}

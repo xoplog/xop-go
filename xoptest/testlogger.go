@@ -203,7 +203,6 @@ func (log *TestLogger) setShort(span trace.Bundle, name string) string {
 }
 
 func (span *Span) Done(t time.Time, final bool) {
-	span.testLogger.t.Log("XXX done called on", span.Name)
 	atomic.StoreInt64(&span.EndTime, t.UnixNano())
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
@@ -381,6 +380,13 @@ func (b *Builder) Link(k string, v trace.Trace) {
 	b.Data[k] = v
 	b.DataType[k] = xopbase.LinkDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
+}
+
+func (line *Line) TemplateOrMessage() string {
+	if line.Tmpl != "" {
+		return line.Tmpl
+	}
+	return line.Message
 }
 
 func (b *Builder) Any(k string, v interface{})        { b.any(k, v, xopbase.AnyDataType) }

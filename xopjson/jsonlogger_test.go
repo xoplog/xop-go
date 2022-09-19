@@ -231,10 +231,11 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, config checkConfig) *che
 		sequencing:       make(map[string]int),
 	}
 	for i, line := range tlog.Lines {
+		m := line.TemplateOrMessage()
 		if debugTlog {
-			t.Logf("recorded line: '%s'", line.Message)
+			t.Logf("recorded line: '%s'", m)
 		}
-		c.messagesNotSeen[line.Message] = append(c.messagesNotSeen[line.Message], i)
+		c.messagesNotSeen[m] = append(c.messagesNotSeen[m], i)
 	}
 	for i, span := range tlog.Spans {
 		if debugTspan {

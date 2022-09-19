@@ -21,7 +21,6 @@ type logger struct {
 
 type span struct {
 	span               oteltrace.Span
-	XXX                string
 	logger             *logger
 	ctx                context.Context
 	lock               sync.Mutex
