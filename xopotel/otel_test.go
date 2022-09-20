@@ -231,20 +231,18 @@ func (c *checker) check(t *testing.T, data string) {
 			t.Errorf("line '%s' not found in OTEL output", line.Message)
 		}
 	}
-	/*
-		for _, span := range c.tlog.Spans {
-			spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
-			if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
-				// compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
-			}
+	for _, span := range c.tlog.Spans {
+		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
+		if len(span.Metadata) != 0 || len(spanAttributes.data) != 0 {
+			compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes.data, "xoptel.span.generic", true)
 		}
-		for _, span := range c.tlog.Requests {
-			spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
-			if len(span.Metadata) != 0 || len(spanAttributes) != 0 {
-					// compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes, "xopjson.span.generic", true)
-			}
+	}
+	for _, span := range c.tlog.Requests {
+		spanAttributes := c.accumulatedSpans[span.Trace.Trace.SpanID().String()]
+		if len(span.Metadata) != 0 || len(spanAttributes.data) != 0 {
+			compareData(t, span.Metadata, span.MetadataType, "xoptest.Metadata", spanAttributes.data, "xopotel.span.generic", true)
 		}
-	*/
+	}
 }
 
 func (c *checker) span(t *testing.T, span OTELSpan) {
@@ -257,6 +255,7 @@ func (c *checker) span(t *testing.T, span OTELSpan) {
 	assert.NotEmpty(t, span.SpanContext.SpanID, "span id")
 	c.accumulatedSpans[span.SpanContext.SpanID] = toData(span.Attributes)
 
+	mustFind := true
 	if len(span.Attributes) == 1 {
 		switch span.Attributes[0].Key {
 		case "span.is-link-event":
@@ -271,7 +270,13 @@ func (c *checker) span(t *testing.T, span OTELSpan) {
 			c.later = append(c.later, func() {
 				addLink(t, c.accumulatedSpans[span.Parent.SpanID], &span)
 			})
+			mustFind = false
 		}
+	}
+
+	if mustFind {
+		_, ok := c.spanIndex[span.SpanContext.SpanID]
+		assert.Truef(t, ok, "span %s (%s) also exists in tlog", span.Name, span.SpanContext.SpanID)
 	}
 
 	for _, line := range span.Events {

@@ -44,16 +44,18 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 		// The first time through, we do not want to change the spanID,
 		// but on subsequent calls, we do so the outer reactive function
 		// just sets the future function.
-		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
-			return seed.Copy(
+		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
+			return []xop.SeedModifier{
+				xop.WithTrace(xoptrace),
 				xop.WithReactiveReplaced(
-					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
+					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
 						ctx, span := span.TracerProvider().Tracer("").Start(ctx, nameOrDescription)
-						return seed.Copy(
+						return []xop.SeedModifier{
 							xop.WithContext(ctx),
 							xop.WithSpan(span.SpanContext().SpanID()),
-						)
-					}))
+						}
+					}),
+			}
 		}),
 	).SubSpan(name)
 	go func() {
@@ -73,13 +75,13 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 			tracer:    tracer,
 		}),
 		xop.WithContext(ctx),
-		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) xop.Seed {
+		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
 			if isChildSpan {
 				ctx, span := tracer.Start(ctx, nameOrDescription)
-				return seed.Copy(
+				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
-				)
+				}
 			}
 			ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithNewRoot())
 			bundle := seed.Bundle()
@@ -90,10 +92,10 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 				bundle.Trace.TraceID().Set(span.SpanContext().TraceID())
 			}
 			bundle.Trace.SpanID().Set(span.SpanContext().SpanID())
-			return seed.Copy(
+			return []xop.SeedModifier{
 				xop.WithContext(ctx),
 				xop.WithBundle(bundle),
-			)
+			}
 		}),
 	)
 }

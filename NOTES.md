@@ -27,3 +27,15 @@ On the reverse, set knownActive to 0 and then call Done(), etc.
 Try not to hold locks while calling things: make todo lists while
 holding the lock but then do the work w/o the lock.  
 
+## SpanModifiers and randomizing trace id / span id
+
+Generally speaking, we randomize span ids early.
+
+The usual sequence is 
+
+1. `Seed`
+2. `Request()` -> `log`
+2. `log.Sub().Fork().`
+
+XXX
+

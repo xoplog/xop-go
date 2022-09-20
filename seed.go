@@ -4,6 +4,8 @@ package xop
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -15,18 +17,48 @@ type Seed struct {
 	settings LogSettings
 }
 
+// Copy makes a deep copy of a seed and also randomizes
+// the SpanID.
 func (seed Seed) Copy(mods ...SeedModifier) Seed {
-	seed = Seed{
+	fmt.Println("XXX Copy seed")
+	n := Seed{
 		spanSeed: seed.spanSeed.copy(true),
 		settings: seed.settings.Copy(),
 	}
-	return seed.applyMods(mods)
+	if !seed.spanSet {
+		XXX := n.traceBundle.Trace.SpanID().String()
+		n.traceBundle.Trace.RandomizeSpanID()
+		fmt.Println("XXX Copy randomize", XXX, "->", n.traceBundle.Trace.SpanID().String())
+	} else {
+		fmt.Println("XXX Copy w/o randomize")
+	}
+	n = n.applyMods(mods)
+	fmt.Println("XXX Copy final", n.traceBundle.Trace.SpanID().String())
+	return n
 }
 
-// SeedReactiveCallback is used to modify seeds as they are just sprouting
-// The selfIndex parameter can be used with WithReactiveReplaced or
-// WithReactiveRemoved.
-type SeedReactiveCallback func(ctx context.Context, seed Seed, nameOrDescription string, isChildSpan bool) Seed
+// Seed provides a copy of the current span's seed, but the
+// spanID is randomized.
+func (span *Span) Seed(mods ...SeedModifier) Seed {
+	fmt.Println("XXX Seed seed")
+	n := Seed{
+		spanSeed: span.seed.copy(false),
+		settings: span.log.settings.Copy(),
+	}
+	if !span.seed.spanSet {
+		XXX := n.traceBundle.Trace.SpanID().String()
+		n.traceBundle.Trace.RandomizeSpanID()
+		fmt.Println("XXX Seed randomize", XXX, "->", n.traceBundle.Trace.SpanID().String())
+	} else {
+		fmt.Println("XXX Seed w/o randomize")
+	}
+	n = n.applyMods(mods)
+	fmt.Println("XXX Seed final", n.traceBundle.Trace.SpanID().String())
+	return n
+}
+
+// SeedReactiveCallback is used to modify seeds as they are just sprouting.
+type SeedReactiveCallback func(ctx context.Context, seed Seed, nameOrDescription string, isChildSpan bool) []SeedModifier
 
 type seedReactiveCallbacks []SeedReactiveCallback
 
@@ -46,6 +78,8 @@ type spanSeed struct {
 	reactive             seedReactiveCallbacks
 	ctx                  context.Context
 	currentReactiveIndex int
+	traceSet             bool
+	spanSet              bool
 }
 
 func (s spanSeed) copy(withHistory bool) spanSeed {
@@ -66,17 +100,6 @@ func NewSeed(mods ...SeedModifier) Seed {
 		},
 		settings: DefaultSettings,
 	}
-	return seed.applyMods(mods)
-}
-
-// Seed provides a copy of the current span's seed, but the
-// spanID is randomized.
-func (span *Span) Seed(mods ...SeedModifier) Seed {
-	seed := Seed{
-		spanSeed: span.seed.copy(false),
-		settings: span.log.settings.Copy(),
-	}
-	seed.spanSeed.traceBundle.Trace.RandomizeSpanID()
 	return seed.applyMods(mods)
 }
 
@@ -143,13 +166,18 @@ func WithBundle(bundle trace.Bundle) SeedModifier {
 
 func WithSpan(spanID [8]byte) SeedModifier {
 	return func(s *Seed) {
+		fmt.Println("XXX WithSpan", hex.EncodeToString(spanID[:]))
 		s.traceBundle.Trace.SpanID().Set(spanID)
+		s.spanSet = true
 	}
 }
 
 func WithTrace(trace trace.Trace) SeedModifier {
 	return func(s *Seed) {
+		fmt.Println("XXX WithTrace", trace.SpanID().String())
 		s.traceBundle.Trace = trace
+		s.traceSet = true
+		s.spanSet = true
 	}
 }
 
@@ -173,11 +201,12 @@ func (seed Seed) Bundle() trace.Bundle {
 
 func (seed Seed) react(isRequest bool, description string) Seed {
 	if isRequest {
-		seed.traceBundle.Trace.RebuildSetNonZero()
-	} else {
-		seed.traceBundle = seed.traceBundle.Copy()
-		seed.traceBundle.Trace.RandomizeSpanID()
+		if !seed.traceSet {
+			seed.traceBundle.Trace.RebuildSetNonZero()
+		}
 	}
+	seed.traceSet = false
+	seed.spanSet = false
 	if len(seed.reactive) == 0 {
 		return seed
 	}
@@ -191,7 +220,7 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 			continue
 		}
 		seed.currentReactiveIndex = i
-		seed = f(seed.ctx, seed, description, !isRequest)
+		seed = seed.applyMods(f(seed.ctx, seed, description, !isRequest))
 		if seed.reactive[i] == nil {
 			nilSeen = true
 		}
