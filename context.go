@@ -2,7 +2,6 @@ package xop
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -86,7 +85,6 @@ func AdjustedLevelLoger(getLogFromContext func(context.Context) *Log, level xopn
 		frame, _ := frames.Next()
 		var pkg string
 		if frame.Function != "" {
-			fmt.Println("XXX func", frame.Function)
 			// Example: github.com/muir/xop-go/xoptest/xoptestutil.init
 			if strings.HasSuffix(frame.Function, ".init") {
 				if i := strings.LastIndexByte(frame.Function, '/'); i != -1 {
@@ -100,10 +98,8 @@ func AdjustedLevelLoger(getLogFromContext func(context.Context) *Log, level xopn
 					pkg = p[0]
 				}
 			}
-			fmt.Println("XXX pkg =", pkg)
 		}
 		if pkg == "" {
-			fmt.Println("XXX file name", frame.File)
 			pkg = filepath.Base(filepath.Dir(frame.File))
 			if pkg == "." || pkg == "/" {
 				pkg = ""
@@ -111,15 +107,12 @@ func AdjustedLevelLoger(getLogFromContext func(context.Context) *Log, level xopn
 		}
 		if pkg != "" {
 			if ls, ok := os.LookupEnv("XOPLEVEL_" + pkg); ok {
-				fmt.Println("XXX found value", ls)
 				lvl, err := xopnum.LevelString(ls)
 				if err == nil {
 					level = lvl
 				} else if i, err := strconv.ParseInt(ls, 10, 64); err == nil {
 					level = xopnum.Level(i)
 				}
-			} else {
-				fmt.Println("XXX not set", "XOPLEVEL_"+pkg)
 			}
 		}
 	}

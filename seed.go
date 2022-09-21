@@ -4,8 +4,6 @@ package xop
 
 import (
 	"context"
-	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -20,40 +18,28 @@ type Seed struct {
 // Copy makes a deep copy of a seed and also randomizes
 // the SpanID.
 func (seed Seed) Copy(mods ...SeedModifier) Seed {
-	fmt.Println("XXX Copy seed")
 	n := Seed{
 		spanSeed: seed.spanSeed.copy(true),
 		settings: seed.settings.Copy(),
 	}
 	if !seed.spanSet {
-		XXX := n.traceBundle.Trace.SpanID().String()
 		n.traceBundle.Trace.SpanID().SetRandom()
-		fmt.Println("XXX Copy randomize", XXX, "->", n.traceBundle.Trace.SpanID().String())
-	} else {
-		fmt.Println("XXX Copy w/o randomize")
 	}
 	n = n.applyMods(mods)
-	fmt.Println("XXX Copy final", n.traceBundle.Trace.SpanID().String())
 	return n
 }
 
 // Seed provides a copy of the current span's seed, but the
 // spanID is randomized.
 func (span *Span) Seed(mods ...SeedModifier) Seed {
-	fmt.Println("XXX Seed seed")
 	n := Seed{
 		spanSeed: span.seed.copy(false),
 		settings: span.log.settings.Copy(),
 	}
 	if !span.seed.spanSet {
-		XXX := n.traceBundle.Trace.SpanID().String()
 		n.traceBundle.Trace.SpanID().SetRandom()
-		fmt.Println("XXX Seed randomize", XXX, "->", n.traceBundle.Trace.SpanID().String())
-	} else {
-		fmt.Println("XXX Seed w/o randomize")
 	}
 	n = n.applyMods(mods)
-	fmt.Println("XXX Seed final", n.traceBundle.Trace.SpanID().String())
 	return n
 }
 
@@ -166,7 +152,6 @@ func WithBundle(bundle trace.Bundle) SeedModifier {
 
 func WithSpan(spanID [8]byte) SeedModifier {
 	return func(s *Seed) {
-		fmt.Println("XXX WithSpan", hex.EncodeToString(spanID[:]))
 		s.traceBundle.Trace.SpanID().Set(spanID)
 		s.spanSet = true
 	}
@@ -174,7 +159,6 @@ func WithSpan(spanID [8]byte) SeedModifier {
 
 func WithTrace(trace trace.Trace) SeedModifier {
 	return func(s *Seed) {
-		fmt.Println("XXX WithTrace", trace.SpanID().String())
 		s.traceBundle.Trace = trace
 		s.traceSet = true
 		s.spanSet = true
