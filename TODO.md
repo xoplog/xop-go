@@ -52,6 +52,10 @@
 
 # Just do it (build ready)
 
+- simplify time formatting in xopjson: instead of current options, allow user to pass in a time format function
+
+  `WithTimeFormat(func(time.Time, []byte) []byte)`
+
 - dictionary support
 
   - if BytesWriter is also a DictionaryConsumer... 

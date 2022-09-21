@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+SKIP:(\S+))?\s*$`)
+var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+(SKIP|ONLY):(\S+))?\s*$`)
 var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
 var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
@@ -133,6 +133,17 @@ var macros = map[string]map[string]string{
 		"Level":        "xopnum",
 		"SpanKindEnum": "xopconst",
 	},
+	"OTELAttributes": {
+		"String":       "string",
+		"Int64":        "int64",
+		"Float64":      "float64",
+		"Bool":         "bool",
+		"StringSlice":  "[]string",
+		"Int64Slice":   "[]int64",
+		"Float64Slice": "[]float64",
+		"BoolSlice":    "[]bool",
+		"Stringer":     "fmt.Stringer",
+	},
 }
 
 var allLines []string
@@ -158,7 +169,7 @@ func main() {
 	for index = 0; index < len(allLines); index++ {
 		line := allLines[index]
 		if m := macroRE.FindStringSubmatch(line); m != nil {
-			macroExpand(m[1], m[2], m[3])
+			macroExpand(m[1], m[2], m[3] == "SKIP", m[4])
 			continue
 		}
 		if m := packageRE.FindStringSubmatch(line); m != nil {
@@ -171,7 +182,7 @@ func main() {
 	}
 }
 
-func macroExpand(indent string, macro string, skipList string) {
+func macroExpand(indent string, macro string, skip bool, skipList string) {
 	m, ok := macros[macro]
 	if !ok {
 		panic(fmt.Errorf("'%s' isn't a valid macro, at line %d", macro, index+1))
@@ -195,8 +206,10 @@ func macroExpand(indent string, macro string, skipList string) {
 	}
 
 	skips := make(map[string]struct{})
-	for _, skip := range strings.Split(skipList, ",") {
-		skips[skip] = struct{}{}
+	if skipList != "" {
+		for _, skip := range strings.Split(skipList, ",") {
+			skips[skip] = struct{}{}
+		}
 	}
 
 	keys := make([]string, 0, len(m))
@@ -205,7 +218,8 @@ func macroExpand(indent string, macro string, skipList string) {
 	}
 	sort.Strings(keys)
 	for _, name := range keys {
-		if _, ok := skips[name]; ok {
+		_, ok := skips[name]
+		if len(skips) > 0 && skip == ok {
 			continue
 		}
 		typ := m[name]
@@ -241,6 +255,7 @@ func macroExpand(indent string, macro string, skipList string) {
 				continue
 			} else if elseConditionalRE.MatchString(line) {
 				skipping = !skipping
+				continue
 			} else if endConditionalRE.MatchString(line) {
 				skipping = false
 				continue

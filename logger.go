@@ -60,9 +60,7 @@ type shared struct {
 	WaitingForDetached bool // true only when request is Done but is not yet flushed due to detached
 }
 
-func (seed Seed) Request(descriptionOrName string) *Log {
-	seed.traceBundle.Trace.RebuildSetNonZero()
-
+func (seed Seed) request(descriptionOrName string) *Log {
 	type singleAlloc struct {
 		Log    Log
 		shared shared
@@ -75,7 +73,7 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 			// XXX prefilled?
 		},
 		span: span{
-			seed:        seed.spanSeed.Copy(),
+			seed:        seed.spanSeed.copy(false),
 			description: descriptionOrName,
 			knownActive: 1,
 		},
@@ -95,7 +93,7 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(time.Now(), log.span.seed.traceBundle, descriptionOrName)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
@@ -144,7 +142,9 @@ func (sub *Sub) Log() *Log {
 	return log
 }
 
-func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogSettings, detached bool) *Log {
+func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
+	seed = seed.react(false, description)
+
 	type singleAlloc struct {
 		Log  Log
 		Span Span
@@ -155,11 +155,11 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 			request:  old.request,
 			parent:   old,
 			shared:   old.shared,
-			settings: settings,
+			settings: seed.settings,
 			// XXX prefilled?
 		},
 		span: span{
-			seed:        spanSeed,
+			seed:        seed.spanSeed,
 			detached:    detached,
 			description: description,
 			knownActive: 1,
@@ -172,8 +172,8 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 	alloc.Log.span = &alloc.span
 	log := &alloc.Log
 
-	log.span.base = old.span.base.Span(time.Now(), spanSeed.traceBundle, description, log.span.seed.spanSequenceCode)
-	if len(spanSeed.loggers.Added) == 0 && len(spanSeed.loggers.Removed) == 0 {
+	log.span.base = old.span.base.Span(seed.ctx, time.Now(), seed.traceBundle, description, log.span.seed.spanSequenceCode)
+	if len(seed.loggers.Added) == 0 && len(seed.loggers.Removed) == 0 {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
 	} else {
@@ -186,13 +186,13 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 		} else {
 			spanSet[log.span.base.ID()] = log.span.base
 		}
-		for _, removed := range spanSeed.loggers.Removed {
+		for _, removed := range seed.loggers.Removed {
 			id := removed.ID()
 			DebugPrint("remove flusher", id)
 			delete(spanSet, id)
 		}
 		ts := time.Now()
-		for _, added := range spanSeed.loggers.Added {
+		for _, added := range seed.loggers.Added {
 			id := added.ID()
 			if _, ok := spanSet[id]; ok {
 				DebugPrint("ignoring additional flusher, in span set", id)
@@ -207,7 +207,7 @@ func (old *Log) newChildLog(spanSeed spanSeed, description string, settings LogS
 				DebugPrint("ignoring additional flusher, already in flusher set", id)
 				continue
 			}
-			req := added.Request(ts, log.request.span.seed.traceBundle, log.shared.Description)
+			req := added.Request(log.request.span.seed.ctx, ts, log.request.span.seed.traceBundle, log.shared.Description)
 			spanSet[id] = req
 			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
 			DebugPrint("adding flusher to flusher set", id)
@@ -242,13 +242,11 @@ func (log *Log) addMyselfAsDependent() bool {
 		return false
 	}
 	if log.span.detached {
-		log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is detached")
 		log.request.span.dependentLock.Lock()
 		defer log.request.span.dependentLock.Unlock()
 		log.shared.ActiveDetached[log.span.logNumber] = log
 		return false
 	}
-	log.Info().String("span", log.span.seed.traceBundle.Trace.SpanID().String()).Msg("XXX is attached")
 	log.parent.span.dependentLock.Lock()
 	defer log.parent.span.dependentLock.Unlock()
 	if log.parent.span.activeDependents == nil {

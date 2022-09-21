@@ -53,66 +53,76 @@ type Trace struct {
 
 	flags HexBytes1
 
-	headerString  string // version + traceID + spanID + flags
-	traceIDString string // traceID + spanID
-}
+	headerString string // version + traceID + spanID + flags
 
-func (t Trace) Copy() Trace {
-	return Trace{
-		version:       t.version.Copy(),
-		traceID:       t.traceID.Copy(),
-		spanID:        t.spanID.Copy(),
-		flags:         t.flags.Copy(),
-		headerString:  t.headerString,
-		traceIDString: t.traceIDString,
-	}
+	initialized bool
 }
 
 func NewTrace() Trace {
-	return Trace{
-		version: NewHexBytes1(),
-		traceID: NewHexBytes16(),
-		spanID:  NewHexBytes8(),
-		flags:   NewHexBytes1(),
+	var trace Trace
+	trace.initialize()
+	return trace
+}
+
+func (t *Trace) Version() WrappedHexBytes1 {
+	t.initialize()
+	return WrappedHexBytes1{
+		offset:    startOfVersion,
+		trace:     t,
+		HexBytes1: &t.version,
 	}
 }
 
-func (t *Trace) Version() *HexBytes1   { return &t.version }
-func (t *Trace) TraceID() *HexBytes16  { return &t.traceID }
-func (t *Trace) SpanID() *HexBytes8    { return &t.spanID }
-func (t *Trace) Flags() *HexBytes1     { return &t.flags }
-func (t *Trace) RandomizeSpanID()      { t.spanID.SetRandom(); t.rebuild() }
-func (t Trace) GetVersion() HexBytes1  { return t.version }
-func (t Trace) GetTraceID() HexBytes16 { return t.traceID }
-func (t Trace) GetSpanID() HexBytes8   { return t.spanID }
-func (t Trace) GetFlags() HexBytes1    { return t.flags }
-func (t Trace) IsZero() bool           { return t.traceID.IsZero() }
-func (t Trace) IDString() string       { return t.traceIDString }
-func (t Trace) String() string         { return t.headerString }
-func (t Trace) TraceIDString() string  { return t.headerString[3:35] }
-func (t Trace) SpanIDString() string   { return t.headerString[36:52] }
+func (t *Trace) TraceID() WrappedHexBytes16 {
+	t.initialize()
+	return WrappedHexBytes16{
+		offset:     startOfTraceID,
+		trace:      t,
+		HexBytes16: &t.traceID,
+	}
+}
+
+func (t *Trace) SpanID() WrappedHexBytes8 {
+	t.initialize()
+	return WrappedHexBytes8{
+		offset:    startOfSpanID,
+		trace:     t,
+		HexBytes8: &t.spanID,
+	}
+}
+
+func (t *Trace) Flags() WrappedHexBytes1 {
+	t.initialize()
+	return WrappedHexBytes1{
+		offset:    startOfFlags,
+		trace:     t,
+		HexBytes1: &t.flags,
+	}
+}
+
+func (t Trace) GetVersion() HexBytes1  { return t.version.initialized(t) }
+func (t Trace) GetTraceID() HexBytes16 { return t.traceID.initialized(t) }
+func (t Trace) GetSpanID() HexBytes8   { return t.spanID.initialized(t) }
+func (t Trace) GetFlags() HexBytes1    { return t.flags.initialized(t) }
+func (t Trace) Copy() Trace            { return t }
+func NewSpanID() HexBytes8             { return newHexBytes8() }
+func NewTraceID() HexBytes16           { return newHexBytes16() }
+
+func (t Trace) IsZero() bool {
+	return t.String() == "00-00000000000000000000000000000000-0000000000000000-00"
+}
+
+func (t Trace) String() string {
+	if !t.initialized {
+		return "00-00000000000000000000000000000000-0000000000000000-00"
+	}
+	return t.headerString
+}
 
 func NewRandomSpanID() HexBytes8 {
-	spanID := NewHexBytes8()
-	spanID.SetRandom()
+	spanID := newHexBytes8()
+	spanID.setRandom()
 	return spanID
-}
-
-func NewSpanID() HexBytes8 {
-	return NewHexBytes8()
-}
-
-func NewTraceID() HexBytes16 {
-	return NewHexBytes16()
-}
-
-func allZero(byts []byte) bool {
-	for _, b := range byts {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 var zeroBytes = make([]byte, 16)
@@ -137,18 +147,40 @@ func setBytes(dest []byte, b []byte) {
 
 func (t *Trace) RebuildSetNonZero() {
 	if t.traceID.IsZero() {
-		t.traceID.SetRandom()
+		t.traceID.setRandom()
 	}
 	if t.spanID.IsZero() {
-		t.spanID.SetRandom()
+		t.spanID.setRandom()
 	}
 	t.rebuild()
 }
 
+func (t *Trace) initialize() {
+	if !t.initialized {
+		t.initialized = true
+		t.version.initialize()
+		t.traceID.initialize()
+		t.spanID.initialize()
+		t.flags.initialize()
+		t.rebuild()
+	}
+}
+
+const startOfVersion = 0
+const startOfTraceID = startOfVersion + 2 + 1
+const startOfSpanID = startOfTraceID + 32 + 1
+const startOfFlags = startOfSpanID + 16 + 1
+
 func (t *Trace) rebuild() {
-	t.headerString = t.version.String() +
-		"-" + t.traceID.String() +
-		"-" + t.spanID.String() +
-		"-" + t.flags.String()
-	t.traceIDString = t.traceID.String() + "/" + t.spanID.String()
+	// 0         3         36       53
+	// version + traceID + spanID + flags
+	b := make([]byte, 0, 55)
+	b = append(b, t.version.h[:]...)
+	b = append(b, '-')
+	b = append(b, t.traceID.h[:]...)
+	b = append(b, '-')
+	b = append(b, t.spanID.h[:]...)
+	b = append(b, '-')
+	b = append(b, t.flags.h[:]...)
+	t.headerString = string(b)
 }

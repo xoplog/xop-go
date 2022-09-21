@@ -3,6 +3,7 @@
 package xoptest
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -91,6 +92,7 @@ type Span struct {
 	EndTime      int64
 	Name         string
 	SequenceCode string
+	Ctx          context.Context
 }
 
 type Prefilling struct {
@@ -116,9 +118,9 @@ type Line struct {
 	Builder
 	Level     xopnum.Level
 	Timestamp time.Time
-	Message   string
-	Text      string
-	Tmpl      bool
+	Message   string // Prefill text + line text (template evaluated)
+	Text      string // Complete text of line including key=value pairs
+	Tmpl      string // un-evaluated template
 }
 
 type Event struct {
@@ -154,7 +156,7 @@ func (log *TestLogger) Close()                       {}
 func (log *TestLogger) Buffered() bool               { return false }
 func (log *TestLogger) ReferencesKept() bool         { return true }
 func (log *TestLogger) SetErrorReporter(func(error)) {}
-func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xopbase.Request {
+func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bundle, name string) xopbase.Request {
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
@@ -167,6 +169,7 @@ func (log *TestLogger) Request(ts time.Time, span trace.Bundle, name string) xop
 		Metadata:     make(map[string]interface{}),
 		MetadataType: make(map[string]xopbase.DataType),
 		metadataSeen: make(map[string]interface{}),
+		Ctx:          ctx,
 	}
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
@@ -231,7 +234,7 @@ func (span *Span) Boring(bool)                  {}
 func (span *Span) ID() string                   { return span.testLogger.id }
 func (span *Span) SetErrorReporter(func(error)) {}
 
-func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
 	span.lock.Lock()
@@ -246,6 +249,7 @@ func (span *Span) Span(ts time.Time, traceSpan trace.Bundle, name string, spanSe
 		MetadataType: make(map[string]xopbase.DataType),
 		metadataSeen: make(map[string]interface{}),
 		SequenceCode: spanSequenceCode,
+		Ctx:          ctx,
 	}
 	span.Spans = append(span.Spans, n)
 	span.testLogger.Spans = append(span.testLogger.Spans, n)
@@ -324,18 +328,18 @@ func (line *Line) Msg(m string) {
 var templateRE = regexp.MustCompile(`\{.+?\}`)
 
 func (line *Line) Template(m string) {
-	line.Tmpl = true
-	line.Message += m
+	line.Tmpl = line.Message + m
 	used := make(map[string]struct{})
-	text := line.Span.short + ": " +
-		templateRE.ReplaceAllStringFunc(line.Message, func(k string) string {
-			k = k[1 : len(k)-1]
-			if v, ok := line.Data[k]; ok {
-				used[k] = struct{}{}
-				return fmt.Sprint(v)
-			}
-			return "''"
-		})
+	msg := templateRE.ReplaceAllStringFunc(line.Tmpl, func(k string) string {
+		k = k[1 : len(k)-1]
+		if v, ok := line.Data[k]; ok {
+			used[k] = struct{}{}
+			return fmt.Sprint(v)
+		}
+		return "''"
+	})
+	line.Message = msg
+	text := line.Span.short + ": " + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)
@@ -357,6 +361,13 @@ func (line Line) send(text string) {
 		Line: &line,
 	})
 	line.Span.Lines = append(line.Span.Lines, &line)
+}
+
+func (line *Line) TemplateOrMessage() string {
+	if line.Tmpl != "" {
+		return line.Tmpl
+	}
+	return line.Message
 }
 
 func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
@@ -402,7 +413,6 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
 			var key string
@@ -439,7 +449,6 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.AnyDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -457,19 +466,15 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[bool]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[bool]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -491,7 +496,6 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.BoolDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -511,7 +515,6 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	if k.Multiple() {
 		value := v.String()
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
@@ -557,19 +560,15 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[float64]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[float64]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -591,7 +590,6 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.Float64DataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -609,19 +607,15 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[int64]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[int64]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -643,7 +637,6 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.Int64DataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -661,19 +654,15 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[trace.Trace]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[trace.Trace]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -695,7 +684,6 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.LinkDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -713,19 +701,15 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[string]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[string]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -747,7 +731,6 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.StringDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }
@@ -765,19 +748,15 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		// ELSE CONDITIONAL
 		value := v
 		if k.Distinct() {
-			// ELSE CONDITIONAL
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				// ELSE CONDITIONAL
 				seen := make(map[time.Time]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				// ELSE CONDITIONAL
 				seen := seenRaw.(map[time.Time]struct{})
 				if _, ok := seen[key]; ok {
 					return
@@ -799,7 +778,6 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.TimeDataType
 		}
-		// ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
 	}
 }

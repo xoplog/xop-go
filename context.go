@@ -2,6 +2,14 @@ package xop
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+
+	"github.com/muir/xop-go/xopnum"
 )
 
 type contextKeyType struct{}
@@ -51,4 +59,74 @@ func CustomFromContext(getLogFromContext func(context.Context) *Log, adjustSetti
 		log := getLogFromContext(ctx)
 		return adjustSettings(log.Sub()).Log()
 	}
+}
+
+// AdjustedLevelLogger returns a function that gets a logger from
+// context.  The logger it returns will have a minimum logging level
+// that is specific for the calling package.
+//
+// The level used will be the level set in this order:
+// (1) From the environment variable "XOPLEVEL_foo" (for package foo).  The level
+// can either a string or the numeric level.  See xopnum/level.go.
+// (2) From the level provided in the call to AdjustedLevelLoger assuming that
+// the passed level is not zero.
+// (3) The level that the logger already has.
+//
+// 	package foo
+//	var getLogger = xop.AdjustedLevelLoger(xop.FromContextOrPanic, xopnum.Info)
+//
+// 	package foo
+//	var getLogger = xop.AdjustedLevelLoger(xop.FromContextOrDefault, 0)
+//
+// TODO: change API on this to take func args
+func AdjustedLevelLoger(getLogFromContext func(context.Context) *Log, level xopnum.Level) func(context.Context) *Log {
+	pc := make([]uintptr, 1)
+	if runtime.Callers(2, pc) > 0 {
+		frames := runtime.CallersFrames(pc)
+		frame, _ := frames.Next()
+		var pkg string
+		if frame.Function != "" {
+			fmt.Println("XXX func", frame.Function)
+			// Example: github.com/muir/xop-go/xoptest/xoptestutil.init
+			if strings.HasSuffix(frame.Function, ".init") {
+				if i := strings.LastIndexByte(frame.Function, '/'); i != -1 {
+					pkg = frame.Function[i+1 : len(frame.Function)-len(".init")]
+				} else {
+					pkg = strings.TrimSuffix(frame.Function, ".init")
+				}
+			} else {
+				p := strings.Split(frame.Function, ".")
+				if p[0] != "" {
+					pkg = p[0]
+				}
+			}
+			fmt.Println("XXX pkg =", pkg)
+		}
+		if pkg == "" {
+			fmt.Println("XXX file name", frame.File)
+			pkg = filepath.Base(filepath.Dir(frame.File))
+			if pkg == "." || pkg == "/" {
+				pkg = ""
+			}
+		}
+		if pkg != "" {
+			if ls, ok := os.LookupEnv("XOPLEVEL_" + pkg); ok {
+				fmt.Println("XXX found value", ls)
+				lvl, err := xopnum.LevelString(ls)
+				if err == nil {
+					level = lvl
+				} else if i, err := strconv.ParseInt(ls, 10, 64); err == nil {
+					level = xopnum.Level(i)
+				}
+			} else {
+				fmt.Println("XXX not set", "XOPLEVEL_"+pkg)
+			}
+		}
+	}
+	if level == 0 {
+		return getLogFromContext
+	}
+	return CustomFromContext(getLogFromContext, func(sub *Sub) *Sub {
+		return sub.MinLevel(level)
+	})
 }

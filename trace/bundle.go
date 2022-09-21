@@ -18,7 +18,7 @@ func (b Bundle) Copy() Bundle {
 	return Bundle{
 		TraceParent: b.TraceParent.Copy(),
 		Trace:       b.Trace.Copy(),
-		State:       b.State,
-		Baggage:     b.Baggage,
+		State:       b.State.Copy(),
+		Baggage:     b.Baggage.Copy(),
 	}
 }

@@ -11,15 +11,26 @@ type loggers struct {
 	Added    baseLoggers
 }
 
-// Copy copies everything but Added & Removed.
+// Copy copies everything but Added & Removed (keepHistory = false).
 // List, is a deep-ish copy.
-func (s loggers) Copy() loggers {
-	n := make(baseLoggers, len(s.List))
-	copy(n, s.List)
-	return loggers{
+func (s loggers) Copy(keepHistory bool) loggers {
+	list := make(baseLoggers, len(s.List))
+	copy(list, s.List)
+	n := loggers{
 		Flushers: s.Flushers,
-		List:     n,
+		List:     list,
 	}
+	if keepHistory {
+		if len(s.Added) != 0 {
+			n.Added = make(baseLoggers, len(s.Added))
+			copy(n.Added, s.Added)
+		}
+		if len(s.Removed) != 0 {
+			n.Removed = make(baseLoggers, len(s.Removed))
+			copy(n.Removed, s.Removed)
+		}
+	}
+	return n
 }
 
 func WithoutBase(baseLoggerToRemove xopbase.Logger) SeedModifier {

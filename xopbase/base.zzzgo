@@ -1,17 +1,32 @@
+/*
+In xop, the logger is divided into a top-level logger and a lower-level
+logger.  The top-level logger is what users use to add logs to their
+programs.  The lower-level logger is used to send those logs somewhere
+useful.  Xopjson, xoptest, and xopotel are all examples.
+
+Package xopbase defines the base-level loggers for xop.  In OpenTelemetry,
+these are called "exporters".  In logr, they are called "LogSinks".
+*/
 package xopbase
 
 import (
+	"context"
 	"time"
 
 	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xopat"
+	"github.com/muir/xop-go/xopnum"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 type Logger interface {
-	Request(ts time.Time, span trace.Bundle, description string) Request
+	// Request beings a new span that represents the start of an
+	// operation: either a call to a server, a cron-job, or an event
+	// being processed.  The provided Context is a pass-through from
+	// the Seed and if the seed does not provide a context, the context
+	// can be nil.
+	Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) Request
 
 	// ID returns a unique id for this instance of a logger.  This
 	// is used to prevent duplicate Requets from being created when
@@ -50,7 +65,7 @@ type Request interface {
 
 type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
-	Span(ts time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) Span
+	Span(ctx context.Context, ts time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
 	// MACRO BaseAttribute
 	// MetadataZZZ adds a key/value pair to describe the span.
@@ -81,7 +96,7 @@ type Span interface {
 	//
 	// final is true when the log is done, it is false when Done is called
 	// prior to a Flush().  Just because Done was called with final does not
-	// mean that Done won't be called again.  Any further calls would only 
+	// mean that Done won't be called again.  Any further calls would only
 	// happen due a bug in the application: logging things after calling
 	// log.Done.
 	//
@@ -151,10 +166,10 @@ type Encoder interface {
 
 //go:generate enumer -type=DataType -linecomment -json -sql
 
-type DataType int 
+type DataType int
 
 const (
-	EnumDataType DataType = iota
+	EnumDataType      DataType = iota
 	EnumArrayDataType DataType = iota
 	// MACRO AllData
 	ZZZDataType DataType = iota
