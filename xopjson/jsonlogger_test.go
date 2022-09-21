@@ -239,21 +239,21 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger, config checkConfig) *che
 	}
 	for i, span := range tlog.Spans {
 		if debugTspan {
-			t.Logf("recorded span: %s - %s", span.Trace.Trace.SpanIDString(), span.Name)
+			t.Logf("recorded span: %s - %s", span.Trace.Trace.SpanID().String(), span.Name)
 		}
-		_, ok := c.spanIndex[span.Trace.Trace.SpanIDString()]
-		assert.Falsef(t, ok, "duplicate span id %s", span.Trace.Trace.SpanIDString())
-		c.spanIndex[span.Trace.Trace.SpanIDString()] = i
+		_, ok := c.spanIndex[span.Trace.Trace.SpanID().String()]
+		assert.Falsef(t, ok, "duplicate span id %s", span.Trace.Trace.SpanID().String())
+		c.spanIndex[span.Trace.Trace.SpanID().String()] = i
 	}
 	for i, request := range tlog.Requests {
 		if debugTspan {
-			t.Logf("recorded request: %s - %s", request.Trace.Trace.SpanIDString(), request.Name)
+			t.Logf("recorded request: %s - %s", request.Trace.Trace.SpanID().String(), request.Name)
 		}
-		_, ok := c.spanIndex[request.Trace.Trace.SpanIDString()]
-		assert.Falsef(t, ok, "duplicate span/request id %s", request.Trace.Trace.SpanIDString())
-		_, ok = c.requestIndex[request.Trace.Trace.SpanIDString()]
-		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanIDString())
-		c.requestIndex[request.Trace.Trace.SpanIDString()] = i
+		_, ok := c.spanIndex[request.Trace.Trace.SpanID().String()]
+		assert.Falsef(t, ok, "duplicate span/request id %s", request.Trace.Trace.SpanID().String())
+		_, ok = c.requestIndex[request.Trace.Trace.SpanID().String()]
+		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanID().String())
+		c.requestIndex[request.Trace.Trace.SpanID().String()] = i
 	}
 	for spanID, versions := range c.sequencing {
 		if c.config.minVersions == c.config.maxVersions {

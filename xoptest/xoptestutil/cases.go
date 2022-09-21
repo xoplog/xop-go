@@ -75,7 +75,8 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata traces",
+		Name:     "metadata traces",
+		SkipOTEL: true,
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			s2 := log.Sub().Fork("S2")
 			s3 := s2.Sub().Fork("S3")

@@ -89,7 +89,9 @@ func TestSpanLog(t *testing.T) {
 			t.Log("logged:", buffer.String())
 			assert.NotEmpty(t, buffer.String())
 
-			newChecker(t, tlog).check(t, buffer.String())
+			newChecker(t, tlog, []string{
+				span.SpanContext().SpanID().String(),
+			}).check(t, buffer.String())
 		})
 	}
 }
@@ -167,12 +169,13 @@ type checker struct {
 	accumulatedSpans map[string]typedData
 	sequencing       map[string]int
 	later            []func()
+	notInTest        map[string]struct{}
 }
 
 const debugTlog = true
 const debugTspan = true
 
-func newChecker(t *testing.T, tlog *xoptest.TestLogger) *checker {
+func newChecker(t *testing.T, tlog *xoptest.TestLogger, spansNotIntTest []string) *checker {
 	c := &checker{
 		tlog:             tlog,
 		spansSeen:        make([]bool, len(tlog.Spans)),
@@ -182,6 +185,10 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger) *checker {
 		requestIndex:     make(map[string]int),
 		accumulatedSpans: make(map[string]typedData),
 		sequencing:       make(map[string]int),
+		notInTest:        make(map[string]struct{}),
+	}
+	for _, spanID := range spansNotIntTest {
+		c.notInTest[spanID] = struct{}{}
 	}
 	for i, line := range tlog.Lines {
 		if debugTlog {
@@ -191,21 +198,21 @@ func newChecker(t *testing.T, tlog *xoptest.TestLogger) *checker {
 	}
 	for i, span := range tlog.Spans {
 		if debugTspan {
-			t.Logf("recorded span: %s - %s", span.Trace.Trace.SpanIDString(), span.Name)
+			t.Logf("recorded span: %s - %s", span.Trace.Trace.SpanID().String(), span.Name)
 		}
-		_, ok := c.spanIndex[span.Trace.Trace.SpanIDString()]
-		assert.Falsef(t, ok, "duplicate span id %s", span.Trace.Trace.SpanIDString())
-		c.spanIndex[span.Trace.Trace.SpanIDString()] = i
+		_, ok := c.spanIndex[span.Trace.Trace.SpanID().String()]
+		assert.Falsef(t, ok, "duplicate span id %s", span.Trace.Trace.SpanID().String())
+		c.spanIndex[span.Trace.Trace.SpanID().String()] = i
 	}
 	for i, request := range tlog.Requests {
 		if debugTspan {
-			t.Logf("recorded request: %s - %s", request.Trace.Trace.SpanIDString(), request.Name)
+			t.Logf("recorded request: %s - %s", request.Trace.Trace.SpanID().String(), request.Name)
 		}
-		_, ok := c.spanIndex[request.Trace.Trace.SpanIDString()]
-		assert.Falsef(t, ok, "duplicate span/request id %s", request.Trace.Trace.SpanIDString())
-		_, ok = c.requestIndex[request.Trace.Trace.SpanIDString()]
-		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanIDString())
-		c.requestIndex[request.Trace.Trace.SpanIDString()] = i
+		_, ok := c.spanIndex[request.Trace.Trace.SpanID().String()]
+		assert.Falsef(t, ok, "duplicate span/request id %s", request.Trace.Trace.SpanID().String())
+		_, ok = c.requestIndex[request.Trace.Trace.SpanID().String()]
+		assert.Falsef(t, ok, "duplicate request id %s", request.Trace.Trace.SpanID().String())
+		c.requestIndex[request.Trace.Trace.SpanID().String()] = i
 	}
 	return c
 }
@@ -275,8 +282,10 @@ func (c *checker) span(t *testing.T, span OTELSpan) {
 	}
 
 	if mustFind {
-		_, ok := c.spanIndex[span.SpanContext.SpanID]
-		assert.Truef(t, ok, "span %s (%s) also exists in tlog", span.Name, span.SpanContext.SpanID)
+		_, ok1 := c.spanIndex[span.SpanContext.SpanID]
+		_, ok2 := c.requestIndex[span.SpanContext.SpanID]
+		_, ok3 := c.notInTest[span.SpanContext.SpanID]
+		assert.Truef(t, ok1 || ok2 || ok3, "span %s (%s) also exists in tlog", span.Name, span.SpanContext.SpanID)
 	}
 
 	for _, line := range span.Events {
