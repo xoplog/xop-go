@@ -125,15 +125,6 @@ func NewRandomSpanID() HexBytes8 {
 	return spanID
 }
 
-func allZero(byts []byte) bool {
-	for _, b := range byts {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
-}
-
 var zeroBytes = make([]byte, 16)
 
 func setBytesFromString(dest []byte, h string) {

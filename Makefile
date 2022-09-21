@@ -18,6 +18,8 @@ test:	$(ZZZGENERATED)
 	go test -v ./xopjson/... -tags xoptesting -run TestParameters -failfast $(TEST_ONLY)
 	go test -tags xoptesting ./... -failfast $(TEST_ONLY)
 	go test -tags xoptesting -race ./... -failfast $(TEST_ONLY)
+	XOPLEVEL_xoptestutil=warn go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjustedLevelLogger 
+	XOPLEVEL_xoptestutil=debug go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjustedLevelLogger 
 
 ${GOBIN}/gofumpt:;
 	go install mvdan.cc/gofumpt@latest
@@ -45,7 +47,11 @@ calculate_coverage:
 	    rm profile.out; \
 	  fi; \
 	done
-
+	XOPLEVEL_xoptestutil=debug go test -covermode=atomic -tags xoptesting -coverprofile=profile.out -coverpkg=github.com/muir/xop-go/... ./xoptest/xoptestutil -run TestAdjustedLevelLogger 
+	if [ -f profile.out ]; then \
+	  grep -v ^mode profile.out >> coverage.txt; \
+	  rm profile.out; \
+	fi
 
 coverage: calculate_coverage
 	go tool cover -html=coverage.txt
