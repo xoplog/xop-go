@@ -16,7 +16,7 @@ type ZZZ struct {
 type WrappedZZZ struct {
 	*ZZZ
 	offset int
-	trace *Trace
+	trace  *Trace
 }
 
 // MACRO HexBytes
@@ -36,10 +36,11 @@ var zeroZZZb = [zzz]byte{}
 func (x ZZZ) IsZero() bool     { return x.b == zeroZZZb }
 func (x ZZZ) Bytes() []byte    { return x.b[:] }
 func (x ZZZ) HexBytes() []byte { return x.h[:] }
-func (x ZZZ) String []byte { return string(x.h[:]) }
+func (x ZZZ) String() string   { return string(x.h[:]) }
 
-func (x WrappedZZZ) String() string   { 
-	return x.trace.headerString[x.offset:x.offset+zzz*2]
+// MACRO HexBytes
+func (x WrappedZZZ) String() string {
+	return x.trace.headerString[x.offset : x.offset+zzz*2]
 }
 
 // MACRO HexBytes
@@ -77,17 +78,30 @@ func (x WrappedZZZ) SetZero() {
 
 // MACRO HexBytes
 func (x WrappedZZZ) SetRandom() {
-	for {
-		_, _ = rand.Read(x.b[:])
-		if !allZero(x.b[:]) {
-			break
-		}
-	}
-	hex.Encode(x.h[:], x.b[:])
+	x.ZZZ.setRandom()
 	x.trace.rebuild()
 }
 
 // MACRO HexBytes
-func (x ZZZ) Copy() ZZZ {
+func (x *ZZZ) setRandom() {
+	for {
+		_, _ = rand.Read(x.b[:])
+		if x.b != zeroZZZb {
+			break
+		}
+	}
+	hex.Encode(x.h[:], x.b[:])
+}
+
+// MACRO HexBytes
+func (x *ZZZ) initialize() {
+	hex.Encode(x.h[:], x.b[:])
+}
+
+// MACRO HexBytes
+func (x ZZZ) initialized(t Trace) ZZZ {
+	if !t.initialized {
+		hex.Encode(x.h[:], x.b[:])
+	}
 	return x
 }

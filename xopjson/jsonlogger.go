@@ -99,9 +99,9 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, trace trace.Bundl
 
 func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeKey("trace.id")
-	rq.AddSafeString(s.trace.Trace.TraceIDString())
+	rq.AddSafeString(s.trace.Trace.TraceID().String())
 	rq.AddSafeKey("span.id")
-	rq.AddSafeString(s.trace.Trace.SpanIDString())
+	rq.AddSafeString(s.trace.Trace.SpanID().String())
 	if !s.trace.TraceParent.IsZero() {
 		rq.AddSafeKey("trace.parent")
 		rq.AppendString(s.trace.TraceParent.String())
@@ -236,7 +236,7 @@ func (s *span) Span(_ context.Context, ts time.Time, trace trace.Bundle, name st
 	if s.logger.spanStarts {
 		rq := s.builder()
 		rq.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
-		rq.AddSafeString(trace.Trace.SpanIDString())
+		rq.AddSafeString(trace.Trace.SpanID().String())
 		n.spanStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
 		n.serializationCount++
@@ -270,11 +270,11 @@ func (s *span) setSpanIDPrefill() {
 func (s *span) identifySpan(b *xoputil.JBuilder) {
 	if s.logger.tagOption&SpanIDTagOption != 0 {
 		b.AddSafeKey("span.id")
-		b.AddSafeString(s.trace.Trace.SpanIDString())
+		b.AddSafeString(s.trace.Trace.SpanID().String())
 	}
 	if s.logger.tagOption&TraceIDTagOption != 0 {
 		b.AddSafeKey("trace.id")
-		b.AddSafeString(s.trace.Trace.TraceIDString())
+		b.AddSafeString(s.trace.Trace.TraceID().String())
 	}
 	if s.logger.tagOption&TraceNumberTagOption != 0 {
 		b.AddSafeKey("trace.num")

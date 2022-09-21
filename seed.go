@@ -27,7 +27,7 @@ func (seed Seed) Copy(mods ...SeedModifier) Seed {
 	}
 	if !seed.spanSet {
 		XXX := n.traceBundle.Trace.SpanID().String()
-		n.traceBundle.Trace.RandomizeSpanID()
+		n.traceBundle.Trace.SpanID().SetRandom()
 		fmt.Println("XXX Copy randomize", XXX, "->", n.traceBundle.Trace.SpanID().String())
 	} else {
 		fmt.Println("XXX Copy w/o randomize")
@@ -47,7 +47,7 @@ func (span *Span) Seed(mods ...SeedModifier) Seed {
 	}
 	if !span.seed.spanSet {
 		XXX := n.traceBundle.Trace.SpanID().String()
-		n.traceBundle.Trace.RandomizeSpanID()
+		n.traceBundle.Trace.SpanID().SetRandom()
 		fmt.Println("XXX Seed randomize", XXX, "->", n.traceBundle.Trace.SpanID().String())
 	} else {
 		fmt.Println("XXX Seed w/o randomize")
