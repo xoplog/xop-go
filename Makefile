@@ -21,6 +21,12 @@ test:	$(ZZZGENERATED)
 	XOPLEVEL_xoptestutil=warn go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
 	XOPLEVEL_xoptestutil=debug go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
 
+citest:
+	go test ./... -failfast 
+	go test -race ./... -failfast 
+	XOPLEVEL_xoptestutil=warn go test ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
+	XOPLEVEL_xoptestutil=debug go test ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
+
 ${GOBIN}/gofumpt:;
 	go install mvdan.cc/gofumpt@latest
 
