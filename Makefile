@@ -12,20 +12,23 @@ all:	$(ZZZGENERATED)
 	go generate ./...
 	go build ./...
 
-test:	$(ZZZGENERATED)
+test:	$(ZZZGENERATED) testadjuster
 	go generate ./...
 	go test -v ./xopjson/... -run TestASingleLine
 	go test -v ./xopjson/... -tags xoptesting -run TestParameters -failfast $(TEST_ONLY)
 	go test -tags xoptesting ./... -failfast $(TEST_ONLY)
 	go test -tags xoptesting -race ./... -failfast $(TEST_ONLY)
-	XOPLEVEL_xoptestutil=warn go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
-	XOPLEVEL_xoptestutil=debug go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
+
+
+testadjuster: $(ZZZGenerated)
+	XOPLEVEL_xoptestutil=warn XOPLEVEL_foo=debug go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjuster -count 1
+	XOPLEVEL_xoptestutil=debug XOPLEVEL_foo=warn go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjuster -count 1
 
 citest:
 	go test ./... -failfast 
 	go test -race ./... -failfast 
-	XOPLEVEL_xoptestutil=warn go test ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
-	XOPLEVEL_xoptestutil=debug go test ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
+	XOPLEVEL_xoptestutil=warn XOPLEVEL_foo=debug go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjuster -count 1
+	XOPLEVEL_xoptestutil=debug XOPLEVEL_foo=warn go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjuster -count 1
 
 ${GOBIN}/gofumpt:;
 	go install mvdan.cc/gofumpt@latest
