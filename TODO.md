@@ -52,9 +52,21 @@
 
 # Just do it (build ready)
 
-- simplify time formatting in xopjson: instead of current options, allow user to pass in a time format function
+- redaction
 
-  `WithTimeFormat(func(time.Time, []byte) []byte)`
+  - add log setting for redacting Any types.  
+
+    `type RedactAnyFunc(*Log, key string, value interface{}) interface{}`
+
+    The idea being that it can log an additional thing if it wants
+
+  - add log setting for redacting string types.  
+
+    `type RedactAnyFunc(*Log, key string, value string) string`
+
+    The idea being that it can log an additional thing if it wants
+
+  - add redaction option to pre-registering attributes.
 
 - dictionary support
 
