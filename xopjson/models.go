@@ -12,7 +12,6 @@ import (
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
-	"github.com/phuslu/fasttime"
 )
 
 var _ xopbase.Logger = &Logger{}
@@ -23,15 +22,6 @@ var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
 type Option func(*Logger, *xoputil.Prealloc)
-
-type timeOption int
-
-const (
-	epochTime timeOption = iota
-	epochQuoted
-	strftimeTime
-	timeTimeFormat
-)
 
 // TimeFormatter is the function signature for custom time formatters
 // if anything other than time.RFC3339Nano is desired.  The value must
@@ -69,7 +59,6 @@ type Logger struct {
 	durationKey           []byte
 	stackLineRewrite      func(string) string
 	timeFormatter         TimeFormatter
-	timeKey               []byte
 	// TODO: prefilledPool	sync.Pool
 	// TODO: timeKey []byte
 	// TODO: timestampKey          []byte
@@ -137,7 +126,9 @@ const (
 )
 
 // WithDuration specifies the format used for durations. If
-// set, durations will be recorded for spans and requests.
+// set, durations will be recorded for spans and requests.  If not
+// set, durations explicitly recorded will be recoreded as nanosecond
+// numbers.
 func WithDuration(key string, durationFormat DurationOption) Option {
 	return func(l *Logger, p *xoputil.Prealloc) {
 		l.durationKey = p.Pack(xoputil.BuildKey(key))
@@ -274,12 +265,14 @@ func WithStackLineRewrite(f func(string) string) Option {
 //
 // TODO
 
+/* TODO
 func defaultTimeFormatter2(b []byte, t time.Time) []byte {
 	b = append(b, '"')
 	b = fasttime.AppendStrftime(b, fasttime.RFC3339Nano, t)
 	b = append(b, '"')
 	return b
 }
+*/
 
 func defaultTimeFormatter(b []byte, t time.Time) []byte {
 	b = append(b, '"')
