@@ -82,7 +82,6 @@ func TestASingleLine(t *testing.T) {
 	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithEpochTime(time.Microsecond),
 		xopjson.WithDuration("dur", xopjson.AsString),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithAttributesObject(true),
@@ -173,7 +172,6 @@ func TestParameters(t *testing.T) {
 				t.Run(mc.Name, func(t *testing.T) {
 					var buffer xoputil.Buffer
 					joptions := []xopjson.Option{
-						xopjson.WithTimeFormat(time.RFC3339Nano),
 						xopjson.WithDuration("dur", xopjson.AsNanos),
 						xopjson.WithSpanStarts(true),
 						xopjson.WithBufferedLines(8 * 1024 * 1024),

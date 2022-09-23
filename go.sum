@@ -18,6 +18,8 @@ github.com/muir/rest v0.0.0-20210822233606-6d02fb885933 h1:gBIILIoUpMUWpQNSRdVSz
 github.com/muir/rest v0.0.0-20210822233606-6d02fb885933/go.mod h1:sUUGdWPRJgmDYo14DPXmZbkyqPOuy+Ec1gaEnhRuu0I=
 github.com/phuslu/fasttime v1.0.0 h1:SUkNta9tJLy54glGb/Z4+/NJ7aXiLogVuSPEXAya6i8=
 github.com/phuslu/fasttime v1.0.0/go.mod h1:1zflhZFowg3RSL0IpmWQ0AprKCKbTRKV9PEpVXDBZ7A=
+github.com/phuslu/fasttime v1.0.2 h1:gmD27yB6vnQuhk4vtmoBOmjaXsF+wwmyjMtayoHHUko=
+github.com/phuslu/fasttime v1.0.2/go.mod h1:1zflhZFowg3RSL0IpmWQ0AprKCKbTRKV9PEpVXDBZ7A=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

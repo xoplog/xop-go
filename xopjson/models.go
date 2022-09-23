@@ -12,6 +12,7 @@ import (
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
+	"github.com/phuslu/fasttime"
 )
 
 var _ xopbase.Logger = &Logger{}
@@ -32,14 +33,28 @@ const (
 	timeTimeFormat
 )
 
+// TimeFormatter is the function signature for custom time formatters
+// if anything other than time.RFC3339Nano is desired.  The value must
+// be appended to the byte slice (which must be returned).
+//
+// For example:
+//
+//	func timeFormatter(b []byte, t time.Time) []byte {
+//		b = append(b, '"')
+//		b = append(b, []byte(t.Format(time.RFC3339))...)
+//		b = append(b, '"')
+//		return b
+//	}
+//
+// The slice may not be safely accessed outside of the duration of the
+// call.  The only acceptable operation on the slice is to append.
+type TimeFormatter func(b []byte, t time.Time) []byte
+
 type Logger struct {
 	writer                xopbytes.BytesWriter
 	withGoroutine         bool
 	fastKeys              bool
 	durationFormat        DurationOption
-	timeOption            timeOption
-	timeFormat            string
-	timeDivisor           time.Duration
 	spanStarts            bool
 	spanChangesOnly       bool
 	id                    uuid.UUID
@@ -53,6 +68,8 @@ type Logger struct {
 	preallocatedKeys      [100]byte
 	durationKey           []byte
 	stackLineRewrite      func(string) string
+	timeFormatter         TimeFormatter
+	timeKey               []byte
 	// TODO: prefilledPool	sync.Pool
 	// TODO: timeKey []byte
 	// TODO: timestampKey          []byte
@@ -216,53 +233,15 @@ func WithAttributesObject(b bool) Option {
 
 // TODO: allow custom error formats
 
-// WithStrftime specifies how to format timestamps.
-// See // https://github.com/phuslu/fasttime for the supported
-// formats.
-func WithStrftime(format string) Option {
-	return func(l *Logger, _ *xoputil.Prealloc) {
-		l.timeOption = strftimeTime
-		l.timeFormat = format
-	}
-}
-
-// WithTimeFormat specifies the use of the "time" package's
-// Time.Format for formatting times.
-func WithTimeFormat(format string) Option {
-	return func(l *Logger, _ *xoputil.Prealloc) {
-		l.timeOption = timeTimeFormat
-		l.timeFormat = format
-	}
-}
-
-// WithEpochTime specifies that time values are formatted as an
-// integer time since Jan 1 1970.  If the units is seconds, then
-// it is seconds since Jan 1 1970.  If the units is nanoseconds,
-// then it is nanoseconds since Jan 1 1970.  Etc.
+// WithTimeFormatter specifies how time.Time should be
+// serialized to JSON.  The default is time.RFC3339Nano.
 //
-// Note that the JSON specification specifies int's are 32 bits,
-// not 64 bits so a compliant JSON parser could fail for seconds
-// since 1970 starting in year 2038.  For microseconds, and
-// nanoseconds, a complicant parser alerady fails.
-func WithEpochTime(units time.Duration) Option {
+// Note: if serializing as a number, integers beyond 2^50
+// may lose precision because they're actually read as
+// float64s.
+func WithTimeFormatter(formatter TimeFormatter) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
-		l.timeOption = epochTime
-		l.timeDivisor = units
-	}
-}
-
-// WithQuotedEpochTime specifies that time values are formatted an
-// integer string (integer with quotes around it) representing time
-// since Jan 1 1970.  If the units is seconds, then
-// it is seconds since Jan 1 1970.  If the units is nanoseconds,
-// then it is nanoseconds since Jan 1 1970.  Etc.
-//
-// Note most JSON parsers can parse into an integer if given a
-// a quoted integer.
-func WithQuotedEpochTime(units time.Duration) Option {
-	return func(l *Logger, _ *xoputil.Prealloc) {
-		l.timeOption = epochQuoted
-		l.timeDivisor = units
+		l.timeFormatter = formatter
 	}
 }
 
@@ -294,3 +273,17 @@ func WithStackLineRewrite(f func(string) string) Option {
 // The default encoding is simply a string: error.Error().
 //
 // TODO
+
+func defaultTimeFormatter2(b []byte, t time.Time) []byte {
+	b = append(b, '"')
+	b = fasttime.AppendStrftime(b, fasttime.RFC3339Nano, t)
+	b = append(b, '"')
+	return b
+}
+
+func defaultTimeFormatter(b []byte, t time.Time) []byte {
+	b = append(b, '"')
+	b = append(b, []byte(t.Format(time.RFC3339Nano))...)
+	b = append(b, '"')
+	return b
+}
