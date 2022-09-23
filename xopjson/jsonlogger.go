@@ -18,7 +18,6 @@ import (
 	"github.com/muir/xop-go/xoputil"
 
 	"github.com/google/uuid"
-	"github.com/phuslu/fasttime"
 )
 
 const (
@@ -29,10 +28,10 @@ const (
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
-		writer:       w,
-		id:           uuid.New(),
-		timeDivisor:  time.Microsecond,
-		closeRequest: make(chan struct{}),
+		writer:        w,
+		id:            uuid.New(),
+		closeRequest:  make(chan struct{}),
+		timeFormatter: defaultTimeFormatter,
 	}
 	prealloc := xoputil.NewPrealloc(log.preallocatedKeys[:])
 	for _, f := range opts {
@@ -555,22 +554,7 @@ func (b *builder) Time(k string, t time.Time) {
 }
 
 func (b *builder) AddTime(t time.Time) {
-	switch b.span.logger.timeOption {
-	case strftimeTime:
-		b.AppendByte('"')
-		b.B = fasttime.AppendStrftime(b.B, b.span.logger.timeFormat, t)
-		b.AppendByte('"')
-	case timeTimeFormat:
-		b.AppendByte('"')
-		b.B = t.AppendFormat(b.B, b.span.logger.timeFormat)
-		b.AppendByte('"')
-	case epochTime:
-		b.AddInt64(t.UnixNano() / int64(b.span.logger.timeDivisor))
-	case epochQuoted:
-		b.AppendByte('"')
-		b.AddInt64(t.UnixNano() / int64(b.span.logger.timeDivisor))
-		b.AppendByte('"')
-	}
+	b.B = b.span.logger.timeFormatter(b.B, t)
 }
 
 func (b *builder) Link(k string, v trace.Trace) {

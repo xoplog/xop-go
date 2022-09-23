@@ -13,14 +13,14 @@ import (
 )
 
 type Log struct {
-	request       *Log              // The ancestor request-level Log
-	span          *span             // span associated with this Log
-	capSpan       *Span             // Span associated with this Log
-	parent        *Log              // immediate parent Log
-	shared        *shared           // shared between logs with same request-level Log
-	settings      LogSettings       // settings for this Log
-	prefilled     xopbase.Prefilled // XXX double-check,  in request?
-	nonSpanSubLog bool              // true if created by log.Sub().Log()
+	request       *Log        // The ancestor request-level Log
+	span          *span       // span associated with this Log
+	capSpan       *Span       // Span associated with this Log
+	parent        *Log        // immediate parent Log
+	shared        *shared     // shared between logs with same request-level Log
+	settings      LogSettings // settings for this Log
+	nonSpanSubLog bool        // true if created by log.Sub().Log()
+	prefilled     xopbase.Prefilled
 }
 
 type Span struct {
@@ -70,7 +70,6 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	alloc := singleAlloc{
 		Log: Log{
 			settings: seed.settings.Copy(),
-			// XXX prefilled?
 		},
 		span: span{
 			seed:        seed.spanSeed.copy(false),
@@ -128,7 +127,6 @@ func (sub *Sub) Log() *Log {
 			shared:        sub.log.shared,
 			settings:      sub.settings,
 			nonSpanSubLog: true,
-			// XXX prefilled?
 		},
 		Span: Span{
 			span: sub.log.span,
@@ -156,7 +154,6 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 			parent:   old,
 			shared:   old.shared,
 			settings: seed.settings,
-			// XXX prefilled?
 		},
 		span: span{
 			seed:        seed.spanSeed,
