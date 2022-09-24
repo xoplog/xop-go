@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/muir/xop-go"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -49,10 +52,15 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 				xop.WithTrace(xoptrace),
 				xop.WithReactiveReplaced(
 					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
-						ctx, span := span.TracerProvider().Tracer("").Start(ctx, nameOrDescription)
+						var newSpan oteltrace.Span
+						if isChildSpan {
+							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
+						} else {
+							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription)
+						}
 						return []xop.SeedModifier{
 							xop.WithContext(ctx),
-							xop.WithSpan(span.SpanContext().SpanID()),
+							xop.WithSpan(newSpan.SpanContext().SpanID()),
 						}
 					}),
 			}
@@ -77,7 +85,7 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
 			if isChildSpan {
-				ctx, span := tracer.Start(ctx, nameOrDescription)
+				ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
@@ -106,12 +114,7 @@ func (logger *logger) Buffered() bool       { return false }
 func (logger *logger) Close()               {}
 
 func (logger *logger) Request(ctx context.Context, ts time.Time, _ trace.Bundle, description string) xopbase.Request {
-	otelspan := oteltrace.SpanFromContext(ctx)
-	return &span{
-		logger: logger,
-		span:   otelspan,
-		ctx:    ctx,
-	}
+	return logger.span(ctx, ts, description, "")
 }
 
 func (span *span) Flush()                         {}
@@ -129,9 +132,20 @@ func (span *span) Done(endTime time.Time, final bool) {
 	span.span.End()
 }
 
-// TODO: store span sequence code
 func (span *span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, description string, spanSequenceCode string) xopbase.Span {
-	return span.logger.Request(ctx, ts, bundle, description)
+	return span.logger.span(ctx, ts, description, spanSequenceCode)
+}
+
+func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) xopbase.Request {
+	otelspan := oteltrace.SpanFromContext(ctx)
+	if spanSequence != "" {
+		otelspan.SetAttributes(logSpanSequence.String(spanSequence))
+	}
+	return &span{
+		logger: logger,
+		span:   otelspan,
+		ctx:    ctx,
+	}
 }
 
 func (span *span) NoPrefill() xopbase.Prefilled {
@@ -157,11 +171,11 @@ func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 	}
 }
 
-func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintptr) xopbase.Line {
+func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) xopbase.Line {
 	if !prefilled.span.logger.doLogging || !prefilled.span.span.IsRecording() {
 		return xoputil.SkipLine
 	}
-	// TODO: get line from a pool
+	// PERFORMANCE: get line from a pool
 	line := &line{}
 	line.level = level
 	line.span = prefilled.span
@@ -171,8 +185,24 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, stack []uintpt
 	line.prefillMsg = prefilled.prefillMsg
 	line.linkKey = prefilled.linkKey
 	line.linkValue = prefilled.linkValue
-	// TODO: stack trace
-	// semconv.ExceptionStacktraceKey.String
+	if len(pc) > 0 {
+		var b strings.Builder
+		frames := runtime.CallersFrames(pc)
+		for {
+			frame, more := frames.Next()
+			if strings.Contains(frame.File, "runtime/") {
+				break
+			}
+			b.WriteString(frame.File)
+			b.WriteByte(':')
+			b.WriteString(strconv.Itoa(frame.Line))
+			b.WriteByte('\n')
+			if !more {
+				break
+			}
+		}
+		line.attributes = append(line.attributes, semconv.ExceptionStacktraceKey.String(b.String()))
+	}
 	return line
 }
 
@@ -183,7 +213,7 @@ func (line *line) Msg(msg string) {
 	if line.linkKey == "" {
 		line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
 		return
-		// TODO: return line to pool
+		// PERFORMANCE: return line to pool
 	}
 	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, line.linkKey, oteltrace.WithLinks(
 		oteltrace.Link{

@@ -62,7 +62,8 @@ var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-var logMessageKey = attribute.Key("log.message") // copied from https://github.com/uptrace/opentelemetry-go-extra/blob/main/otelzap/otelzap.go
+var logMessageKey = attribute.Key("log.message")
+var logSpanSequence = attribute.Key("log.xopSpanSequence")
 var spanIsLinkAttributeKey = attribute.Key("span.is-link-attribute")
 var spanIsLinkEventKey = attribute.Key("span.is-link-event")
 

@@ -138,8 +138,6 @@ type OTELLink struct {
 	DroppedAttributeCount int
 }
 
-// TODO: set SpanKind
-
 type OTELSpan struct {
 	Name                   string
 	SpanContext            *OTELSpanContext
@@ -342,9 +340,17 @@ func toData(attributes []OTELAttribute) typedData {
 	for _, a := range attributes {
 		var dt xopbase.DataType
 		switch a.Value.Type {
+		case "BOOL":
+			dt = xopbase.BoolDataType
+		case "INT64":
+			dt = xopbase.Int64DataType
+		case "FLOAT64":
+			dt = xopbase.Float64DataType
 		case "STRING":
 			dt = xopbase.StringDataType
-		// TODO Add the rest of the know value types
+		case "BOOLSLICE", "INT64SLICE", "FLOAT64SLICE", "STRINGSLICE":
+			// TODO add these as Xop base types?
+			fallthrough
 		default:
 			dt = xopbase.AnyDataType
 		}
@@ -405,6 +411,9 @@ func genArrayConvert(edt xopbase.DataType) func(interface{}) interface{} {
 }
 
 func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xopbase.DataType, aDesc string, b map[string]interface{}, bDesc string, ignoreExtra bool) {
+	if _, ok := b["exception.stacktrace"]; ok {
+		delete(b, "exception.stacktrace")
+	}
 	if len(aOrig) == 0 && len(b) == 0 {
 		return
 	}

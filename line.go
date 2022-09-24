@@ -3,6 +3,7 @@
 package xop
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/muir/xop-go/trace"
@@ -14,13 +15,33 @@ import (
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.
-func (line *Line) AnyImmutable(k string, v interface{}) *Line { line.line.Any(k, v); return line }
+func (line *Line) AnyImmutable(k string, v interface{}) *Line {
+	if line.skip {
+		return line
+	}
+	if line.log.settings.redactAny != nil {
+		line.log.settings.redactAny(line.line, k, v, true)
+		return line
+	}
+	line.line.Any(k, v)
+	return line
+}
+
+// AnyWithoutRedaction
+func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
+	line.line.Any(k, v)
+	return line
+}
 
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
 func (line *Line) Any(k string, v interface{}) *Line {
 	if line.skip {
+		return line
+	}
+	if line.log.settings.redactAny != nil {
+		line.log.settings.redactAny(line.line, k, v, !line.log.span.referencesKept)
 		return line
 	}
 	if line.log.span.referencesKept {
@@ -49,11 +70,34 @@ func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 	return line
 }
 
+func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
+	if line.skip {
+		return line
+	}
+	if line.log.settings.redactString != nil {
+		line.log.settings.redactString(line.line, k, v.String())
+		return line
+	}
+	line.line.String(k, v.String())
+	return line
+}
+
+func (line *Line) String(k string, v string) *Line {
+	if line.skip {
+		return line
+	}
+	if line.log.settings.redactString != nil {
+		line.log.settings.redactString(line.line, k, v)
+		return line
+	}
+	line.line.String(k, v)
+	return line
+}
+
 func (line *Line) Bool(k string, v bool) *Line              { line.line.Bool(k, v); return line }
 func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration(k, v); return line }
 func (line *Line) Error(k string, v error) *Line            { line.line.Error(k, v); return line }
 func (line *Line) Link(k string, v trace.Trace) *Line       { line.line.Link(k, v); return line }
-func (line *Line) String(k string, v string) *Line          { line.line.String(k, v); return line }
 func (line *Line) Time(k string, v time.Time) *Line         { line.line.Time(k, v); return line }
 
 func (line *Line) Float64(k string, v float64) *Line {

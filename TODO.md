@@ -229,11 +229,21 @@
 
 - Metrics
 
-  - Re-use attribute naming?
-  - Allow "tags" or some other multi-dimensional naming
+  - An "Event" is something that can be counted.
 
-- Events
+    - An event can make delta adjustments to multiple gauges 
 
-  - Gets counted
-  - Re-use attributes?
-  - Attach arbitrary data
+    - An event is specified with :
+
+      - indentifiers that are specific to the event (at least one "name" is required)
+      - stable identifiers that come from the seed and are common to all events
+      - variables that provide sub-categorization (specified with struct)
+
+    - The guage adjustment and the event-specific identifiers and variables are
+      all specified with struct tags.  The event is a struct.
+
+    - Events only happen within a span and include a link back to the span
+
+  - A "Value" is something that is scraped from an external source or is computed
+
+    - it can be auto-scraped on a timer
