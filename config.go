@@ -16,9 +16,6 @@ type Config struct {
 	// too high.  It would discourage logging.  That said,
 	// there is a an error, we don't want to completely
 	// ignore it.
-	//
-	// TODO: If ErrorReporter is called too frequently,
-	// it will automatically be throttled
 	ErrorReporter func(error)
 }
 

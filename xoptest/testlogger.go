@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -121,6 +122,7 @@ type Line struct {
 	Message   string // Prefill text + line text (template evaluated)
 	Text      string // Complete text of line including key=value pairs
 	Tmpl      string // un-evaluated template
+	Stack     []runtime.Frame
 }
 
 type Event struct {
@@ -286,9 +288,8 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	}
 }
 
-func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.Line {
+func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.Span.EndTime, t.UnixNano())
-	// TODO: stack traces
 	line := &Line{
 		Builder: Builder{
 			Data:     make(map[string]interface{}),
@@ -297,6 +298,21 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, _ []uintptr) xopbase.L
 		},
 		Level:     level,
 		Timestamp: t,
+	}
+	if len(pc) > 0 {
+		frames := runtime.CallersFrames(pc)
+		stack := make([]runtime.Frame, 0, len(pc))
+		for {
+			frame, more := frames.Next()
+			if !strings.Contains(frame.File, "runtime/") {
+				break
+			}
+			stack = append(stack, frame)
+			if !more {
+				break
+			}
+		}
+		line.Stack = stack
 	}
 	for k, v := range p.Data {
 		line.Data[k] = v

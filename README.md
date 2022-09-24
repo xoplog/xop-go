@@ -51,7 +51,7 @@ That is beginning to change.  There is now a
 Xop is currently the only Go structured logs and tracing system.  Performance-wise,
 it's better that Zap, and about on par with Zerolog.
 
-Where Xop shines is in API design.
+Where Xop shines is in it's API design.
 
 ## The problem with the existing model
 
@@ -59,7 +59,7 @@ The industry model of tracing as documented in the W3C spec requires that spans
 have full identifiers.  If you give each part of dealing with a request inside
 a single server, lots of different spans, then how can you quickly reference the
 request-level span from one the sub-spans or one of the other requests that 
-is a child of the main request.  There is no standard way to distinguish a span
+is a child of the main request?  There is no standard way to distinguish a span
 that is simply a separate thread of execution or one that is a related
 request on a different server.
 
