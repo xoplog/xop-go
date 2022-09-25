@@ -1,6 +1,10 @@
 
 # required before ready to use in production
 
+- documentation
+
+  - rewrite README.md
+
 - test
 
   - xopotel.BaseLogger()
