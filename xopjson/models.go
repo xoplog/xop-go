@@ -42,7 +42,6 @@ type TimeFormatter func(b []byte, t time.Time) []byte
 
 type Logger struct {
 	writer                xopbytes.BytesWriter
-	withGoroutine         bool
 	fastKeys              bool
 	durationFormat        DurationOption
 	spanStarts            bool
@@ -60,6 +59,7 @@ type Logger struct {
 	stackLineRewrite      func(string) string
 	timeFormatter         TimeFormatter
 	activeRequests        sync.WaitGroup
+	// TODO: withGoroutine         bool
 }
 
 type request struct {
