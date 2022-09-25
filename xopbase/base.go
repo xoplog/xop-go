@@ -44,8 +44,6 @@ type Logger interface {
 	// it when Flush() is called. Even if Buffered() returns false,
 	// Flush() may still be invoked but it doesn't have to do anything.
 	Buffered() bool
-
-	Close()
 }
 
 type Request interface {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -30,7 +31,6 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
 		writer:        w,
 		id:            uuid.New(),
-		closeRequest:  make(chan struct{}),
 		timeFormatter: defaultTimeFormatter,
 	}
 	prealloc := xoputil.NewPrealloc(log.preallocatedKeys[:])
@@ -51,13 +51,6 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 func (logger *Logger) ID() string           { return logger.id.String() }
 func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
-
-func (logger *Logger) Close() {
-	close(logger.closeRequest)
-	logger.activeRequests.Done()
-	logger.activeRequests.Wait()
-	logger.writer.Close()
-}
 
 func (logger *Logger) Request(_ context.Context, ts time.Time, trace trace.Bundle, name string) xopbase.Request {
 	request := &request{
@@ -123,8 +116,7 @@ func (s *span) addRequestStartData(rq *builder) {
 }
 
 func (r *request) maintainBuffer() {
-	r.flushRequest = make(chan struct{})
-	r.flushComplete = make(chan struct{})
+	r.flushRequest = make(chan *sync.WaitGroup)
 	r.finalized = make(chan struct{})
 	r.completedLines = make(chan *line, lineChanDepth)
 	r.completedBuilders = make(chan *builder, lineChanDepth)
@@ -149,7 +141,8 @@ func (r *request) maintainBuffer() {
 		r.writeBuffer = append(r.writeBuffer, line.B...)
 		line.reclaimMemory()
 	}
-	handleFlush := func() {
+	handleFlush := func(wg *sync.WaitGroup) {
+		defer wg.Done()
 		// drains lines & builders before flush!
 	Flush:
 		for {
@@ -163,7 +156,6 @@ func (r *request) maintainBuffer() {
 			}
 		}
 		r.flushBuffer()
-		r.flushComplete <- struct{}{}
 	}
 	handleClose := func() {
 		// drain everything else first
@@ -174,8 +166,8 @@ func (r *request) maintainBuffer() {
 				handleBuilder(builder)
 			case line := <-r.completedLines:
 				handleLine(line)
-			case <-r.flushRequest:
-				handleFlush()
+			case wg := <-r.flushRequest:
+				handleFlush(wg)
 			default:
 				break Request
 			}
@@ -191,11 +183,8 @@ func (r *request) maintainBuffer() {
 				handleBuilder(builder)
 			case line := <-r.completedLines:
 				handleLine(line)
-			case <-r.flushRequest:
-				handleFlush()
-			case <-r.logger.closeRequest:
-				handleClose()
-				return
+			case wg := <-r.flushRequest:
+				handleFlush(wg)
 			case <-r.finalized:
 				handleClose()
 				return
@@ -219,9 +208,10 @@ func (r *request) flushBuffer() {
 
 func (r *request) Flush() {
 	if r.logger.perRequestBufferLimit != 0 {
-		// TODO: improve this a bit by using a WaitGroup or something
-		r.flushRequest <- struct{}{}
-		<-r.flushComplete
+		var wg sync.WaitGroup
+		wg.Add(1)
+		r.flushRequest <- &wg
+		wg.Wait()
 	} else {
 		r.writer.Flush()
 	}

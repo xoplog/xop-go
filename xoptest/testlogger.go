@@ -154,7 +154,6 @@ func (log *TestLogger) CustomEvent(msg string, args ...interface{}) {
 }
 
 func (log *TestLogger) ID() string                   { return log.id }
-func (log *TestLogger) Close()                       {}
 func (log *TestLogger) Buffered() bool               { return false }
 func (log *TestLogger) ReferencesKept() bool         { return true }
 func (log *TestLogger) SetErrorReporter(func(error)) {}
