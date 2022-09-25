@@ -34,16 +34,30 @@ type Detaching struct {
 // the function call.
 type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool)
 
-// RedactStringFunc is used to redact strings as they're bing logged.
+// RedactStringFunc is used to redact strings as they're being logged.
 // It is RedactStringFunc's responsiblity to call
 //
-//	baseLine.String(k, v)
+//	baseLine.String(k, v, xopbase.StringDataType)
 //
 // if it wants the value to be logged.
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
 type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
+
+// RedactErrorFunc is used to redact or format errors as they're being
+// logged.  It is RedactErrorFunc's responsibility to call
+//
+//	baseLine.String(k, v.Error(), xopbase.ErrorDataType)
+//
+// if it wants the value to be logged.  Alternatively, it could log the
+// error as a model:
+//
+//	baseLine.Any(k, v)
+//
+// The provided xopbase.Line may not be retained beyond the duration of
+// the function call.
+type RedactErrorFunc func(baseLine xopbase.Line, k string, v error)
 
 type LogSettings struct {
 	prefillMsg               string
@@ -54,6 +68,7 @@ type LogSettings struct {
 	synchronousFlushWhenDone bool
 	redactAny                RedactAnyFunc
 	redactString             RedactStringFunc
+	redactError              RedactErrorFunc
 }
 
 // DefaultSettings are the settings that are used if no setting changes
@@ -190,21 +205,6 @@ func (settings LogSettings) GetMinLevel() xopnum.Level {
 	return settings.minimumLogLevel
 }
 
-// MACRO BaseDataWithType ONLY:String,Any
-// SetRedactZZZFunc sets a redaction function to be used
-// when Line.ZZZ() is called.
-func (sub *Sub) SetRedactZZZFunc(f RedactZZZFunc) *Sub {
-	sub.settings.SetRedactZZZFunc(f)
-	return sub
-}
-
-// MACRO BaseDataWithType ONLY:String,Any
-// SetRedactZZZFunc sets a redaction function to be used
-// when Line.ZZZ() is called.
-func (settings *LogSettings) SetRedactZZZFunc(f RedactZZZFunc) {
-	settings.redactZZZ = f
-}
-
 // TagLinesWithSpanSequence controls if the span sequence
 // indicator (see Fork() and Step()) should be included in
 // the prefill data on each line.
@@ -249,7 +249,7 @@ func (log *Log) sendPrefill() {
 		f(prefilling)
 	}
 	if log.settings.tagLinesWithSpanSequence {
-		prefilling.String(xopconst.SpanSequenceCode.Key(), log.span.seed.spanSequenceCode)
+		prefilling.String(xopconst.SpanSequenceCode.Key(), log.span.seed.spanSequenceCode, xopbase.StringDataType)
 	}
 	log.prefilled = prefilling.PrefillComplete(log.settings.prefillMsg)
 }
@@ -282,11 +282,29 @@ func (settings *LogSettings) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	})
 }
 
+// PrefillError is used to set a data element that is included on every log
+// line.  Errors will always be formatted with v.Error().  Redaction is
+// not supported.
+func (sub *Sub) PrefillError(k string, v error) *Sub {
+	sub.settings.PrefillError(k, v)
+	return sub
+}
+
+// PrefillError is used to set a data element that is included on every log
+// line.  Errors will always be formatted with v.Error().  Redaction is
+// not supported.
+func (settings *LogSettings) PrefillError(k string, v error) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.String(k, v.Error(), xopbase.ErrorDataType)
+	})
+}
+
 // PrefillAny is used to set a data element that is included on every log
 // line.  Values provided with PrefillAny will be copied
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
+// Redaction is not supported.
 func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 	sub.settings.PrefillAny(k, v)
 	return sub
@@ -297,9 +315,24 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
+// Redaction is not supported.
 func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Any(k, v)
+	})
+}
+
+// PrefillFloat32 is used to set a data element that is included on every log
+// line.
+// PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
+	sub.settings.PrefillFloat32(k, v)
+	return sub
+}
+func (settings *LogSettings) PrefillFloat32(k string, v float32) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Float64(k, float64(v), xopbase.Float32DataType)
 	})
 }
 
@@ -308,6 +341,9 @@ func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
+//CONDITIONAL ONLY:String
+// Redaction is not supported.
+//END CONDITIONAL
 func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
 	sub.settings.PrefillZZZ(k, v)
 	return sub
@@ -363,16 +399,17 @@ func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
 	})
 }
 
-// PrefillFloat32 is used to set a data element that is included on every log
-// line.
-// PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
-func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
-	sub.settings.PrefillFloat32(k, v)
+// MACRO AllData ONLY:String,Any,Error
+// SetRedactZZZFunc sets a redaction function to be used
+// when Line.ZZZ() is called.
+func (sub *Sub) SetRedactZZZFunc(f RedactZZZFunc) *Sub {
+	sub.settings.SetRedactZZZFunc(f)
 	return sub
 }
-func (settings *LogSettings) PrefillFloat32(k string, v float32) {
-	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
-		line.Float64(k, float64(v), xopbase.Float32DataType)
-	})
+
+// MACRO AllData ONLY:String,Any,Error
+// SetRedactZZZFunc sets a redaction function to be used
+// when Line.ZZZ() is called.
+func (settings *LogSettings) SetRedactZZZFunc(f RedactZZZFunc) {
+	settings.redactZZZ = f
 }

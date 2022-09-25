@@ -294,10 +294,6 @@ func (builder *builder) Duration(k string, v time.Duration) {
 	builder.attributes = append(builder.attributes, attribute.Stringer(k, v))
 }
 
-func (builder *builder) Error(k string, v error) {
-	builder.attributes = append(builder.attributes, attribute.String(k, v.Error()))
-}
-
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
 		oteltrace.Link{
@@ -332,12 +328,11 @@ func (builder *builder) Link(k string, v trace.Trace) {
 		[]string{"link", v.TraceID().String(), v.SpanID().String()}))
 }
 
-// MACRO BaseData ONLY:String,Bool
-func (builder *builder) ZZZ(k string, v zzz) {
-	builder.attributes = append(builder.attributes, attribute.ZZZ(k, v))
+func (builder *builder) Bool(k string, v bool) {
+	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
 }
 
-// MACRO BaseData ONLY:Int64,Float64
+// MACRO BaseData ONLY:String,Int64,Float64
 func (builder *builder) ZZZ(k string, v zzz, _ xopbase.DataType) {
 	builder.attributes = append(builder.attributes, attribute.ZZZ(k, v))
 }

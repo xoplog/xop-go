@@ -38,16 +38,30 @@ type Detaching struct {
 // the function call.
 type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool)
 
-// RedactStringFunc is used to redact strings as they're bing logged.
+// RedactStringFunc is used to redact strings as they're being logged.
 // It is RedactStringFunc's responsiblity to call
 //
-//	baseLine.String(k, v)
+//	baseLine.String(k, v, xopbase.StringDataType)
 //
 // if it wants the value to be logged.
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
 type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
+
+// RedactErrorFunc is used to redact or format errors as they're being
+// logged.  It is RedactErrorFunc's responsibility to call
+//
+//	baseLine.String(k, v.Error(), xopbase.ErrorDataType)
+//
+// if it wants the value to be logged.  Alternatively, it could log the
+// error as a model:
+//
+//	baseLine.Any(k, v)
+//
+// The provided xopbase.Line may not be retained beyond the duration of
+// the function call.
+type RedactErrorFunc func(baseLine xopbase.Line, k string, v error)
 
 type LogSettings struct {
 	prefillMsg               string
@@ -58,6 +72,7 @@ type LogSettings struct {
 	synchronousFlushWhenDone bool
 	redactAny                RedactAnyFunc
 	redactString             RedactStringFunc
+	redactError              RedactErrorFunc
 }
 
 // DefaultSettings are the settings that are used if no setting changes
@@ -238,7 +253,7 @@ func (log *Log) sendPrefill() {
 		f(prefilling)
 	}
 	if log.settings.tagLinesWithSpanSequence {
-		prefilling.String(xopconst.SpanSequenceCode.Key(), log.span.seed.spanSequenceCode)
+		prefilling.String(xopconst.SpanSequenceCode.Key(), log.span.seed.spanSequenceCode, xopbase.StringDataType)
 	}
 	log.prefilled = prefilling.PrefillComplete(log.settings.prefillMsg)
 }
@@ -273,11 +288,29 @@ func (settings *LogSettings) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	})
 }
 
+// PrefillError is used to set a data element that is included on every log
+// line.  Errors will always be formatted with v.Error().  Redaction is
+// not supported.
+func (sub *Sub) PrefillError(k string, v error) *Sub {
+	sub.settings.PrefillError(k, v)
+	return sub
+}
+
+// PrefillError is used to set a data element that is included on every log
+// line.  Errors will always be formatted with v.Error().  Redaction is
+// not supported.
+func (settings *LogSettings) PrefillError(k string, v error) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.String(k, v.Error(), xopbase.ErrorDataType)
+	})
+}
+
 // PrefillAny is used to set a data element that is included on every log
 // line.  Values provided with PrefillAny will be copied
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
+// Redaction is not supported.
 func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 	sub.settings.PrefillAny(k, v)
 	return sub
@@ -288,9 +321,25 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
+// Redaction is not supported.
 func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Any(k, v)
+	})
+}
+
+// PrefillFloat32 is used to set a data element that is included on every log
+// line.
+// PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
+	sub.settings.PrefillFloat32(k, v)
+	return sub
+}
+
+func (settings *LogSettings) PrefillFloat32(k string, v float32) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Float64(k, float64(v), xopbase.Float32DataType)
 	})
 }
 
@@ -324,21 +373,6 @@ func (settings *LogSettings) PrefillDuration(k string, v time.Duration) {
 	})
 }
 
-// PrefillError is used to set a data element that is included on every log
-// line.
-// PrefillError is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
-func (sub *Sub) PrefillError(k string, v error) *Sub {
-	sub.settings.PrefillError(k, v)
-	return sub
-}
-
-func (settings *LogSettings) PrefillError(k string, v error) {
-	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
-		line.Error(k, v)
-	})
-}
-
 // PrefillLink is used to set a data element that is included on every log
 // line.
 // PrefillLink is not threadsafe with respect to other calls on the same *Sub.
@@ -351,21 +385,6 @@ func (sub *Sub) PrefillLink(k string, v trace.Trace) *Sub {
 func (settings *LogSettings) PrefillLink(k string, v trace.Trace) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Link(k, v)
-	})
-}
-
-// PrefillString is used to set a data element that is included on every log
-// line.
-// PrefillString is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
-func (sub *Sub) PrefillString(k string, v string) *Sub {
-	sub.settings.PrefillString(k, v)
-	return sub
-}
-
-func (settings *LogSettings) PrefillString(k string, v string) {
-	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
-		line.String(k, v)
 	})
 }
 
@@ -411,6 +430,21 @@ func (sub *Sub) PrefillInt64(k string, v int64) *Sub {
 func (settings *LogSettings) PrefillInt64(k string, v int64) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, v, xopbase.Int64DataType)
+	})
+}
+
+// PrefillString is used to set a data element that is included on every log
+// line.
+// PrefillString is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillString(k string, v string) *Sub {
+	sub.settings.PrefillString(k, v)
+	return sub
+}
+
+func (settings *LogSettings) PrefillString(k string, v string) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.String(k, v, xopbase.StringDataType)
 	})
 }
 
@@ -549,17 +583,41 @@ func (settings *LogSettings) PrefillUint8(k string, v uint8) {
 	})
 }
 
-// PrefillFloat32 is used to set a data element that is included on every log
-// line.
-// PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
-func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
-	sub.settings.PrefillFloat32(k, v)
+// SetRedactAnyFunc sets a redaction function to be used
+// when Line.Any() is called.
+func (sub *Sub) SetRedactAnyFunc(f RedactAnyFunc) *Sub {
+	sub.settings.SetRedactAnyFunc(f)
 	return sub
 }
 
-func (settings *LogSettings) PrefillFloat32(k string, v float32) {
-	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
-		line.Float64(k, float64(v), xopbase.Float32DataType)
-	})
+// SetRedactErrorFunc sets a redaction function to be used
+// when Line.Error() is called.
+func (sub *Sub) SetRedactErrorFunc(f RedactErrorFunc) *Sub {
+	sub.settings.SetRedactErrorFunc(f)
+	return sub
+}
+
+// SetRedactStringFunc sets a redaction function to be used
+// when Line.String() is called.
+func (sub *Sub) SetRedactStringFunc(f RedactStringFunc) *Sub {
+	sub.settings.SetRedactStringFunc(f)
+	return sub
+}
+
+// SetRedactAnyFunc sets a redaction function to be used
+// when Line.Any() is called.
+func (settings *LogSettings) SetRedactAnyFunc(f RedactAnyFunc) {
+	settings.redactAny = f
+}
+
+// SetRedactErrorFunc sets a redaction function to be used
+// when Line.Error() is called.
+func (settings *LogSettings) SetRedactErrorFunc(f RedactErrorFunc) {
+	settings.redactError = f
+}
+
+// SetRedactStringFunc sets a redaction function to be used
+// when Line.String() is called.
+func (settings *LogSettings) SetRedactStringFunc(f RedactStringFunc) {
+	settings.redactString = f
 }

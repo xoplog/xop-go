@@ -156,7 +156,6 @@ type ObjectParts interface {
 	Enum(*xopat.EnumAttribute, xopat.Enum)
 	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
-	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
@@ -164,21 +163,14 @@ type ObjectParts interface {
 
 	Float64(string, float64, DataType)
 	Int64(string, int64, DataType)
+	String(string, string, DataType)
 	Uint64(string, uint64, DataType)
 
 	Any(string, interface{})
 	Bool(string, bool)
 	Duration(string, time.Duration)
-	Error(string, error)
 	Link(string, trace.Trace)
-	String(string, string)
 	Time(string, time.Time)
-}
-
-// TODO
-type SubObject interface {
-	ObjectParts
-	Complete()
 }
 
 // TODO
@@ -208,6 +200,7 @@ const (
 	Int8DataType          DataType = iota
 	LinkDataType          DataType = iota
 	StringDataType        DataType = iota
+	StringerDataType      DataType = iota
 	TimeDataType          DataType = iota
 	UintDataType          DataType = iota
 	Uint16DataType        DataType = iota
@@ -227,6 +220,7 @@ const (
 	Int8ArrayDataType     DataType = iota
 	LinkArrayDataType     DataType = iota
 	StringArrayDataType   DataType = iota
+	StringerArrayDataType DataType = iota
 	TimeArrayDataType     DataType = iota
 	UintArrayDataType     DataType = iota
 	Uint16ArrayDataType   DataType = iota

@@ -70,6 +70,18 @@ func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 	return line
 }
 
+func (line *Line) Error(k string, v error) *Line {
+	if line.skip {
+		return line
+	}
+	if line.log.settings.redactError != nil {
+		line.log.settings.redactError(line.line, k, v)
+		return line
+	}
+	line.line.String(k, v.Error(), xopbase.ErrorDataType)
+	return line
+}
+
 func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 	if line.skip {
 		return line
@@ -78,7 +90,7 @@ func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 		line.log.settings.redactString(line.line, k, v.String())
 		return line
 	}
-	line.line.String(k, v.String())
+	line.line.String(k, v.String(), xopbase.StringerDataType)
 	return line
 }
 
@@ -90,13 +102,12 @@ func (line *Line) String(k string, v string) *Line {
 		line.log.settings.redactString(line.line, k, v)
 		return line
 	}
-	line.line.String(k, v)
+	line.line.String(k, v, xopbase.StringDataType)
 	return line
 }
 
 func (line *Line) Bool(k string, v bool) *Line              { line.line.Bool(k, v); return line }
 func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration(k, v); return line }
-func (line *Line) Error(k string, v error) *Line            { line.line.Error(k, v); return line }
 func (line *Line) Link(k string, v trace.Trace) *Line       { line.line.Link(k, v); return line }
 func (line *Line) Time(k string, v time.Time) *Line         { line.line.Time(k, v); return line }
 

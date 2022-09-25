@@ -141,7 +141,6 @@ type ObjectParts interface {
 	Enum(*xopat.EnumAttribute, xopat.Enum)
 	// TODO: split the above off as "BasicObjectParts"
 	// TODO: Table(string, table)
-	// TODO: SubObject(string) SubObject
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
@@ -152,12 +151,6 @@ type ObjectParts interface {
 
 	// MACRO BaseDataWithoutType
 	ZZZ(string, zzz)
-}
-
-// TODO
-type SubObject interface {
-	ObjectParts
-	Complete()
 }
 
 // TODO

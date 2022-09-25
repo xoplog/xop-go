@@ -372,9 +372,6 @@ var xoptestConvert map[xopbase.DataType]func(interface{}) interface{}
 
 func init() {
 	xoptestConvert = map[xopbase.DataType]func(interface{}) interface{}{
-		xopbase.ErrorDataType: func(generic interface{}) interface{} {
-			return generic.(error).Error()
-		},
 		xopbase.DurationDataType: func(generic interface{}) interface{} {
 			return generic.(time.Duration).String()
 		},
@@ -393,7 +390,6 @@ func init() {
 				return string(enc)
 			}
 		},
-		xopbase.ErrorArrayDataType:    genArrayConvert(xopbase.ErrorDataType),
 		xopbase.DurationArrayDataType: genArrayConvert(xopbase.DurationDataType),
 		xopbase.AnyArrayDataType:      genArrayConvert(xopbase.AnyDataType),
 		xopbase.LinkArrayDataType:     genArrayConvert(xopbase.LinkDataType),

@@ -312,10 +312,6 @@ func (builder *builder) Duration(k string, v time.Duration) {
 	builder.attributes = append(builder.attributes, attribute.Stringer(k, v))
 }
 
-func (builder *builder) Error(k string, v error) {
-	builder.attributes = append(builder.attributes, attribute.String(k, v.Error()))
-}
-
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
 		oteltrace.Link{
@@ -354,16 +350,16 @@ func (builder *builder) Bool(k string, v bool) {
 	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
 }
 
-func (builder *builder) String(k string, v string) {
-	builder.attributes = append(builder.attributes, attribute.String(k, v))
-}
-
 func (builder *builder) Float64(k string, v float64, _ xopbase.DataType) {
 	builder.attributes = append(builder.attributes, attribute.Float64(k, v))
 }
 
 func (builder *builder) Int64(k string, v int64, _ xopbase.DataType) {
 	builder.attributes = append(builder.attributes, attribute.Int64(k, v))
+}
+
+func (builder *builder) String(k string, v string, _ xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.String(k, v))
 }
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
