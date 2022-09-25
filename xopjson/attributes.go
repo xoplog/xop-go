@@ -54,7 +54,6 @@ type multiAttribute struct {
 }
 
 type attribute struct {
-	Name    []byte
 	Changed bool
 	Type    xopbase.DataType
 }
@@ -101,20 +100,15 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder, onlyChanged bool) {
 	}
 }
 
-func (m *multiAttribute) init(a *AttributeBuilder, k string) {
+func (m *multiAttribute) init(a *AttributeBuilder, jsonKey xopat.JSONKey) {
 	m.Builder.B = m.Buf[:0]
 	m.Builder.reset(a.span)
-	m.Builder.AddString(k)
-	if len(m.Builder.B) == len(k)+2 {
-		m.Name = m.Builder.B[1 : len(m.Builder.B)-1]
-	} else {
-		m.Name = []byte(k)
-	}
-	m.Builder.AppendBytes([]byte{':', '['}) // ]
+	m.Builder.AppendString(jsonKey.String())
+	m.Builder.AppendByte('[') // ]
 	m.Distinct = nil
 }
 
-func (a *AttributeBuilder) addMulti(k string) *multiAttribute {
+func (a *AttributeBuilder) addMulti(k string, jsonKey xopat.JSONKey) *multiAttribute {
 	var m *multiAttribute
 	var ok bool
 	m, ok = a.multiMap[k]
@@ -124,7 +118,7 @@ func (a *AttributeBuilder) addMulti(k string) *multiAttribute {
 		}
 		a.multis = a.multis[:len(a.multis)+1]
 		m = &a.multis[len(a.multis)-1]
-		m.init(a, k)
+		m.init(a, jsonKey)
 		a.multiMap[k] = m
 	}
 	m.Changed = true
@@ -132,22 +126,16 @@ func (a *AttributeBuilder) addMulti(k string) *multiAttribute {
 	return m
 }
 
-func (s *singleAttribute) init(k string) {
+func (s *singleAttribute) init(jsonKey xopat.JSONKey) {
 	b := xoputil.JBuilder{
 		B: s.Buf[:0],
 	}
-	b.AddString(k)
-	if len(b.B) == len(k)+2 {
-		s.Name = b.B[1 : len(b.B)-1]
-	} else {
-		s.Name = []byte(k)
-	}
-	b.AppendByte(':')
+	b.AppendString(jsonKey.String())
 	s.Changed = true
 	s.KeyValue = b.B
 }
 
-func (a *AttributeBuilder) addSingle(k string) (*singleAttribute, bool) {
+func (a *AttributeBuilder) addSingle(k string, jsonKey xopat.JSONKey) (*singleAttribute, bool) {
 	s, ok := a.singleMap[k]
 	if !ok {
 		if len(a.singles) == cap(a.singles) {
@@ -155,7 +143,7 @@ func (a *AttributeBuilder) addSingle(k string) (*singleAttribute, bool) {
 		}
 		a.singles = a.singles[:len(a.singles)+1]
 		s = &a.singles[len(a.singles)-1]
-		s.init(k)
+		s.init(jsonKey)
 		a.singleMap[k] = s
 	}
 	s.Changed = true
@@ -171,7 +159,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		a.encoder.SetEscapeHTML(false)
 	}
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -194,7 +182,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.AnyDataType
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
@@ -223,7 +211,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -244,7 +232,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.BoolDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddBool(v)
@@ -271,7 +259,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -292,7 +280,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.EnumDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddEnum(v)
@@ -319,7 +307,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -340,7 +328,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.Float64DataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddFloat64(v)
@@ -367,7 +355,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -388,7 +376,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.Int64DataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddInt64(v)
@@ -415,7 +403,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -436,7 +424,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.LinkDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddLink(v)
@@ -463,7 +451,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -484,7 +472,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.StringDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddString(v)
@@ -511,7 +499,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key())
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -532,7 +520,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key())
+	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.TimeDataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddTime(v)

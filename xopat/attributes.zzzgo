@@ -45,17 +45,17 @@ var DefaultNamespace = os.Args[0]
 
 // Make is used to construct attributes.
 // Some keys are reserved.  See https://github.com/muir/xop-go/blob/main/xopconst/reserved.go
-// for the list of reserved keys.  Some keys are already registered. 
+// for the list of reserved keys.  Some keys are already registered.
 type Make struct {
-	Key          string // the attribute name
-	Description  string // the attribute description
-	Namespace    string // the namespace for this attribute (otherwise DefaultNamespace is used)
-	Indexed      bool   // hint: this attribute should be indexed
-	Prominence   int    // hint: how important is this attribute (lower is more important)
-	Multiple     bool   // keep all values if the attribute is given multiple times
-	Distinct     bool   // when keeping all values, only keep distinct values (not supported for interface{})
-	Ranged       bool   // hint: comparisons between values are meaningful (eg: time, integers)
-	Locked       bool   // only keep the first value
+	Key         string // the attribute name
+	Description string // the attribute description
+	Namespace   string // the namespace for this attribute (otherwise DefaultNamespace is used)
+	Indexed     bool   // hint: this attribute should be indexed
+	Prominence  int    // hint: how important is this attribute (lower is more important)
+	Multiple    bool   // keep all values if the attribute is given multiple times
+	Distinct    bool   // when keeping all values, only keep distinct values (not supported for interface{})
+	Ranged      bool   // hint: comparisons between values are meaningful (eg: time, integers)
+	Locked      bool   // only keep the first value
 }
 
 var lock sync.RWMutex
@@ -140,9 +140,13 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 	if _, ok := reservedKeys[s.Key]; ok {
 		return Attribute{}, fmt.Errorf("key is reserved for internal use '%s'", s.Key)
 	}
-		
+
 	if s.Namespace == "" {
 		s.Namespace = DefaultNamespace
+	}
+	jsonKey, err := json.Marshal(s.Key)
+	if err != nil {
+		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
 	}
 	ra := Attribute{
 		properties:   s,
@@ -150,20 +154,21 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 		reflectType:  reflect.TypeOf(exampleValue),
 		typeName:     fmt.Sprintf("%T", exampleValue),
 		subType:      subType,
+		jsonKey:      string(jsonKey) + ":",
 	}
-	jsonKey, err := json.Marshal(s.Key)
-	if err != nil {
-		return ra, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
-	}
-	ra.jsonKey = string(jsonKey)
 	registeredNames[s.Key] = &ra
 	allAttributes = append(allAttributes, &ra)
 	return ra, nil
 }
 
+type JSONKey string
+
+func (jk JSONKey) String() string { return string(jk) }
+
 // JSONKey returns a JSON-quoted string that can be used as the key to the
-// name of the attribute.  It is a string because []byte is mutable
-func (r Attribute) JSONKey() string { return r.jsonKey }
+// name of the attribute.  It is a string because []byte is mutable.  JSONKey
+// includes a colon at the end since it's uses is as a key.
+func (r Attribute) JSONKey() JSONKey { return JSONKey(r.jsonKey) }
 
 // ReflectType can be nil if the example value was nil
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
@@ -210,10 +215,9 @@ const (
 // ZZZAttribute is a just an Int64Attribute that with
 // SubType() == AttributeTypeDuration.  A base logger may
 // look at SubType() to provide specialized behavior.
-type ZZZAttribute struct{Int64Attribute}
+type ZZZAttribute struct{ Int64Attribute }
 
 //MACRO ZZZAttribute SKIP:Enum,Duration,Int,Int8,Int16,Int32
 // ZZZAttribute represents an attribute key that can be used
 // with zzz values.
 type ZZZAttribute struct{ Attribute }
-
