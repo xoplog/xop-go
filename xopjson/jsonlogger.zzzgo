@@ -258,7 +258,7 @@ func (s *span) Span(_ context.Context, ts time.Time, trace trace.Bundle, name st
 }
 
 func (s *span) spanStartData(rq *builder) {
-	rq.String("span.name", s.name)
+	rq.stringKV("span.name", s.name)
 	rq.Time("ts", s.startTime)
 }
 
@@ -530,7 +530,7 @@ func (b *builder) AddAny(v interface{}) {
 	if err != nil {
 		b.B = b.B[:before]
 		b.span.request.errorFunc(err)
-		b.Error("encode", err)
+		b.stringKV("encode", err.Error())
 	} else {
 		// remove \n added by json.Encoder.Encode.  So helpful!
 		if b.B[len(b.B)-1] == '\n' {
@@ -547,7 +547,6 @@ func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 }
 
 func (b *builder) AddEnum(v xopat.Enum) {
-	// TODO: send dictionary and numbers
 	b.AddString(v.String())
 }
 
@@ -563,7 +562,6 @@ func (b *builder) AddTime(t time.Time) {
 
 func (b *builder) Link(k string, v trace.Trace) {
 	b.startAttributes()
-	// TODO: is this the right format for links?
 	b.AddKey(k)
 	b.AddLink(v)
 }
@@ -592,10 +590,14 @@ func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
 	b.AddUint64(v)
 }
 
-func (b *builder) String(k string, v string) {
+func (b *builder) stringKV(k string, v string) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AddString(v)
+}
+
+func (b *builder) String(k string, v string, _ xopbase.DataType) {
+	b.stringKV(k, v)
 }
 
 func (b *builder) Float64(k string, v float64, _ xopbase.DataType) {
@@ -625,17 +627,6 @@ func (b *builder) AddDuration(v time.Duration) {
 	default:
 		b.AddSafeString(v.String())
 	}
-}
-
-// TODO: allow custom formats
-func (b *builder) Error(k string, v error) {
-	b.startAttributes()
-	b.AddKey(k)
-	b.AddError(v)
-}
-
-func (b *builder) AddError(v error) {
-	b.AddString(v.Error())
 }
 
 // MACRO BaseAttribute

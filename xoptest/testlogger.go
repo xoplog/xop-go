@@ -408,12 +408,11 @@ func (b *Builder) Link(k string, v trace.Trace) {
 func (b *Builder) Any(k string, v interface{})        { b.any(k, v, xopbase.AnyDataType) }
 func (b *Builder) Bool(k string, v bool)              { b.any(k, v, xopbase.BoolDataType) }
 func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
-func (b *Builder) Error(k string, v error)            { b.any(k, v, xopbase.ErrorDataType) }
-func (b *Builder) String(k string, v string)          { b.any(k, v, xopbase.StringDataType) }
 func (b *Builder) Time(k string, v time.Time)         { b.any(k, v, xopbase.TimeDataType) }
 
 func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
 func (b *Builder) Int64(k string, v int64, dt xopbase.DataType)     { b.any(k, v, dt) }
+func (b *Builder) String(k string, v string, dt xopbase.DataType)   { b.any(k, v, dt) }
 func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType)   { b.any(k, v, dt) }
 
 func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {

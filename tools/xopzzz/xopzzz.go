@@ -72,7 +72,7 @@ var macros = map[string]map[string]string{
 		"Uint16": "uint16",
 		"Uint32": "uint32",
 	},
-	// BaseData are the data types that are supported on a per-line basis
+	// BaseData are the data types that are supported on a per-line basis in xopbase.Line
 	// Note: Enum is not included since it needs special handling every time
 	"BaseData": {
 		"Int64":    "int64",
@@ -81,17 +81,14 @@ var macros = map[string]map[string]string{
 		"Bool":     "bool",
 		"Any":      "interface{}",
 		"Link":     "trace.Trace",
-		"Error":    "error",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
 		"Float64":  "float64",
 	},
 	"BaseDataWithoutType": {
-		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",
 		"Link":     "trace.Trace",
-		"Error":    "error",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
 	},
@@ -99,6 +96,7 @@ var macros = map[string]map[string]string{
 		"Int64":   "int64",
 		"Uint64":  "uint64",
 		"Float64": "float64",
+		"String":  "string",
 	},
 	"AllData": {
 		"Int":      "int",
@@ -120,6 +118,7 @@ var macros = map[string]map[string]string{
 		"Float64":  "float64",
 		"Float32":  "float32",
 		"Time":     "time.Time",
+		"Stringer": "fmt.Stringer",
 	},
 	"HexBytes": {
 		"HexBytes1":  "1",
