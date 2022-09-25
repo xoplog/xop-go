@@ -25,6 +25,30 @@ type Detaching struct {
 	sub *Sub
 }
 
+// RedactAnyFunc is used to redact models as they're being logged.
+// It is RedactAnyFunc's responsibility to call
+//
+// 	baseLine.Any(k, v)
+//
+// if it wants the value to be logged.  If it does make that call, it
+// must pass an immutable value.  Perhaps use "github.com/mohae/deepcopy"
+// to make a copy?
+//
+// The provided xopbase.Line may not be retained beyond the duration of
+// the function call.
+type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool)
+
+// RedactStringFunc is used to redact strings as they're bing logged.
+// It is RedactStringFunc's responsiblity to call
+//
+//	baseLine.String(k, v)
+//
+// if it wants the value to be logged.
+//
+// The provided xopbase.Line may not be retained beyond the duration of
+// the function call.
+type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
+
 type LogSettings struct {
 	prefillMsg               string
 	prefillData              []func(xopbase.Prefilling)
@@ -32,6 +56,8 @@ type LogSettings struct {
 	stackFramesWanted        [xopnum.AlertLevel + 1]int // indexed
 	tagLinesWithSpanSequence bool
 	synchronousFlushWhenDone bool
+	redactAny                RedactAnyFunc
+	redactString             RedactStringFunc
 }
 
 // DefaultSettings are the settings that are used if no setting changes

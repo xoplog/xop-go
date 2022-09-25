@@ -108,23 +108,9 @@
 - Write panic trappers.  Should log the panic and flush.
 
   ```
-  defer TrapPanic().ReturnError(&err)
-  defer TrapPanic().Rethrow()
+  defer TrapPanic(log).ReturnError(&err)
+  defer TrapPanic(log).Rethrow()
   ```
-
-- Use generics to make type-safe Enum span attributes: can't do it as a method on Span, but can
-  do it as a function.
-
-- All todos in code
-
-- Add tests:
-
-  Coverage needs to be up at 90+%
-
-  - subspans
-  - Span attributes
-  - Structued lines
-  - JSON logger
 
 - gateway loggers:
 
@@ -157,6 +143,16 @@
 
   - Console (emphasis on readable, but still retains full data)
 
+- xopjson
+
+  - respect per-request buffer limit
+  - additional features:
+
+    - change time of timestamp key
+    - allow custom error formats
+    - allow go-routine id to be logged
+    - allow int64 to switch to string encoding when >2**50
+
 - Performmance
 
   - mark all places in the code where an allocation happens `// allocate`
@@ -168,20 +164,14 @@
 
   - In xopjson
 
-    - pre-allocate span array
     - use a priority queue instead of multiple channels for sending stuff to the writer
+    - improve performance of time.RFC3339Nano encoding
 
   - Improve upon sync.Pool
 
      Rebuild https://github.com/Workiva/go-datastructures/blob/master/queue/ring.go to be
      "LossyPool" that queues upto 32 items (tossing any extra) and returning immedately if
      there aren't any available.  Use generics so no casting is needed.
-
-  - AttributeBuilder needs a JSON-specific version
-
-    - per-key buffers
-    - 64 buffers?
-    - 64 bytes each?
 
   - how to make protobuf faster (when building OTEL compatibility):
     [notes](https://blog.najaryan.net/posts/partial-protobuf-encoding/?s=09)
@@ -196,8 +186,6 @@
   - add methods to query trace Baggage
 
 # Must figure out
-
-- enums based on `int` -- needing to implement `Int64()` is a problem
 
 # Not build ready 
 
@@ -229,11 +217,21 @@
 
 - Metrics
 
-  - Re-use attribute naming?
-  - Allow "tags" or some other multi-dimensional naming
+  - An "Event" is something that can be counted.
 
-- Events
+    - An event can make delta adjustments to multiple gauges 
 
-  - Gets counted
-  - Re-use attributes?
-  - Attach arbitrary data
+    - An event is specified with :
+
+      - indentifiers that are specific to the event (at least one "name" is required)
+      - stable identifiers that come from the seed and are common to all events
+      - variables that provide sub-categorization (specified with struct)
+
+    - The guage adjustment and the event-specific identifiers and variables are
+      all specified with struct tags.  The event is a struct.
+
+    - Events only happen within a span and include a link back to the span
+
+  - A "Value" is something that is scraped from an external source or is computed
+
+    - it can be auto-scraped on a timer

@@ -60,14 +60,15 @@ type shared struct {
 	WaitingForDetached bool // true only when request is Done but is not yet flushed due to detached
 }
 
+type singleAllocRequest struct {
+	Log    Log
+	shared shared
+	Span   Span
+	span   span
+}
+
 func (seed Seed) request(descriptionOrName string) *Log {
-	type singleAlloc struct {
-		Log    Log
-		shared shared
-		Span   Span
-		span   span
-	}
-	alloc := singleAlloc{
+	alloc := singleAllocRequest{
 		Log: Log{
 			settings: seed.settings.Copy(),
 		},
@@ -101,6 +102,7 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	log.sendPrefill()
 	DebugPrint("starting timer", seed.config.FlushDelay)
 	log.shared.FlushTimer = time.AfterFunc(seed.config.FlushDelay, log.timerFlush)
+	runtime.SetFinalizer(&alloc, final)
 	if !log.span.buffered {
 		DebugPrint("stopping timer")
 		log.shared.FlushTimer.Stop()
@@ -407,20 +409,22 @@ func (log *Log) flush() {
 	}
 }
 
+func (log *Log) getFlushers() []xopbase.Request {
+	log.shared.FlusherLock.RLock()
+	defer log.shared.FlusherLock.RUnlock()
+	requests := make([]xopbase.Request, 0, len(log.shared.Flushers))
+	for _, req := range log.shared.Flushers {
+		requests = append(requests, req)
+	}
+	return requests
+}
+
 func (log *Log) Flush() {
 	DebugPrint("begin flush {", Stack())
 	now := time.Now()
 	log.request.detachedDone(now)
 	log.request.recursiveDone(false, now)
-	flushers := func() []xopbase.Request {
-		log.shared.FlusherLock.RLock()
-		defer log.shared.FlusherLock.RUnlock()
-		requests := make([]xopbase.Request, 0, len(log.shared.Flushers))
-		for _, req := range log.shared.Flushers {
-			requests = append(requests, req)
-		}
-		return requests
-	}()
+	flushers := log.getFlushers()
 	log.shared.FlushLock.Lock()
 	defer log.shared.FlushLock.Unlock()
 	// Stop is is not thread-safe with respect to other calls to Stop
@@ -437,6 +441,12 @@ func (log *Log) Flush() {
 	}
 	wg.Wait()
 	DebugPrint("done flush }")
+}
+
+func final(alloc *singleAllocRequest) {
+	for _, flusher := range alloc.Log.getFlushers() {
+		flusher.Final()
+	}
 }
 
 func (log *Log) detachedDone(now time.Time) {
@@ -486,6 +496,14 @@ func (log *Log) notBoring() {
 	}
 }
 
+// Line represents a single log event that is in progress.   All
+// methods on Line either return Line or don't.  The methods that
+// do not return line, like Msg() mark the end of life for that
+// Line.  It should not be used in any way after that point.
+//
+// Nothing checks that Line isn't used after Msg().  Using line
+// after Msg() probably won't panic, but will definitely open the
+// door to confusing inconsistent logs and race conditions.
 type Line struct {
 	log  *Log
 	line xopbase.Line
@@ -495,12 +513,14 @@ type Line struct {
 
 const stackFramesToExclude = 4
 
+// logLine returns *Line, not Line.  Returning Line (and
+// changing all the *Line methods to Line methods) is
+// faster for some operations but overall it's slower.
 func (log *Log) logLine(level xopnum.Level) *Line {
 	skip := level < log.settings.minimumLogLevel
 	recycled := log.span.linePool.Get()
 	var ll *Line
 	if recycled != nil {
-		// TODO: try using Line instead of *Line
 		ll = recycled.(*Line)
 		if skip || log.settings.stackFramesWanted[level] == 0 {
 			if ll.pc != nil {
@@ -558,7 +578,6 @@ func (line *Line) Msg(msg string) {
 	line.log.hasActivity(true)
 }
 
-// TODO: add Msgf to base loggers to pass through data elements
 func (line *Line) Msgf(msg string, v ...interface{}) {
 	if !line.skip {
 		line.Msg(fmt.Sprintf(msg, v...))

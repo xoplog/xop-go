@@ -83,7 +83,6 @@ var ExampleMetadataLockedXEnum = xopat.Make{Key: "l-xenum", Locked: true, Namesp
 var ExampleMetadataMultipleXEnum = xopat.Make{Key: "m-xenum", Multiple: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
 var ExampleMetadataDistinctXEnum = xopat.Make{Key: "d-xenum", Multiple: true, Distinct: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
 
-// TODO: why the skips?
 // MACRO ZZZAttribute SKIP:Any,Enum
 var ExampleMetadataSingleZZZ = xopat.Make{Key: "s-zzz", Namespace: "test"}.ZZZAttribute()
 var ExampleMetadataLockedZZZ = xopat.Make{Key: "l-zzz", Locked: true, Namespace: "test"}.ZZZAttribute()

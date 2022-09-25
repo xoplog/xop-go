@@ -93,10 +93,8 @@ var (
 	ExampleMetadataDistinctXEnum = xopat.Make{Key: "d-xenum", Multiple: true, Distinct: true, Namespace: "test"}.EnumAttribute(xopconst.SpanKindServer)
 )
 
-// TODO: why the skips?
-var ExampleMetadataSingleBool = xopat.Make{Key: "s-bool", Namespace: "test"}.BoolAttribute()
-
 var (
+	ExampleMetadataSingleBool       = xopat.Make{Key: "s-bool", Namespace: "test"}.BoolAttribute()
 	ExampleMetadataLockedBool       = xopat.Make{Key: "l-bool", Locked: true, Namespace: "test"}.BoolAttribute()
 	ExampleMetadataMultipleBool     = xopat.Make{Key: "m-bool", Multiple: true, Namespace: "test"}.BoolAttribute()
 	ExampleMetadataDistinctBool     = xopat.Make{Key: "d-bool", Multiple: true, Distinct: true, Namespace: "test"}.BoolAttribute()

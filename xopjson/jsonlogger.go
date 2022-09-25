@@ -44,6 +44,7 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 			log.tagOption = SpanIDTagOption | TraceIDTagOption
 		}
 	}
+	log.activeRequests.Add(1)
 	return log
 }
 
@@ -52,6 +53,9 @@ func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
 
 func (logger *Logger) Close() {
+	close(logger.closeRequest)
+	logger.activeRequests.Done()
+	logger.activeRequests.Wait()
 	logger.writer.Close()
 }
 
@@ -121,6 +125,7 @@ func (s *span) addRequestStartData(rq *builder) {
 func (r *request) maintainBuffer() {
 	r.flushRequest = make(chan struct{})
 	r.flushComplete = make(chan struct{})
+	r.finalized = make(chan struct{})
 	r.completedLines = make(chan *line, lineChanDepth)
 	r.completedBuilders = make(chan *builder, lineChanDepth)
 	r.writeBuffer = make([]byte, 0, r.logger.perRequestBufferLimit/16)
@@ -160,7 +165,26 @@ func (r *request) maintainBuffer() {
 		r.flushBuffer()
 		r.flushComplete <- struct{}{}
 	}
+	handleClose := func() {
+		// drain everything else first
+	Request:
+		for {
+			select {
+			case builder := <-r.completedBuilders:
+				handleBuilder(builder)
+			case line := <-r.completedLines:
+				handleLine(line)
+			case <-r.flushRequest:
+				handleFlush()
+			default:
+				break Request
+			}
+		}
+		r.flushBuffer()
+	}
+	r.logger.activeRequests.Add(1)
 	go func() {
+		defer r.logger.activeRequests.Done()
 		for {
 			select {
 			case builder := <-r.completedBuilders:
@@ -170,23 +194,10 @@ func (r *request) maintainBuffer() {
 			case <-r.flushRequest:
 				handleFlush()
 			case <-r.logger.closeRequest:
-				// drain everything else first
-			Request:
-				for {
-					select {
-					case builder := <-r.completedBuilders:
-						handleBuilder(builder)
-					case line := <-r.completedLines:
-						handleLine(line)
-					case <-r.flushRequest:
-						handleFlush()
-					default:
-						break Request
-					}
-				}
-				r.flushBuffer()
-				// TODO: have logger wait for requests to complete
-				// WaitGroup?
+				handleClose()
+				return
+			case <-r.finalized:
+				handleClose()
 				return
 			}
 		}
@@ -213,6 +224,12 @@ func (r *request) Flush() {
 		<-r.flushComplete
 	} else {
 		r.writer.Flush()
+	}
+}
+
+func (r *request) Final() {
+	if r.logger.perRequestBufferLimit != 0 {
+		close(r.finalized)
 	}
 }
 
