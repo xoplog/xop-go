@@ -15,7 +15,6 @@ import (
 func TestLogMethods(t *testing.T) {
 	start := time.Now()
 	tLog := xoptest.New(t)
-	defer tLog.Close()
 	log := tLog.Log()
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
@@ -55,7 +54,6 @@ func TestWithLock(t *testing.T) {
 		return nil
 	}
 	tLog := xoptest.New(t)
-	defer tLog.Close()
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
@@ -75,7 +73,6 @@ func TestWithLock(t *testing.T) {
 
 func TestCustomEvent(t *testing.T) {
 	tLog := xoptest.New(t)
-	defer tLog.Close()
 	f := func(_ error) {}
 	tLog.SetErrorReporter(f)
 	tLog.CustomEvent("custom message (%v-%v)", "foo", "bar")

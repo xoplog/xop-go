@@ -51,7 +51,6 @@ type Logger struct {
 	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	perRequestBufferLimit int
 	attributesObject      bool
-	closeRequest          chan struct{}
 	builderPool           sync.Pool // filled with *builder
 	linePool              sync.Pool // filled with *line
 	preallocatedKeys      [100]byte
@@ -67,8 +66,7 @@ type request struct {
 	errorFunc         func(error)
 	writeBuffer       []byte
 	completedLines    chan *line
-	flushRequest      chan struct{}
-	flushComplete     chan struct{}
+	flushRequest      chan *sync.WaitGroup
 	completedBuilders chan *builder
 	idNum             int64
 	finalized         chan struct{}

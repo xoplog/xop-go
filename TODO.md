@@ -153,6 +153,11 @@
     - allow go-routine id to be logged
     - allow int64 to switch to string encoding when >2**50
 
+- xopotel
+
+  - add wrapper to use otel exporter directly as xopbase
+  - add wrapper to use xopbase as otel exporter
+
 - Performmance
 
   - mark all places in the code where an allocation happens `// allocate`
