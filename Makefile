@@ -8,9 +8,15 @@ ZZZGENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
 TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports ${GOBIN}/enumer
 TEST_ONLY =?
 
-all:	$(ZZZGENERATED) 
+all:	$(ZZZGENERATED) .gitattributes
 	go generate ./...
 	go build ./...
+
+.gitattributes: $(ZZZGENERATED)
+	echo '*.zzzgo linguist-language=Go' > $@
+	echo 'doc.go linguist-documentation' >> $@
+	echo '*.md linguist-documentation' >> $@
+	for i in $(ZZZGENERATED); do echo "$$i linguist-generated" >> $@; done
 
 test:	$(ZZZGENERATED) testadjuster
 	go generate ./...
@@ -87,4 +93,3 @@ OTEL_TAG="v1.12.0"
 
 otel-generate: ../opentelemetry-specification ../opentelemetry-go
 	cd ../opentelemetry-specification && git pull && git checkout tags/$(OTEL_TAG)
-

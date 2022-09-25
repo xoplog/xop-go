@@ -45,6 +45,7 @@ func (line *Line) Any(k string, v interface{}) *Line {
 		return line
 	}
 	if line.log.span.referencesKept {
+		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
 	}
 	line.line.Any(k, v)
