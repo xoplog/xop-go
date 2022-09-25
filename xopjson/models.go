@@ -59,9 +59,7 @@ type Logger struct {
 	durationKey           []byte
 	stackLineRewrite      func(string) string
 	timeFormatter         TimeFormatter
-	// TODO: prefilledPool	sync.Pool
-	// TODO: timeKey []byte
-	// TODO: timestampKey          []byte
+	activeRequests        sync.WaitGroup
 }
 
 type request struct {
@@ -73,6 +71,7 @@ type request struct {
 	flushComplete     chan struct{}
 	completedBuilders chan *builder
 	idNum             int64
+	finalized         chan struct{}
 }
 
 type span struct {
@@ -222,8 +221,6 @@ func WithAttributesObject(b bool) Option {
 	}
 }
 
-// TODO: allow custom error formats
-
 // WithTimeFormatter specifies how time.Time should be
 // serialized to JSON.  The default is time.RFC3339Nano.
 //
@@ -236,12 +233,13 @@ func WithTimeFormatter(formatter TimeFormatter) Option {
 	}
 }
 
-// TODO
+/*
 func WithGoroutineID(b bool) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.withGoroutine = b
 	}
 }
+*/
 
 func WithStackLineRewrite(f func(string) string) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {

@@ -232,6 +232,7 @@ func (span *Span) Flush() {
 	})
 }
 
+func (span *Span) Final()                       {}
 func (span *Span) Boring(bool)                  {}
 func (span *Span) ID() string                   { return span.testLogger.id }
 func (span *Span) SetErrorReporter(func(error)) {}

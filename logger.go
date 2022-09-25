@@ -60,14 +60,15 @@ type shared struct {
 	WaitingForDetached bool // true only when request is Done but is not yet flushed due to detached
 }
 
+type singleAllocRequest struct {
+	Log    Log
+	shared shared
+	Span   Span
+	span   span
+}
+
 func (seed Seed) request(descriptionOrName string) *Log {
-	type singleAlloc struct {
-		Log    Log
-		shared shared
-		Span   Span
-		span   span
-	}
-	alloc := singleAlloc{
+	alloc := singleAllocRequest{
 		Log: Log{
 			settings: seed.settings.Copy(),
 		},
@@ -101,6 +102,7 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	log.sendPrefill()
 	DebugPrint("starting timer", seed.config.FlushDelay)
 	log.shared.FlushTimer = time.AfterFunc(seed.config.FlushDelay, log.timerFlush)
+	runtime.SetFinalizer(&alloc, final)
 	if !log.span.buffered {
 		DebugPrint("stopping timer")
 		log.shared.FlushTimer.Stop()
@@ -407,20 +409,22 @@ func (log *Log) flush() {
 	}
 }
 
+func (log *Log) getFlushers() []xopbase.Request {
+	log.shared.FlusherLock.RLock()
+	defer log.shared.FlusherLock.RUnlock()
+	requests := make([]xopbase.Request, 0, len(log.shared.Flushers))
+	for _, req := range log.shared.Flushers {
+		requests = append(requests, req)
+	}
+	return requests
+}
+
 func (log *Log) Flush() {
 	DebugPrint("begin flush {", Stack())
 	now := time.Now()
 	log.request.detachedDone(now)
 	log.request.recursiveDone(false, now)
-	flushers := func() []xopbase.Request {
-		log.shared.FlusherLock.RLock()
-		defer log.shared.FlusherLock.RUnlock()
-		requests := make([]xopbase.Request, 0, len(log.shared.Flushers))
-		for _, req := range log.shared.Flushers {
-			requests = append(requests, req)
-		}
-		return requests
-	}()
+	flushers := log.getFlushers()
 	log.shared.FlushLock.Lock()
 	defer log.shared.FlushLock.Unlock()
 	// Stop is is not thread-safe with respect to other calls to Stop
@@ -437,6 +441,12 @@ func (log *Log) Flush() {
 	}
 	wg.Wait()
 	DebugPrint("done flush }")
+}
+
+func final(alloc *singleAllocRequest) {
+	for _, flusher := range alloc.Log.getFlushers() {
+		flusher.Final()
+	}
 }
 
 func (log *Log) detachedDone(now time.Time) {

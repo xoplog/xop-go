@@ -411,9 +411,7 @@ func genArrayConvert(edt xopbase.DataType) func(interface{}) interface{} {
 }
 
 func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xopbase.DataType, aDesc string, b map[string]interface{}, bDesc string, ignoreExtra bool) {
-	if _, ok := b["exception.stacktrace"]; ok {
-		delete(b, "exception.stacktrace")
-	}
+	delete(b, "exception.stacktrace")
 	if len(aOrig) == 0 && len(b) == 0 {
 		return
 	}

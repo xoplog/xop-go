@@ -83,6 +83,14 @@ func (s baseRequests) SetErrorReporter(f func(error)) {
 	}
 }
 
+func (s baseRequests) Final() {
+	for _, request := range s.baseRequests {
+		go func() {
+			request.Final()
+		}()
+	}
+}
+
 func (s baseRequests) Flush() {
 	var wg sync.WaitGroup
 	wg.Add(len(s.baseRequests))

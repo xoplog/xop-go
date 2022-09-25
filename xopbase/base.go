@@ -63,6 +63,11 @@ type Request interface {
 	// report it.  The base logger cannot assume that execution will stop.
 	// The base logger may not panic.
 	SetErrorReporter(func(error))
+
+	// Final is called when there is no possibility of any further calls to
+	// this Request of any sort.  There is no guarantee that Final will be
+	// called in a timely fashion or even at all before program exit.
+	Final()
 }
 
 type Span interface {

@@ -116,6 +116,7 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, _ trace.Bundle,
 }
 
 func (span *span) Flush()                         {}
+func (span *span) Final()                         {}
 func (span *span) SetErrorReporter(f func(error)) {}
 func (span *span) Boring(_ bool)                  {}
 func (span *span) ID() string                     { return span.logger.id }
