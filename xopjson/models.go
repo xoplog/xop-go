@@ -58,7 +58,6 @@ type Logger struct {
 	stackLineRewrite      func(string) string
 	timeFormatter         TimeFormatter
 	activeRequests        sync.WaitGroup
-	// TODO: withGoroutine         bool
 }
 
 type request struct {

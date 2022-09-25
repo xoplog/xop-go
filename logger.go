@@ -53,7 +53,7 @@ type shared struct {
 	FlushTimer         *time.Timer
 	FlushDelay         time.Duration
 	FlushActive        int32                      // 1 == timer is running, 0 = timer is not running
-	Flushers           map[string]xopbase.Request // key is xopbase.Logger.ID() // TODO: change key to int?
+	Flushers           map[string]xopbase.Request // key is xopbase.Logger.ID()
 	Description        string
 	LogCount           int32
 	ActiveDetached     map[int32]*Log

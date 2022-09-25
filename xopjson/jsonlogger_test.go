@@ -53,7 +53,7 @@ type supersetObject struct {
 	RequestID      string `json:"request.id"`
 	State          string `json:"trace.state"`
 	Baggage        string `json:"trace.baggage"`
-	RequestVersion int    `json:"request.ver"` // TODO: change to span.ver?
+	RequestVersion int    `json:"request.ver"`
 
 	// spans
 
