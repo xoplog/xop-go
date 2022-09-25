@@ -194,7 +194,6 @@ func (r *request) maintainBuffer() {
 }
 
 func (r *request) flushBuffer() {
-	// TODO: trigger spans to write their stuff
 	if len(r.writeBuffer) == 0 {
 		return
 	}
@@ -335,7 +334,7 @@ func (s *span) Done(t time.Time, _ bool) {
 	s.FlushAttributes()
 }
 
-func (s *span) Boring(bool) {} // TODO
+func (s *span) Boring(bool) {}
 func (s *span) ID() string  { return s.logger.id.String() }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
@@ -415,7 +414,6 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	l.Int64("lvl", int64(level), 0)
 	l.Time("ts", t)
 	if len(pc) > 0 {
-		// TODO: debug this!
 		frames := runtime.CallersFrames(pc)
 		l.AppendBytes([]byte(`,"stack":[`))
 		for {
@@ -482,7 +480,7 @@ func (l *line) Msg(m string) {
 }
 
 func (l *line) Static(m string) {
-	l.Msg(m) // TODO
+	l.Msg(m)
 }
 
 func (b *builder) reclaimMemory() {
@@ -545,7 +543,8 @@ func (b *builder) AddAny(v interface{}) {
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.startAttributes()
-	b.AddSafeKey(k.Key()) // TODO: check attribute keys at registration time
+	b.Comma()
+	b.AppendString(k.JSONKey().String())
 	b.AddEnum(v)
 }
 

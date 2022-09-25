@@ -156,26 +156,31 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 	if s.Namespace == "" {
 		s.Namespace = DefaultNamespace
 	}
+	jsonKey, err := json.Marshal(s.Key)
+	if err != nil {
+		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
+	}
 	ra := Attribute{
 		properties:   s,
 		exampleValue: exampleValue,
 		reflectType:  reflect.TypeOf(exampleValue),
 		typeName:     fmt.Sprintf("%T", exampleValue),
 		subType:      subType,
+		jsonKey:      string(jsonKey) + ":",
 	}
-	jsonKey, err := json.Marshal(s.Key)
-	if err != nil {
-		return ra, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
-	}
-	ra.jsonKey = string(jsonKey)
 	registeredNames[s.Key] = &ra
 	allAttributes = append(allAttributes, &ra)
 	return ra, nil
 }
 
+type JSONKey string
+
+func (jk JSONKey) String() string { return string(jk) }
+
 // JSONKey returns a JSON-quoted string that can be used as the key to the
-// name of the attribute.  It is a string because []byte is mutable
-func (r Attribute) JSONKey() string { return r.jsonKey }
+// name of the attribute.  It is a string because []byte is mutable.  JSONKey
+// includes a colon at the end since it's uses is as a key.
+func (r Attribute) JSONKey() JSONKey { return JSONKey(r.jsonKey) }
 
 // ReflectType can be nil if the example value was nil
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }

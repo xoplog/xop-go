@@ -152,11 +152,24 @@
     - allow custom error formats
     - allow go-routine id to be logged
     - allow int64 to switch to string encoding when >2**50
+    - do something useful with Boring
+
+  - write to xop server
+
+    - keep dictionary of static strings
+
+      - Line.Static()
+      - Enum descriptions and types
+
+  - xopbytes.BytesWriter
+
+    - write to writing rotating files based time or size
 
 - xopotel
 
   - add wrapper to use otel exporter directly as xopbase
   - add wrapper to use xopbase as otel exporter
+  - do something useful with Boring
 
 - Performmance
 
