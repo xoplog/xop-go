@@ -13,11 +13,6 @@ import (
 	"github.com/muir/xop-go/trace"
 )
 
-// TODO: PERFORMANCE: pre-allocate blocks of 128 Attributes to provide better locality of reference when using these
-// TODO: UintAttribute?
-// TODO: TableAttribute?
-// TODO: URLAttribute?
-
 // Attribute is the base type for the keys that are used to add
 // key/value metadata to spans.  The actual keys are matched to the
 // values to provide compile-time type checking on the metadata calls.

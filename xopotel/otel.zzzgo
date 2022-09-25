@@ -72,7 +72,6 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 
 // BaseLogger provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
 // so that xop logs are output through the OTEL Tracer.
-// TODO: test this
 func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xop.SeedModifier {
 	return xop.CombineSeedModifiers(
 		xop.WithBase(&logger{

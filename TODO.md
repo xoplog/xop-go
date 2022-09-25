@@ -1,5 +1,31 @@
 
+# required before ready to use in production
+
+- documentation
+
+  - rewrite README.md
+
+- test
+
+  - xopotel.BaseLogger()
+  - actually feed xopotel traces into Jaeger
+  - redact functions
+  - propogation
+
+- xopjson
+
+  - change request.ver -> span.ver
+
+- drop rest/ or finish it
+
+- integrations
+
+  - resty
+  - remove dependency on mux in middleware
+
 # Ideas to ponder
+
+- could we drop xopbase.Logger.ID() in favor of using pointers?   or change ID sequential integers?  Add Name()?
 
 - is Attribute.ExampleValue() useful?  It's not enforcable at compile time for Any.
 
@@ -52,21 +78,7 @@
 
 # Just do it (build ready)
 
-- redaction
-
-  - add log setting for redacting Any types.  
-
-    `type RedactAnyFunc(*Log, key string, value interface{}) interface{}`
-
-    The idea being that it can log an additional thing if it wants
-
-  - add log setting for redacting string types.  
-
-    `type RedactAnyFunc(*Log, key string, value string) string`
-
-    The idea being that it can log an additional thing if it wants
-
-  - add redaction option to pre-registering attributes.
+- make deepcopy function configurable
 
 - dictionary support
 
@@ -104,6 +116,13 @@
   - Pre-encoded data
   - Add Object(func(*BaseType))
   - Add Pairs(k, v, k, v, ...)
+  - URLs
+
+- Round out the types of attributes
+
+  - uint
+  - table
+  - url
 
 - Write panic trappers.  Should log the panic and flush.
 
@@ -195,6 +214,8 @@
     [notes](https://blog.najaryan.net/posts/partial-protobuf-encoding/?s=09)
 
   - can *Sub be Sub instead?  Would that have better performance? 
+
+  - preallocate blocks of Attributes
 
 - Standard tracing
 

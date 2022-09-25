@@ -52,10 +52,6 @@ func (line *Line) Any(k string, v interface{}) *Line {
 	return line
 }
 
-// TODO: func (l *Log) Guage(name string, value float64, )
-// TODO: func (l *Log) AdjustCounter(name string, value float64, )
-// TODO: func (l *Log) Event
-
 func (line *Line) Float32(k string, v float32) *Line {
 	line.line.Float64(k, float64(v), xopbase.Float32DataType)
 	return line
