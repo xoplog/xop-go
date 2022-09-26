@@ -96,6 +96,48 @@ func TestSpanLog(t *testing.T) {
 	}
 }
 
+func TestBaseLogger(t *testing.T) {
+	for _, mc := range xoptestutil.MessageCases {
+		mc := mc
+		if mc.SkipOTEL {
+			continue
+		}
+		t.Run(mc.Name, func(t *testing.T) {
+			var buffer xoputil.Buffer
+
+			exporter, err := stdouttrace.New(
+				stdouttrace.WithWriter(&buffer),
+			)
+			require.NoError(t, err, "exporter")
+
+			tracerProvider := sdktrace.NewTracerProvider(
+				sdktrace.WithBatcher(exporter),
+			)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer func() {
+				err := tracerProvider.Shutdown(context.Background())
+				assert.NoError(t, err, "shutdown")
+			}()
+
+			tracer := tracerProvider.Tracer("")
+
+			tlog := xoptest.New(t)
+			log := xop.NewSeed(
+				xop.WithBase(tlog),
+				xopotel.BaseLogger(ctx, tracer, true),
+			).Request(t.Name())
+			mc.Do(t, log, tlog)
+
+			cancel()
+			tracerProvider.ForceFlush(context.Background())
+			t.Log("logged:", buffer.String())
+			assert.NotEmpty(t, buffer.String())
+
+			newChecker(t, tlog, nil).check(t, buffer.String())
+		})
+	}
+}
+
 type OTELSpanContext struct {
 	TraceID    string
 	SpanID     string

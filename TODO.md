@@ -23,60 +23,13 @@
   - resty
   - remove dependency on mux in middleware
 
-# Ideas to ponder
+- documentation
 
-- could we drop xopbase.Logger.ID() in favor of using pointers?   or change ID sequential integers?  Add Name()?
-
-- is Attribute.ExampleValue() useful?  It's not enforcable at compile time for Any.
-
-- rename LogLine/Line to Entry?
-
-- Consider replacing SeedModifier with a seed modifier type...
-
-  ```
-	Instead of
-		log.Step(...SeedModifier)
-		and functions that produce SeedModifier
-	have:
-		log.Step(func(SeedModifier))
-		and methods on SeedModifier that directly write to the seed
-  ```
-
-- Should xop attributes in a line be bundled into a sub-object?
-
-- Should Template() be a line starter rather than an ender?
-
-- Use ZSON for main transport?  
-  https://www.brimdata.io/blog/unmarshal-interface/
-  Use BSON for main transport?
-
-- Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
-
-- Allow base loggers to share resources (span attribute tracking, JSON formatting)
-
-- Figure out a way to enforce limited vocabulary on select Attributes and Data elements
-
-- Some way to mix-in data from code context.  The log object will be in the call stack
-  either passed explicityly or passed within context.  If the call is to a method on an
-  initialized library, that library may want to wrap logging to:
-
-  - adjust the logging level that is being retained
-  - add it's own line prefix attributes
-
-  What's the right API for this?
-
-- Logging levels.  Are they actually useful?  Let's pretend they are.  What's the right
-  behavior.  Baseloggers could choose to ignore levels that are too low.  The logger itself
-  could choose to discard when the level is too low.
-
-- support microsoft correlation vectors?  https://github.com/Microsoft/CorrelationVector-Go
-
-- How to do full-text (short-term) indexing of log lines
-
-  - Elastic
-  - [zinc](https://github.com/zinclabs/zinc)
+  - propogation (add to README)
 
 # Just do it (build ready)
+
+- grab and modify the the zerolog linter to make sure that log lines don't get dropped
 
 - make deepcopy function configurable
 
@@ -224,7 +177,58 @@
   - figure out a way to modify trace Baggage
   - add methods to query trace Baggage
 
-# Must figure out
+# Ideas to ponder
+
+- could we drop xopbase.Logger.ID() in favor of using pointers?   or change ID sequential integers?  Add Name()?
+
+- is Attribute.ExampleValue() useful?  It's not enforcable at compile time for Any.
+
+- rename LogLine/Line to Entry?
+
+- Consider replacing SeedModifier with a seed modifier type...
+
+  ```
+	Instead of
+		log.Step(...SeedModifier)
+		and functions that produce SeedModifier
+	have:
+		log.Step(func(SeedModifier))
+		and methods on SeedModifier that directly write to the seed
+  ```
+
+- Should xop attributes in a line be bundled into a sub-object?
+
+- Should Template() be a line starter rather than an ender?
+
+- Use ZSON for main transport?  
+  https://www.brimdata.io/blog/unmarshal-interface/
+  Use BSON for main transport?
+
+- Hmmm, if entire trace is a bytes string, it can be treated as  StrAttribute...
+
+- Allow base loggers to share resources (span attribute tracking, JSON formatting)
+
+- Figure out a way to enforce limited vocabulary on select Attributes and Data elements
+
+- Some way to mix-in data from code context.  The log object will be in the call stack
+  either passed explicityly or passed within context.  If the call is to a method on an
+  initialized library, that library may want to wrap logging to:
+
+  - adjust the logging level that is being retained
+  - add it's own line prefix attributes
+
+  What's the right API for this?
+
+- Logging levels.  Are they actually useful?  Let's pretend they are.  What's the right
+  behavior.  Baseloggers could choose to ignore levels that are too low.  The logger itself
+  could choose to discard when the level is too low.
+
+- support microsoft correlation vectors?  https://github.com/Microsoft/CorrelationVector-Go
+
+- How to do full-text (short-term) indexing of log lines
+
+  - Elastic
+  - [zinc](https://github.com/zinclabs/zinc)
 
 # Not build ready 
 
