@@ -7,7 +7,9 @@ import (
 
 	"github.com/muir/xop-go"
 	"github.com/muir/xop-go/xopconst"
+	"github.com/muir/xop-go/xopnum"
 	"github.com/muir/xop-go/xoptest"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -452,4 +454,40 @@ var MessageCases = []struct {
 			log.Done()
 		},
 	},
+	{
+		Name: "log levels",
+		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+			var callCount int
+			sc := newStringCounter(&callCount, "foobar")
+			skipper := log.Sub().MinLevel(xopnum.InfoLevel).Log()
+			skipper.Debug().
+				Stringer("avoid", sc).
+				String("avoid", "blaf").
+				Any("null", nil).
+				AnyImmutable("null", nil).
+				Error("no", fmt.Errorf("bar")).
+				Msg("no foobar")
+			log.Trace().Stringer("do", sc).Msg("yes, foobar")
+			assert.Equal(t, 1, callCount, "stringer called once")
+			MicroNap()
+			log.Done()
+		},
+	},
+}
+
+type stringCounter struct {
+	cp *int
+	s  string
+}
+
+func (s *stringCounter) String() string {
+	*s.cp++
+	return s.s
+}
+
+func newStringCounter(cp *int, s string) *stringCounter {
+	return &stringCounter{
+		cp: cp,
+		s:  s,
+	}
 }
