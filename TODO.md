@@ -177,6 +177,11 @@
   - figure out a way to modify trace Baggage
   - add methods to query trace Baggage
 
+- Provide structtags-based redaction function
+
+  - Make something based on github.com/mohae/deepcopy that returns two
+    copies of the original.  One that is redacted and one that is not?
+
 # Ideas to ponder
 
 - could we drop xopbase.Logger.ID() in favor of using pointers?   or change ID sequential integers?  Add Name()?

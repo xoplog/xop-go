@@ -154,6 +154,11 @@ but not as quick as
 Xop has a much richer feature set than onelog or phuslog and a nicer
 API than zap.
 
+### Version compatability
+
+xop is currently tested with go1.18 and go1.19.  It is probably 
+compatible with go1.17 and perhaps earlier.
+
 ## Terminology
 
 A "trace" is the the entire set of spans relating to one starting request or action.  It can
