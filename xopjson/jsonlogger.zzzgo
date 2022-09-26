@@ -73,7 +73,7 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, trace trace.Bundl
 
 	if logger.spanStarts {
 		rq := request.span.builder()
-		rq.AppendBytes([]byte(`{"type":"request","request.ver":0`))
+		rq.AppendBytes([]byte(`{"type":"request","span.ver":0`))
 		request.span.addRequestStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
 		request.serializationCount++
@@ -298,7 +298,7 @@ func (s *span) FlushAttributes() {
 		} else {
 			s.identifySpan(&rq.JBuilder)
 		}
-		rq.AddSafeKey("request.ver")
+		rq.AddSafeKey("span.ver")
 	} else {
 		rq.AppendBytes([]byte(`{"type":"span"`)) // }
 		if !s.logger.spanStarts || !s.logger.spanChangesOnly {

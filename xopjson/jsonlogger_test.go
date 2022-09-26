@@ -41,23 +41,19 @@ type supersetObject struct {
 
 	// requests & spans
 
-	Type     string `json:"type"`
-	Name     string `json:"name"`
-	Duration int64  `json:"dur"`
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Duration    int64  `json:"dur"`
+	SpanVersion int    `json:"span.ver"`
 
 	// requests
 
-	Implmentation  string `json:"impl"`
-	TraceID        string `json:"trace.id"`
-	ParentID       string `json:"parent.id"`
-	RequestID      string `json:"request.id"`
-	State          string `json:"trace.state"`
-	Baggage        string `json:"trace.baggage"`
-	RequestVersion int    `json:"request.ver"`
-
-	// spans
-
-	SpanVersion int `json:"span.ver"`
+	Implmentation string `json:"impl"`
+	TraceID       string `json:"trace.id"`
+	ParentID      string `json:"parent.id"`
+	RequestID     string `json:"request.id"`
+	State         string `json:"trace.state"`
+	Baggage       string `json:"trace.baggage"`
 }
 
 type checkConfig struct {
@@ -107,7 +103,7 @@ func TestASingleLine(t *testing.T) {
 	assert.NotContains(t, lines[1], `"stack":[`)
 	assert.Contains(t, lines[1], `"span.id":`)
 	assert.Contains(t, lines[1], `"dur":"`)
-	assert.Contains(t, lines[1], `"request.ver":0`)
+	assert.Contains(t, lines[1], `"span.ver":0`)
 	assert.Contains(t, lines[1], `"type":"request"`)
 	assert.Contains(t, lines[1], `"span.name":"TestASingleLine"`)
 }
@@ -374,9 +370,9 @@ func (c *checker) request(t *testing.T, super supersetObject, generic map[string
 	if assert.NotEmpty(t, super.SpanID, "has span id") {
 		prior, ok = c.sequencing[super.SpanID]
 	}
-	if super.RequestVersion > 0 {
+	if super.SpanVersion > 0 {
 		if assert.True(t, ok, "has prior version") {
-			assert.Equal(t, prior+1, super.RequestVersion, "version is in sequence")
+			assert.Equal(t, prior+1, super.SpanVersion, "version is in sequence")
 		}
 		assert.NotEmpty(t, super.Duration, "duration is set")
 		assert.NotNil(t, c.accumulatedSpans[super.SpanID], "has prior")
@@ -392,7 +388,7 @@ func (c *checker) request(t *testing.T, super supersetObject, generic map[string
 	} else {
 		combineAttributes(generic, c.accumulatedSpans[super.SpanID])
 	}
-	c.sequencing[super.SpanID] = super.RequestVersion
+	c.sequencing[super.SpanID] = super.SpanVersion
 	assert.Less(t, super.Duration, int64(time.Second*10), "duration")
 }
 
