@@ -7,14 +7,8 @@
 
 - test
 
-  - xopotel.BaseLogger()
   - actually feed xopotel traces into Jaeger
-  - redact functions
   - propagation
-
-- xopjson
-
-  - change request.ver -> span.ver
 
 - drop rest/ or finish it
 
