@@ -5,7 +5,7 @@
 [![report card](https://goreportcard.com/badge/github.com/muir/xop-go)](https://goreportcard.com/report/github.com/muir/xop-go)
 [![codecov](https://codecov.io/gh/muir/xop-go/branch/main/graph/badge.svg)](https://codecov.io/gh/muir/xop-go)
 
-# Development status
+## Development status
 
 In development, almost ready for use.
 
@@ -41,7 +41,7 @@ Expect the following changes at some point
 - The full set of OpenTelemetry `semconv` (Semantic Conventions) to be imported
   into `xopconst` (or perhaps somewhere else).
 
-# Historical context
+## Historical context
 
 Observability code and technique is rapidly evolving.  The 
 [Open Telemetry](https://opentelemetry.io/)
@@ -64,11 +64,11 @@ to strike a blance between safety and usability.  Metadata on spans are
 fully type-safe and keywords must be pre-registered.  Data elements on log
 lines are mostly type-safe but do not need to be pre-registered.
 
-# Using xop
+## Using xop
 
 To log, you must have a `*Log` object.  To create one you must start with a
 `Seed`.  `Seed`s are created with `NewSeed(mods ...SeedModifier)`.  The
-`SeedModifiers` are where you specify where the logs actually go by supplying
+`SeedModifier`s are where you specify where the logs actually go by supplying
 a bottom level, log exporter: a `xopbase.Logger`.  There are various 
 bottom level loggers: `xoptest` for logging to a `*testing.T`, `xopjson` for
 generating JSON logs, and `xopotel` for exporting traces (and logs) via
@@ -138,7 +138,7 @@ There are many other features including:
 Although xop supports a global logger, it's use is discouraged because 
 it doesn't provide enough context for the resulting logs to be useful.
 
-## Performance
+### Performance
 
 The performance of Xop is good enough.  See the benchmark results
 at [logbench](https://github.com/muir/logbench).
@@ -154,7 +154,7 @@ but not as quick as
 Xop has a much richer feature set than onelog or phuslog and a nicer
 API than zap.
 
-# Terminology
+## Terminology
 
 A "trace" is the the entire set of spans relating to one starting request or action.  It can
 span multiple servers.
@@ -173,9 +173,9 @@ A "base logger" is the layer below that the "logger" uses to send output to diff
 A "bytes logger" is an optional layer below "base logger" that works with logs that have already
 become []bytes.
 
-# Naming
+## Naming
 
-## Name registry
+### Name registry
 
 Arbitrary names are supported for tagging log lines. For attributes to be displayed
 specially in front-ends, they need to follow standards. Standard attribute groups are
@@ -196,42 +196,9 @@ to the individual base loggers.
 The data associated with spans, traces, and requests must come from pre-registered
 keys.
 
-# Philosophy
+### Attribute/Key naming
 
-Xop is opinionated.  It gently nudges in certain directions.  Perhaps
-the biggest nudge is that there is no support for generating
-logs outside of a span.  
-
-## Log less
-
-Do not log details that don't materialy add to the value of the log
-
-## Log more
-
-Use logs as a narritive of what's going on in the program so that when
-you look at the logs, you can follow along with what's going on.
-
-## Always log in context
-
-Logs are best viewed in context: without without needing to search
-and correlate, you should know how you go to the point of the log line
-you're looking at.  This means the line itself needs less detail
-and it contributes to the context of the lines around it.
-
-## No log.Fatal
-
-Panic should be caught and logged.  If panic is caught, `log.Fatal()` 
-is not needed and is even redundant as it would problaby panic itself
-causing multiple `log.Alert()` for the same event.
-
-## Defer work
-
-Most logs won't be looked at.  Ever.  When possilbe defer the work of assembling the log
-to when it viewed.
-
-## Attribute/Key naming
-
-### Open Telementry
+#### Open Telementry
 
 OpenTelemetry has invested heavily in naming.  They call it `semconv` (Semantic Conventions).
 Although not yet complete, an open TODO for xop is to import the entirty of the 
@@ -250,21 +217,54 @@ They have lots of examples for:
 - [Traces](https://opentelemetry.io/docs/reference/specification/trace/semantic_conventions/)
 - [Metrics](https://opentelemetry.io/docs/reference/specification/metrics/semantic_conventions/)
 
-### Open Tracing
+#### Open Tracing
 
 The Open Tracing project has been "archived" in favor of Open Telementry.  That said, they have a
 much shorter set of [semantic conventions](https://opentracing.io/specification/conventions/).
 
-### Zipkin
+#### Zipkin
 
 While lacking a full set of semantic conventions, Zipkin has some sage advice around
 [how to instrument spans](https://zipkin.io/pages/instrumenting.html)
 
-### OpenCensus
+#### OpenCensus
 
 OpenCensus lacks a full set of semantic conventions, but it does having suggestions for
 how to [name spans](https://opencensus.io/tracing/span/name/).  In OpenCensus, tags names
 need to be [registered](https://opencensus.io/tag/key/).
+
+## Philosophy
+
+Xop is opinionated.  It gently nudges in certain directions.  Perhaps
+the biggest nudge is that there is no support for generating
+logs outside of a span.  
+
+### Log less
+
+Do not log details that don't materialy add to the value of the log
+
+### Log more
+
+Use logs as a narritive of what's going on in the program so that when
+you look at the logs, you can follow along with what's going on.
+
+### Always log in context
+
+Logs are best viewed in context: without without needing to search
+and correlate, you should know how you go to the point of the log line
+you're looking at.  This means the line itself needs less detail
+and it contributes to the context of the lines around it.
+
+### No log.Fatal
+
+Panic should be caught and logged.  If panic is caught, `log.Fatal()` 
+is not needed and is even redundant as it would problaby panic itself
+causing multiple `log.Alert()` for the same event.
+
+### Defer work
+
+Most logs won't be looked at.  Ever.  When possilbe defer the work of assembling the log
+to when it viewed.
 
 ## Other systems
 
