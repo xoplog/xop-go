@@ -268,7 +268,8 @@ to when it viewed.
 
 ## Other systems
 
-This logger is inspired by a proprietary logger at [BlueOwl](https://blueowl.xyz);
+This logger is primarily inspired by a proprietary logger at [BlueOwl](https://blueowl.xyz).
+Other structured loggers also provided inspiration:
 [onelog](https://github.com/francoispqt/onelog);
 [phuslog](https://github.com/phuslu/log);
 [zap](https://github.com/uber-go/zap);
