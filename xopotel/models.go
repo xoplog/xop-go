@@ -1,3 +1,4 @@
+// xopotel provides interconnection between OpenTelemetry and xop
 package xopotel
 
 import (
