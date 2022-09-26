@@ -1,3 +1,4 @@
+// xopbytes wrapes io.Writer with additional methods useful for wrting logs
 package xopbytes
 
 import (

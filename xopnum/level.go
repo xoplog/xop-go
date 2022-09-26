@@ -1,3 +1,4 @@
+// xopnum provides constants used across the xop ecosystem
 package xopnum
 
 //go:generate enumer -type=Level -linecomment -json -sql

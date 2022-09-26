@@ -1,3 +1,4 @@
+// trace is the data structures to describe trace_id and span_id
 package trace
 
 import (

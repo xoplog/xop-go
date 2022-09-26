@@ -5,11 +5,11 @@
 [![report card](https://goreportcard.com/badge/github.com/muir/xop-go)](https://goreportcard.com/report/github.com/muir/xop-go)
 [![codecov](https://codecov.io/gh/muir/xop-go/branch/main/graph/badge.svg)](https://codecov.io/gh/muir/xop-go)
 
-# Development status
+## Development status
 
 In development, almost ready for use.
 
-Expect the following changes
+Expect the following changes at some point
 
 - API changes as additional features are added
 
@@ -38,12 +38,16 @@ Expect the following changes
   - zerolog
   - onelog 
 
-# Context
+- The full set of OpenTelemetry `semconv` (Semantic Conventions) to be imported
+  into `xopconst` (or perhaps somewhere else).
 
-Observability code and technique is rapidly evolving.  The Open Telemetry 
+## Historical context
+
+Observability code and technique is rapidly evolving.  The 
+[Open Telemetry](https://opentelemetry.io/)
 project is the focus of most of the energy now.  Until Open Telemetry 
 releases a Go logger, there still isn't a well integrated logs and traces
-package.
+package.  
 
 That is beginning to change.  There is now a 
 [Zap/OTEL integration](https://github.com/uptrace/opentelemetry-go-extra/tree/main/otelzap).
@@ -51,205 +55,106 @@ That is beginning to change.  There is now a
 Xop is currently the only Go structured logs and tracing system.  Performance-wise,
 it's better that Zap, and about on par with Zerolog.
 
-Where Xop shines is in it's API design.
-
-## The problem with the existing model
-
-The industry model of tracing as documented in the W3C spec requires that spans
-have full identifiers.  If you give each part of dealing with a request inside
-a single server, lots of different spans, then how can you quickly reference the
-request-level span from one the sub-spans or one of the other requests that 
-is a child of the main request?  There is no standard way to distinguish a span
-that is simply a separate thread of execution or one that is a related
-request on a different server.
-
-The format of logs isn't easy to extend because there are is no meta-level or
-standard for what log fields mean.  The closest for this is the naming semantics
-that are included in the Open Telementry project.
-
-Once the logs are generated, good logging systems tag each line with trance and
-span identifiers, but the logs are still stored, searched, and displayed as
-lines.  Most of the value comes from the context of the log so recording them
-as lines removes misses the point.
-
-Another issue with most structured loggers is that they over-collect details that
-don't matter and un-invest in how the logs are presented.  The extra details are
-sometimes useful, but they increase the cost to process and store the logs.  More
-importantly, they can clutter the display so that it has lots of data but does
-not present much information.
-
-The standard model does not lend itself to experimentation with what kinds of things
-are logged and how they're presented.  At [BlueOwl](https://www.blueowl.xyz), we
-discovered that logging tables was very valuable.  We had support for displaying
-tables in our log viewer.  For some very complicated bugs, displaying tables in the
-logs was instrumental in finding the problem.
-
-## Alternatives
-
-- [Open Telementry](https://opentelemetry.io/) (which gobbled up 
-[Open Tracing](https://github.com/opentracing/opentracing-go), 
-[OpneCensus](https://opencensus.io/), and 
-[Jaeger](https://www.jaegertracing.io/))
-- [Zipkin](https://github.com/openzipkin/zipkin-go)
-- AppDynamics
-- Datadog
-
-### other takes
-
-[Software Tracing With Go](https://www.doxsey.net/blog/software-tracing-with-go/)
-
-# Architecture
-
-A complete logging solution has:
-
-## Generating Logs
-
-Logging API for writing code.  There are a couple of flavors that are commonly
-found: Printf-style; Key/Value style; Structure with functional args style; and
-Structured with methods style.
-
-Tracing APIs have less variation.  Opentracing is a fine example.
-
-## Writing logs
-
-Logs can be sent directly to a server; they can be written to STDOUT. Most systems
-use JSON for structured logging, but Open Telementry uses Protobufs.  
-
-## Gathering logs
-
-Most frameworks include an intermediary program that scrapes up logs, especially
-STDOUT logs, and sends them on to servers relibably.  This has an advantage of lowering
-the likelihood of backpressure.
-
-Should backpressure exist at all?  Maybe.  Some logs may be required for auditing
-purposes and such logs may need to be sent reliably.
-
-## Indexing logs
-
-ElasticSearch vs OpenSearch vs Solr?  Elastic loses on the licensing front.
-
-It makes sense to do full-text indexing and also trace-level indexing separately
-so that the trace-level indexing can be retained for a longer duration.
-
-## Storing logs
-
-S3 and other bulk storage
-
-# Generating tracelogs API
-
-## Request-level
-
-At the request-level (HTTP request) or program being run, etc, tag
-the request with: fields and indexes.  The fields are descriptive
-and the indexes are searchable.  Both have the same format.
-
-The request model and response model are good examples of fields.
-
-The URL is a good example of an index.
-
-One required indexed key is 'type'.  In an organization, each type
-can have different required fields and associated value types.
-
-For example, the 'http' type can have: 'endpoint', 'path', 'method',
-'response-code' indexes and 'request-data', 'response-data' fields.
-
-Should this be enforced?  XXX how?
-
-## Span-level
-
-Spans have a text description
-
-Spans have arbitrary key/value pairs that are added as users create
-the span.
-
-Spans have a W3C-compatible id
-
-Spans have a .1 .A prefix to show how they relate to the other spans
-in the same request
-
-Spans are either included in the request indexes or not included.  If
-included, they have type=span.
-
-Spans have a full W3C trace context 
-
-## Log-line level
-
-Log lines do not have any inherited data except their span reference
-
-Log lines can have key/value pairs
-
-If the key is "span" then the value should be full span reference
-
-The key of "type" should be displayed prominently by the front-end and
-the following types are suggested:
-
-- "reference": requires a "span" and referes to that span
-
-- "request": a request to another system, if that system
-  replied with a "tracereference" then record that here.
-
-# Generating Tracelogs - Data format
-
-## Log lines
-
-[Open Telemetry Log Specification](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/logs/data-model.md)
-
-Every log line gets a span id and trace id. 
-
-In the key/values attached to log lines, a key of "reference" 
-to another trace/span
-
-## Spans
-
-Span records are only emitted after the span is complete or N minutes have passed.
-
-Must reference their parent span, if possilbe
-
-May have a "thread.context" like "B.3." to indicate it's the third thing in the 2nd parallel execution.
-If there is no "thread.context", then attributes are searchable.
-
-May have an http.status_code even if it's not an http request
-
-An "error.count" attribute is automatically added
-
-Spans must have names.  For parallel forks, this is the same as the thread context.
-
-Requests to other services get their own span.
-
-Open Telementy's "SpanKind" isn't rich enough.  It's missing CLI_COMMAND, TASK
-
-Span data can continue to be updated even after the span is first sent.
-
-# Forwarding tracelogs
-
-No changes are needed for log forwarding
-
-[LogStash introduction](https://www.elastic.co/guide/en/logstash/current/introduction.html)
-[Open Telementry data collection](https://opentelemetry.io/docs/concepts/data-collection/)
-[Open Telementry protocol](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/otlp.md)
-
-# Reforming tracelogs
-
-Accepts both logs and traces.
-
-Step 1: save the raw data.  Data is written to persistent disk in the "inbox".  Logs that
-don't have trace ids and span ids are dropped.
-
-Step 2: If there are multiple servers, forward raw data to the appropriate server based on
-sharding of the trace id.
-
-Step 3: Write data to appropriate trace-collection buckets (files, one per trace).  Mark
-buckets as not-indexed.
-
-Step 4: Once written to buckets, inbox files can be removed.
-
-Step 5: Add/update Elastic indexes.  
-
-NOTES
-
-
-
-# Terminology
+Where Xop shines is in it's API design.  Xop manages to be very flexible, has
+lots of features, is easy to use and has high performance.  Meeting all of those
+goals simultaneously made Xop somewhat difficult to build.
+Making logging type-safe is difficult because most ways to
+accomplish it make logging more diffuclt and more complex. Xop tries
+to strike a blance between safety and usability.  Metadata on spans are 
+fully type-safe and keywords must be pre-registered.  Data elements on log
+lines are mostly type-safe but do not need to be pre-registered.
+
+## Using xop
+
+To log, you must have a `*Log` object.  To create one you must start with a
+`Seed`.  `Seed`s are created with `NewSeed(mods ...SeedModifier)`.  The
+`SeedModifier`s are where you specify where the logs actually go by supplying
+a bottom level, log exporter: a `xopbase.Logger`.  There are various 
+bottom level loggers: `xoptest` for logging to a `*testing.T`, `xopjson` for
+generating JSON logs, and `xopotel` for exporting traces (and logs) via
+OpenTelemtry.
+
+```go
+seed := xop.NewSeed(xop.WithBase(xopjson.New(xopbytes.WriteToIOWriter(io.Stdout))))
+```
+
+When you've got a contrete task, for example responding to an HTTP
+request or running a cronjob, you convert the `Seed` into a `*Log` with the
+`Request()` method.  This can be hooked into your HTTP router so that
+a `*Log` is injected into the request's `Context`.
+
+```go
+log := seed.Request("GET /users")
+r = r.WithContext(log.IntoContext(r.Context()))
+```
+
+Once you have a `*Log`, you can log individual "lines", text with 
+optional attached data elements.
+
+The creation of a log line is done with chained methods.  It starts
+with selecting the log level.
+
+```go
+log.Info().String("username", "john").Msg("created new user")
+```
+
+Logs are more useful when they have context.  Xop supports adding context
+by making it easy to create sub-spans.  There are two flavors of sub-spans:
+one for when doing things in parallel and one for when doing a sequence of
+actions.
+
+```go
+forkA := log.Sub().Fork("do something in a go-routine")
+step1 := log.Sub().Step("do the first step of a sequence")
+```
+
+Later, when looking at the various span and requests, it is helpful to have
+metadata attached.  The metadata keys must be pre-registered.
+
+```go
+var BillingAccountKey = xopat.Make{
+	Key: "billing.account",
+	Namespace: "myApp",
+	Indexed: true,
+	Prominence: 10,
+	Description: "A billing account number",
+}.Int64Attribute()
+
+step1.Span().Int64(BillingAccountKey, 299232)
+```
+
+There are many other features including:
+
+- creating sub-loggers (span, etc) that prefill line attributes
+- fetch logger out of `Context`
+- adjust the logging level based on environment variables so that
+  different Go packages can log at different levels
+- change the set of base loggers on the fly
+- mark with spans are done
+- adjust `Seed` values as `*Log` is created
+- redact sensitive values as they're being logged
+- create a seed from a `*Log` or `*Span`
+
+Although xop supports a global logger, it's use is discouraged because 
+it doesn't provide enough context for the resulting logs to be useful.
+
+### Performance
+
+The performance of Xop is good enough.  See the benchmark results
+at [logbench](https://github.com/muir/logbench).
+
+In general: faster than 
+[zap](https://github.com/uber-go/zap);
+about the same as
+[zerolog](https://github.com/rs/zerolog);
+but not as quick as
+[onelog](https://github.com/francoispqt/onelog) or
+[phuslog](https://github.com/phuslu/log).
+
+Xop has a much richer feature set than onelog or phuslog and a nicer
+API than zap.
+
+## Terminology
 
 A "trace" is the the entire set of spans relating to one starting request or action.  It can
 span multiple servers.
@@ -268,9 +173,9 @@ A "base logger" is the layer below that the "logger" uses to send output to diff
 A "bytes logger" is an optional layer below "base logger" that works with logs that have already
 become []bytes.
 
-# Naming
+## Naming
 
-## Name registry
+### Name registry
 
 Arbitrary names are supported for tagging log lines. For attributes to be displayed
 specially in front-ends, they need to follow standards. Standard attribute groups are
@@ -282,7 +187,7 @@ to the individual base loggers.
 
 - `xop`.  Used to indicate the kind of item begin emitted in a stream of objects. Empty for lines, `span` for spans.  `enum` to establish enum -> string mappings.  `chunk` for things broken up because they're too big.  `template` for lines that need template expansion.
 - `msg`.  Used for the text of a log line.
-- `time`.  Used for the timestamp of the log event, if included.
+- `ts`.  Used for the timestamp of the log event, if included.
 - `stack`.  Used for stacktraces when errors or alerts are logged.
 - `span`.  Used for the span-id of log lines for some base loggers.
 - `caller`.  Used to indicate the immediate caller (file & line) when that's desired.
@@ -291,55 +196,16 @@ to the individual base loggers.
 The data associated with spans, traces, and requests must come from pre-registered
 keys.
 
-# Philosophy
+### Attribute/Key naming
 
-Xop is opinionated.  It gently nudges in certain directions.  Perhaps
-the biggest nudge is that there is no support for generating
-logs outside of a span.  There is no default logger.  There is no
-global logger.
+#### Open Telementry
 
-## Log less
+OpenTelemetry has invested heavily in naming.  They call it `semconv` (Semantic Conventions).
+Although not yet complete, an open TODO for xop is to import the entirty of the 
+OpenTelemetry semantic conventions into attributes.  We'll do this for two resons: 
 
-Do not log details that don't materialy add to the value of the log
-
-## Log more
-
-Use logs as a narritive of what's going on in the program so that when
-you look at the logs, you can follow along with what's going on.
-
-## Always log in context
-
-Logs are best viewed in context: without without needing to search
-and correlate, you should know how you go to the point of the log line
-you're looking at.  This means the line itself needs less detail
-and it contributes to the context of the lines around it.
-
-## No log.Fatal
-
-Panic should be caught and logged.  If panic is caught, `log.Fatal()` 
-is not needed and is even redundant as it would problaby panic itself
-causing multiple `log.Alert()` for the same event.
-
-## Defer work
-
-Most logs won't be looked at.  Ever.  When possilbe defer the work of assembling the log
-to when it viewed.
-
-## Other systems
-
-This logger is inspired by a proprietary logger at [BlueOwl](https://blueowl.xyz);
-[onelog](https://github.com/francoispqt/onelog);
-[phuslog](https://github.com/phuslu/log);
-[zap](https://github.com/uber-go/zap);
-[zerolog](https://github.com/rs/zerolog);
-[Open Telementry](https://opentelemetry.io);
-and
-[Jaeger](https://www.jaegertracing.io/).
-
-Special thanks to [phuslog](https://github.com/phuslu/log) as some of its
-code was used.
-
-### Open Telementry
+1. Compatibility
+2. The effenciency of not re-inventing the wheel.
 
 [They](https://opentelemetry.io/docs/reference/specification/common/attribute-naming/) say to use
 dots (`.`) to separate namespaces in attribute names and underscores (`_`) to separate words within a name.
@@ -351,33 +217,67 @@ They have lots of examples for:
 - [Traces](https://opentelemetry.io/docs/reference/specification/trace/semantic_conventions/)
 - [Metrics](https://opentelemetry.io/docs/reference/specification/metrics/semantic_conventions/)
 
-### Open Tracing
+#### Open Tracing
 
 The Open Tracing project has been "archived" in favor of Open Telementry.  That said, they have a
 much shorter set of [semantic conventions](https://opentracing.io/specification/conventions/).
 
-### Zipkin
+#### Zipkin
 
 While lacking a full set of semantic conventions, Zipkin has some sage advice around
 [how to instrument spans](https://zipkin.io/pages/instrumenting.html)
 
-### OpenCensus
+#### OpenCensus
 
 OpenCensus lacks a full set of semantic conventions, but it does having suggestions for
 how to [name spans](https://opencensus.io/tracing/span/name/).  In OpenCensus, tags names
 need to be [registered](https://opencensus.io/tag/key/).
 
-### Performance
+## Philosophy
 
-The performance of Xop is good enough.  See the benchmark results
-from the last run at [logbench](https://github.com/muir/logbench/actions).
+Xop is opinionated.  It gently nudges in certain directions.  Perhaps
+the biggest nudge is that there is no support for generating
+logs outside of a span.  
 
-In general: faster than 
+### Log less
+
+Do not log details that don't materialy add to the value of the log
+
+### Log more
+
+Use logs as a narritive of what's going on in the program so that when
+you look at the logs, you can follow along with what's going on.
+
+### Always log in context
+
+Logs are best viewed in context: without without needing to search
+and correlate, you should know how you go to the point of the log line
+you're looking at.  This means the line itself needs less detail
+and it contributes to the context of the lines around it.
+
+### No log.Fatal
+
+Panic should be caught and logged.  If panic is caught, `log.Fatal()` 
+is not needed and is even redundant as it would problaby panic itself
+causing multiple `log.Alert()` for the same event.
+
+### Defer work
+
+Most logs won't be looked at.  Ever.  When possilbe defer the work of assembling the log
+to when it viewed.
+
+## Other systems
+
+This logger is primarily inspired by a proprietary logger at [BlueOwl](https://blueowl.xyz).
+Other structured loggers also provided inspiration:
+[onelog](https://github.com/francoispqt/onelog);
+[phuslog](https://github.com/phuslu/log);
 [zap](https://github.com/uber-go/zap);
-about the same as
 [zerolog](https://github.com/rs/zerolog);
-but not as quick as
-[onelog](https://github.com/francoispqt/onelog) or
-[phuslog](https://github.com/phuslu/log).
+[Open Telementry](https://opentelemetry.io);
+and
+[Jaeger](https://www.jaegertracing.io/).
 
-Xop has a much richer feature set than onelog or phuslog.
+Special thanks to [phuslog](https://github.com/phuslu/log) as some of its
+code was used.
+
