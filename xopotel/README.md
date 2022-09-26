@@ -13,7 +13,7 @@ existing OTEL span.
 `BaseLogger()` creates a `xopbase.Logger` that can be used as a
 to gateway xop logs and spans into OTEL.
 
-## Compatability
+## Compatibility
 
 ### Data types
 

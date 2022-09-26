@@ -1,6 +1,10 @@
 
 # required before ready to use in production
 
+- repo
+
+  - create xop org, move repo there
+
 - documentation
 
   - rewrite README.md
@@ -10,7 +14,7 @@
   - xopotel.BaseLogger()
   - actually feed xopotel traces into Jaeger
   - redact functions
-  - propogation
+  - propagation
 
 - xopjson
 
@@ -266,7 +270,7 @@
       - stable identifiers that come from the seed and are common to all events
       - variables that provide sub-categorization (specified with struct)
 
-    - The guage adjustment and the event-specific identifiers and variables are
+    - The gauge adjustment and the event-specific identifiers and variables are
       all specified with struct tags.  The event is a struct.
 
     - Events only happen within a span and include a link back to the span
