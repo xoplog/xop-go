@@ -61,6 +61,8 @@ func TestRedaction(t *testing.T) {
 	log.Info().
 		String("garden", "nothing in my garden is taller than my sunflower!").
 		Any("story", a).
+		AnyImmutable("tale", a).
+		AnyWithoutRedaction("raw", a).
 		Stringer("success", a).
 		Error("oops", fmt.Errorf("outer: %w", fmt.Errorf("inner"))).
 		Msg("foo")
@@ -70,6 +72,8 @@ func TestRedaction(t *testing.T) {
 
 	assert.Equal(t, "nothing in my garden is taller than my daisy!", foos[0].Data["garden"], "garden")
 	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie",  foos[0].Data["story"].(selfRedactor).V, "story")
+	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie",  foos[0].Data["tale"].(selfRedactor).V, "tale")
+	assert.Equal(t, "I got the contract with a small bribe, just a sunflower cookie",  foos[0].Data["raw"].(selfRedactor).V, "raw")
 	assert.Equal(t, "I got the contract with a small bribe, just a daisy cookie",  foos[0].Data["success"], "success")
 	assert.Equal(t, "outer: inner(as string)",  foos[0].Data["oops"], "oops")
 }

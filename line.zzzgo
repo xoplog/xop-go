@@ -9,6 +9,7 @@ import (
 
 // AnyImmutable can be used to log something that is not going to be further modified
 // after this call.
+// The return value must be consumed for the line to be logged.
 func (line *Line) AnyImmutable(k string, v interface{}) *Line {
 	if line.skip {
 		return line
@@ -22,6 +23,7 @@ func (line *Line) AnyImmutable(k string, v interface{}) *Line {
 }
 
 // AnyWithoutRedaction
+// The return value must be consumed for the line to be logged.
 func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
 	line.line.Any(k, v)
 	return line
@@ -30,6 +32,7 @@ func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
 // Any can be used to log something that might be modified after this call.  If any base
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
+// The return value must be consumed for the line to be logged.
 func (line *Line) Any(k string, v interface{}) *Line {
 	if line.skip {
 		return line
@@ -46,19 +49,31 @@ func (line *Line) Any(k string, v interface{}) *Line {
 	return line
 }
 
+// Float32 adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
 func (line *Line) Float32(k string, v float32) *Line {
 	line.line.Float64(k, float64(v), xopbase.Float32DataType)
 	return line
 }
 
+// EmbeddedEnum adds a key/value pair to the current log line.
+// The type of the value implies the key.
+// The return value must be consumed for the line to be logged.
 func (line *Line) EmbeddedEnum(k xopat.EmbeddedEnum) *Line {
 	return line.Enum(k.EnumAttribute(), k)
 }
+
+// Enum adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
 func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 	line.line.Enum(k, v)
 	return line
 }
 
+// Error adds a key/value pair to the current log line.
+// The default logging of an error is simply err.Error() to change
+// that, set a redaction function.
+// The return value must be consumed for the line to be logged.
 func (line *Line) Error(k string, v error) *Line {
 	if line.skip {
 		return line
@@ -71,6 +86,9 @@ func (line *Line) Error(k string, v error) *Line {
 	return line
 }
 
+// Stringer adds a key/value pair to the current log line.
+// The string can be redacted if a redaction function has been set.
+// The return value must be consumed for the line to be logged.
 func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 	if line.skip {
 		return line
@@ -83,6 +101,9 @@ func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 	return line
 }
 
+// String adds a key/value pair to the current log line.
+// The string can be redacted if a redaction function has been set.
+// The return value must be consumed for the line to be logged.
 func (line *Line) String(k string, v string) *Line {
 	if line.skip {
 		return line
@@ -96,21 +117,29 @@ func (line *Line) String(k string, v string) *Line {
 }
 
 // MACRO BaseDataWithoutType SKIP:Any
+// ZZZ adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
 func (line *Line) ZZZ(k string, v zzz) *Line { line.line.ZZZ(k, v); return line }
 
 // MACRO BaseDataWithType SKIP:String
+// ZZZ adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
 func (line *Line) ZZZ(k string, v zzz) *Line {
 	line.line.ZZZ(k, v, xopbase.ZZZDataType)
 	return line
 }
 
 // MACRO Ints SKIP:Int64
+// ZZZ adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
 func (line *Line) ZZZ(k string, v zzz) *Line {
 	line.line.Int64(k, int64(v), xopbase.ZZZDataType)
 	return line
 }
 
 // MACRO Uints SKIP:Uint64
+// ZZZ adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
 func (line *Line) ZZZ(k string, v zzz) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.ZZZDataType)
 	return line
