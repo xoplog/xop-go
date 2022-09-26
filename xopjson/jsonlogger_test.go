@@ -187,9 +187,8 @@ func TestParameters(t *testing.T) {
 					}
 					log := xop.NewSeed(
 						xop.WithBase(jlog),
-						xop.WithBase(tlog),
 						xop.WithSettings(settings),
-					).Request(t.Name())
+					).Copy(xop.WithBase(tlog)).Request(t.Name())
 
 					mc.Do(t, log, tlog)
 
