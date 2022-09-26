@@ -5,10 +5,6 @@
 
   - create xop org, move repo there
 
-- documentation
-
-  - rewrite README.md
-
 - test
 
   - xopotel.BaseLogger()
