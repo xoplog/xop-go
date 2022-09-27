@@ -3,6 +3,7 @@ package trace
 
 import (
 	"encoding/hex"
+	"regexp"
 )
 
 // TraceState represents W3C tracing headers.
@@ -61,7 +62,23 @@ type Trace struct {
 
 func NewTrace() Trace {
 	var trace Trace
+	trace.flags.b[0] = 1
 	trace.initialize()
+	return trace
+}
+
+var traceRE = regexp.MustCompile(`^([a-fA-F0-9]{2})-([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-([a-fA-F0-9]{2})$`)
+
+func TraceFromString(s string) Trace {
+	m := traceRE.FindStringSubmatch(s)
+	if m == nil {
+		return NewTrace()
+	}
+	var trace Trace
+	trace.Version().SetString(m[1])
+	trace.TraceID().SetString(m[2])
+	trace.SpanID().SetString(m[3])
+	trace.Flags().SetString(m[4])
 	return trace
 }
 

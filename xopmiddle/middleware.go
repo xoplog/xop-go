@@ -7,22 +7,21 @@ import (
 	"github.com/muir/xop-go"
 	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopconst"
-	"github.com/muir/xop-go/xopprop"
 )
 
-type inbound struct {
+type Inbound struct {
 	requestToName func(*http.Request) string
 	seed          xop.Seed
 }
 
-func New(seed xop.Seed, requestToName func(*http.Request) string) inbound {
-	return inbound{
+func New(seed xop.Seed, requestToName func(*http.Request) string) Inbound {
+	return Inbound{
 		seed:          seed,
 		requestToName: requestToName,
 	}
 }
 
-func (i inbound) HandlerFuncMiddleware() func(http.HandlerFunc) http.HandlerFunc {
+func (i Inbound) HandlerFuncMiddleware() func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			log, ctx := i.makeChildSpan(r)
@@ -33,7 +32,7 @@ func (i inbound) HandlerFuncMiddleware() func(http.HandlerFunc) http.HandlerFunc
 	}
 }
 
-func (i inbound) HandlerMiddleware() func(http.Handler) http.Handler {
+func (i Inbound) HandlerMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log, ctx := i.makeChildSpan(r)
@@ -47,7 +46,7 @@ func (i inbound) HandlerMiddleware() func(http.Handler) http.Handler {
 // InjectorWithContext is compatible with https://github.com/muir/nject/nvelope and
 // provides a *xop.Log to the injection chain.  It also puts the log in
 // the request context.
-func (i inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request), r *http.Request) {
+func (i Inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request), r *http.Request) {
 	return func(inner func(*xop.Log, *http.Request), r *http.Request) {
 		log, ctx := i.makeChildSpan(r)
 		defer log.Done()
@@ -58,7 +57,7 @@ func (i inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request),
 
 // InjectorWithContext is compatible with https://github.com/muir/nject/nvelope and
 // provides a *xop.Log to the injection chain.
-func (i inbound) Injector() func(inner func(*xop.Log), r *http.Request) {
+func (i Inbound) Injector() func(inner func(*xop.Log), r *http.Request) {
 	return func(inner func(*xop.Log), r *http.Request) {
 		log, _ := i.makeChildSpan(r)
 		defer log.Done()
@@ -66,7 +65,8 @@ func (i inbound) Injector() func(inner func(*xop.Log), r *http.Request) {
 	}
 }
 
-func (i inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
+// XXX set "traceresponse"
+func (i Inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
 	name := i.requestToName(r)
 	if name == "" {
 		name = r.URL.String()
@@ -75,13 +75,13 @@ func (i inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
 	bundle := i.seed.Bundle()
 
 	if b3 := r.Header.Get("b3"); b3 != "" {
-		xopprop.SetByB3Header(&bundle, b3)
+		SetByB3Header(&bundle, b3)
 	} else if tp := r.Header.Get("traceparent"); tp != "" {
-		xopprop.SetByTraceParentHeader(&bundle, tp)
+		SetByTraceParentHeader(&bundle, tp)
 	} else if b3TraceID := r.Header.Get("X-B3-TraceId"); b3TraceID != "" {
 		bundle.Trace.TraceID().SetString(b3TraceID)
 		if b3ParentSpanID := r.Header.Get("X-B3-ParentSpanId"); b3ParentSpanID != "" {
-			xopprop.SetByB3ParentSpanID(&bundle, b3ParentSpanID)
+			SetByB3ParentSpanID(&bundle, b3ParentSpanID)
 		} else {
 			// Uh oh, no parent span id
 			bundle.TraceParent = trace.NewTrace()
@@ -93,7 +93,7 @@ func (i inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
 		}
 
 		if b3Sampling := r.Header.Get("X-B3-Sampled"); b3Sampling != "" {
-			xopprop.SetByB3Sampled(&bundle, b3Sampling)
+			SetByB3Sampled(&bundle, b3Sampling)
 		}
 	} else {
 		bundle.Trace.TraceID().SetRandom()

@@ -1,6 +1,11 @@
 
 # required before ready to use in production
 
+- misc
+
+  - rename trace.Bundle.TraceParent to Bundle.ParentTrace
+  - remame xoptest.Request.Trace to Bundle
+
 - repo
 
   - create xop org, move repo there
@@ -22,6 +27,15 @@
   - propogation (add to README)
 
 # Just do it (build ready)
+
+- sampling can be based on Boring() in which case the flags need to
+  change before the "traceresponse" is set.  That means top logger
+  must know if base loggers honored the boring.  Change xopbase.Boring
+  to return a bool.  Propagate upwards.  Add log.IsBoring()
+
+- add flag to honor sampling flag by defaulting to Boring
+
+- change Boring to be request-level only
 
 - grab and modify the the zerolog linter to make sure that log lines don't get dropped
 
