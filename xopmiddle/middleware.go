@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/trace"
 	"github.com/muir/xop-go/xopconst"
 )
 
@@ -24,7 +23,7 @@ func New(seed xop.Seed, requestToName func(*http.Request) string) Inbound {
 func (i Inbound) HandlerFuncMiddleware() func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			log, ctx := i.makeChildSpan(r)
+			log, ctx := i.makeChildSpan(w, r)
 			defer log.Done()
 			r = r.WithContext(log.IntoContext(ctx))
 			next(w, r)
@@ -35,7 +34,7 @@ func (i Inbound) HandlerFuncMiddleware() func(http.HandlerFunc) http.HandlerFunc
 func (i Inbound) HandlerMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log, ctx := i.makeChildSpan(r)
+			log, ctx := i.makeChildSpan(w, r)
 			defer log.Done()
 			r = r.WithContext(log.IntoContext(ctx))
 			next.ServeHTTP(w, r)
@@ -46,9 +45,9 @@ func (i Inbound) HandlerMiddleware() func(http.Handler) http.Handler {
 // InjectorWithContext is compatible with https://github.com/muir/nject/nvelope and
 // provides a *xop.Log to the injection chain.  It also puts the log in
 // the request context.
-func (i Inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request), r *http.Request) {
-	return func(inner func(*xop.Log, *http.Request), r *http.Request) {
-		log, ctx := i.makeChildSpan(r)
+func (i Inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request), w http.ResponseWriter, r *http.Request) {
+	return func(inner func(*xop.Log, *http.Request), w http.ResponseWriter, r *http.Request) {
+		log, ctx := i.makeChildSpan(w, r)
 		defer log.Done()
 		r = r.WithContext(log.IntoContext(ctx))
 		inner(log, r)
@@ -57,16 +56,15 @@ func (i Inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request),
 
 // InjectorWithContext is compatible with https://github.com/muir/nject/nvelope and
 // provides a *xop.Log to the injection chain.
-func (i Inbound) Injector() func(inner func(*xop.Log), r *http.Request) {
-	return func(inner func(*xop.Log), r *http.Request) {
-		log, _ := i.makeChildSpan(r)
+func (i Inbound) Injector() func(inner func(*xop.Log), w http.ResponseWriter, r *http.Request) {
+	return func(inner func(*xop.Log), w http.ResponseWriter, r *http.Request) {
+		log, _ := i.makeChildSpan(w, r)
 		defer log.Done()
 		inner(log)
 	}
 }
 
-// XXX set "traceresponse"
-func (i Inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
+func (i Inbound) makeChildSpan(w http.ResponseWriter, r *http.Request) (*xop.Log, context.Context) {
 	name := i.requestToName(r)
 	if name == "" {
 		name = r.URL.String()
@@ -80,23 +78,26 @@ func (i Inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
 		SetByTraceParentHeader(&bundle, tp)
 	} else if b3TraceID := r.Header.Get("X-B3-TraceId"); b3TraceID != "" {
 		bundle.Trace.TraceID().SetString(b3TraceID)
+		if b3Sampling := r.Header.Get("X-B3-Sampled"); b3Sampling != "" {
+			SetByB3Sampled(&bundle.Trace, b3Sampling)
+		}
+		bundle.TraceParent = bundle.Trace
 		if b3ParentSpanID := r.Header.Get("X-B3-ParentSpanId"); b3ParentSpanID != "" {
-			SetByB3ParentSpanID(&bundle, b3ParentSpanID)
+			bundle.TraceParent.SpanID().SetString(b3ParentSpanID)
 		} else {
 			// Uh oh, no parent span id
-			bundle.TraceParent = trace.NewTrace()
+			bundle.TraceParent.SpanID().SetZero()
 		}
 		if b3SpanID := r.Header.Get("X-B3-SpanId"); b3SpanID != "" {
 			bundle.Trace.SpanID().SetString(b3SpanID)
 		} else {
 			bundle.Trace.SpanID().SetRandom()
 		}
-
-		if b3Sampling := r.Header.Get("X-B3-Sampled"); b3Sampling != "" {
-			SetByB3Sampled(&bundle, b3Sampling)
-		}
-	} else {
+	}
+	if bundle.Trace.TraceID().IsZero() {
 		bundle.Trace.TraceID().SetRandom()
+	}
+	if bundle.Trace.SpanID().IsZero() {
 		bundle.Trace.SpanID().SetRandom()
 	}
 
@@ -105,6 +106,8 @@ func (i Inbound) makeChildSpan(r *http.Request) (*xop.Log, context.Context) {
 		xop.WithContext(ctx),
 		xop.WithBundle(bundle),
 	).Request(r.Method + " " + name)
+
+	w.Header().Set("traceresponse", log.Span().Trace().String())
 	log.Span().Enum(xopconst.SpanKind, xopconst.SpanKindClient)
 	log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
 	log.Span().String(xopconst.URL, r.URL.String())

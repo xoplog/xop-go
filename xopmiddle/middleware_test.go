@@ -72,7 +72,7 @@ var headerCases = []struct {
 		},
 		expectParentTrace: "80f198ee56343ba864fe8b2a57d3eff7",
 		expectParentSpan:  "0000000000000000",
-		expectSpan:  "e457b5a2e4d86bd1",
+		expectSpan:        "e457b5a2e4d86bd1",
 		expectParentFlags: "01",
 		expectFlags:       "01",
 	},
@@ -83,7 +83,7 @@ var headerCases = []struct {
 		},
 		expectParentTrace: "80f198ee56343ba864fe8b2a57d3eff7",
 		expectParentSpan:  "05e3ac9a4f6e3b90",
-		expectSpan:  "e457b5a2e4d86bd1",
+		expectSpan:        "e457b5a2e4d86bd1",
 		expectParentFlags: "01",
 		expectFlags:       "01",
 	},
@@ -136,7 +136,7 @@ var injectMethods = []struct {
 			inbound.Injector()(func(log *xop.Log) {
 				assert.NotNil(t, log, "log set")
 				called = true
-			}, r)
+			}, w, r)
 			assert.True(t, called, "called")
 		},
 	},
@@ -148,7 +148,7 @@ var injectMethods = []struct {
 				_ = xop.FromContextOrPanic(r.Context())
 				assert.NotNil(t, log, "log set")
 				called = true
-			}, r)
+			}, w, r)
 			assert.True(t, called, "called")
 		},
 	},
@@ -192,7 +192,7 @@ func TestHandlerFuncMiddleware(t *testing.T) {
 					} else {
 						assert.Equal(t, hc.expectTrace, request.Trace.Trace.TraceID().String(), "trace traceID")
 					}
-					if hc.expectSpan != ""{
+					if hc.expectSpan != "" {
 						assert.Equal(t, hc.expectSpan, request.Trace.Trace.SpanID().String(), "trace spanID")
 					} else {
 						assert.False(t, request.Trace.Trace.SpanID().IsZero(), "trace spanID is zero")
@@ -200,6 +200,8 @@ func TestHandlerFuncMiddleware(t *testing.T) {
 					}
 					assert.Equal(t, "00", request.Trace.Trace.Version().String(), "trace version")
 					assert.Equal(t, hc.expectFlags, request.Trace.Trace.Flags().String(), "trace flags")
+
+					assert.Equal(t, request.Trace.Trace.String(), w.Header().Get("traceresponse"), "trace response header")
 				})
 			}
 		})

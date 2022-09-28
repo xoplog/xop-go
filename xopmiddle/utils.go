@@ -1,11 +1,15 @@
 package xopmiddle
 
 import (
-	"strings"
+	"regexp"
 
 	"github.com/muir/xop-go/trace"
 )
 
+// SetByTraceParentHeader sets bundle.TraceParent.TraceID and
+// then copies bundle.TraceParent to bundle.Trace.  It then sets
+// the bundle.Trace.SpanID to random.
+//
 // "traceparent" header
 // Example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
 func SetByTraceParentHeader(b *trace.Bundle, h string) {
@@ -21,52 +25,44 @@ func SetByTraceParentHeader(b *trace.Bundle, h string) {
 	b.Trace.SpanID().SetRandom()
 }
 
+var b3RE = regexp.MustCompile(`^([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-(0|1|true|false|d)(?:-([a-fA-F0-9]{16}))?$`)
+
 // https://github.com/openzipkin/b3-propagation
 // b3: traceid-spanid-sampled-parentspanid
 func SetByB3Header(b *trace.Bundle, h string) {
 	switch h {
-	case "0", "1":
-		SetByB3Sampled(b, h)
+	case "0", "1", "true", "false", "d":
+		b.TraceParent = trace.NewTrace()
+		SetByB3Sampled(&b.TraceParent, h)
+		b.Trace = b.TraceParent
+		b.Trace.TraceID().SetRandom()
+		b.Trace.SpanID().SetRandom()
 		return
 	}
-	splits := strings.SplitN(h, "-", 5)
-	if len(splits) != 4 {
+	m := b3RE.FindStringSubmatch(h)
+	if m == nil {
 		return
 	}
-	b.TraceParent.TraceID().SetString(splits[0])
-	b.Trace.Version().SetBytes(b.TraceParent.Version().Bytes())
-
-	b.Trace.SpanID().SetString(splits[1])
-
-	b.TraceParent.Flags().SetString(splits[2])
-	b.Trace.Flags().SetBytes(b.TraceParent.Flags().Bytes())
-
-	b.TraceParent.SpanID().SetString(splits[3])
+	b.TraceParent.TraceID().SetString(m[1])
+	SetByB3Sampled(&b.TraceParent, m[3])
+	if m[4] == "" {
+		b.TraceParent.SpanID().SetZero()
+	} else {
+		b.TraceParent.SpanID().SetString(m[4])
+	}
+	b.Trace = b.TraceParent
+	b.Trace.SpanID().SetString(m[2])
 }
 
-// X-B3-Sampled
-func SetByB3Sampled(b *trace.Bundle, h string) {
+// SetByB3Sampled process the "X-B3-Sampled" header or
+// the sampled portion of a combined "b3" header
+// Potentially the "d" value could be used to decrease
+// the minimum logging level.
+func SetByB3Sampled(t *trace.Trace, h string) {
 	switch h {
 	case "1", "true", "d":
-		b.Trace.Flags().SetBytes([]byte{1})
+		t.Flags().SetBytes([]byte{1})
 	case "0", "false":
-		b.Trace.Flags().SetBytes([]byte{0})
-	}
-}
-
-// X-B3-ParentSpanID
-// Implies parent trace id is the same as my trace id
-func SetByB3ParentSpanID(b *trace.Bundle, h string) {
-	b.TraceParent.SpanID().SetString(h)
-	if b.TraceParent.SpanID().IsZero() {
-		b.TraceParent.TraceID().SetZero()
-	} else {
-		b.TraceParent.TraceID().SetBytes(b.Trace.TraceID().Bytes())
-	}
-	if b.Trace.TraceID().IsZero() {
-		b.Trace.TraceID().SetRandom()
-	}
-	if b.Trace.SpanID().IsZero() {
-		b.Trace.SpanID().SetRandom()
+		t.Flags().SetBytes([]byte{0})
 	}
 }
