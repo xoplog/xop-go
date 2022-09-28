@@ -96,17 +96,17 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeString(s.trace.Trace.TraceID().String())
 	rq.AddSafeKey("span.id")
 	rq.AddSafeString(s.trace.Trace.SpanID().String())
-	if !s.trace.TraceParent.IsZero() {
+	if !s.trace.TraceParent.TraceID().IsZero() {
 		rq.AddSafeKey("trace.parent")
-		rq.AppendString(s.trace.TraceParent.String())
+		rq.AddSafeString(s.trace.TraceParent.String())
 	}
 	if !s.trace.State.IsZero() {
 		rq.AddSafeKey("trace.state")
-		rq.AppendString(s.trace.State.String())
+		rq.AddSafeString(s.trace.State.String())
 	}
 	if !s.trace.Baggage.IsZero() {
 		rq.AddSafeKey("trace.baggage")
-		rq.AppendString(s.trace.Baggage.String())
+		rq.AddSafeString(s.trace.Baggage.String())
 	}
 	rq.AddSafeKey("span.name")
 	rq.AddString(s.name)
