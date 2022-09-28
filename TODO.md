@@ -20,7 +20,6 @@
 - integrations
 
   - resty
-  - remove dependency on mux in middleware
 
 - documentation
 
