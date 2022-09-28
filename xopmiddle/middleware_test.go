@@ -99,6 +99,15 @@ var headerCases = []struct {
 		expectParentFlags: "00",
 		expectFlags:       "00",
 	},
+	{
+		name:              "no headers",
+		headers:           []string{},
+		expectParentTrace: "00000000000000000000000000000000",
+		expectParentSpan:  "0000000000000000",
+		expectTrace:       "random",
+		expectParentFlags: "01",
+		expectFlags:       "01",
+	},
 }
 
 var injectMethods = []struct {
