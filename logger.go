@@ -572,12 +572,16 @@ func (line *Line) Template(template string) {
 	line.log.hasActivity(true)
 }
 
+// Msg sends a log line.  After Msg(), no further use of the *Line
+// is allowed.  Without calling Msg(), Template(), Msgf(), Msgs(),
+// or Static(), the log line will not be sent or output.
 func (line *Line) Msg(msg string) {
 	line.line.Msg(msg)
 	line.log.span.linePool.Put(line)
 	line.log.hasActivity(true)
 }
 
+// Msgf sends a log line, using fmt.Sprintf()-style formatting.
 func (line *Line) Msgf(msg string, v ...interface{}) {
 	if !line.skip {
 		line.Msg(fmt.Sprintf(msg, v...))
@@ -593,6 +597,8 @@ func (line *Line) Static(msg string) {
 	line.log.hasActivity(true)
 }
 
+// Line starts a log line at the specified log level.  If the log level
+// is below the minimum log level, the line will be discarded.
 func (log *Log) Line(level xopnum.Level) *Line { return log.logLine(level) }
 func (log *Log) Debug() *Line                  { return log.Line(xopnum.DebugLevel) }
 func (log *Log) Trace() *Line                  { return log.Line(xopnum.TraceLevel) }
