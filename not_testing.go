@@ -2,11 +2,11 @@
 
 package xop
 
-// SmallSleepForTesting is for debugging xop only
-func SmallSleepForTesting() {}
+// smallSleepForTesting is for debugging xop only
+func smallSleepForTesting() {}
 
-// DebugPrint is for debugging xop only
-func DebugPrint(...interface{}) {}
+// debugPrint is for debugging xop only
+func debugPrint(...interface{}) {}
 
 // Stack is for debugging xop only
-func Stack() string { return "" }
+func stack() string { return "" }
