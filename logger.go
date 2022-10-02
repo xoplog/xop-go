@@ -100,11 +100,11 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	log.span.buffered = log.span.seed.loggers.List.Buffered()
 	log.span.base = combinedBaseRequest.(xopbase.Span)
 	log.sendPrefill()
-	DebugPrint("starting timer", seed.config.FlushDelay)
+	debugPrint("starting timer", seed.config.FlushDelay)
 	log.shared.FlushTimer = time.AfterFunc(seed.config.FlushDelay, log.timerFlush)
 	runtime.SetFinalizer(&alloc, final)
 	if !log.span.buffered {
-		DebugPrint("stopping timer")
+		debugPrint("stopping timer")
 		log.shared.FlushTimer.Stop()
 		log.shared.FlushActive = 0
 	}
@@ -176,7 +176,7 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
 	} else {
-		DebugPrint("adjusting set of flusher", description, log.span.logNumber)
+		debugPrint("adjusting set of flusher", description, log.span.logNumber)
 		spanSet := make(map[string]xopbase.Span)
 		if baseSpans, ok := log.span.base.(baseSpans); ok {
 			for _, baseSpan := range baseSpans {
@@ -187,14 +187,14 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 		}
 		for _, removed := range seed.loggers.Removed {
 			id := removed.ID()
-			DebugPrint("remove flusher", id)
+			debugPrint("remove flusher", id)
 			delete(spanSet, id)
 		}
 		ts := time.Now()
 		for _, added := range seed.loggers.Added {
 			id := added.ID()
 			if _, ok := spanSet[id]; ok {
-				DebugPrint("ignoring additional flusher, in span set", id)
+				debugPrint("ignoring additional flusher, in span set", id)
 				continue
 			}
 			if func() bool {
@@ -203,13 +203,13 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 				_, ok := log.shared.Flushers[id]
 				return ok
 			}() {
-				DebugPrint("ignoring additional flusher, already in flusher set", id)
+				debugPrint("ignoring additional flusher, already in flusher set", id)
 				continue
 			}
 			req := added.Request(log.request.span.seed.ctx, ts, log.request.span.seed.traceBundle, log.shared.Description)
 			spanSet[id] = req
 			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
-			DebugPrint("adding flusher to flusher set", id)
+			debugPrint("adding flusher to flusher set", id)
 			func() {
 				log.shared.FlusherLock.Lock()
 				defer log.shared.FlusherLock.Unlock()
@@ -251,7 +251,7 @@ func (log *Log) addMyselfAsDependent() bool {
 	if log.parent.span.activeDependents == nil {
 		log.parent.span.activeDependents = make(map[int32]*Log)
 	}
-	DebugPrint("add to active deps", log.span.description, ":", log.span.logNumber)
+	debugPrint("add to active deps", log.span.description, ":", log.span.logNumber)
 	log.parent.span.activeDependents[log.span.logNumber] = log
 	return len(log.parent.span.activeDependents) == 1
 }
@@ -259,14 +259,14 @@ func (log *Log) addMyselfAsDependent() bool {
 func (log *Log) hasActivity(startFlusher bool) {
 	was := atomic.SwapInt32(&log.span.knownActive, 1)
 	if was == 0 {
-		DebugPrint("now has activity!", log.span.description, log.span.logNumber)
+		debugPrint("now has activity!", log.span.description, log.span.logNumber)
 		if log.addMyselfAsDependent() {
 			log.parent.hasActivity(false)
 		}
 		if startFlusher {
 			wasFlushing := atomic.SwapInt32(&log.shared.FlushActive, 1)
 			if wasFlushing == 0 {
-				DebugPrint("restarting timer", log.shared.FlushDelay)
+				debugPrint("restarting timer", log.shared.FlushDelay)
 				log.shared.FlushTimer.Reset(log.shared.FlushDelay)
 			}
 			if wasDone := atomic.LoadInt32(&log.span.doneCount); wasDone != 0 {
@@ -307,13 +307,13 @@ func (log *Log) Done() {
 		log.Error().Static("XOP: invalid call to Done() in non-span sub-log")
 		return
 	}
-	DebugPrint("starting Done {", log.span.description, log.span.logNumber)
+	debugPrint("starting Done {", log.span.description, log.span.logNumber)
 	log.done(true, time.Now())
-	DebugPrint("done with Done }", log.span.description, log.span.logNumber)
+	debugPrint("done with Done }", log.span.description, log.span.logNumber)
 }
 
 func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
-	DebugPrint("recursive done,", done, ",", log.span.description, log.span.logNumber)
+	debugPrint("recursive done,", done, ",", log.span.description, log.span.logNumber)
 	if done {
 		atomic.StoreInt32(&log.span.knownActive, 0)
 		count = atomic.AddInt32(&log.span.doneCount, 1)
@@ -333,7 +333,7 @@ func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
 		return deps
 	}()
 	for _, dep := range deps {
-		DebugPrint("dep of", log.span.logNumber, ":", dep.span.description, dep.span.logNumber)
+		debugPrint("dep of", log.span.logNumber, ":", dep.span.description, dep.span.logNumber)
 		dep.done(done, now)
 	}
 	return
@@ -342,7 +342,7 @@ func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
 func (log *Log) done(explicit bool, now time.Time) {
 	postCount := log.recursiveDone(true, now)
 	if postCount > 1 && explicit {
-		DebugPrint("donecount=", postCount, "logging error")
+		debugPrint("donecount=", postCount, "logging error")
 		log.Error().Static("XOP: Done() called on log object when it was already Done()")
 	}
 	if log.span.detached {
@@ -358,14 +358,14 @@ func (log *Log) done(explicit bool, now time.Time) {
 			}
 			return false
 		}() {
-			DebugPrint("request was waiting, now we can flush")
+			debugPrint("request was waiting, now we can flush")
 			log.request.flush()
 		}
-		DebugPrint("we're detached, finished done")
+		debugPrint("we're detached, finished done")
 		return
 	}
 	if log.parent == log {
-		DebugPrint("in done, we're the request!")
+		debugPrint("in done, we're the request!")
 		if func() bool {
 			log.span.dependentLock.Lock()
 			defer log.span.dependentLock.Unlock()
@@ -373,27 +373,27 @@ func (log *Log) done(explicit bool, now time.Time) {
 				return false
 			}
 			if len(log.shared.ActiveDetached) != 0 {
-				DebugPrint("we have detached that are not yet done, waiting for them before flushing")
+				debugPrint("we have detached that are not yet done, waiting for them before flushing")
 				log.shared.WaitingForDetached = true
 				return false
 			}
 			return true
 		}() {
-			DebugPrint("...and we're flushing")
+			debugPrint("...and we're flushing")
 			log.request.flush()
-			DebugPrint("...done flushing")
+			debugPrint("...done flushing")
 		}
 		return
 	}
 	log.parent.span.dependentLock.Lock()
 	defer log.parent.span.dependentLock.Unlock()
-	DebugPrint("delete from active deps", log.span.description, ":", log.span.logNumber)
+	debugPrint("delete from active deps", log.span.description, ":", log.span.logNumber)
 	delete(log.parent.span.activeDependents, log.span.logNumber)
 }
 
 // timerFlush is only called by log.shared.FlushTimer
 func (log *Log) timerFlush() {
-	DebugPrint("timer flush!")
+	debugPrint("timer flush!")
 	log.Flush()
 }
 
@@ -401,9 +401,9 @@ func (log *Log) flush() {
 	if log.settings.synchronousFlushWhenDone {
 		log.Flush()
 	} else {
-		DebugPrint("doing async flush")
+		debugPrint("doing async flush")
 		go func() {
-			SmallSleepForTesting()
+			smallSleepForTesting()
 			log.Flush()
 		}()
 	}
@@ -420,7 +420,7 @@ func (log *Log) getFlushers() []xopbase.Request {
 }
 
 func (log *Log) Flush() {
-	DebugPrint("begin flush {", Stack())
+	debugPrint("begin flush {", stack())
 	now := time.Now()
 	log.request.detachedDone(now)
 	log.request.recursiveDone(false, now)
@@ -433,14 +433,14 @@ func (log *Log) Flush() {
 	var wg sync.WaitGroup
 	wg.Add(len(flushers))
 	for _, flusher := range flushers {
-		DebugPrint("flushing", flusher.ID())
+		debugPrint("flushing", flusher.ID())
 		go func(flusher xopbase.Request) {
 			defer wg.Done()
 			flusher.Flush()
 		}(flusher)
 	}
 	wg.Wait()
-	DebugPrint("done flush }")
+	debugPrint("done flush }")
 }
 
 func final(alloc *singleAllocRequest) {

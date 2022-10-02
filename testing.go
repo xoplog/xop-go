@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-func SmallSleepForTesting() {
+func smallSleepForTesting() {
 	time.Sleep(10 * time.Millisecond)
 }
 
-func DebugPrint(v ...interface{}) {
+func debugPrint(v ...interface{}) {
 	fmt.Println(v...)
 }
 
-func Stack() string {
+func stack() string {
 	return string(debug.Stack())
 }
