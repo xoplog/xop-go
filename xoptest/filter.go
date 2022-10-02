@@ -88,6 +88,15 @@ func ShortEquals(short string) SpanPredicate {
 }
 
 func (log *TestLogger) FindSpan(predicates ...SpanPredicate) *Span {
+Request:
+	for _, span := range log.Requests {
+		for _, predicate := range predicates {
+			if !predicate.f(span) {
+				continue Request
+			}
+		}
+		return span
+	}
 Span:
 	for _, span := range log.Spans {
 		for _, predicate := range predicates {

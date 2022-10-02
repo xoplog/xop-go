@@ -143,6 +143,7 @@ func (sub *Sub) Log() *Log {
 }
 
 func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
+	seed.spanSeed.traceBundle.TraceParent = seed.spanSeed.traceBundle.Trace
 	seed = seed.react(false, description)
 
 	type singleAlloc struct {

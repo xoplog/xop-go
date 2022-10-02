@@ -74,8 +74,8 @@ func TestXopResty(t *testing.T) {
 			_, err := r.Get(ts.URL)
 
 			// baseLogSpan := tLog.FindSpan(xoptest.ShortEquals("T1.1"))
-			requestSpan := tLog.FindSpan(xoptest.ShortEquals("T1.2"))
-			farSideSpan := tLog.FindSpan(xoptest.ShortEquals("T2.1"))
+			requestSpan := tLog.FindSpan(xoptest.ShortEquals("T1.1.1"))
+			farSideSpan := tLog.FindSpan(xoptest.ShortEquals("T1.2"))
 
 			require.NotNil(t, requestSpan, "requestSpan")
 			assert.NotEmpty(t, requestSpan.EndTime, "client request span completed")
