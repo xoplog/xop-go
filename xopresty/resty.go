@@ -112,20 +112,12 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 	for _, f := range opts {
 		f(config)
 	}
-	log = log.Sub().Step(description)
-	defer func() {
-		if b3Sent && !response {
-			log.Info().Link("span.far_side_id", b3Trace).Static("span id set with B3")
-			log.Span().Link("span.far_side_id", b3Trace)
-		}
-		log.Done()
-	}()
 
 	// c := *client
 	// c.Header = client.Header.Clone()
 	// clinet = &c
 	return client.
-		OnBeforeRequest(func(_ *Client, r *resty.Request) error {
+		OnBeforeRequest(func(_ *resty.Client, r *resty.Request) error {
 			// OnBeforeRequest can execute multiple times for the same attempt if there
 			// are retries.  It won't execute at all of the request is invalid.
 			ctx := r.Context()
@@ -145,18 +137,18 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			if nameRaw != nil {
 				name = nameRaw.(string)
 			} else {
-				name = config.RequestToName()
+				name = config.requestToName(r)
 			}
 			log = log.Sub().Step(name)
 			cv = &contextValue{
 				originalStartTime: time.Now(),
 				log:               log,
 			}
-			r.SetContext(context.WithValue(ctx, contextKey, &cv))
+			r.SetContext(context.WithValue(ctx, contextKey, cv))
 			r.SetLogger(restyLogger{log: log})
 
 			log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
-			log.Span().String(xopconst.URL, r.URL.String())
+			log.Span().String(xopconst.URL, r.URL)
 			log.Span().String(xopconst.HTTPMethod, r.Method)
 			r.Header.Set("traceparent", log.Span().Bundle().Trace.String())
 			if !log.Span().TraceBaggage().IsZero() {
@@ -178,7 +170,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			}
 			return nil
 		}).
-		OnAfterResponse(func(_ *Client, resp *Response) error {
+		OnAfterResponse(func(_ *resty.Client, resp *resty.Response) error {
 			// OnAfterRequest is run for each individual request attempt
 			ctx := resp.Request.Context()
 			cvRaw := ctx.Value(contextKey)
@@ -193,15 +185,15 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			if tr != "" {
 				trace, ok := trace.TraceFromString(tr)
 				if ok {
-					response = true
+					cv.response = true
 					log.Info().Link(xopconst.RemoteTrace.Key(), trace).Static("traceresponse")
 					log.Span().Link(xopconst.RemoteTrace, trace)
 				} else {
 					log.Warn().String("header", tr).Static("invalid traceresponse received")
 				}
 			}
-			if res != nil {
-				log.Info().Any("response", r.Result())
+			if resp.Result() != nil {
+				log.Info().Any("response", resp.Result())
 			}
 			ti := resp.Request.TraceInfo()
 			if ti.TotalTime != 0 {
@@ -231,7 +223,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			config.extraLogging(log, cv.originalStartTime, cv.retryCount, r, nil, err)
 		}).
 		OnSuccess(func(c *resty.Client, resp *resty.Response) {
-			ctx := r.Context()
+			ctx := resp.Request.Context()
 			cv := ctx.Value(contextKey).(*contextValue)
 			log := cv.log
 			config.extraLogging(log, cv.originalStartTime, cv.retryCount, resp.Request, resp, nil)
