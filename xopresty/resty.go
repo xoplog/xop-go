@@ -17,6 +17,10 @@ has the parent log span be provided:
    client.R().SetContext(log.IntoContext(context.Background()))
 
 If there is no logger in the context, the request will fail.
+
+If you use resty's Client.SetDebug(true), note that the output
+will be logged at Debug level which is below the default
+minimum level for xop.
 */
 package xopresty
 

@@ -85,7 +85,7 @@ type Span struct {
 	Spans        []*Span
 	RequestLines []*Line
 	Lines        []*Line
-	short        string
+	Short        string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
 	Metadata     map[string]interface{}
 	MetadataType map[string]xopbase.DataType
 	metadataSeen map[string]interface{}
@@ -164,7 +164,7 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bun
 		testLogger:   log,
 		IsRequest:    true,
 		Trace:        span,
-		short:        log.setShort(span, name),
+		Short:        log.setShort(span, name),
 		StartTime:    ts,
 		Name:         name,
 		Metadata:     make(map[string]interface{}),
@@ -244,7 +244,7 @@ func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle
 	n := &Span{
 		testLogger:   span.testLogger,
 		Trace:        traceSpan,
-		short:        span.testLogger.setShort(traceSpan, name),
+		Short:        span.testLogger.setShort(traceSpan, name),
 		StartTime:    ts,
 		Name:         name,
 		Metadata:     make(map[string]interface{}),
@@ -332,7 +332,7 @@ func (line *Line) Static(m string) {
 
 func (line *Line) Msg(m string) {
 	line.Message += m
-	text := line.Span.short + ": " + line.Message
+	text := line.Span.Short + ": " + line.Message
 	if len(line.kvText) > 0 {
 		text += " " + strings.Join(line.kvText, " ")
 		line.kvText = nil
@@ -355,7 +355,7 @@ func (line *Line) Template(m string) {
 		return "''"
 	})
 	line.Message = msg
-	text := line.Span.short + ": " + msg
+	text := line.Span.Short + ": " + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)
