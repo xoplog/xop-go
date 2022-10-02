@@ -68,7 +68,7 @@ var cases = []struct {
 			})
 			assert.NoError(t, err, "marshal")
 			w.Header().Set("Content-Type", "application/json")
-			w.Write(enc)
+			_, _ = w.Write(enc)
 			log.Trace().Msg("sent response")
 		},
 		expectedText: []string{
