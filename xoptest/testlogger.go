@@ -71,21 +71,22 @@ type TestLogger struct {
 }
 
 type traceInfo struct {
-	spanCount int
-	traceNum  int
-	spans     map[string]int
+	requestCount int
+	traceNum     int
+	spans        map[string]*Span
 }
 
 type Span struct {
 	lock         sync.Mutex
 	testLogger   *TestLogger
+	RequestNum   int // sequence of requests with the same traceID
 	Trace        trace.Bundle
 	IsRequest    bool
 	Parent       *Span
 	Spans        []*Span
 	RequestLines []*Line
 	Lines        []*Line
-	short        string
+	Short        string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
 	Metadata     map[string]interface{}
 	MetadataType map[string]xopbase.DataType
 	metadataSeen map[string]interface{}
@@ -153,10 +154,19 @@ func (log *TestLogger) CustomEvent(msg string, args ...interface{}) {
 	})
 }
 
-func (log *TestLogger) ID() string                   { return log.id }
-func (log *TestLogger) Buffered() bool               { return false }
-func (log *TestLogger) ReferencesKept() bool         { return true }
+// ID is a required method for xopbase.Logger
+func (log *TestLogger) ID() string { return log.id }
+
+// Buffered is a required method for xopbase.Logger
+func (log *TestLogger) Buffered() bool { return false }
+
+// ReferencesKept is a required method for xopbase.Logger
+func (log *TestLogger) ReferencesKept() bool { return true }
+
+// SetErrorReporter is a required method for xopbase.Logger
 func (log *TestLogger) SetErrorReporter(func(error)) {}
+
+// Request is a required method for xopbase.Logger
 func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bundle, name string) xopbase.Request {
 	log.lock.Lock()
 	defer log.lock.Unlock()
@@ -164,7 +174,6 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bun
 		testLogger:   log,
 		IsRequest:    true,
 		Trace:        span,
-		short:        log.setShort(span, name),
 		StartTime:    ts,
 		Name:         name,
 		Metadata:     make(map[string]interface{}),
@@ -172,6 +181,7 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bun
 		metadataSeen: make(map[string]interface{}),
 		Ctx:          ctx,
 	}
+	s.setShortRequest()
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
 		Type: RequestStart,
@@ -180,29 +190,41 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bun
 	return s
 }
 
-// must hold a lock to call setShort
-func (log *TestLogger) setShort(span trace.Bundle, name string) string {
-	ts := span.Trace.GetTraceID().String()
-	if ti, ok := log.traceMap[ts]; ok {
-		ti.spanCount++
-		ti.spans[span.Trace.GetSpanID().String()] = ti.spanCount
-		short := fmt.Sprintf("T%d.%d", ti.traceNum, ti.spanCount)
-		log.t.Log("Start span " + short + "=" + span.Trace.String() + " " + name)
-		return short
+// must hold a lock to call setShortRequest
+func (span *Span) setShortRequest() {
+	ts := span.Trace.Trace.GetTraceID().String()
+	if ti, ok := span.testLogger.traceMap[ts]; ok {
+		ti.requestCount++
+		span.RequestNum = ti.requestCount
+		ti.spans[span.Trace.Trace.SpanID().String()] = span
+		span.Short = fmt.Sprintf("T%d.%d", ti.traceNum, ti.requestCount)
+		span.testLogger.t.Log("Start request " + span.Short + "=" + span.Trace.Trace.String() + " " + span.Name)
+		return
 	}
-	log.traceCount++
-	log.traceMap[ts] = &traceInfo{
-		spanCount: 1,
-		traceNum:  log.traceCount,
-		spans: map[string]int{
-			span.Trace.GetSpanID().String(): 1,
+	span.testLogger.traceCount++
+	span.RequestNum = 1
+	span.testLogger.traceMap[ts] = &traceInfo{
+		requestCount: 1,
+		traceNum:     span.testLogger.traceCount,
+		spans: map[string]*Span{
+			span.Trace.Trace.SpanID().String(): span,
 		},
 	}
-	short := fmt.Sprintf("T%d.%d", log.traceCount, 1)
-	log.t.Log("Start span " + short + "=" + span.Trace.String() + " " + name)
-	return short
+	span.Short = fmt.Sprintf("T%d.%d", span.testLogger.traceCount, 1)
+	span.testLogger.t.Log("Start request " + span.Short + "=" + span.Trace.Trace.String() + " " + span.Name)
 }
 
+// must hold a lock to call setShortSpan
+func (span *Span) setShortSpan() {
+	ts := span.Trace.Trace.GetTraceID().String()
+	ti := span.testLogger.traceMap[ts]
+	span.RequestNum = span.Parent.RequestNum
+	ti.spans[span.Trace.Trace.SpanID().String()] = span
+	span.Short = fmt.Sprintf("T%d.%d%s", ti.traceNum, span.RequestNum, span.SequenceCode)
+	span.testLogger.t.Log("Start span " + span.Short + "=" + span.Trace.Trace.String() + " " + span.Name)
+}
+
+// Done is a required method for xopbase.Span
 func (span *Span) Done(t time.Time, final bool) {
 	atomic.StoreInt64(&span.EndTime, t.UnixNano())
 	span.testLogger.lock.Lock()
@@ -222,6 +244,7 @@ func (span *Span) Done(t time.Time, final bool) {
 	}
 }
 
+// Done is a required method for xopbase.Request
 func (span *Span) Flush() {
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
@@ -231,11 +254,19 @@ func (span *Span) Flush() {
 	})
 }
 
-func (span *Span) Final()                       {}
-func (span *Span) Boring(bool)                  {}
-func (span *Span) ID() string                   { return span.testLogger.id }
+// Final is a required method for xopbase.Request
+func (span *Span) Final() {}
+
+// Boring is a required method for xopbase.Span
+func (span *Span) Boring(bool) {}
+
+// ID is a required method for xopbase.Span
+func (span *Span) ID() string { return span.testLogger.id }
+
+// ID is a required method for xopbase.Request
 func (span *Span) SetErrorReporter(func(error)) {}
 
+// Span is a required method for xopbase.Span
 func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
@@ -244,7 +275,6 @@ func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle
 	n := &Span{
 		testLogger:   span.testLogger,
 		Trace:        traceSpan,
-		short:        span.testLogger.setShort(traceSpan, name),
 		StartTime:    ts,
 		Name:         name,
 		Metadata:     make(map[string]interface{}),
@@ -252,7 +282,9 @@ func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle
 		metadataSeen: make(map[string]interface{}),
 		SequenceCode: spanSequenceCode,
 		Ctx:          ctx,
+		Parent:       span,
 	}
+	n.setShortSpan()
 	span.Spans = append(span.Spans, n)
 	span.testLogger.Spans = append(span.testLogger.Spans, n)
 	span.testLogger.Events = append(span.testLogger.Events, &Event{
@@ -262,12 +294,26 @@ func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle
 	return n
 }
 
+// ParentRequest returns the span that is the request-level parent
+// of the current span. If the current span is a request, it returns
+// the current span.
+func (span *Span) ParentRequest() *Span {
+	for {
+		if span.IsRequest {
+			return span
+		}
+		span = span.Parent
+	}
+}
+
+// NoPrefill is a required method for xopbase.Span
 func (span *Span) NoPrefill() xopbase.Prefilled {
 	return &Prefilled{
 		Span: span,
 	}
 }
 
+// StartPrefill is a required method for xopbase.Span
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
@@ -278,6 +324,7 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 	}
 }
 
+// PrefillComplete is a required method for xopbase.Prefilling
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
 		Data:     p.Data,
@@ -288,6 +335,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	}
 }
 
+// Line is a required method for xopbase.Prefilled
 func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.Span.EndTime, t.UnixNano())
 	line := &Line{
@@ -326,13 +374,15 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	return line
 }
 
+// Static is a required method for xopbase.Line
 func (line *Line) Static(m string) {
 	line.Msg(m)
 }
 
+// Msg is a required method for xopbase.Line
 func (line *Line) Msg(m string) {
 	line.Message += m
-	text := line.Span.short + ": " + line.Message
+	text := line.Span.Short + ": " + line.Message
 	if len(line.kvText) > 0 {
 		text += " " + strings.Join(line.kvText, " ")
 		line.kvText = nil
@@ -343,6 +393,7 @@ func (line *Line) Msg(m string) {
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
 
+// Template is a required method for xopbase.Line
 func (line *Line) Template(m string) {
 	line.Tmpl = line.Message + m
 	used := make(map[string]struct{})
@@ -355,7 +406,7 @@ func (line *Line) Template(m string) {
 		return "''"
 	})
 	line.Message = msg
-	text := line.Span.short + ": " + msg
+	text := line.Span.Short + ": " + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)
@@ -379,6 +430,8 @@ func (line Line) send(text string) {
 	line.Span.Lines = append(line.Span.Lines, &line)
 }
 
+// TemplateOrMessage returns the line template (if set) or the template
+// message (Msg) if there is no template
 func (line *Line) TemplateOrMessage() string {
 	if line.Tmpl != "" {
 		return line.Tmpl
@@ -392,6 +445,7 @@ func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
+// Enum is a required method for xopbase.ObjectParts
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	ks := k.Key()
 	b.Data[ks] = v.String()
@@ -399,22 +453,38 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
+// Link is a required method for xopbase.ObjectParts
 func (b *Builder) Link(k string, v trace.Trace) {
 	b.Data[k] = v
 	b.DataType[k] = xopbase.LinkDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
 }
 
-func (b *Builder) Any(k string, v interface{})        { b.any(k, v, xopbase.AnyDataType) }
-func (b *Builder) Bool(k string, v bool)              { b.any(k, v, xopbase.BoolDataType) }
+// Any is a required method for xopbase.ObjectParts
+func (b *Builder) Any(k string, v interface{}) { b.any(k, v, xopbase.AnyDataType) }
+
+// Bool is a required method for xopbase.ObjectParts
+func (b *Builder) Bool(k string, v bool) { b.any(k, v, xopbase.BoolDataType) }
+
+// Duration is a required method for xopbase.ObjectParts
 func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
-func (b *Builder) Time(k string, v time.Time)         { b.any(k, v, xopbase.TimeDataType) }
 
+// Time is a required method for xopbase.ObjectParts
+func (b *Builder) Time(k string, v time.Time) { b.any(k, v, xopbase.TimeDataType) }
+
+// Float64 is a required method for xopbase.ObjectParts
 func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
-func (b *Builder) Int64(k string, v int64, dt xopbase.DataType)     { b.any(k, v, dt) }
-func (b *Builder) String(k string, v string, dt xopbase.DataType)   { b.any(k, v, dt) }
-func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType)   { b.any(k, v, dt) }
 
+// Int64 is a required method for xopbase.ObjectParts
+func (b *Builder) Int64(k string, v int64, dt xopbase.DataType) { b.any(k, v, dt) }
+
+// String is a required method for xopbase.ObjectParts
+func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v, dt) }
+
+// Uint64 is a required method for xopbase.ObjectParts
+func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v, dt) }
+
+// MetadataAny is a required method for xopbase.Span
 func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -468,6 +538,7 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	}
 }
 
+// MetadataBool is a required method for xopbase.Span
 func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -515,6 +586,7 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	}
 }
 
+// MetadataEnum is a required method for xopbase.Span
 func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -562,6 +634,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	}
 }
 
+// MetadataFloat64 is a required method for xopbase.Span
 func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -609,6 +682,7 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	}
 }
 
+// MetadataInt64 is a required method for xopbase.Span
 func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -656,6 +730,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	}
 }
 
+// MetadataLink is a required method for xopbase.Span
 func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -703,6 +778,7 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 	}
 }
 
+// MetadataString is a required method for xopbase.Span
 func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	func() {
 		s.testLogger.lock.Lock()
@@ -750,6 +826,7 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	}
 }
 
+// MetadataTime is a required method for xopbase.Span
 func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	func() {
 		s.testLogger.lock.Lock()

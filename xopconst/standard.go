@@ -32,3 +32,7 @@ var (
 	SpanTypeHTTPClientRequest  = SpanType.Iota("REST")
 	SpanTypeCronJob            = SpanType.Iota("cron_job")
 )
+
+var RemoteTrace = xopat.Make{Key: "http.remote_trace", Namespace: "xop", Indexed: true, Prominence: 40,
+	Description: "The traceID and spanID for for the remote side of a outgoing HTTP request, if known"}.
+	LinkAttribute()

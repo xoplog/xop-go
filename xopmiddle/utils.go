@@ -13,8 +13,8 @@ import (
 // "traceparent" header
 // Example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
 func SetByTraceParentHeader(b *trace.Bundle, h string) {
-	parent := trace.TraceFromString(h)
-	if parent.IsZero() {
+	parent, ok := trace.TraceFromString(h)
+	if !ok {
 		b.Trace = trace.NewTrace()
 		b.Trace.TraceID().SetRandom()
 		b.Trace.SpanID().SetRandom()
