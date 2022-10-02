@@ -151,6 +151,12 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			r.SetContext(context.WithValue(ctx, contextKey, cv))
 			r.SetLogger(restyLogger{log: log})
 
+			if r.Body != nil {
+				log.Trace().
+					Any("body", r.Body).
+					Static("request")
+			}
+
 			log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
 			log.Span().String(xopconst.URL, r.URL)
 			log.Span().String(xopconst.HTTPMethod, r.Method)
@@ -176,7 +182,8 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 		}).
 		OnAfterResponse(func(_ *resty.Client, resp *resty.Response) error {
 			// OnAfterRequest is run for each individual request attempt
-			ctx := resp.Request.Context()
+			r := resp.Request
+			ctx := r.Context()
 			cvRaw := ctx.Value(contextKey)
 			var cv *contextValue
 			if cvRaw == nil {
@@ -196,10 +203,10 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 					log.Warn().String("header", tr).Static("invalid traceresponse received")
 				}
 			}
-			if resp.Result() != nil {
-				log.Info().Any("response", resp.Result())
+			if r.Result != nil {
+				log.Info().Any("response", resp.Result()).Msg("received")
 			}
-			ti := resp.Request.TraceInfo()
+			ti := r.TraceInfo()
 			if ti.TotalTime != 0 {
 				log.Info().
 					Duration("request_time.total", ti.TotalTime).

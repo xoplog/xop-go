@@ -2,6 +2,7 @@ package xopresty_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,21 +18,62 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type exampleRequest struct {
+	Name  string
+	Count int
+}
+
+type exampleResult struct {
+	Score   float64
+	Comment string
+}
+
 var cases = []struct {
-	name        string
-	clientMod   func(*resty.Client) *resty.Client
-	requestMod  func(*resty.Request) *resty.Request
-	handler     func(log *xop.Log, w http.ResponseWriter, r *http.Request)
-	restyOpts   []xopresty.ClientOpt
-	expectError bool
+	name         string
+	clientMod    func(*resty.Client) *resty.Client
+	requestMod   func(*resty.Request) *resty.Request
+	handler      func(t *testing.T, log *xop.Log, w http.ResponseWriter, r *http.Request)
+	restyOpts    []xopresty.ClientOpt
+	expectError  bool
+	expectedText []string
 }{
 	{
-		name: "with debugging",
+		name: "with debugging and tracing",
 		clientMod: func(c *resty.Client) *resty.Client {
 			return c.SetDebug(true)
 		},
 		requestMod: func(r *resty.Request) *resty.Request {
 			return r.EnableTrace()
+		},
+	},
+	{
+		name: "without debugging, without tracing",
+	},
+	{
+		name: "with model",
+		requestMod: func(r *resty.Request) *resty.Request {
+			var res exampleResult
+			return r.
+				SetBody(exampleRequest{
+					Name:  "Joe",
+					Count: 38,
+				}).SetResult(&res).
+				SetHeader("Content-Type", "application/json").
+				SetHeader("Accept", "application/json")
+		},
+		handler: func(t *testing.T, log *xop.Log, w http.ResponseWriter, r *http.Request) {
+			enc, err := json.Marshal(exampleResult{
+				Score:   3.8,
+				Comment: "good progress",
+			})
+			assert.NoError(t, err, "marshal")
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(enc)
+			log.Trace().Msg("sent response")
+		},
+		expectedText: []string{
+			"T1.1.1: request body={Name:Joe Count:38}",
+			"T1.1.1: received response=&{Score:3.8 Comment:good progress}",
 		},
 	},
 }
@@ -58,6 +100,7 @@ func TestXopResty(t *testing.T) {
 					http.Error(w, "no handler", 500)
 					return
 				}
+				tc.handler(t, log, w, r)
 			}))
 			defer ts.Close()
 
@@ -73,20 +116,27 @@ func TestXopResty(t *testing.T) {
 
 			_, err := r.Get(ts.URL)
 
-			// baseLogSpan := tLog.FindSpan(xoptest.ShortEquals("T1.1"))
 			requestSpan := tLog.FindSpan(xoptest.ShortEquals("T1.1.1"))
-			farSideSpan := tLog.FindSpan(xoptest.ShortEquals("T1.2"))
 
 			require.NotNil(t, requestSpan, "requestSpan")
 			assert.NotEmpty(t, requestSpan.EndTime, "client request span completed")
 
 			if tc.expectError {
 				assert.Error(t, err, "expected error")
-			} else {
-				require.NotNil(t, farSideSpan, "farSideSpan")
-				assert.NotEmpty(t, farSideSpan.EndTime, "server endpoint span completed")
-				assert.NoError(t, err, "Get")
-				assert.True(t, called, "handler called")
+				return
+			}
+
+			farSideSpan := tLog.FindSpan(xoptest.ShortEquals("T1.2"))
+			require.NotNil(t, farSideSpan, "farSideSpan")
+			assert.NotEmpty(t, farSideSpan.EndTime, "server endpoint span completed")
+			assert.NoError(t, err, "Get")
+			assert.True(t, called, "handler called")
+
+			text := "T1.1.1: traceresponse http.remote_trace=" + farSideSpan.Trace.Trace.String()
+			assert.Equalf(t, 1, tLog.CountLines(xoptest.TextContains(text)), "count lines with '%s'", text)
+
+			for _, text := range tc.expectedText {
+				assert.Equalf(t, 1, tLog.CountLines(xoptest.TextContains(text)), "count lines with '%s'", text)
 			}
 		})
 	}
