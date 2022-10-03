@@ -34,4 +34,3 @@ func (s *Buffer) Read(p []byte) (n int, err error) {
 	defer s.mutex.Unlock()
 	return s.buffer.Read(p)
 }
-

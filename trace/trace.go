@@ -10,7 +10,7 @@ import (
 // See https://www.w3.org/TR/trace-context/ and
 // https://github.com/w3c/trace-context/blob/main/spec/30-processing-model.md
 //
-// The spec has some unfortuante side-effects.  The spec doesn't require the
+// The spec has some unfortunate side-effects.  The spec doesn't require the
 // "traceresponse" header except when the trace-id is discarded.  That means that
 // parent requests do not have enough information to directly link to child
 // requests.

@@ -2,7 +2,7 @@ package xoputil
 
 /*
 
-This file contains code that is direclty copied or derrived from
+This contains code that is directly copied or derrived from
 https://github.com/phuslu/log
 
 The original is subject to the following license.
