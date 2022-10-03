@@ -178,8 +178,8 @@ into various http router frameworks.
 
 Outgoing propagation is sharing the current trace id as the parent request
 to another server when making a request.  Xop currently only supports HTTP
-and that only with [resty](https://github.com/go-resty/resty).  Adding additional
-outgoing propagators is an outstanding priority.
+and that only with [resty](https://github.com/go-resty/resty) in the 
+xopmiddle package.  Adding additional outgoing propagators is an outstanding priority.
 
 ### Version compatability
 
