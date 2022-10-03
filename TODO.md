@@ -1,10 +1,6 @@
 
 # required before ready to use in production
 
-- misc
-
-  - remame xoptest.Request.Trace to Bundle
-
 - repo
 
   - create xop org, move repo there
@@ -12,8 +8,6 @@
 - test
 
   - actually feed xopotel traces into Jaeger
-
-- drop rest/ or finish it
 
 - documentation
 

@@ -16,20 +16,20 @@ func DumpEvents(t testing.TB, tlog *xoptest.TestLogger) {
 			case xoptest.LineEvent:
 				o = append(o, fmt.Sprintf("line: %s", event.Line.Text))
 			case xoptest.SpanStart:
-				o = append(o, fmt.Sprintf("spanstart: %s", event.Span.Trace.Trace.SpanID().String()))
+				o = append(o, fmt.Sprintf("spanstart: %s", event.Span.Bundle.Trace.SpanID().String()))
 			case xoptest.SpanDone:
-				o = append(o, fmt.Sprintf("spandone: %s", event.Span.Trace.Trace.SpanID().String()))
+				o = append(o, fmt.Sprintf("spandone: %s", event.Span.Bundle.Trace.SpanID().String()))
 
 			case xoptest.RequestStart:
-				o = append(o, fmt.Sprintf("requeststart: %s", event.Span.Trace.Trace.SpanID().String()))
+				o = append(o, fmt.Sprintf("requeststart: %s", event.Span.Bundle.Trace.SpanID().String()))
 			case xoptest.RequestDone:
-				o = append(o, fmt.Sprintf("requestdone: %s", event.Span.Trace.Trace.SpanID().String()))
+				o = append(o, fmt.Sprintf("requestdone: %s", event.Span.Bundle.Trace.SpanID().String()))
 			case xoptest.FlushEvent:
 				o = append(o, "Flush!")
 			case xoptest.CustomEvent:
 				o = append(o, "Custom: "+event.Msg)
 			case xoptest.MetadataSet:
-				o = append(o, fmt.Sprintf("Metadata on %s: %s", event.Span.Trace.Trace.SpanID().String(), event.Msg))
+				o = append(o, fmt.Sprintf("Metadata on %s: %s", event.Span.Bundle.Trace.SpanID().String(), event.Msg))
 			default:
 				o = append(o, "unknown event")
 			}

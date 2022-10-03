@@ -187,30 +187,30 @@ func TestHandlerFuncMiddleware(t *testing.T) {
 
 					require.Equal(t, 1, len(tLog.Requests), "one request")
 					request := tLog.Requests[0]
-					assert.Equal(t, hc.expectParentTrace, request.Trace.ParentTrace.TraceID().String(), "parent traceID")
-					assert.Equal(t, hc.expectParentSpan, request.Trace.ParentTrace.SpanID().String(), "parent spanID")
-					assert.Equal(t, "00", request.Trace.ParentTrace.Version().String(), "parent version")
-					assert.Equal(t, hc.expectParentFlags, request.Trace.ParentTrace.Flags().String(), "parent flags")
+					assert.Equal(t, hc.expectParentTrace, request.Bundle.ParentTrace.TraceID().String(), "parent traceID")
+					assert.Equal(t, hc.expectParentSpan, request.Bundle.ParentTrace.SpanID().String(), "parent spanID")
+					assert.Equal(t, "00", request.Bundle.ParentTrace.Version().String(), "parent version")
+					assert.Equal(t, hc.expectParentFlags, request.Bundle.ParentTrace.Flags().String(), "parent flags")
 
 					if hc.expectTrace == "" {
 						hc.expectTrace = hc.expectParentTrace
 					}
 
 					if hc.expectTrace == "random" {
-						assert.False(t, request.Trace.Trace.TraceID().IsZero(), "trace traceID zero")
+						assert.False(t, request.Bundle.Trace.TraceID().IsZero(), "trace traceID zero")
 					} else {
-						assert.Equal(t, hc.expectTrace, request.Trace.Trace.TraceID().String(), "trace traceID")
+						assert.Equal(t, hc.expectTrace, request.Bundle.Trace.TraceID().String(), "trace traceID")
 					}
 					if hc.expectSpan != "" {
-						assert.Equal(t, hc.expectSpan, request.Trace.Trace.SpanID().String(), "trace spanID")
+						assert.Equal(t, hc.expectSpan, request.Bundle.Trace.SpanID().String(), "trace spanID")
 					} else {
-						assert.False(t, request.Trace.Trace.SpanID().IsZero(), "trace spanID is zero")
-						assert.NotEqual(t, hc.expectParentSpan, request.Trace.Trace.SpanID().String(), "trace spanID")
+						assert.False(t, request.Bundle.Trace.SpanID().IsZero(), "trace spanID is zero")
+						assert.NotEqual(t, hc.expectParentSpan, request.Bundle.Trace.SpanID().String(), "trace spanID")
 					}
-					assert.Equal(t, "00", request.Trace.Trace.Version().String(), "trace version")
-					assert.Equal(t, hc.expectFlags, request.Trace.Trace.Flags().String(), "trace flags")
+					assert.Equal(t, "00", request.Bundle.Trace.Version().String(), "trace version")
+					assert.Equal(t, hc.expectFlags, request.Bundle.Trace.Flags().String(), "trace flags")
 
-					assert.Equal(t, request.Trace.Trace.String(), w.Header().Get("traceresponse"), "trace response header")
+					assert.Equal(t, request.Bundle.Trace.String(), w.Header().Get("traceresponse"), "trace response header")
 				})
 			}
 		})
