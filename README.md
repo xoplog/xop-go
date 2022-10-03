@@ -181,7 +181,7 @@ to another server when making a request.  Xop currently only supports HTTP
 and that only with [resty](https://github.com/go-resty/resty) in the 
 xopmiddle package.  Adding additional outgoing propagators is an outstanding priority.
 
-### Version compatability
+### Version compatibility
 
 xop is currently tested with go1.18 and go1.19.  It is probably 
 compatible with go1.17 and perhaps earlier.

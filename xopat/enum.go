@@ -35,7 +35,7 @@ type IotaEnumAttribute struct {
 // method to add span-level metadata.  It encapsulates both the attribute
 // name and the attribute value in a single argument.
 //
-// EmbeddedEnum values can be construted with a EmbeddedEnumAttribute or
+// EmbeddedEnum values can be constructed with a EmbeddedEnumAttribute or
 // with an IotaEnumAttribute.
 type EmbeddedEnum interface {
 	EnumAttribute() *EnumAttribute

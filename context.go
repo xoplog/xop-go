@@ -139,7 +139,7 @@ func WithDefault(level xopnum.Level) AdjusterOption {
 }
 
 // WithSkippedFrames is needed only if LevelAdjuster or ContextLevelAdjuster
-// are called from withing another function that should not be used to
+// are called from within another function that should not be used to
 // derrive the package name.
 func WithSkippedFrames(additionalFramesToSkip int) AdjusterOption {
 	return func(o *adjustOptions) {

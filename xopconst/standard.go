@@ -1,4 +1,4 @@
-// xopconst provides pre-registed standard attributes for describing spans
+// xopconst provides pre-registered standard attributes for describing spans
 package xopconst
 
 import (

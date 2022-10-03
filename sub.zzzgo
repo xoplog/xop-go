@@ -10,7 +10,7 @@ import (
 	"github.com/xoplog/xop-go/xopnum"
 )
 
-// Sub holds an ephermal state of a log being tranformed to a new log.
+// Sub holds an ephemeral state of a log being tranformed to a new log.
 type Sub struct {
 	detached bool
 	settings LogSettings
