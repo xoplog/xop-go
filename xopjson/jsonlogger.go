@@ -11,12 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopbytes"
-	"github.com/muir/xop-go/xopnum"
-	"github.com/muir/xop-go/xoputil"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopbytes"
+	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
 )

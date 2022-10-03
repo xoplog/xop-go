@@ -1,7 +1,7 @@
 package xopconst
 
 import (
-	"github.com/muir/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopat"
 )
 
 // The descriptions are lifted from https://opentelemetry.io/ and are thus Copyright(c)

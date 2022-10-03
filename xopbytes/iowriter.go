@@ -3,7 +3,7 @@ package xopbytes
 import (
 	"io"
 
-	"github.com/muir/xop-go/trace"
+	"github.com/xoplog/xop-go/trace"
 )
 
 var _ BytesWriter = IOWriter{}

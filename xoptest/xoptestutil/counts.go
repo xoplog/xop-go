@@ -1,7 +1,7 @@
 package xoptestutil
 
 import (
-	"github.com/muir/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoptest"
 )
 
 func EventCount(tlog *xoptest.TestLogger, typ xoptest.EventType) int {

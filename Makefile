@@ -56,13 +56,13 @@ ${GOBIN}/enumer:;
 calculate_coverage:
 	echo "mode: atomic" > coverage.txt
 	for d in $$(go list ./...); do \
-	  go test -race -covermode=atomic -coverprofile=profile.out -coverpkg=github.com/muir/xop-go/... $$d; \
+	  go test -race -covermode=atomic -coverprofile=profile.out -coverpkg=github.com/xoplog/xop-go/... $$d; \
 	  if [ -f profile.out ]; then \
 	    grep -v ^mode profile.out >> coverage.txt; \
 	    rm profile.out; \
 	  fi; \
 	done
-	XOPLEVEL_xoptestutil=debug go test -covermode=atomic -tags xoptesting -coverprofile=profile.out -coverpkg=github.com/muir/xop-go/... ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
+	XOPLEVEL_xoptestutil=debug go test -covermode=atomic -tags xoptesting -coverprofile=profile.out -coverpkg=github.com/xoplog/xop-go/... ./xoptest/xoptestutil -run TestAdjustedLevelLogger -count 1
 	if [ -f profile.out ]; then \
 	  grep -v ^mode profile.out >> coverage.txt; \
 	  rm profile.out; \

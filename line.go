@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xopbase"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
 
 	"github.com/mohae/deepcopy"
 )

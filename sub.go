@@ -7,11 +7,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
-	"github.com/muir/xop-go/xopnum"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopconst"
+	"github.com/xoplog/xop-go/xopnum"
 )
 
 // Sub holds an ephermal state of a log being tranformed to a new log.

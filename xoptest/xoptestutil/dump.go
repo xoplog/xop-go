@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/muir/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoptest"
 )
 
 func DumpEvents(t testing.TB, tlog *xoptest.TestLogger) {

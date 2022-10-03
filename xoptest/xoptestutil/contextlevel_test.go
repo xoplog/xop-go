@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopnum"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopnum"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,7 +88,7 @@ func (f foo) Context() func(context.Context) *xop.Log {
 func (f foo) Logger() func(*xop.Log) *xop.Log {
 	return xop.LevelAdjuster(f...)
 }
-	
+
 func TestAdjusterMethod(t *testing.T) {
 	var getLoggerError = foo{xop.WithDefault(xopnum.ErrorLevel)}.Logger()
 	var getContextInfo = foo{xop.WithDefault(xopnum.InfoLevel)}.Context()
@@ -104,4 +104,3 @@ func TestAdjusterMethod(t *testing.T) {
 	assert.Equal(t, wantInfo, getContextInfo(ctx).Settings().GetMinLevel())
 	assert.Equal(t, wantError, getLoggerError(xop.Default).Settings().GetMinLevel())
 }
-

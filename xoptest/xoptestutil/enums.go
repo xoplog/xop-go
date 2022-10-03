@@ -3,8 +3,8 @@
 package xoptestutil
 
 import (
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopconst"
 )
 
 type AnyObject struct {

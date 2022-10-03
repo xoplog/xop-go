@@ -5,9 +5,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopnum"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopnum"
 
 	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"

@@ -1,4 +1,4 @@
-module github.com/muir/xop-go
+module github.com/xoplog/xop-go
 
 go 1.16
 

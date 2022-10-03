@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopconst"
-	"github.com/muir/xop-go/xopnum"
-	"github.com/muir/xop-go/xoptest"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopconst"
+	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptest"
 
 	"github.com/stretchr/testify/assert"
 )
