@@ -187,10 +187,10 @@ func TestHandlerFuncMiddleware(t *testing.T) {
 
 					require.Equal(t, 1, len(tLog.Requests), "one request")
 					request := tLog.Requests[0]
-					assert.Equal(t, hc.expectParentTrace, request.Trace.TraceParent.TraceID().String(), "parent traceID")
-					assert.Equal(t, hc.expectParentSpan, request.Trace.TraceParent.SpanID().String(), "parent spanID")
-					assert.Equal(t, "00", request.Trace.TraceParent.Version().String(), "parent version")
-					assert.Equal(t, hc.expectParentFlags, request.Trace.TraceParent.Flags().String(), "parent flags")
+					assert.Equal(t, hc.expectParentTrace, request.Trace.ParentTrace.TraceID().String(), "parent traceID")
+					assert.Equal(t, hc.expectParentSpan, request.Trace.ParentTrace.SpanID().String(), "parent spanID")
+					assert.Equal(t, "00", request.Trace.ParentTrace.Version().String(), "parent version")
+					assert.Equal(t, hc.expectParentFlags, request.Trace.ParentTrace.Flags().String(), "parent flags")
 
 					if hc.expectTrace == "" {
 						hc.expectTrace = hc.expectParentTrace

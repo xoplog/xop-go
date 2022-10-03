@@ -6,13 +6,13 @@ import (
 	"github.com/muir/xop-go/trace"
 )
 
-// SetByTraceParentHeader sets bundle.TraceParent.TraceID and
-// then copies bundle.TraceParent to bundle.Trace.  It then sets
+// SetByParentTraceHeader sets bundle.ParentTrace.TraceID and
+// then copies bundle.ParentTrace to bundle.Trace.  It then sets
 // the bundle.Trace.SpanID to random.
 //
 // "traceparent" header
 // Example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
-func SetByTraceParentHeader(b *trace.Bundle, h string) {
+func SetByParentTraceHeader(b *trace.Bundle, h string) {
 	parent, ok := trace.TraceFromString(h)
 	if !ok {
 		b.Trace = trace.NewTrace()
@@ -20,7 +20,7 @@ func SetByTraceParentHeader(b *trace.Bundle, h string) {
 		b.Trace.SpanID().SetRandom()
 		return
 	}
-	b.TraceParent = parent
+	b.ParentTrace = parent
 	b.Trace = parent
 	b.Trace.SpanID().SetRandom()
 }
@@ -32,9 +32,9 @@ var b3RE = regexp.MustCompile(`^([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-(0|1|true|fa
 func SetByB3Header(b *trace.Bundle, h string) {
 	switch h {
 	case "0", "1", "true", "false", "d":
-		b.TraceParent = trace.NewTrace()
-		SetByB3Sampled(&b.TraceParent, h)
-		b.Trace = b.TraceParent
+		b.ParentTrace = trace.NewTrace()
+		SetByB3Sampled(&b.ParentTrace, h)
+		b.Trace = b.ParentTrace
 		b.Trace.TraceID().SetRandom()
 		b.Trace.SpanID().SetRandom()
 		return
@@ -43,14 +43,14 @@ func SetByB3Header(b *trace.Bundle, h string) {
 	if m == nil {
 		return
 	}
-	b.TraceParent.TraceID().SetString(m[1])
-	SetByB3Sampled(&b.TraceParent, m[3])
+	b.ParentTrace.TraceID().SetString(m[1])
+	SetByB3Sampled(&b.ParentTrace, m[3])
 	if m[4] == "" {
-		b.TraceParent.SpanID().SetZero()
+		b.ParentTrace.SpanID().SetZero()
 	} else {
-		b.TraceParent.SpanID().SetString(m[4])
+		b.ParentTrace.SpanID().SetString(m[4])
 	}
-	b.Trace = b.TraceParent
+	b.Trace = b.ParentTrace
 	b.Trace.SpanID().SetString(m[2])
 }
 

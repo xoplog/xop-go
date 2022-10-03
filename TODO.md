@@ -3,7 +3,6 @@
 
 - misc
 
-  - rename trace.Bundle.TraceParent to Bundle.ParentTrace
   - remame xoptest.Request.Trace to Bundle
 
 - repo
@@ -13,13 +12,8 @@
 - test
 
   - actually feed xopotel traces into Jaeger
-  - propagation
 
 - drop rest/ or finish it
-
-- integrations
-
-  - resty
 
 - documentation
 
