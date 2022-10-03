@@ -54,7 +54,7 @@ That is beginning to change.  There is now a
 [Zap/OTEL integration](https://github.com/uptrace/opentelemetry-go-extra/tree/main/otelzap).
 
 Xop is currently the only Go structured logs and tracing system.  Performance-wise,
-it's better that Zap, and about on par with Zerolog.
+it's better that Zap, and was on-par with Zerolog, but recently fell behind.
 
 Where Xop shines is in it's API design.  Xop manages to be very flexible, has
 lots of features, is easy to use and has high performance.  Meeting all of those
