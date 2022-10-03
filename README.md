@@ -1,15 +1,20 @@
 # xop - Golang structured log generation combined with tracing (Cross Obserability Platform)
 
-[![GoDoc](https://godoc.org/github.com/muir/xop-go?status.png)](https://pkg.go.dev/github.com/muir/xop-go)
-![unit tests](https://github.com/muir/xop-go/actions/workflows/go.yml/badge.svg)
-[![report card](https://goreportcard.com/badge/github.com/muir/xop-go)](https://goreportcard.com/report/github.com/muir/xop-go)
-[![codecov](https://codecov.io/gh/muir/xop-go/branch/main/graph/badge.svg)](https://codecov.io/gh/muir/xop-go)
+[![GoDoc](https://godoc.org/github.com/xoplog/xop-go?status.png)](https://pkg.go.dev/github.com/xoplog/xop-go)
+![unit tests](https://github.com/xoplog/xop-go/actions/workflows/go.yml/badge.svg)
+[![report card](https://goreportcard.com/badge/github.com/xoplog/xop-go)](https://goreportcard.com/report/github.com/xoplog/xop-go)
+[![codecov](https://codecov.io/gh/xoplog/xop-go/branch/main/graph/badge.svg)](https://codecov.io/gh/xoplog/xop-go)
 
 ## Development status
 
-Ready to use, not yet stable.
+Ready to use, not yet stable.  Any incompatible changes will be clearly
+marked in the release notes.  At this point, adoptors should make
+themselves known and discuss anything that comes up.
 
-Expect the following changes at some point
+Please open issues to start discussions around a subject.  Please feel free
+to open pull requests, especially to added base loggers or propagators.
+
+Expect the following changes at some point:
 
 - API changes as additional features are added
 
@@ -142,7 +147,7 @@ it doesn't provide enough context for the resulting logs to be useful.
 ### Performance
 
 The performance of Xop is good enough.  See the benchmark results
-at [logbench](https://github.com/muir/logbench).
+at [logbench](https://github.com/xoplog/logbench).
 
 In general: faster than 
 [zap](https://github.com/uber-go/zap);
@@ -154,6 +159,27 @@ but not as quick as
 
 Xop has a much richer feature set than onelog or phuslog and a nicer
 API than zap.
+
+### Propagation
+
+Tracing is inter-process.  Xop supports both B3 and WC3 trace headers in the
+propagators that have been written.
+
+#### Incoming
+
+Incoming propagation is when we learn our parent trace id from a request
+made to our server.  Xop currently only supports HTTP.  It is done with the 
+xopmiddle package.  
+
+xopmiddle generates middleware in various flavors so that you can incorporate
+into various http router frameworks.
+
+#### Outgoing
+
+Outgoing propagation is sharing the current trace id as the parent request
+to another server when making a request.  Xop currently only supports HTTP
+and that only with [resty](https://github.com/go-resty/resty).  Adding additional
+outgoing propagators is an outstanding priority.
 
 ### Version compatability
 
@@ -186,7 +212,7 @@ become []bytes.
 Arbitrary names are supported for tagging log lines. For attributes to be displayed
 specially in front-ends, they need to follow standards. Standard attribute groups are
 pre-registered as structs. These can be shared between organizations by contributing
-them to the [Xop repository](https://github.com/muir/xop-go/xopconst).
+them to the [Xop repository](https://github.com/xoplog/xop-go/xopconst).
 
 The following names are reserved.  What happens if they're used is undefined and up
 to the individual base loggers.

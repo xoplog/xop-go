@@ -1,18 +1,4 @@
 
-# required before ready to use in production
-
-- repo
-
-  - create xop org, move repo there
-
-- test
-
-  - actually feed xopotel traces into Jaeger
-
-- documentation
-
-  - propogation (add to README)
-
 # Just do it (build ready)
 
 - sampling can be based on Boring() in which case the flags need to
