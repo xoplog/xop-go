@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xoptest"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptest"
 
 	"github.com/mohae/deepcopy"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type selfRedactor struct {
@@ -42,7 +42,7 @@ func TestRedaction(t *testing.T) {
 			})
 			settings.SetRedactAnyFunc(func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool) {
 				if !alreadyImmutable {
-				v = deepcopy.Copy(v)
+					v = deepcopy.Copy(v)
 				}
 				if canRedact, ok := v.(redactor); ok {
 					baseLine.Any(k, canRedact.Redact())
@@ -51,7 +51,7 @@ func TestRedaction(t *testing.T) {
 				}
 			})
 			settings.SetRedactErrorFunc(func(baseLine xopbase.Line, k string, v error) {
-				baseLine.String(k, v.Error() + "(as string)", xopbase.ErrorDataType)
+				baseLine.String(k, v.Error()+"(as string)", xopbase.ErrorDataType)
 			})
 		}),
 	).Request(t.Name())
@@ -71,9 +71,9 @@ func TestRedaction(t *testing.T) {
 	require.NotEmpty(t, foos, "foo line")
 
 	assert.Equal(t, "nothing in my garden is taller than my daisy!", foos[0].Data["garden"], "garden")
-	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie",  foos[0].Data["story"].(selfRedactor).V, "story")
-	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie",  foos[0].Data["tale"].(selfRedactor).V, "tale")
-	assert.Equal(t, "I got the contract with a small bribe, just a sunflower cookie",  foos[0].Data["raw"].(selfRedactor).V, "raw")
-	assert.Equal(t, "I got the contract with a small bribe, just a daisy cookie",  foos[0].Data["success"], "success")
-	assert.Equal(t, "outer: inner(as string)",  foos[0].Data["oops"], "oops")
+	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie", foos[0].Data["story"].(selfRedactor).V, "story")
+	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie", foos[0].Data["tale"].(selfRedactor).V, "tale")
+	assert.Equal(t, "I got the contract with a small bribe, just a sunflower cookie", foos[0].Data["raw"].(selfRedactor).V, "raw")
+	assert.Equal(t, "I got the contract with a small bribe, just a daisy cookie", foos[0].Data["success"], "success")
+	assert.Equal(t, "outer: inner(as string)", foos[0].Data["oops"], "oops")
 }

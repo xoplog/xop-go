@@ -2,7 +2,7 @@
 package xopconst
 
 import (
-	"github.com/muir/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopat"
 )
 
 // ParentLink is added automatically by xop in all situations where the information is present

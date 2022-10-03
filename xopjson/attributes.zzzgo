@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xoputil"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoputil"
 )
 
 const numSinglePrealloc = 20

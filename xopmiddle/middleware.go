@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopconst"
 )
 
 type Inbound struct {

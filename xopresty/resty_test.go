@@ -7,11 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopmiddle"
-	"github.com/muir/xop-go/xopnum"
-	"github.com/muir/xop-go/xopresty"
-	"github.com/muir/xop-go/xoptest"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopmiddle"
+	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopresty"
+	"github.com/xoplog/xop-go/xoptest"
 
 	"github.com/muir/resty"
 	"github.com/stretchr/testify/assert"

@@ -7,7 +7,7 @@
 
 ## Development status
 
-In development, almost ready for use.
+Ready to use, not yet stable.
 
 Expect the following changes at some point
 
@@ -23,10 +23,11 @@ Expect the following changes at some point
 
   - main xop top-level 
   - utility/support functions like xopat
-  - bundled base loggers and xopbase
-  - indiviual base loggers that have imports
+  - xopbase (because it needs to be versioned separately)
+  - split out packages that have external dependencies
 
     - xopotel
+    - xopresty
 
 - Additional gateway base loggers will be written
 

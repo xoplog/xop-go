@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/muir/xop-go/trace"
+	"github.com/xoplog/xop-go/trace"
 )
 
 // Attribute is the base type for the keys that are used to add
@@ -39,7 +39,7 @@ type Attribute struct {
 var DefaultNamespace = os.Args[0]
 
 // Make is used to construct attributes.
-// Some keys are reserved.  See https://github.com/muir/xop-go/blob/main/xopconst/reserved.go
+// Some keys are reserved.  See https://github.com/xoplog/xop-go/blob/main/xopconst/reserved.go
 // for the list of reserved keys.  Some keys are already registered.
 type Make struct {
 	Key         string // the attribute name

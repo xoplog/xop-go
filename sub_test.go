@@ -2,8 +2,8 @@ package xop
 
 import (
 	"errors"
-	"github.com/muir/xop-go/xopnum"
 	"github.com/stretchr/testify/assert"
+	"github.com/xoplog/xop-go/xopnum"
 	"testing"
 	"time"
 )

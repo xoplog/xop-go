@@ -30,9 +30,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopconst"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopconst"
 
 	"github.com/muir/resty"
 	"github.com/pkg/errors"

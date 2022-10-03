@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/xopmiddle"
-	"github.com/muir/xop-go/xoptest"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopmiddle"
+	"github.com/xoplog/xop-go/xoptest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

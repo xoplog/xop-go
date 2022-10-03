@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/muir/xop-go/xoptest/xoptestutil"
+	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 
 	"github.com/stretchr/testify/assert"
 )

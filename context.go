@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/muir/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopnum"
 )
 
 type contextKeyType struct{}
@@ -167,9 +167,9 @@ func adjustConfig(opts []AdjusterOption) xopnum.Level {
 		frames := runtime.CallersFrames(pc)
 		frame, _ := frames.Next()
 		if frame.Function != "" {
-			// Example: github.com/muir/xop-go/xoptest/xoptestutil.foo.Context
-			// Example: github.com/muir/xop-go/xoptest/xoptestutil.TestAdjusterContext
-			// Example: github.com/muir/xop-go/xoptest/xoptestutil.init
+			// Example: github.com/xoplog/xop-go/xoptest/xoptestutil.foo.Context
+			// Example: github.com/xoplog/xop-go/xoptest/xoptestutil.TestAdjusterContext
+			// Example: github.com/xoplog/xop-go/xoptest/xoptestutil.init
 			base := filepath.Base(frame.Function)
 			parts := strings.SplitN(base, ".", 2)
 			if len(parts) == 2 {

@@ -5,8 +5,8 @@ package xop
 import (
 	"time"
 
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopat"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopat"
 
 	"github.com/mohae/deepcopy"
 )

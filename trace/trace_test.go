@@ -3,7 +3,7 @@ package trace_test
 import (
 	"testing"
 
-	"github.com/muir/xop-go/trace"
+	"github.com/xoplog/xop-go/trace"
 
 	"github.com/stretchr/testify/assert"
 )

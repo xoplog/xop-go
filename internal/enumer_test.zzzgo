@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/muir/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopbase"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

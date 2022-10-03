@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/muir/xop-go"
-	"github.com/muir/xop-go/trace"
-	"github.com/muir/xop-go/xopat"
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopnum"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopnum"
 )
 
 //go:generate enumer -type=EventType -linecomment -json -sql

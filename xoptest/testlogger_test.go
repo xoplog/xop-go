@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/muir/xop-go/xopbase"
-	"github.com/muir/xop-go/xopconst"
-	"github.com/muir/xop-go/xopnum"
-	"github.com/muir/xop-go/xoptest"
 	"github.com/stretchr/testify/assert"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopconst"
+	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptest"
 )
 
 func TestLogMethods(t *testing.T) {

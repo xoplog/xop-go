@@ -3,7 +3,7 @@ package xopmiddle
 import (
 	"regexp"
 
-	"github.com/muir/xop-go/trace"
+	"github.com/xoplog/xop-go/trace"
 )
 
 // SetByParentTraceHeader sets bundle.ParentTrace.TraceID and
