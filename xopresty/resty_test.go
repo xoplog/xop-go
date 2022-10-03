@@ -132,7 +132,7 @@ func TestXopResty(t *testing.T) {
 			assert.NoError(t, err, "Get")
 			assert.True(t, called, "handler called")
 
-			text := "T1.1.1: traceresponse http.remote_trace=" + farSideSpan.Trace.Trace.String()
+			text := "T1.1.1: traceresponse http.remote_trace=" + farSideSpan.Bundle.Trace.String()
 			assert.Equalf(t, 1, tLog.CountLines(xoptest.TextContains(text)), "count lines with '%s'", text)
 
 			for _, text := range tc.expectedText {

@@ -90,7 +90,7 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 			}
 			ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithNewRoot())
 			bundle := seed.Bundle()
-			if bundle.TraceParent.IsZero() {
+			if bundle.ParentTrace.IsZero() {
 				bundle.State.SetString(span.SpanContext().TraceState().String())
 				bundle.Trace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
 				bundle.Trace.Version().Set([1]byte{1})

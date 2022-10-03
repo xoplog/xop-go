@@ -98,9 +98,9 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeString(s.trace.Trace.TraceID().String())
 	rq.AddSafeKey("span.id")
 	rq.AddSafeString(s.trace.Trace.SpanID().String())
-	if !s.trace.TraceParent.TraceID().IsZero() {
+	if !s.trace.ParentTrace.TraceID().IsZero() {
 		rq.AddSafeKey("trace.parent")
-		rq.AddSafeString(s.trace.TraceParent.String())
+		rq.AddSafeString(s.trace.ParentTrace.String())
 	}
 	if !s.trace.State.IsZero() {
 		rq.AddSafeKey("trace.state")

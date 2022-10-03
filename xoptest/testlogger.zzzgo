@@ -76,7 +76,7 @@ type Span struct {
 	lock         sync.Mutex
 	testLogger   *TestLogger
 	RequestNum   int // sequence of requests with the same traceID
-	Trace        trace.Bundle
+	Bundle       trace.Bundle
 	IsRequest    bool
 	Parent       *Span
 	Spans        []*Span
@@ -163,13 +163,13 @@ func (log *TestLogger) ReferencesKept() bool { return true }
 func (log *TestLogger) SetErrorReporter(func(error)) {}
 
 // Request is a required method for xopbase.Logger
-func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bundle, name string) xopbase.Request {
+func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle trace.Bundle, name string) xopbase.Request {
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
 		testLogger:   log,
 		IsRequest:    true,
-		Trace:        span,
+		Bundle:       bundle,
 		StartTime:    ts,
 		Name:         name,
 		Metadata:     make(map[string]interface{}),
@@ -188,13 +188,13 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, span trace.Bun
 
 // must hold a lock to call setShortRequest
 func (span *Span) setShortRequest() {
-	ts := span.Trace.Trace.GetTraceID().String()
+	ts := span.Bundle.Trace.GetTraceID().String()
 	if ti, ok := span.testLogger.traceMap[ts]; ok {
 		ti.requestCount++
 		span.RequestNum = ti.requestCount
-		ti.spans[span.Trace.Trace.SpanID().String()] = span
+		ti.spans[span.Bundle.Trace.SpanID().String()] = span
 		span.Short = fmt.Sprintf("T%d.%d", ti.traceNum, ti.requestCount)
-		span.testLogger.t.Log("Start request " + span.Short + "=" + span.Trace.Trace.String() + " " + span.Name)
+		span.testLogger.t.Log("Start request " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 		return
 	}
 	span.testLogger.traceCount++
@@ -203,21 +203,21 @@ func (span *Span) setShortRequest() {
 		requestCount: 1,
 		traceNum:     span.testLogger.traceCount,
 		spans: map[string]*Span{
-			span.Trace.Trace.SpanID().String(): span,
+			span.Bundle.Trace.SpanID().String(): span,
 		},
 	}
 	span.Short = fmt.Sprintf("T%d.%d", span.testLogger.traceCount, 1)
-	span.testLogger.t.Log("Start request " + span.Short + "=" + span.Trace.Trace.String() + " " + span.Name)
+	span.testLogger.t.Log("Start request " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 }
 
 // must hold a lock to call setShortSpan
 func (span *Span) setShortSpan() {
-	ts := span.Trace.Trace.GetTraceID().String()
+	ts := span.Bundle.Trace.GetTraceID().String()
 	ti := span.testLogger.traceMap[ts]
 	span.RequestNum = span.Parent.RequestNum
-	ti.spans[span.Trace.Trace.SpanID().String()] = span
+	ti.spans[span.Bundle.Trace.SpanID().String()] = span
 	span.Short = fmt.Sprintf("T%d.%d%s", ti.traceNum, span.RequestNum, span.SequenceCode)
-	span.testLogger.t.Log("Start span " + span.Short + "=" + span.Trace.Trace.String() + " " + span.Name)
+	span.testLogger.t.Log("Start span " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 }
 
 // Done is a required method for xopbase.Span
@@ -263,14 +263,14 @@ func (span *Span) ID() string { return span.testLogger.id }
 func (span *Span) SetErrorReporter(func(error)) {}
 
 // Span is a required method for xopbase.Span
-func (span *Span) Span(ctx context.Context, ts time.Time, traceSpan trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (span *Span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	n := &Span{
 		testLogger:   span.testLogger,
-		Trace:        traceSpan,
+		Bundle:       bundle,
 		StartTime:    ts,
 		Name:         name,
 		Metadata:     make(map[string]interface{}),

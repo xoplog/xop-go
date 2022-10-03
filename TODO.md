@@ -1,11 +1,6 @@
 
 # required before ready to use in production
 
-- misc
-
-  - rename trace.Bundle.TraceParent to Bundle.ParentTrace
-  - remame xoptest.Request.Trace to Bundle
-
 - repo
 
   - create xop org, move repo there
@@ -13,13 +8,6 @@
 - test
 
   - actually feed xopotel traces into Jaeger
-  - propagation
-
-- drop rest/ or finish it
-
-- integrations
-
-  - resty
 
 - documentation
 
