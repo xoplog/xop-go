@@ -30,11 +30,15 @@ func TestTraceZero(t *testing.T) {
 
 func TestTracePartial(t *testing.T) {
 	var trace trace.Trace
+	assert.True(t, trace.TraceID().IsZero(), "initial trace is zero")
 	trace.SpanID().SetRandom()
+	t.Log("trace is", trace.String())
 	assert.NotEqual(t, "0000000000000000", trace.SpanID().String())
 	assert.Equal(t, "00-00000000000000000000000000000000-"+trace.SpanID().String()+"-00", trace.String())
 	assert.Equal(t, trace.SpanID().String(), trace.GetSpanID().String())
 	assert.Len(t, trace.String(), 55)
+	assert.True(t, trace.TraceID().IsZero(), "final trace is zero")
+	assert.False(t, trace.SpanID().IsZero(), "final span is zero")
 }
 
 func TestTraceRandom(t *testing.T) {
@@ -43,6 +47,7 @@ func TestTraceRandom(t *testing.T) {
 	trace.SpanID().SetRandom()
 	trace.TraceID().SetRandom()
 	trace.Flags().SetRandom()
+	t.Log("trace is", trace.String())
 	assert.NotEqual(t, "00", trace.Version().String())
 	assert.NotEqual(t, "00000000000000000000000000000000", trace.TraceID().String())
 	assert.NotEqual(t, "0000000000000000", trace.SpanID().String())

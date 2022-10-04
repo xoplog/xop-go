@@ -52,12 +52,12 @@ func (logger *Logger) ID() string           { return logger.id.String() }
 func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
 
-func (logger *Logger) Request(_ context.Context, ts time.Time, trace trace.Bundle, name string) xopbase.Request {
+func (logger *Logger) Request(_ context.Context, ts time.Time, bundle trace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
 			logger:    logger,
-			writer:    logger.writer.Request(trace),
-			trace:     trace,
+			writer:    logger.writer.Request(bundle),
+			bundle:    bundle,
 			name:      name,
 			startTime: ts,
 			endTime:   ts.UnixNano(),
@@ -95,20 +95,20 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, trace trace.Bundl
 
 func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeKey("trace.id")
-	rq.AddSafeString(s.trace.Trace.TraceID().String())
+	rq.AddSafeString(s.bundle.Trace.TraceID().String())
 	rq.AddSafeKey("span.id")
-	rq.AddSafeString(s.trace.Trace.SpanID().String())
-	if !s.trace.ParentTrace.TraceID().IsZero() {
+	rq.AddSafeString(s.bundle.Trace.SpanID().String())
+	if !s.bundle.ParentTrace.TraceID().IsZero() {
 		rq.AddSafeKey("trace.parent")
-		rq.AddSafeString(s.trace.ParentTrace.String())
+		rq.AddSafeString(s.bundle.ParentTrace.String())
 	}
-	if !s.trace.State.IsZero() {
+	if !s.bundle.State.IsZero() {
 		rq.AddSafeKey("trace.state")
-		rq.AddSafeString(s.trace.State.String())
+		rq.AddSafeString(s.bundle.State.String())
 	}
-	if !s.trace.Baggage.IsZero() {
+	if !s.bundle.Baggage.IsZero() {
 		rq.AddSafeKey("trace.baggage")
-		rq.AddSafeString(s.trace.Baggage.String())
+		rq.AddSafeString(s.bundle.Baggage.String())
 	}
 	rq.AddSafeKey("span.name")
 	rq.AddString(s.name)
@@ -224,11 +224,11 @@ func (r *request) Final() {
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
 
-func (s *span) Span(_ context.Context, ts time.Time, trace trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (s *span) Span(_ context.Context, ts time.Time, bundle trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &span{
 		logger:       s.logger,
 		writer:       s.writer,
-		trace:        trace,
+		bundle:       bundle,
 		name:         name,
 		request:      s.request,
 		startTime:    ts,
@@ -241,7 +241,7 @@ func (s *span) Span(_ context.Context, ts time.Time, trace trace.Bundle, name st
 	if s.logger.spanStarts {
 		rq := s.builder()
 		rq.AppendBytes([]byte(`{"type":"span","span.ver":0,"span.id":`))
-		rq.AddSafeString(trace.Trace.SpanID().String())
+		rq.AddSafeString(bundle.Trace.SpanID().String())
 		n.spanStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
 		n.serializationCount++
@@ -262,6 +262,7 @@ func (s *span) Span(_ context.Context, ts time.Time, trace trace.Bundle, name st
 func (s *span) spanStartData(rq *builder) {
 	rq.stringKV("span.name", s.name)
 	rq.Time("ts", s.startTime)
+	rq.stringKV("span.parent_span", s.bundle.ParentTrace.SpanID().String())
 }
 
 func (s *span) setSpanIDPrefill() {
@@ -275,11 +276,11 @@ func (s *span) setSpanIDPrefill() {
 func (s *span) identifySpan(b *xoputil.JBuilder) {
 	if s.logger.tagOption&SpanIDTagOption != 0 {
 		b.AddSafeKey("span.id")
-		b.AddSafeString(s.trace.Trace.SpanID().String())
+		b.AddSafeString(s.bundle.Trace.SpanID().String())
 	}
 	if s.logger.tagOption&TraceIDTagOption != 0 {
 		b.AddSafeKey("trace.id")
-		b.AddSafeString(s.trace.Trace.TraceID().String())
+		b.AddSafeString(s.bundle.Trace.TraceID().String())
 	}
 	if s.logger.tagOption&TraceNumberTagOption != 0 {
 		b.AddSafeKey("trace.num")

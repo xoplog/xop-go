@@ -80,7 +80,12 @@ func TestSpanLog(t *testing.T) {
 
 			tlog := xoptest.New(t)
 			ctx, span := tracer.Start(ctx, mc.Name)
-			log := xopotel.SpanLog(ctx, mc.Name).Span().Seed(xop.WithBase(tlog)).SubSpan("adding-tlog")
+			seed := xopotel.SpanLog(ctx, mc.Name).Span().Seed(xop.WithBase(tlog))
+			if len(mc.SeedMods) != 0 {
+				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+				seed = seed.Copy(mc.SeedMods...)
+			}
+			log := seed.SubSpan("adding-tlog")
 			mc.Do(t, log, tlog)
 
 			span.End()
@@ -122,10 +127,15 @@ func TestBaseLogger(t *testing.T) {
 			tracer := tracerProvider.Tracer("")
 
 			tlog := xoptest.New(t)
-			log := xop.NewSeed(
+			seed := xop.NewSeed(
 				xop.WithBase(tlog),
 				xopotel.BaseLogger(ctx, tracer, true),
-			).Request(t.Name())
+			)
+			if len(mc.SeedMods) != 0 {
+				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+				seed = seed.Copy(mc.SeedMods...)
+			}
+			log := seed.Request(t.Name())
 			mc.Do(t, log, tlog)
 
 			cancel()

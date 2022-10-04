@@ -74,7 +74,7 @@ type request struct {
 type span struct {
 	endTime            int64
 	writer             xopbytes.BytesRequest
-	trace              trace.Bundle
+	bundle             trace.Bundle
 	logger             *Logger
 	name               string
 	request            *request

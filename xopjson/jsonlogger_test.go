@@ -185,10 +185,17 @@ func TestParameters(t *testing.T) {
 					if tc.settings != nil {
 						settings = tc.settings
 					}
-					log := xop.NewSeed(
+					seed := xop.NewSeed(
 						xop.WithBase(jlog),
 						xop.WithSettings(settings),
-					).Copy(xop.WithBase(tlog)).Request(t.Name())
+					).Copy(xop.WithBase(tlog))
+
+					if len(mc.SeedMods) != 0 {
+						t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+						seed = seed.Copy(mc.SeedMods...)
+					}
+
+					log := seed.Request(t.Name())
 
 					mc.Do(t, log, tlog)
 
