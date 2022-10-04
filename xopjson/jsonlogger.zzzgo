@@ -96,9 +96,9 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeString(s.bundle.Trace.TraceID().String())
 	rq.AddSafeKey("span.id")
 	rq.AddSafeString(s.bundle.Trace.SpanID().String())
-	if !s.bundle.ParentTrace.TraceID().IsZero() {
+	if !s.bundle.Parent.TraceID().IsZero() {
 		rq.AddSafeKey("trace.parent")
-		rq.AddSafeString(s.bundle.ParentTrace.String())
+		rq.AddSafeString(s.bundle.Parent.String())
 	}
 	if !s.bundle.State.IsZero() {
 		rq.AddSafeKey("trace.state")
@@ -260,7 +260,7 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle trace.Bundle, name s
 func (s *span) spanStartData(rq *builder) {
 	rq.stringKV("span.name", s.name)
 	rq.Time("ts", s.startTime)
-	rq.stringKV("span.parent_span", s.bundle.ParentTrace.SpanID().String())
+	rq.stringKV("span.parent_span", s.bundle.Parent.SpanID().String())
 }
 
 func (s *span) setSpanIDPrefill() {

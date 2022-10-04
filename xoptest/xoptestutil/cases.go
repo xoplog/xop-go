@@ -480,10 +480,10 @@ var MessageCases = []struct {
 		SeedMods: []xop.SeedModifier{
 			xop.WithBundle(func() trace.Bundle {
 				var bundle trace.Bundle
-				bundle.ParentTrace.Flags().SetString("01")
-				bundle.ParentTrace.TraceID().SetString("a60a3cc0123a043fee48839c9d52a645")
-				bundle.ParentTrace.SpanID().SetString("c63f9d81e2285f34")
-				bundle.Trace = bundle.ParentTrace
+				bundle.Parent.Flags().SetString("01")
+				bundle.Parent.TraceID().SetString("a60a3cc0123a043fee48839c9d52a645")
+				bundle.Parent.SpanID().SetString("c63f9d81e2285f34")
+				bundle.Trace = bundle.Parent
 				bundle.Trace.SpanID().SetRandom()
 				bundle.State.SetString("congo=t61rcWkgMzE")
 				bundle.Baggage.SetString("userId=alice,serverNode=DF%2028,isProduction=false")
@@ -491,7 +491,7 @@ var MessageCases = []struct {
 			}()),
 		},
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-			assert.Equal(t, "00-a60a3cc0123a043fee48839c9d52a645-c63f9d81e2285f34-01", log.Span().Bundle().ParentTrace.String(), "trace parent")
+			assert.Equal(t, "00-a60a3cc0123a043fee48839c9d52a645-c63f9d81e2285f34-01", log.Span().Bundle().Parent.String(), "trace parent")
 			assert.Equal(t, "a60a3cc0123a043fee48839c9d52a645", log.Span().Bundle().Trace.GetTraceID().String(), "trace trace")
 			assert.NotEqual(t, "c63f9d81e2285f34", log.Span().Bundle().Trace.GetSpanID().String(), "trace trace")
 			assert.Equal(t, "congo=t61rcWkgMzE", log.Span().Bundle().State.String(), "trace state")
