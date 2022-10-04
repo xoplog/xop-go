@@ -81,12 +81,12 @@ func (i Inbound) makeChildSpan(w http.ResponseWriter, r *http.Request) (*xop.Log
 		if b3Sampling := r.Header.Get("X-B3-Sampled"); b3Sampling != "" {
 			SetByB3Sampled(&bundle.Trace, b3Sampling)
 		}
-		bundle.ParentTrace = bundle.Trace
+		bundle.Parent = bundle.Trace
 		if b3ParentSpanID := r.Header.Get("X-B3-ParentSpanId"); b3ParentSpanID != "" {
-			bundle.ParentTrace.SpanID().SetString(b3ParentSpanID)
+			bundle.Parent.SpanID().SetString(b3ParentSpanID)
 		} else {
 			// Uh oh, no parent span id
-			bundle.ParentTrace.SpanID().SetZero()
+			bundle.Parent.SpanID().SetZero()
 		}
 		if b3SpanID := r.Header.Get("X-B3-SpanId"); b3SpanID != "" {
 			bundle.Trace.SpanID().SetString(b3SpanID)

@@ -6,8 +6,8 @@ import (
 	"github.com/xoplog/xop-go/trace"
 )
 
-// SetByParentTraceHeader sets bundle.ParentTrace.TraceID and
-// then copies bundle.ParentTrace to bundle.Trace.  It then sets
+// SetByParentTraceHeader sets bundle.Parent.TraceID and
+// then copies bundle.Parent to bundle.Trace.  It then sets
 // the bundle.Trace.SpanID to random.
 //
 // "traceparent" header
@@ -20,7 +20,7 @@ func SetByParentTraceHeader(b *trace.Bundle, h string) {
 		b.Trace.SpanID().SetRandom()
 		return
 	}
-	b.ParentTrace = parent
+	b.Parent = parent
 	b.Trace = parent
 	b.Trace.SpanID().SetRandom()
 }
@@ -32,9 +32,9 @@ var b3RE = regexp.MustCompile(`^([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-(0|1|true|fa
 func SetByB3Header(b *trace.Bundle, h string) {
 	switch h {
 	case "0", "1", "true", "false", "d":
-		b.ParentTrace = trace.NewTrace()
-		SetByB3Sampled(&b.ParentTrace, h)
-		b.Trace = b.ParentTrace
+		b.Parent = trace.NewTrace()
+		SetByB3Sampled(&b.Parent, h)
+		b.Trace = b.Parent
 		b.Trace.TraceID().SetRandom()
 		b.Trace.SpanID().SetRandom()
 		return
@@ -43,14 +43,14 @@ func SetByB3Header(b *trace.Bundle, h string) {
 	if m == nil {
 		return
 	}
-	b.ParentTrace.TraceID().SetString(m[1])
-	SetByB3Sampled(&b.ParentTrace, m[3])
+	b.Parent.TraceID().SetString(m[1])
+	SetByB3Sampled(&b.Parent, m[3])
 	if m[4] == "" {
-		b.ParentTrace.SpanID().SetZero()
+		b.Parent.SpanID().SetZero()
 	} else {
-		b.ParentTrace.SpanID().SetString(m[4])
+		b.Parent.SpanID().SetString(m[4])
 	}
-	b.Trace = b.ParentTrace
+	b.Trace = b.Parent
 	b.Trace.SpanID().SetString(m[2])
 }
 

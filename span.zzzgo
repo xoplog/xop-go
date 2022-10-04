@@ -21,7 +21,7 @@ func (log *Log) Span() *Span {
 
 func (span *Span) TraceState() trace.State     { return span.seed.traceBundle.State }
 func (span *Span) TraceBaggage() trace.Baggage { return span.seed.traceBundle.Baggage }
-func (span *Span) ParentTrace() trace.Trace    { return span.seed.traceBundle.ParentTrace.Copy() }
+func (span *Span) ParentTrace() trace.Trace    { return span.seed.traceBundle.Parent.Copy() }
 func (span *Span) Trace() trace.Trace          { return span.seed.traceBundle.Trace.Copy() }
 func (span *Span) Bundle() trace.Bundle        { return span.seed.traceBundle.Copy() }
 
