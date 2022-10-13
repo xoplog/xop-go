@@ -20,6 +20,10 @@ var _ xopbase.Span = &span{}
 var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
+var _ xopbytes.Buffer = &builder{}
+var _ xopbytes.Line = &line{}
+var _ xopbytes.Span = &span{}
+var _ xopbytes.Span = &request{}
 
 type Option func(*Logger, *xoputil.Prealloc)
 
@@ -41,34 +45,28 @@ type Option func(*Logger, *xoputil.Prealloc)
 type TimeFormatter func(b []byte, t time.Time) []byte
 
 type Logger struct {
-	writer                xopbytes.BytesWriter
-	fastKeys              bool
-	durationFormat        DurationOption
-	spanStarts            bool
-	spanChangesOnly       bool
-	id                    uuid.UUID
-	tagOption             TagOption
-	requestCount          int64 // only incremented with tagOption == TraceSequenceNumberTagOption
-	perRequestBufferLimit int
-	attributesObject      bool
-	builderPool           sync.Pool // filled with *builder
-	linePool              sync.Pool // filled with *line
-	preallocatedKeys      [100]byte
-	durationKey           []byte
-	stackLineRewrite      func(string) string
-	timeFormatter         TimeFormatter
-	activeRequests        sync.WaitGroup
+	writer           xopbytes.BytesWriter
+	fastKeys         bool
+	durationFormat   DurationOption
+	spanStarts       bool
+	spanChangesOnly  bool
+	id               uuid.UUID
+	tagOption        TagOption
+	requestCount     int64 // only incremented with tagOption == TraceSequenceNumberTagOption
+	attributesObject bool
+	builderPool      sync.Pool // filled with *builder
+	linePool         sync.Pool // filled with *line
+	preallocatedKeys [100]byte
+	durationKey      []byte
+	stackLineRewrite func(string) string
+	timeFormatter    TimeFormatter
+	activeRequests   sync.WaitGroup
 }
 
 type request struct {
 	span
-	errorFunc         func(error)
-	writeBuffer       []byte
-	completedLines    chan *line
-	flushRequest      chan *sync.WaitGroup
-	completedBuilders chan *builder
-	idNum             int64
-	finalized         chan struct{}
+	errorFunc func(error)
+	idNum     int64
 }
 
 type span struct {
@@ -185,20 +183,6 @@ func WithSpanStarts(b bool) Option {
 func WithSpanChangesOnly(b bool) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.spanChangesOnly = b
-	}
-}
-
-// WithBufferedLines indciates if line data should be buffered until
-// Flush() is called.  If not, lines are emitted as they're completed.
-// A value of zero (the default) indicates that lines are not buffered.
-//
-// A value less than 1024 will panic.  1MB is the suggested value.
-func WithBufferedLines(bufferSize int) Option {
-	if bufferSize < 1024 {
-		panic("bufferSize too small")
-	}
-	return func(l *Logger, _ *xoputil.Prealloc) {
-		l.perRequestBufferLimit = bufferSize
 	}
 }
 

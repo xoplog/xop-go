@@ -181,6 +181,7 @@ func (r Attribute) RegistrationNumber() int   { return r.number }
 func (r Attribute) ExampleValue() interface{} { return r.exampleValue }
 func (r Attribute) TypeName() string          { return r.typeName }
 func (r Attribute) SubType() AttributeType    { return r.subType }
+func (r *Attribute) Ptr() *Attribute          { return r }
 
 // EnumName only provides non-empty answers when SubType() == AttributeTypeEnum
 func (r Attribute) EnumName(v int64) string {

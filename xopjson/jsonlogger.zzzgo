@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -36,7 +35,7 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 		f(log, prealloc)
 	}
 	if log.tagOption == 0 {
-		if log.perRequestBufferLimit > 0 {
+		if w.Buffered() {
 			log.tagOption = SpanIDTagOption
 		} else {
 			log.tagOption = SpanIDTagOption | TraceIDTagOption
@@ -66,9 +65,6 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle trace.Bund
 	}
 	request.attributes.Init(&request.span)
 	request.request = request
-	if logger.perRequestBufferLimit != 0 {
-		request.maintainBuffer()
-	}
 	request.span.setSpanIDPrefill()
 
 	if logger.spanStarts {
@@ -77,14 +73,9 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle trace.Bund
 		request.span.addRequestStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
 		request.serializationCount++
-		if logger.perRequestBufferLimit != 0 {
-			request.completedBuilders <- rq
-		} else {
-			_, err := request.writer.Write(rq.B)
-			if err != nil {
-				request.errorFunc(err)
-			}
-			rq.reclaimMemory()
+		err := request.writer.Span(request, rq)
+		if err != nil {
+			request.errorFunc(err)
 		}
 	}
 
@@ -113,111 +104,12 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.Time("ts", s.startTime)
 }
 
-func (r *request) maintainBuffer() {
-	r.flushRequest = make(chan *sync.WaitGroup)
-	r.finalized = make(chan struct{})
-	r.completedLines = make(chan *line, lineChanDepth)
-	r.completedBuilders = make(chan *builder, lineChanDepth)
-	r.writeBuffer = make([]byte, 0, r.logger.perRequestBufferLimit/16)
-	handleBuilder := func(builder *builder) {
-		if len(builder.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
-			r.flushBuffer()
-		}
-		if len(builder.B) > r.logger.perRequestBufferLimit {
-			// TODO: split into multiple writes
-		}
-		r.writeBuffer = append(r.writeBuffer, builder.B...)
-		builder.reclaimMemory()
-	}
-	handleLine := func(line *line) {
-		if len(line.B)+len(r.writeBuffer) > r.logger.perRequestBufferLimit {
-			r.flushBuffer()
-		}
-		if len(line.B) > r.logger.perRequestBufferLimit {
-			// TODO: split into multiple writes
-		}
-		r.writeBuffer = append(r.writeBuffer, line.B...)
-		line.reclaimMemory()
-	}
-	handleFlush := func(wg *sync.WaitGroup) {
-		defer wg.Done()
-		// drains lines & builders before flush!
-	Flush:
-		for {
-			select {
-			case builder := <-r.completedBuilders:
-				handleBuilder(builder)
-			case line := <-r.completedLines:
-				handleLine(line)
-			default:
-				break Flush
-			}
-		}
-		r.flushBuffer()
-	}
-	handleClose := func() {
-		// drain everything else first
-	Request:
-		for {
-			select {
-			case builder := <-r.completedBuilders:
-				handleBuilder(builder)
-			case line := <-r.completedLines:
-				handleLine(line)
-			case wg := <-r.flushRequest:
-				handleFlush(wg)
-			default:
-				break Request
-			}
-		}
-		r.flushBuffer()
-	}
-	r.logger.activeRequests.Add(1)
-	go func() {
-		defer r.logger.activeRequests.Done()
-		for {
-			select {
-			case builder := <-r.completedBuilders:
-				handleBuilder(builder)
-			case line := <-r.completedLines:
-				handleLine(line)
-			case wg := <-r.flushRequest:
-				handleFlush(wg)
-			case <-r.finalized:
-				handleClose()
-				return
-			}
-		}
-	}()
-}
-
-func (r *request) flushBuffer() {
-	if len(r.writeBuffer) == 0 {
-		return
-	}
-	_, err := r.writer.Write(r.writeBuffer)
-	if err != nil {
-		r.errorFunc(err)
-	}
-	r.writer.Flush()
-	r.writeBuffer = r.writeBuffer[:0]
-}
-
 func (r *request) Flush() {
-	if r.logger.perRequestBufferLimit != 0 {
-		var wg sync.WaitGroup
-		wg.Add(1)
-		r.flushRequest <- &wg
-		wg.Wait()
-	} else {
-		r.writer.Flush()
-	}
+	r.writer.Flush()
 }
 
 func (r *request) Final() {
-	if r.logger.perRequestBufferLimit != 0 {
-		close(r.finalized)
-	}
+	r.writer.ReclaimMemory()
 }
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
@@ -243,14 +135,9 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle trace.Bundle, name s
 		n.spanStartData(rq)
 		rq.AppendBytes([]byte{'}', '\n'})
 		n.serializationCount++
-		if s.request.logger.perRequestBufferLimit != 0 {
-			s.request.completedBuilders <- rq
-		} else {
-			_, err := s.request.writer.Write(rq.B)
-			if err != nil {
-				s.request.errorFunc(err)
-			}
-			rq.reclaimMemory()
+		err := s.request.writer.Span(s, rq)
+		if err != nil {
+			s.request.errorFunc(err)
 		}
 	}
 
@@ -290,7 +177,7 @@ func (s *span) identifySpan(b *xoputil.JBuilder) {
 	}
 }
 
-func (s *span) FlushAttributes() {
+func (s *span) flushAttributes() {
 	rq := s.builder()
 	if s == &s.request.span {
 		rq.AppendBytes([]byte(`{"type":"request"`)) // }
@@ -317,24 +204,20 @@ func (s *span) FlushAttributes() {
 	s.attributes.Append(&rq.JBuilder, s.logger.spanChangesOnly)
 	// {
 	rq.AppendBytes([]byte{'}', '\n'})
-	if s.request.logger.perRequestBufferLimit != 0 {
-		s.request.completedBuilders <- rq
-	} else {
-		_, err := s.request.writer.Write(rq.B)
-		if err != nil {
-			s.request.errorFunc(err)
-		}
-		rq.reclaimMemory()
+	err := s.request.writer.Span(s, rq)
+	if err != nil {
+		s.request.errorFunc(err)
 	}
 }
 
 func (s *span) Done(t time.Time, _ bool) {
 	atomic.StoreInt64(&s.endTime, t.UnixNano())
-	s.FlushAttributes()
+	s.flushAttributes()
 }
 
-func (s *span) Boring(bool) {}
-func (s *span) ID() string  { return s.logger.id.String() }
+func (s *span) Boring(bool)                {}
+func (s *span) ID() string                 { return s.logger.id.String() }
+func (s *span) GetSpanID() trace.HexBytes8 { return s.bundle.Trace.GetSpanID() }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
@@ -467,14 +350,9 @@ func (l *line) Msg(m string) {
 		'}',
 		'\n',
 	})
-	if l.span.logger.perRequestBufferLimit != 0 {
-		l.span.request.completedLines <- l
-	} else {
-		_, err := l.span.writer.Write(l.B)
-		if err != nil {
-			l.span.request.errorFunc(err)
-		}
-		l.reclaimMemory()
+	err := l.span.writer.Line(l)
+	if err != nil {
+		l.span.request.errorFunc(err)
 	}
 }
 
@@ -482,14 +360,19 @@ func (l *line) Static(m string) {
 	l.Msg(m)
 }
 
-func (b *builder) reclaimMemory() {
+func (b *builder) ReclaimMemory() {
 	if len(b.B) > maxBufferToKeep {
 		return
 	}
 	b.span.request.logger.builderPool.Put(b)
 }
 
-func (l *line) reclaimMemory() {
+func (b *builder) AsBytes() []byte         { return b.B }
+func (l *line) GetSpanID() trace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
+func (l *line) GetLevel() xopnum.Level     { return l.level }
+func (l *line) GetTime() time.Time         { return l.timestamp }
+
+func (l *line) ReclaimMemory() {
 	if len(l.B) > maxBufferToKeep {
 		return
 	}
@@ -505,11 +388,10 @@ func (l *line) Template(m string) {
 	l.AddString(m)
 	// {
 	l.AppendBytes([]byte{'}', '\n'})
-	_, err := l.span.writer.Write(l.B)
+	err := l.span.writer.Line(l)
 	if err != nil {
 		l.span.request.errorFunc(err)
 	}
-	l.reclaimMemory()
 }
 
 func (b *builder) startAttributes() {

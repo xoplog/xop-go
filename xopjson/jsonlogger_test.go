@@ -118,22 +118,9 @@ func TestParameters(t *testing.T) {
 		extraFlushes int
 	}{
 		{
-			name: "buffered",
-			joptions: []xopjson.Option{
-				xopjson.WithSpanStarts(true),
-				xopjson.WithBufferedLines(8 * 1024 * 1024),
-				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-			},
-			checkConfig: checkConfig{
-				minVersions:         2,
-				hasAttributesObject: true,
-			},
-		},
-		{
 			name: "unbuffered/no-attributes",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(true),
-				xopjson.WithBufferedLines(8 * 1024 * 1024),
 				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 				xopjson.WithAttributesObject(false),
 			},
@@ -170,7 +157,6 @@ func TestParameters(t *testing.T) {
 					joptions := []xopjson.Option{
 						xopjson.WithDuration("dur", xopjson.AsNanos),
 						xopjson.WithSpanStarts(true),
-						xopjson.WithBufferedLines(8 * 1024 * 1024),
 						xopjson.WithAttributesObject(true),
 					}
 					joptions = append(joptions, tc.joptions...)
