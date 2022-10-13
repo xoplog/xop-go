@@ -1,0 +1,28 @@
+//go:build go1.18
+
+type MakeEnum[T any] struct {
+	Key          string // the attribute name
+	Description  string // the attribute description
+	Namespace    string // the namespace for this attribute (otherwise DefaultNamespace is used)
+	Indexed      bool   // hint: this attribute should be indexed
+	Prominence   int    // hint: how important is this attribute (lower is more important)
+	Multiple     bool   // keep all values if the attribute is given multiple times
+	Distinct     bool   // when keeping all values, only keep distinct values (not supported for interface{})
+	Ranged       bool   // hint: comparisons between values are meaningful (eg: time, integers)
+	Locked       bool   // only keep the first value
+	String	func(T) string
+	Int	func(T) int64
+}
+
+func (s MakeEnum[T]) Attribute() *EnumAttribute {
+	m := Make{
+		Key: s.Key,
+		Description: s.Description,
+		Namespace: s.Namespace,
+		Indexed: s.Indexed,
+		Prominence: s.Prominence,
+		Multiple: s.Multiple,
+		Distinct: s.Distinct,
+		Ranged: s.Ranged,
+	}
+}
