@@ -17,3 +17,4 @@ func (s *State) SetString(h string) { s.asString = h }
 func (s State) IsZero() bool        { return s.asString == "" }
 func (s State) String() string      { return s.asString }
 func (s State) Copy() State         { return s }
+func (s State) Bytes() []byte       { return []byte(s.asString) } // TODO: improve performance

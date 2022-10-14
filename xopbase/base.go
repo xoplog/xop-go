@@ -99,7 +99,7 @@ type Span interface {
 	// ID must return the same string as the Logger it came from
 	ID() string
 
-	// TODO: Guage()
+	// TODO: Gauge()
 	// TODO: Event()
 
 	NoPrefill() Prefilled
@@ -109,7 +109,7 @@ type Span interface {
 	// Done is called when (1) log.Done is called on the log corresponding
 	// to this span; (2) log.Done is called on a parent log of the log
 	// corresponding to this span, and the log is not Detach()ed; or
-	// (3) preceeding Flush() if there has been logging activity since the
+	// (3) preceding Flush() if there has been logging activity since the
 	// last call to Flush(), Done(), or the start of the span.
 	//
 	// final is true when the log is done, it is false when Done is called

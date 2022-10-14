@@ -55,11 +55,11 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle trace.Bund
 	request := &request{
 		span: span{
 			logger:    logger,
-			writer:    logger.writer.Request(bundle),
 			bundle:    bundle,
 			name:      name,
 			startTime: ts,
 			endTime:   ts.UnixNano(),
+			isRequest: true,
 		},
 	}
 	if logger.tagOption&TraceNumberTagOption != 0 {
@@ -68,6 +68,7 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle trace.Bund
 	request.attributes.Init(&request.span)
 	request.request = request
 	request.span.setSpanIDPrefill()
+	request.writer = logger.writer.Request(request)
 
 	if logger.spanStarts {
 		rq := request.span.builder()
@@ -115,6 +116,8 @@ func (r *request) Final() {
 }
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
+func (r *request) GetErrorCount() int32                  { return atomic.LoadInt32(&r.errorCount) }
+func (r *request) GetAlertCount() int32                  { return atomic.LoadInt32(&r.alertCount) }
 
 func (s *span) Span(_ context.Context, ts time.Time, bundle trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &span{
@@ -217,9 +220,12 @@ func (s *span) Done(t time.Time, _ bool) {
 	s.flushAttributes()
 }
 
-func (s *span) Boring(bool)                {}
-func (s *span) ID() string                 { return s.logger.id.String() }
-func (s *span) GetSpanID() trace.HexBytes8 { return s.bundle.Trace.GetSpanID() }
+func (s *span) Boring(bool)             {}
+func (s *span) ID() string              { return s.logger.id.String() }
+func (s *span) GetBundle() trace.Bundle { return s.bundle }
+func (s *span) GetStartTime() time.Time { return s.startTime }
+func (s *span) GetEndTimeNano() int64   { return s.endTime }
+func (s *span) IsRequest() bool         { return s.isRequest }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
@@ -278,6 +284,13 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 
 func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
 	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
+	if level >= xopnum.ErrorLevel {
+		if level >= xopnum.AlertLevel {
+			_ = atomic.AddInt32(&p.span.request.alertCount, 1)
+		} else {
+			_ = atomic.AddInt32(&p.span.request.errorCount, 1)
+		}
+	}
 	var l *line
 	lRaw := p.span.request.logger.linePool.Get()
 	if lRaw != nil {
@@ -514,15 +527,45 @@ func (b *builder) AddDuration(v time.Duration) {
 	}
 }
 
-func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{})  { s.attributes.MetadataAny(k, v) }
-func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool)       { s.attributes.MetadataBool(k, v) }
-func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) { s.attributes.MetadataEnum(k, v) }
+func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+	s.attributes.MetadataAny(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
+
+func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+	s.attributes.MetadataBool(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
+
+func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	s.attributes.MetadataEnum(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+	s.logger.writer.DefineEnum(k, v)
+}
+
 func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	s.attributes.MetadataFloat64(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
 }
-func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64)     { s.attributes.MetadataInt64(k, v) }
-func (s *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) { s.attributes.MetadataLink(k, v) }
-func (s *span) MetadataString(k *xopat.StringAttribute, v string)  { s.attributes.MetadataString(k, v) }
-func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time)   { s.attributes.MetadataTime(k, v) }
+
+func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+	s.attributes.MetadataInt64(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
+
+func (s *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+	s.attributes.MetadataLink(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
+
+func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
+	s.attributes.MetadataString(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
+
+func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+	s.attributes.MetadataTime(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
 
 // end

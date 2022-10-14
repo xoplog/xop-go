@@ -3,7 +3,6 @@ package xopbytes
 import (
 	"io"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 )
 
@@ -22,7 +21,7 @@ func WriteToIOWriter(w io.Writer) BytesWriter {
 func (iow IOWriter) Buffered() bool                               { return false }
 func (iow IOWriter) Flush() error                                 { return nil }
 func (iow IOWriter) ReclaimMemory()                               {}
-func (iow IOWriter) Request(trace.Bundle) BytesRequest            { return iow }
+func (iow IOWriter) Request(_ Request) BytesRequest               { return iow }
 func (iow IOWriter) DefineEnum(*xopat.EnumAttribute, xopat.Enum)  {}
 func (iow IOWriter) DefineAttribute(*xopat.Attribute)             {}
 func (iow IOWriter) AttributeReferenced(_ *xopat.Attribute) error { return nil }

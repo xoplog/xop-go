@@ -10,7 +10,7 @@ import (
 )
 
 type BytesWriter interface {
-	Request(span trace.Bundle) BytesRequest
+	Request(request Request) BytesRequest
 	Buffered() bool
 	Close()                                      // no point in returning an error
 	DefineAttribute(*xopat.Attribute)            // duplicate calls should be ignored
@@ -27,7 +27,7 @@ type BytesRequest interface {
 
 type Buffer interface {
 	AsBytes() []byte
-	ReclaimMemory()
+	ReclaimMemory() // call ReclaimMemory after the output of AsBytes() is copied.
 }
 
 type Line interface {
@@ -37,6 +37,15 @@ type Line interface {
 	GetTime() time.Time
 }
 
+type Request interface {
+	Span
+	GetErrorCount() int32
+	GetAlertCount() int32
+}
+
 type Span interface {
-	GetSpanID() trace.HexBytes8
+	GetBundle() trace.Bundle
+	GetStartTime() time.Time
+	GetEndTimeNano() int64
+	IsRequest() bool
 }

@@ -5,10 +5,11 @@ GOBIN ?= ${GOPATH}/bin
 
 ZZZGO = $(wildcard *.zzzgo */*.zzzgo */*/*.zzzgo)
 ZZZGENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
+PB = xopproto/ingest.pb.go xopproto/ingest_grpc.pb.go
 TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports ${GOBIN}/enumer
 TEST_ONLY =?
 
-all:	$(ZZZGENERATED) .gitattributes
+all:	$(ZZZGENERATED) $(PB) .gitattributes
 	go generate ./...
 	go build ./...
 
@@ -93,3 +94,12 @@ OTEL_TAG="v1.12.0"
 
 otel-generate: ../opentelemetry-specification ../opentelemetry-go
 	cd ../opentelemetry-specification && git pull && git checkout tags/$(OTEL_TAG)
+
+../xopproto/ingest.proto:
+	cd ..; git clone https://github.com/xoplog/xopproto.git
+
+xopproto/ingest.proto: ../xopproto/ingest.proto 
+	ln -sf ../../xopproto/ingest.proto xopproto/
+
+$(PB): xopproto/ingest.proto
+	cd xopproto && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative ingest.proto
