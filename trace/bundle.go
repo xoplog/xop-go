@@ -22,3 +22,10 @@ func (b Bundle) Copy() Bundle {
 		Baggage: b.Baggage.Copy(),
 	}
 }
+
+// ParentTraceIsDifferent returns true if the Parent.TraceID is set
+// and it's different from Trace.TraceID
+func (b Bundle) ParentTraceIsDifferent() bool {
+	return !b.Parent.traceID.IsZero() &&
+		b.Parent.traceID.b != b.Trace.traceID.b
+}

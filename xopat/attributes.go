@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xopproto"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 // Attribute is the base type for the keys that are used to add
@@ -29,6 +32,8 @@ type Attribute struct {
 	typeName     string
 	subType      AttributeType
 	names        sync.Map // key:int64 values:string used for enums
+	defSize      int32
+	semver       *semver.Version
 }
 
 // DefaultNamespace sets the namespace for attribute names
@@ -46,7 +51,8 @@ var DefaultNamespace = os.Args[0]
 type Make struct {
 	Key         string // the attribute name
 	Description string // the attribute description
-	Namespace   string // the namespace for this attribute (otherwise DefaultNamespace is used)
+	Namespace   string // Namespace for this attribute (otherwise DefaultNamespace is used)
+	Version     string // Namespace version. Not key version. Overrides default version of "0.0.0"
 	Indexed     bool   // hint: this attribute should be indexed
 	Prominence  int    // hint: how important is this attribute (lower is more important)
 	Multiple    bool   // keep all values if the attribute is given multiple times
@@ -151,10 +157,20 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 	if s.Namespace == "" {
 		s.Namespace = DefaultNamespace
 	}
+
 	jsonKey, err := json.Marshal(s.Key)
 	if err != nil {
 		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
 	}
+
+	if s.Version == "" {
+		s.Version = "0.0.0"
+	}
+	sver, err := semver.StrictNewVersion(s.Version)
+	if err != nil {
+		return Attribute{}, fmt.Errorf("semver '%s' is not valid: %w", s.Version, err)
+	}
+
 	ra := Attribute{
 		properties:   s,
 		exampleValue: exampleValue,
@@ -162,6 +178,8 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 		typeName:     fmt.Sprintf("%T", exampleValue),
 		subType:      subType,
 		jsonKey:      string(jsonKey) + ":",
+		defSize:      int32(len(s.Namespace) + len(s.Key) + len(s.Description) + len(s.Version)),
+		semver:       sver,
 	}
 	registeredNames[s.Key] = &ra
 	allAttributes = append(allAttributes, &ra)
@@ -180,20 +198,24 @@ func (r Attribute) JSONKey() JSONKey { return JSONKey(r.jsonKey) }
 // ReflectType can be nil if the example value was nil
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
 
-func (r Attribute) Key() string               { return r.properties.Key }
-func (r Attribute) Description() string       { return r.properties.Description }
-func (r Attribute) Namespace() string         { return r.properties.Namespace }
-func (r Attribute) Indexed() bool             { return r.properties.Indexed }
-func (r Attribute) Multiple() bool            { return r.properties.Multiple }
-func (r Attribute) Ranged() bool              { return r.properties.Ranged }
-func (r Attribute) Locked() bool              { return r.properties.Locked }
-func (r Attribute) Distinct() bool            { return r.properties.Distinct }
-func (r Attribute) Prominence() int           { return r.properties.Prominence }
-func (r Attribute) RegistrationNumber() int   { return r.number }
-func (r Attribute) ExampleValue() interface{} { return r.exampleValue }
-func (r Attribute) TypeName() string          { return r.typeName }
-func (r Attribute) SubType() AttributeType    { return r.subType }
-func (r *Attribute) Ptr() *Attribute          { return r }
+func (r Attribute) Key() string                       { return r.properties.Key }
+func (r Attribute) Description() string               { return r.properties.Description }
+func (r Attribute) Namespace() string                 { return r.properties.Namespace }
+func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
+func (r Attribute) Multiple() bool                    { return r.properties.Multiple }
+func (r Attribute) Ranged() bool                      { return r.properties.Ranged }
+func (r Attribute) Locked() bool                      { return r.properties.Locked }
+func (r Attribute) Distinct() bool                    { return r.properties.Distinct }
+func (r Attribute) Prominence() int                   { return r.properties.Prominence }
+func (r Attribute) RegistrationNumber() int           { return r.number }
+func (r Attribute) ExampleValue() interface{}         { return r.exampleValue }
+func (r Attribute) TypeName() string                  { return r.typeName }
+func (r Attribute) SubType() AttributeType            { return r.subType }
+func (r Attribute) ProtoType() xopproto.AttributeType { return xopproto.AttributeType(r.subType) }
+func (r Attribute) DefinitionSize() int32             { return r.defSize }
+func (r Attribute) Semver() *semver.Version           { return r.semver }
+func (r Attribute) SemverString() string              { return r.properties.Version }
+func (r *Attribute) Ptr() *Attribute                  { return r }
 
 // EnumName only provides non-empty answers when SubType() == AttributeTypeEnum
 func (r Attribute) EnumName(v int64) string {
@@ -246,21 +268,21 @@ func (s Make) TryInt8Attribute() (_ *Int8Attribute, err error) {
 type AttributeType int
 
 const (
-	AttributeTypeUnknown AttributeType = iota
-	AttributeTypeAny
-	AttributeTypeBool
-	AttributeTypeDuration
-	AttributeTypeEnum
-	AttributeTypeFloat32
-	AttributeTypeFloat64
-	AttributeTypeInt
-	AttributeTypeInt16
-	AttributeTypeInt32
-	AttributeTypeInt64
-	AttributeTypeInt8
-	AttributeTypeLink
-	AttributeTypeString
-	AttributeTypeTime
+	AttributeTypeUnknown  = AttributeType(xopproto.AttributeType_Unknown)
+	AttributeTypeAny      = AttributeType(xopproto.AttributeType_Any)
+	AttributeTypeBool     = AttributeType(xopproto.AttributeType_Bool)
+	AttributeTypeDuration = AttributeType(xopproto.AttributeType_Duration)
+	AttributeTypeEnum     = AttributeType(xopproto.AttributeType_Enum)
+	AttributeTypeFloat32  = AttributeType(xopproto.AttributeType_Float32)
+	AttributeTypeFloat64  = AttributeType(xopproto.AttributeType_Float64)
+	AttributeTypeInt      = AttributeType(xopproto.AttributeType_Int)
+	AttributeTypeInt16    = AttributeType(xopproto.AttributeType_Int16)
+	AttributeTypeInt32    = AttributeType(xopproto.AttributeType_Int32)
+	AttributeTypeInt64    = AttributeType(xopproto.AttributeType_Int64)
+	AttributeTypeInt8     = AttributeType(xopproto.AttributeType_Int8)
+	AttributeTypeLink     = AttributeType(xopproto.AttributeType_Link)
+	AttributeTypeString   = AttributeType(xopproto.AttributeType_String)
+	AttributeTypeTime     = AttributeType(xopproto.AttributeType_Time)
 )
 
 // DurationAttribute is a just an Int64Attribute that with

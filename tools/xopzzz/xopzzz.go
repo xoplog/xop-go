@@ -23,6 +23,9 @@ var macros = map[string]map[string]string{
 	// ZZZAttribute are the span-attributes in the main logger.  These
 	// turn into Span methods like Span.BoolAttribute() and a corresponding
 	// xopat.BoolAttribute type.
+	//
+	// Also change ../xopproto/ingest.proto when changing these
+	//
 	"ZZZAttribute": {
 		"Bool":     "bool",
 		"Float64":  "float64",

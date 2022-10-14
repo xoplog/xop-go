@@ -1,6 +1,10 @@
 
 # Just do it (build ready)
 
+- improve performance of xopup
+
+  - replace locks with atomics
+
 - sampling can be based on Boring() in which case the flags need to
   change before the "traceresponse" is set.  That means top logger
   must know if base loggers honored the boring.  Change xopbase.Boring
@@ -164,6 +168,8 @@
     copies of the original.  One that is redacted and one that is not?
 
 # Ideas to ponder
+
+- use [goccy json](https://github.com/goccy/go-json#benchmarks)?
 
 - could we drop xopbase.Logger.ID() in favor of using pointers?   or change ID sequential integers?  Add Name()?
 

@@ -1,5 +1,6 @@
 # xop - Golang structured log generation combined with tracing (Cross Obserability Platform)
 
+[![Stability: Experimental](https://masterminds.github.io/stability/experimental.svg)](https://masterminds.github.io/stability/experimental.html)
 [![GoDoc](https://godoc.org/github.com/xoplog/xop-go?status.png)](https://pkg.go.dev/github.com/xoplog/xop-go)
 ![unit tests](https://github.com/xoplog/xop-go/actions/workflows/go.yml/badge.svg)
 [![report card](https://goreportcard.com/badge/github.com/xoplog/xop-go)](https://goreportcard.com/report/github.com/xoplog/xop-go)

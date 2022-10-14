@@ -23,7 +23,7 @@ var _ xopbase.Prefilled = &prefilled{}
 var _ xopbytes.Buffer = &builder{}
 var _ xopbytes.Line = &line{}
 var _ xopbytes.Span = &span{}
-var _ xopbytes.Span = &request{}
+var _ xopbytes.Request = &request{}
 
 type Option func(*Logger, *xoputil.Prealloc)
 
@@ -64,9 +64,11 @@ type Logger struct {
 }
 
 type request struct {
+	errorCount int32
 	span
-	errorFunc func(error)
-	idNum     int64
+	errorFunc  func(error)
+	idNum      int64
+	alertCount int32
 }
 
 type span struct {
@@ -82,6 +84,7 @@ type span struct {
 	sequenceCode       string
 	spanIDBuffer       [len(`"trace.header":`) + 55 + 2]byte
 	spanIDPrebuilt     xoputil.JBuilder
+	isRequest          bool
 }
 
 type prefilling struct {

@@ -20,3 +20,4 @@ func (b *Baggage) SetString(h string) { b.asString = h }
 func (b Baggage) IsZero() bool        { return b.asString == "" }
 func (b Baggage) String() string      { return b.asString }
 func (b Baggage) Copy() Baggage       { return b }
+func (b Baggage) Bytes() []byte       { return []byte(b.asString) } // TODO: improve performance
