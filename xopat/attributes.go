@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"sync"
 	"time"
 
@@ -24,6 +25,8 @@ import (
 //	func (span *Span) String(k *xopconst.StringAttribute, v string) *Span
 //
 type Attribute struct {
+	namespace    string
+	version      string
 	properties   Make
 	number       int
 	jsonKey      string
@@ -48,11 +51,13 @@ var DefaultNamespace = os.Args[0]
 // Make is used to construct attributes.
 // Some keys are reserved.  See https://github.com/xoplog/xop-go/blob/main/xopconst/reserved.go
 // for the list of reserved keys.  Some keys are already registered.
+//
+// The Namespace can embed a semver version: eg: "oltp-1.3.7".  If no version is
+// provided, 0.0.0 is assumed.
 type Make struct {
 	Key         string // the attribute name
 	Description string // the attribute description
-	Namespace   string // Namespace for this attribute (otherwise DefaultNamespace is used)
-	Version     string // Namespace version. Not key version. Overrides default version of "0.0.0"
+	Namespace   string // Versioned namespace for this attribute (otherwise DefaultNamespace is used) name-0.0.0 if no version provided
 	Indexed     bool   // hint: this attribute should be indexed
 	Prominence  int    // hint: how important is this attribute (lower is more important)
 	Multiple    bool   // keep all values if the attribute is given multiple times
@@ -144,6 +149,8 @@ func (s Make) attribute(exampleValue interface{}, ep *error, subType AttributeTy
 	return a
 }
 
+var namespaceVersionRE = regexp.MustCompile(`^(.+)-([0-9].+)$`)
+
 func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, error) {
 	lock.Lock()
 	defer lock.Unlock()
@@ -154,8 +161,9 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 		return Attribute{}, fmt.Errorf("key is reserved for internal use '%s'", s.Key)
 	}
 
-	if s.Namespace == "" {
-		s.Namespace = DefaultNamespace
+	namespace := s.Namespace
+	if namespace == "" {
+		namespace = DefaultNamespace
 	}
 
 	jsonKey, err := json.Marshal(s.Key)
@@ -163,22 +171,30 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
 	}
 
-	if s.Version == "" {
-		s.Version = "0.0.0"
+	var version string
+
+	if m := namespaceVersionRE.FindStringSubmatch(namespace); m != nil {
+		namespace = m[1]
+		version = m[2]
+	} else {
+		version = "0.0.0"
 	}
-	sver, err := semver.StrictNewVersion(s.Version)
+
+	sver, err := semver.StrictNewVersion(version)
 	if err != nil {
-		return Attribute{}, fmt.Errorf("semver '%s' is not valid: %w", s.Version, err)
+		return Attribute{}, fmt.Errorf("semver '%s' is not valid: %w", version, err)
 	}
 
 	ra := Attribute{
+		namespace:    namespace,
+		version:      version,
 		properties:   s,
 		exampleValue: exampleValue,
 		reflectType:  reflect.TypeOf(exampleValue),
 		typeName:     fmt.Sprintf("%T", exampleValue),
 		subType:      subType,
 		jsonKey:      string(jsonKey) + ":",
-		defSize:      int32(len(s.Namespace) + len(s.Key) + len(s.Description) + len(s.Version)),
+		defSize:      int32(len(namespace) + len(s.Key) + len(s.Description) + len(version)),
 		semver:       sver,
 	}
 	registeredNames[s.Key] = &ra
@@ -200,7 +216,7 @@ func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
 
 func (r Attribute) Key() string                       { return r.properties.Key }
 func (r Attribute) Description() string               { return r.properties.Description }
-func (r Attribute) Namespace() string                 { return r.properties.Namespace }
+func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
 func (r Attribute) Multiple() bool                    { return r.properties.Multiple }
 func (r Attribute) Ranged() bool                      { return r.properties.Ranged }
@@ -214,7 +230,7 @@ func (r Attribute) SubType() AttributeType            { return r.subType }
 func (r Attribute) ProtoType() xopproto.AttributeType { return xopproto.AttributeType(r.subType) }
 func (r Attribute) DefinitionSize() int32             { return r.defSize }
 func (r Attribute) Semver() *semver.Version           { return r.semver }
-func (r Attribute) SemverString() string              { return r.properties.Version }
+func (r Attribute) SemverString() string              { return r.version }
 func (r *Attribute) Ptr() *Attribute                  { return r }
 
 // EnumName only provides non-empty answers when SubType() == AttributeTypeEnum
