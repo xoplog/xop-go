@@ -197,6 +197,8 @@ func (u *Uploader) DefineEnum(a *xopat.EnumAttribute, e xopat.Enum) {
 	if _, ok := u.enumsDefined[enumKey]; ok {
 		return
 	}
+
+	u.enumsDefined[enumKey] = struct{}{}
 	enum := xopproto.EnumDefinition{
 		AttributeKey:    a.Key(),
 		Namespace:       a.Namespace(),
