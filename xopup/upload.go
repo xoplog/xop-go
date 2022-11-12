@@ -283,7 +283,6 @@ func (u *Uploader) flush() error {
 		Source:   &u.source,
 		Fragment: u.fragment,
 	}
-	// TODO: use the streaming proto instead
 	pbErr, err := client.UploadFragment(u.ctx, frag)
 	if err != nil {
 		return err
