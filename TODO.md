@@ -222,6 +222,12 @@
   - Elastic
   - [zinc](https://github.com/zinclabs/zinc)
 
+- Buffer logs to be included or destroyed depending on if a later event
+  is logged at higher priority
+
+  - See https://github.com/golang/go/discussions/54763#discussioncomment-4119965
+  - Maybe span level where the span is discarded if no event is >= level?
+
 # Not build ready 
 
 - benchmarking

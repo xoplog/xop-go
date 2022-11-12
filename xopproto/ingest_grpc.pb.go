@@ -24,8 +24,6 @@ const _ = grpc.SupportPackageIsVersion7
 type IngestClient interface {
 	Ping(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 	UploadFragment(ctx context.Context, in *IngestFragment, opts ...grpc.CallOption) (*Error, error)
-	PrepareToStream(ctx context.Context, in *SourceIdentity, opts ...grpc.CallOption) (*ReadyToStream, error)
-	Stream(ctx context.Context, opts ...grpc.CallOption) (Ingest_StreamClient, error)
 }
 
 type ingestClient struct {
@@ -54,54 +52,12 @@ func (c *ingestClient) UploadFragment(ctx context.Context, in *IngestFragment, o
 	return out, nil
 }
 
-func (c *ingestClient) PrepareToStream(ctx context.Context, in *SourceIdentity, opts ...grpc.CallOption) (*ReadyToStream, error) {
-	out := new(ReadyToStream)
-	err := c.cc.Invoke(ctx, "/Ingest/PrepareToStream", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *ingestClient) Stream(ctx context.Context, opts ...grpc.CallOption) (Ingest_StreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Ingest_ServiceDesc.Streams[0], "/Ingest/Stream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &ingestStreamClient{stream}
-	return x, nil
-}
-
-type Ingest_StreamClient interface {
-	Send(*FragmentInStream) error
-	Recv() (*FragmentAck, error)
-	grpc.ClientStream
-}
-
-type ingestStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *ingestStreamClient) Send(m *FragmentInStream) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *ingestStreamClient) Recv() (*FragmentAck, error) {
-	m := new(FragmentAck)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // IngestServer is the server API for Ingest service.
 // All implementations must embed UnimplementedIngestServer
 // for forward compatibility
 type IngestServer interface {
 	Ping(context.Context, *Empty) (*Empty, error)
 	UploadFragment(context.Context, *IngestFragment) (*Error, error)
-	PrepareToStream(context.Context, *SourceIdentity) (*ReadyToStream, error)
-	Stream(Ingest_StreamServer) error
 	mustEmbedUnimplementedIngestServer()
 }
 
@@ -114,12 +70,6 @@ func (UnimplementedIngestServer) Ping(context.Context, *Empty) (*Empty, error) {
 }
 func (UnimplementedIngestServer) UploadFragment(context.Context, *IngestFragment) (*Error, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadFragment not implemented")
-}
-func (UnimplementedIngestServer) PrepareToStream(context.Context, *SourceIdentity) (*ReadyToStream, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PrepareToStream not implemented")
-}
-func (UnimplementedIngestServer) Stream(Ingest_StreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
 }
 func (UnimplementedIngestServer) mustEmbedUnimplementedIngestServer() {}
 
@@ -170,50 +120,6 @@ func _Ingest_UploadFragment_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Ingest_PrepareToStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SourceIdentity)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(IngestServer).PrepareToStream(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Ingest/PrepareToStream",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IngestServer).PrepareToStream(ctx, req.(*SourceIdentity))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Ingest_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(IngestServer).Stream(&ingestStreamServer{stream})
-}
-
-type Ingest_StreamServer interface {
-	Send(*FragmentAck) error
-	Recv() (*FragmentInStream, error)
-	grpc.ServerStream
-}
-
-type ingestStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *ingestStreamServer) Send(m *FragmentAck) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *ingestStreamServer) Recv() (*FragmentInStream, error) {
-	m := new(FragmentInStream)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // Ingest_ServiceDesc is the grpc.ServiceDesc for Ingest service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -229,18 +135,7 @@ var Ingest_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "UploadFragment",
 			Handler:    _Ingest_UploadFragment_Handler,
 		},
-		{
-			MethodName: "PrepareToStream",
-			Handler:    _Ingest_PrepareToStream_Handler,
-		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Stream",
-			Handler:       _Ingest_Stream_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "ingest.proto",
 }
