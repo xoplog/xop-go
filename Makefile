@@ -68,6 +68,8 @@ calculate_coverage:
 	  grep -v ^mode profile.out >> coverage.txt; \
 	  rm profile.out; \
 	fi
+	grep -v '\.pb.go$$' coverage.txt > coverage.txt.tmp
+	mv coverage.txt.tmp coverage.txt
 
 coverage: calculate_coverage
 	go tool cover -html=coverage.txt
