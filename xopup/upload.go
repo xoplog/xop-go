@@ -10,6 +10,7 @@ import (
 	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbytes"
+	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xopproto"
 
 	"github.com/google/uuid"
@@ -86,8 +87,24 @@ type enumKey struct {
 	value int64
 }
 
-// New is lazy: no connection is opened until there is data to send.
-func (c Config) New(ctx context.Context) *Uploader {
+type UploadLogger struct {
+	*xopjson.Logger
+	Uploader *Uploader
+}
+
+func New(ctx context.Context, config Config) UploadLogger {
+	uploader := newUploader(ctx, config)
+	jsonLogger := xopjson.New(uploader,
+		xopjson.WithAttributesObject(true),
+	)
+	return UploadLogger{
+		Uploader: uploader,
+		Logger:   jsonLogger,
+	}
+}
+
+// newUploader is lazy: no connection is opened until there is data to send.
+func newUploader(ctx context.Context, c Config) *Uploader {
 	u := uuid.New()
 	return &Uploader{
 		ctx:    ctx,
@@ -337,8 +354,7 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 	return fragment.Traces[traceIndex].Requests[requestIndex], size
 }
 
-// XXX
-func (r *Request) AttributeReferenced(*xopat.Attribute) error { return nil }
+func (r *Request) AttributeReferenced(*xopat.Attribute) error { return nil } // TODO
 
 func pointerToInt64OrNil(i int64) *int64 {
 	if i == 0 {
