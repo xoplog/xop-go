@@ -98,5 +98,87 @@ func TestUpload(t *testing.T) {
 }
 
 func verify(t *testing.T, tlog *xoptest.TestLogger, server *Server) {
-	fragments := server.getFragments()
+	fragments := combineFragments(server.getFragments())
+
+}
+
+type OrderedTrace struct {
+	xopproto.Trace
+	RequestMap map[[8]byte]*OrderedRequest
+}
+
+type OrderedRequest struct {
+	xopproto.Request
+	SpanMap map[[8]byte]int
+}
+
+// combineFragments creates a new fragment that represents the combination of
+// multiple fragments.  It is assumbed tht all the fragments come from the same
+// source.
+func combineFragments(fragments []*xopproto.IngestFragment) *xopproto.IngestFragment {
+	traceMap := make(map[[16]byte]*ReorderedTrace)
+	var allTraces []*ReorderedTrace
+	for _, fragment := range fragments {
+		for _, trace := range fragment.Traces {
+			var traceID [16]byte
+			copy(traceID[:], trace.TraceID)
+			ot, ok := traceMap[traceID]
+			if !ok {
+				ot = &OrderedTrace{
+					Trace:      *trace,
+					RequestMap: make(map[[8]byte]*OrderedRequest),
+				}
+				traceMap[traceID] = ot
+				allTraces = append(allTraces, trace)
+			}
+			for _, request := range trace.Requests {
+				var requestID [8]byte
+				copy(requestID[:], request.RequestID)
+				combinedRequests, ok := ot.RequestMap[requestID]
+				if !ok {
+					if request.PriorLinesInRequest != 0 {
+						newLines := make([]*xopproto.Line, len(request.Lines)+request.PriorLinesInRequest)
+						copy(newLines[request.PriorLinesInRequest:], request.Lines)
+						request.Lines = newLines
+					}
+					or := &OrderedRequest{
+						Request: *request,
+						SpanMap: make(map[[8]byte]*xopproto.Span),
+					}
+					for i, span := range request.Span {
+						var spanID [8]byte
+						copy(spanID[:], span.SpanID)
+						spanMap[spanID] = i
+					}
+					ot.RequestMap[requestID] = or
+					continue
+				}
+				if request.PriorLinesInRequest+len(request.Lines) < len(combinedRequests.Lines) {
+					newLines := make([]*xopproto.Line, len(request.Lines)+request.PriorLinesInRequest)
+					copy(newLines, combinedRequests.Lines)
+					copy(newLines[request.PriorLinesInRequest:], request.Lines)
+					combinedRequests.Lines = newLines
+				}
+				for _, span := range request.Spans {
+					var spanID [8]byte
+					copy(spanID[:], span.SpanID)
+					if existingIndex, ok := combinedRequests.spanMap[spanID]; ok {
+						existing := combinedRequests.Spans[existingIndex]
+						if span.Version > existing.Version {
+							combinedRequests.Spans[existingIndex] = span
+						}
+					} else {
+						combinedRequests.spamMap[spanID] = len(combinedRequests.Spans)
+						combinedRequests.Spans = append(combinedRequests.Spans, span)
+					}
+				}
+			}
+		}
+	}
+	combined := &xopproto.IngestFragment{
+		Source: fragments[0].Source,
+	}
+	for _, trace := range allTraces {
+		combined.Traces = append(combined.Traces, &trace.Trace)
+	}
 }
