@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopproto"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -75,11 +75,11 @@ var (
 // Can't use MACRO for these since default values are needed
 
 func (s Make) LinkAttribute() *LinkAttribute {
-	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, nil, AttributeTypeLink)}
+	return &LinkAttribute{Attribute: s.attribute(xoptrace.Trace{}, nil, AttributeTypeLink)}
 }
 
 func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
-	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err, AttributeTypeLink)}, err
+	return &LinkAttribute{Attribute: s.attribute(xoptrace.Trace{}, &err, AttributeTypeLink)}, err
 }
 
 func (s Make) StringAttribute() *StringAttribute {
@@ -347,7 +347,7 @@ type Float64Attribute struct{ Attribute }
 type Int64Attribute struct{ Attribute }
 
 // LinkAttribute represents an attribute key that can be used
-// with trace.Trace values.
+// with xoptrace.Trace values.
 type LinkAttribute struct{ Attribute }
 
 // StringAttribute represents an attribute key that can be used

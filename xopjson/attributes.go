@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 )
 
@@ -398,7 +398,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	}
 }
 
-func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true

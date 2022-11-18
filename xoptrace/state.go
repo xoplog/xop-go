@@ -1,4 +1,4 @@
-package trace
+package xoptrace
 
 // State tracks the contents of key/values that are passed
 // through a trace in the "tracestate" header.

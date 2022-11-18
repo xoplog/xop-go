@@ -71,10 +71,10 @@ var allAttributes []*Attribute
 // Can't use MACRO for these since default values are needed
 
 func (s Make) LinkAttribute() *LinkAttribute {
-	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, nil, AttributeTypeLink)}
+	return &LinkAttribute{Attribute: s.attribute(xoptrace.Trace{}, nil, AttributeTypeLink)}
 }
 func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
-	return &LinkAttribute{Attribute: s.attribute(trace.Trace{}, &err, AttributeTypeLink)}, err
+	return &LinkAttribute{Attribute: s.attribute(xoptrace.Trace{}, &err, AttributeTypeLink)}, err
 }
 
 func (s Make) StringAttribute() *StringAttribute {

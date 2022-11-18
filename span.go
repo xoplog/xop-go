@@ -5,8 +5,8 @@ package xop
 import (
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/mohae/deepcopy"
 )
@@ -23,11 +23,11 @@ func (log *Log) Span() *Span {
 	return log.capSpan
 }
 
-func (span *Span) TraceState() trace.State     { return span.seed.traceBundle.State }
-func (span *Span) TraceBaggage() trace.Baggage { return span.seed.traceBundle.Baggage }
-func (span *Span) ParentTrace() trace.Trace    { return span.seed.traceBundle.Parent.Copy() }
-func (span *Span) Trace() trace.Trace          { return span.seed.traceBundle.Trace.Copy() }
-func (span *Span) Bundle() trace.Bundle        { return span.seed.traceBundle.Copy() }
+func (span *Span) TraceState() xoptrace.State     { return span.seed.traceBundle.State }
+func (span *Span) TraceBaggage() xoptrace.Baggage { return span.seed.traceBundle.Baggage }
+func (span *Span) ParentTrace() xoptrace.Trace    { return span.seed.traceBundle.Parent.Copy() }
+func (span *Span) Trace() xoptrace.Trace          { return span.seed.traceBundle.Trace.Copy() }
+func (span *Span) Bundle() xoptrace.Bundle        { return span.seed.traceBundle.Copy() }
 
 func (span *Span) eft() *Span {
 	span.log.hasActivity(true)
@@ -102,9 +102,9 @@ func (span *Span) Float64(k *xopat.Float64Attribute, v float64) *Span {
 	return span.eft()
 }
 
-// Link adds a trace.Trace key/value attribute to the current Span.
+// Link adds a xoptrace.Trace key/value attribute to the current Span.
 // The return value does not need to be used.
-func (span *Span) Link(k *xopat.LinkAttribute, v trace.Trace) *Span {
+func (span *Span) Link(k *xopat.LinkAttribute, v xoptrace.Trace) *Span {
 	span.base.MetadataLink(k, v)
 	return span.eft()
 }

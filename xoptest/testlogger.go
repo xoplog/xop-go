@@ -15,10 +15,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 //go:generate enumer -type=EventType -linecomment -json -sql
@@ -80,7 +80,7 @@ type Span struct {
 	lock         sync.Mutex
 	testLogger   *TestLogger
 	RequestNum   int // sequence of requests with the same traceID
-	Bundle       trace.Bundle
+	Bundle       xoptrace.Bundle
 	IsRequest    bool
 	Parent       *Span
 	Spans        []*Span
@@ -167,7 +167,7 @@ func (log *TestLogger) ReferencesKept() bool { return true }
 func (log *TestLogger) SetErrorReporter(func(error)) {}
 
 // Request is a required method for xopbase.Logger
-func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle trace.Bundle, name string) xopbase.Request {
+func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string) xopbase.Request {
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
@@ -267,7 +267,7 @@ func (span *Span) ID() string { return span.testLogger.id }
 func (span *Span) SetErrorReporter(func(error)) {}
 
 // Span is a required method for xopbase.Span
-func (span *Span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
 	span.lock.Lock()
@@ -454,7 +454,7 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 }
 
 // Link is a required method for xopbase.ObjectParts
-func (b *Builder) Link(k string, v trace.Trace) {
+func (b *Builder) Link(k string, v xoptrace.Trace) {
 	b.Data[k] = v
 	b.DataType[k] = xopbase.LinkDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
@@ -731,7 +731,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 }
 
 // MetadataLink is a required method for xopbase.Span
-func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -749,11 +749,11 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
 			key := value
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
-				seen := make(map[trace.Trace]struct{})
+				seen := make(map[xoptrace.Trace]struct{})
 				s.metadataSeen[k.Key()] = seen
 				seen[key] = struct{}{}
 			} else {
-				seen := seenRaw.(map[trace.Trace]struct{})
+				seen := seenRaw.(map[xoptrace.Trace]struct{})
 				if _, ok := seen[key]; ok {
 					return
 				}

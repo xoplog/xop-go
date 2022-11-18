@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/mohae/deepcopy"
 )
@@ -132,7 +132,7 @@ func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration
 
 // Link adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Link(k string, v trace.Trace) *Line { line.line.Link(k, v); return line }
+func (line *Line) Link(k string, v xoptrace.Trace) *Line { line.line.Link(k, v); return line }
 
 // Time adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.

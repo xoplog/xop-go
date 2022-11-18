@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 // Seed is used to create a Log.
@@ -55,7 +55,7 @@ func (cbs seedReactiveCallbacks) Copy() seedReactiveCallbacks {
 }
 
 type spanSeed struct {
-	traceBundle          trace.Bundle
+	traceBundle          xoptrace.Bundle
 	spanSequenceCode     string
 	description          string
 	loggers              loggers
@@ -82,7 +82,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 	seed := &Seed{
 		spanSeed: spanSeed{
 			config:      DefaultConfig,
-			traceBundle: trace.NewBundle(),
+			traceBundle: xoptrace.NewBundle(),
 		},
 		settings: DefaultSettings,
 	}
@@ -144,7 +144,7 @@ func WithContext(ctx context.Context) SeedModifier {
 	}
 }
 
-func WithBundle(bundle trace.Bundle) SeedModifier {
+func WithBundle(bundle xoptrace.Bundle) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle = bundle
 	}
@@ -157,7 +157,7 @@ func WithSpan(spanID [8]byte) SeedModifier {
 	}
 }
 
-func WithTrace(trace trace.Trace) SeedModifier {
+func WithTrace(trace xoptrace.Trace) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle.Trace = trace
 		s.traceSet = true
@@ -179,7 +179,7 @@ func CombineSeedModifiers(mods ...SeedModifier) SeedModifier {
 	}
 }
 
-func (seed Seed) Bundle() trace.Bundle {
+func (seed Seed) Bundle() xoptrace.Bundle {
 	return seed.traceBundle
 }
 

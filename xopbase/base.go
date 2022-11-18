@@ -15,9 +15,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
@@ -28,7 +28,7 @@ type Logger interface {
 	// being processed.  The provided Context is a pass-through from
 	// the Seed and if the seed does not provide a context, the context
 	// can be nil.
-	Request(ctx context.Context, ts time.Time, span trace.Bundle, description string) Request
+	Request(ctx context.Context, ts time.Time, span xoptrace.Bundle, description string) Request
 
 	// ID returns a unique id for this instance of a logger.  This
 	// is used to prevent duplicate Requets from being created when
@@ -70,7 +70,7 @@ type Request interface {
 
 type Span interface {
 	// Span creates a new Span that should inherit prefil but not data
-	Span(ctx context.Context, ts time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) Span
+	Span(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
 	// MetadataAny adds a key/value pair to describe the span.
 	MetadataAny(*xopat.AnyAttribute, interface{})
@@ -83,7 +83,7 @@ type Span interface {
 	// MetadataInt64 adds a key/value pair to describe the span.
 	MetadataInt64(*xopat.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.
-	MetadataLink(*xopat.LinkAttribute, trace.Trace)
+	MetadataLink(*xopat.LinkAttribute, xoptrace.Trace)
 	// MetadataString adds a key/value pair to describe the span.
 	MetadataString(*xopat.StringAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
@@ -169,7 +169,7 @@ type ObjectParts interface {
 	Any(string, interface{})
 	Bool(string, bool)
 	Duration(string, time.Duration)
-	Link(string, trace.Trace)
+	Link(string, xoptrace.Trace)
 	Time(string, time.Time)
 }
 

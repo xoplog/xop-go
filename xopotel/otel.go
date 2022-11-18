@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
@@ -29,7 +29,7 @@ import (
 // ignored for this span.
 func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
 	span := oteltrace.SpanFromContext(ctx)
-	var xoptrace trace.Trace
+	var xoptrace xoptrace.Trace
 	xoptrace.TraceID().Set(span.SpanContext().TraceID())
 	xoptrace.SpanID().Set(span.SpanContext().SpanID())
 	xoptrace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
@@ -112,7 +112,7 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, _ trace.Bundle, description string) xopbase.Request {
+func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bundle, description string) xopbase.Request {
 	return logger.span(ctx, ts, description, "")
 }
 
@@ -132,7 +132,7 @@ func (span *span) Done(endTime time.Time, final bool) {
 	span.span.End()
 }
 
-func (span *span) Span(ctx context.Context, ts time.Time, bundle trace.Bundle, description string, spanSequenceCode string) xopbase.Span {
+func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
 	return span.logger.span(ctx, ts, description, spanSequenceCode)
 }
 
@@ -311,7 +311,7 @@ func (builder *builder) Duration(k string, v time.Duration) {
 	builder.attributes = append(builder.attributes, attribute.Stringer(k, v))
 }
 
-func (span *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
 		oteltrace.Link{
 			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
@@ -335,7 +335,7 @@ func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
 	}
 }
 
-func (builder *builder) Link(k string, v trace.Trace) {
+func (builder *builder) Link(k string, v xoptrace.Trace) {
 	if builder.linkKey == "" {
 		builder.linkKey = k
 		builder.linkValue = v

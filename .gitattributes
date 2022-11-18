@@ -7,12 +7,12 @@ seed.go linguist-generated
 span.go linguist-generated
 sub.go linguist-generated
 internal/enumer_test.go linguist-generated
-trace/hexbytes.go linguist-generated
 xopat/attributes.go linguist-generated
 xopbase/base.go linguist-generated
 xopjson/attributes.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
 xopotel/otel.go linguist-generated
 xoptest/testlogger.go linguist-generated
+xoptrace/hexbytes.go linguist-generated
 xoputil/skip.go linguist-generated
 xoptest/xoptestutil/enums.go linguist-generated

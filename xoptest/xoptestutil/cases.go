@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -478,8 +478,8 @@ var MessageCases = []struct {
 	{
 		Name: "simulate inbound propagation",
 		SeedMods: []xop.SeedModifier{
-			xop.WithBundle(func() trace.Bundle {
-				var bundle trace.Bundle
+			xop.WithBundle(func() xoptrace.Bundle {
+				var bundle xoptrace.Bundle
 				bundle.Parent.Flags().SetString("01")
 				bundle.Parent.TraceID().SetString("a60a3cc0123a043fee48839c9d52a645")
 				bundle.Parent.SpanID().SetString("c63f9d81e2285f34")

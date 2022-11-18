@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopconst"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/muir/resty"
 	"github.com/pkg/errors"
@@ -58,7 +58,7 @@ var contextNameKey = contextNameType{}
 
 type contextValue struct {
 	b3Sent            bool
-	b3Trace           trace.Trace
+	b3Trace           xoptrace.Trace
 	response          bool
 	log               *xop.Log
 	retryCount        int
@@ -194,7 +194,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 
 			tr := resp.Header().Get("traceresponse")
 			if tr != "" {
-				trace, ok := trace.TraceFromString(tr)
+				trace, ok := xoptrace.TraceFromString(tr)
 				if ok {
 					cv.response = true
 					log.Info().Link(xopconst.RemoteTrace.Key(), trace).Static("traceresponse")

@@ -396,7 +396,7 @@ func init() {
 	xoptestConvert = map[xopbase.DataType]func(interface{}) interface{}{
 		xopbase.LinkDataType: func(generic interface{}) interface{} {
 			return map[string]interface{}{
-				"xop.link": generic.(trace.Trace).String(),
+				"xop.link": generic.(xoptrace.Trace).String(),
 			}
 		},
 		xopbase.LinkArrayDataType: genArrayConvert(xopbase.LinkDataType),

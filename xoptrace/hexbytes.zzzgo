@@ -1,4 +1,4 @@
-package trace
+package xoptrace
 
 import (
 	"bytes"
@@ -26,6 +26,14 @@ var zeroHexZZZ = bytes.Repeat([]byte{'0'}, zzz*2)
 func newZZZ() ZZZ {
 	var x ZZZ
 	copy(x.h[:], zeroHexZZZ)
+	return x
+}
+
+// MACRO HexBytes
+func NewZZZFromSlice(b []byte) ZZZ {
+	var x ZZZ
+	setBytes(x.b[:], b)
+	hex.Encode(x.h[:], x.b[:])
 	return x
 }
 
