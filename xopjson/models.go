@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
@@ -74,7 +74,7 @@ type request struct {
 type span struct {
 	endTime            int64
 	writer             xopbytes.BytesRequest
-	bundle             trace.Bundle
+	bundle             xoptrace.Bundle
 	logger             *Logger
 	name               string
 	request            *request

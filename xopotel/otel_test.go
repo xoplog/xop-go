@@ -428,7 +428,7 @@ func init() {
 			return generic.(time.Duration).String()
 		},
 		xopbase.LinkDataType: func(generic interface{}) interface{} {
-			link := generic.(trace.Trace)
+			link := generic.(xoptrace.Trace)
 			return []string{"link", link.TraceID().String(), link.SpanID().String()}
 		},
 		xopbase.Uint64DataType: func(generic interface{}) interface{} {

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 type (
@@ -35,7 +35,7 @@ var (
 	_ xopbase.Prefilling = prefillings{}
 )
 
-func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span trace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
+func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
 		req := l[0].Request(ctx, ts, span, descriptionOrName)
 		return req, map[string]xopbase.Request{l[0].ID(): req}
@@ -103,7 +103,7 @@ func (s baseRequests) Flush() {
 	wg.Wait()
 }
 
-func (s baseSpans) Span(ctx context.Context, t time.Time, span trace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
+func (s baseSpans) Span(ctx context.Context, t time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
 	baseSpans := make(baseSpans, len(s))
 	for i, ele := range s {
 		baseSpans[i] = ele.Span(ctx, t, span, descriptionOrName, spanSequenceCode)
@@ -207,7 +207,7 @@ func (p prefillings) Duration(k string, v time.Duration) {
 	}
 }
 
-func (p prefillings) Link(k string, v trace.Trace) {
+func (p prefillings) Link(k string, v xoptrace.Trace) {
 	for _, prefilling := range p {
 		prefilling.Link(k, v)
 	}
@@ -261,7 +261,7 @@ func (l lines) Duration(k string, v time.Duration) {
 	}
 }
 
-func (l lines) Link(k string, v trace.Trace) {
+func (l lines) Link(k string, v xoptrace.Trace) {
 	for _, line := range l {
 		line.Link(k, v)
 	}
@@ -327,7 +327,7 @@ func (s baseSpans) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	}
 }
 
-func (s baseSpans) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+func (s baseSpans) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	for _, span := range s {
 		span.MetadataLink(k, v)
 	}

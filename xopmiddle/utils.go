@@ -3,7 +3,7 @@ package xopmiddle
 import (
 	"regexp"
 
-	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 // SetByParentTraceHeader sets bundle.Parent.TraceID and
@@ -12,10 +12,10 @@ import (
 //
 // "traceparent" header
 // Example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
-func SetByParentTraceHeader(b *trace.Bundle, h string) {
-	parent, ok := trace.TraceFromString(h)
+func SetByParentTraceHeader(b *xoptrace.Bundle, h string) {
+	parent, ok := xoptrace.TraceFromString(h)
 	if !ok {
-		b.Trace = trace.NewTrace()
+		b.Trace = xoptrace.NewTrace()
 		b.Trace.TraceID().SetRandom()
 		b.Trace.SpanID().SetRandom()
 		return
@@ -29,10 +29,10 @@ var b3RE = regexp.MustCompile(`^([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-(0|1|true|fa
 
 // https://github.com/openzipkin/b3-propagation
 // b3: traceid-spanid-sampled-parentspanid
-func SetByB3Header(b *trace.Bundle, h string) {
+func SetByB3Header(b *xoptrace.Bundle, h string) {
 	switch h {
 	case "0", "1", "true", "false", "d":
-		b.Parent = trace.NewTrace()
+		b.Parent = xoptrace.NewTrace()
 		SetByB3Sampled(&b.Parent, h)
 		b.Trace = b.Parent
 		b.Trace.TraceID().SetRandom()
@@ -58,7 +58,7 @@ func SetByB3Header(b *trace.Bundle, h string) {
 // the sampled portion of a combined "b3" header
 // Potentially the "d" value could be used to decrease
 // the minimum logging level.
-func SetByB3Sampled(t *trace.Trace, h string) {
+func SetByB3Sampled(t *xoptrace.Trace, h string) {
 	switch h {
 	case "1", "true", "d":
 		t.Flags().SetBytes([]byte{1})

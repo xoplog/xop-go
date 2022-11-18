@@ -1,15 +1,15 @@
-package trace_test
+package xoptrace_test
 
 import (
 	"testing"
 
-	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSetRandom(t *testing.T) {
-	trace := trace.NewTrace()
+	trace := xoptrace.NewTrace()
 	trace.RebuildSetNonZero()
 	trace.SpanID().SetRandom()
 	a := trace.SpanID().String()
@@ -19,7 +19,7 @@ func TestSetRandom(t *testing.T) {
 }
 
 func TestTraceZero(t *testing.T) {
-	var trace trace.Trace
+	var trace xoptrace.Trace
 	assert.True(t, trace.IsZero())
 	assert.Equal(t, "00", trace.GetFlags().String())
 	assert.Equal(t, "0000000000000000", trace.GetSpanID().String())
@@ -29,7 +29,7 @@ func TestTraceZero(t *testing.T) {
 }
 
 func TestTracePartial(t *testing.T) {
-	var trace trace.Trace
+	var trace xoptrace.Trace
 	assert.True(t, trace.TraceID().IsZero(), "initial trace is zero")
 	trace.SpanID().SetRandom()
 	t.Log("trace is", trace.String())
@@ -42,7 +42,7 @@ func TestTracePartial(t *testing.T) {
 }
 
 func TestTraceRandom(t *testing.T) {
-	var trace trace.Trace
+	var trace xoptrace.Trace
 	trace.Version().SetRandom()
 	trace.SpanID().SetRandom()
 	trace.TraceID().SetRandom()
@@ -65,7 +65,7 @@ func TestTraceRandom(t *testing.T) {
 }
 
 func TestTraceCopy(t *testing.T) {
-	var t1 trace.Trace
+	var t1 xoptrace.Trace
 	t1.Version().SetRandom()
 	t1.SpanID().SetRandom()
 	t1.TraceID().SetRandom()

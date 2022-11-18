@@ -5,9 +5,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"go.opentelemetry.io/otel/attribute"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -53,7 +53,7 @@ type builder struct {
 	span       *span
 	prefillMsg string
 	linkKey    string
-	linkValue  trace.Trace
+	linkValue  xoptrace.Trace
 }
 
 var _ xopbase.Logger = &logger{}

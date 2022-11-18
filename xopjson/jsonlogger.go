@@ -10,11 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
@@ -51,7 +51,7 @@ func (logger *Logger) ID() string           { return logger.id.String() }
 func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
 
-func (logger *Logger) Request(_ context.Context, ts time.Time, bundle trace.Bundle, name string) xopbase.Request {
+func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
 			logger:    logger,
@@ -119,7 +119,7 @@ func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporte
 func (r *request) GetErrorCount() int32                  { return atomic.LoadInt32(&r.errorCount) }
 func (r *request) GetAlertCount() int32                  { return atomic.LoadInt32(&r.alertCount) }
 
-func (s *span) Span(_ context.Context, ts time.Time, bundle trace.Bundle, name string, spanSequenceCode string) xopbase.Span {
+func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &span{
 		logger:       s.logger,
 		writer:       s.writer,
@@ -220,12 +220,12 @@ func (s *span) Done(t time.Time, _ bool) {
 	s.flushAttributes()
 }
 
-func (s *span) Boring(bool)             {}
-func (s *span) ID() string              { return s.logger.id.String() }
-func (s *span) GetBundle() trace.Bundle { return s.bundle }
-func (s *span) GetStartTime() time.Time { return s.startTime }
-func (s *span) GetEndTimeNano() int64   { return s.endTime }
-func (s *span) IsRequest() bool         { return s.isRequest }
+func (s *span) Boring(bool)                {}
+func (s *span) ID() string                 { return s.logger.id.String() }
+func (s *span) GetBundle() xoptrace.Bundle { return s.bundle }
+func (s *span) GetStartTime() time.Time    { return s.startTime }
+func (s *span) GetEndTimeNano() int64      { return s.endTime }
+func (s *span) IsRequest() bool            { return s.isRequest }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
@@ -382,10 +382,10 @@ func (b *builder) ReclaimMemory() {
 	b.span.request.logger.builderPool.Put(b)
 }
 
-func (b *builder) AsBytes() []byte         { return b.B }
-func (l *line) GetSpanID() trace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
-func (l *line) GetLevel() xopnum.Level     { return l.level }
-func (l *line) GetTime() time.Time         { return l.timestamp }
+func (b *builder) AsBytes() []byte            { return b.B }
+func (l *line) GetSpanID() xoptrace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
+func (l *line) GetLevel() xopnum.Level        { return l.level }
+func (l *line) GetTime() time.Time            { return l.timestamp }
 
 func (l *line) ReclaimMemory() {
 	if len(l.B) > maxBufferToKeep {
@@ -458,13 +458,13 @@ func (b *builder) AddTime(t time.Time) {
 	b.B = b.span.logger.timeFormatter(b.B, t)
 }
 
-func (b *builder) Link(k string, v trace.Trace) {
+func (b *builder) Link(k string, v xoptrace.Trace) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AddLink(v)
 }
 
-func (b *builder) AddLink(v trace.Trace) {
+func (b *builder) AddLink(v xoptrace.Trace) {
 	b.AppendBytes([]byte(`{"xop.link":"`))
 	b.AppendString(v.String())
 	b.AppendBytes([]byte(`"}`))
@@ -553,7 +553,7 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
-func (s *span) MetadataLink(k *xopat.LinkAttribute, v trace.Trace) {
+func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	s.attributes.MetadataLink(k, v)
 	s.logger.writer.DefineAttribute(&k.Attribute)
 }

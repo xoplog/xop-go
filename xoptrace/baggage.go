@@ -1,4 +1,4 @@
-package trace
+package xoptrace
 
 // Baggage tracks the contents of key/values that are passed
 // through a trace in the "baggage" header.

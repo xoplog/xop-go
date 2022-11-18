@@ -4,9 +4,9 @@ package xopbytes
 import (
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 type BytesWriter interface {
@@ -32,7 +32,7 @@ type Buffer interface {
 
 type Line interface {
 	Buffer
-	GetSpanID() trace.HexBytes8
+	GetSpanID() xoptrace.HexBytes8
 	GetLevel() xopnum.Level
 	GetTime() time.Time
 }
@@ -44,7 +44,7 @@ type Request interface {
 }
 
 type Span interface {
-	GetBundle() trace.Bundle
+	GetBundle() xoptrace.Bundle
 	GetStartTime() time.Time
 	GetEndTimeNano() int64
 	IsRequest() bool

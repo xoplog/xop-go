@@ -7,11 +7,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xopproto"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -57,7 +57,7 @@ type Uploader struct {
 	client            xopproto.IngestClient
 	conn              *grpc.ClientConn
 	lock              sync.Mutex
-	fragment          *xopproto.IngestFragmentBody
+	fragment          *xopproto.IngestFragment
 	bytesBuffered     int
 	requests          []*Request
 	source            xopproto.SourceIdentity
@@ -69,7 +69,7 @@ type Uploader struct {
 
 type Request struct {
 	uploader  *Uploader
-	bundle    trace.Bundle
+	bundle    xoptrace.Bundle
 	lineCount int32
 	request   xopbytes.Request
 }
@@ -114,8 +114,8 @@ func newUploader(ctx context.Context, c Config) *Uploader {
 			SourceStartTime: time.Now().UnixNano(),
 			SourceRandom:    u[:],
 		},
-		traceIDIndex:   make(map[[16]byte]int),
-		requestIDIndex: make(map[[8]byte]int),
+		attributesDefined: make(map[attributeKey]struct{}),
+		enumsDefined:      make(map[enumKey]struct{}),
 	}
 }
 
@@ -154,6 +154,7 @@ func (u *Uploader) Request(request xopbytes.Request) xopbytes.BytesRequest {
 	r := &Request{
 		uploader: u,
 		request:  request,
+		bundle:   request.GetBundle(),
 	}
 	u.lock.Lock()
 	defer u.lock.Unlock()
@@ -271,8 +272,8 @@ func (r *Request) Line(line xopbytes.Line) error {
 	}
 	r.uploader.lock.Lock()
 	defer r.uploader.lock.Unlock()
-	r.lineCount++
 	request, byteCount := r.uploader.getRequest(r, true)
+	r.lineCount++
 	request.Lines = append(request.Lines, &pbLine)
 	return r.uploader.noteBytes(byteCount + sizeOfLine + len(pbLine.JsonData))
 }
@@ -296,11 +297,8 @@ func (u *Uploader) flush() error {
 	if err != nil {
 		return err
 	}
-	frag := &xopproto.IngestFragment{
-		Source:   &u.source,
-		Fragment: u.fragment,
-	}
-	pbErr, err := client.UploadFragment(u.ctx, frag)
+	u.fragment.Source = &u.source
+	pbErr, err := client.UploadFragment(u.ctx, u.fragment)
 	if err != nil {
 		return err
 	}
@@ -311,9 +309,11 @@ func (u *Uploader) flush() error {
 	return nil
 }
 
-func (u *Uploader) getFragment() *xopproto.IngestFragmentBody {
+func (u *Uploader) getFragment() *xopproto.IngestFragment {
 	if u.fragment == nil {
-		u.fragment = &xopproto.IngestFragmentBody{}
+		u.fragment = &xopproto.IngestFragment{}
+		u.traceIDIndex = make(map[[16]byte]int)
+		u.requestIDIndex = make(map[[8]byte]int)
 	}
 	return u.fragment
 }
@@ -331,6 +331,9 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 		fragment.Traces = append(fragment.Traces, &xopproto.Trace{
 			TraceID: r.bundle.Trace.TraceID().Bytes(),
 		})
+		if r.bundle.Trace.TraceID().IsZero() {
+			panic("zero trace")
+		}
 		size += sizeOfTrace
 	}
 	requestIndex, ok := u.requestIDIndex[r.bundle.Trace.SpanID().Array()]
@@ -338,8 +341,6 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 		if !makeNew {
 			return nil, 0
 		}
-		requestIndex = len(fragment.Traces[traceIndex].Requests)
-		u.requestIDIndex[r.bundle.Trace.SpanID().Array()] = requestIndex
 		request := &xopproto.Request{
 			RequestID:           r.bundle.Trace.SpanID().Bytes(),
 			ParentSpanID:        r.bundle.Parent.SpanID().Bytes(),
@@ -348,9 +349,12 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 		if r.bundle.ParentTraceIsDifferent() {
 			request.ParentTraceID = r.bundle.Parent.TraceID().Bytes()
 		}
+		requestIndex = len(fragment.Traces[traceIndex].Requests)
+		u.requestIDIndex[r.bundle.Trace.SpanID().Array()] = requestIndex
 		fragment.Traces[traceIndex].Requests = append(fragment.Traces[traceIndex].Requests, request)
 		size += sizeOfRequest
 	}
+	fmt.Println("len(fragment.Traces)", len(fragment.Traces))
 	return fragment.Traces[traceIndex].Requests[requestIndex], size
 }
 

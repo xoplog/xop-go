@@ -1,6 +1,6 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-package trace
+package xoptrace
 
 import (
 	"bytes"
@@ -58,6 +58,27 @@ func newHexBytes16() HexBytes16 {
 func newHexBytes8() HexBytes8 {
 	var x HexBytes8
 	copy(x.h[:], zeroHexHexBytes8)
+	return x
+}
+
+func NewHexBytes1FromSlice(b []byte) HexBytes1 {
+	var x HexBytes1
+	setBytes(x.b[:], b)
+	hex.Encode(x.h[:], x.b[:])
+	return x
+}
+
+func NewHexBytes16FromSlice(b []byte) HexBytes16 {
+	var x HexBytes16
+	setBytes(x.b[:], b)
+	hex.Encode(x.h[:], x.b[:])
+	return x
+}
+
+func NewHexBytes8FromSlice(b []byte) HexBytes8 {
+	var x HexBytes8
+	setBytes(x.b[:], b)
+	hex.Encode(x.h[:], x.b[:])
 	return x
 }
 
