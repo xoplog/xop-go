@@ -96,6 +96,7 @@ func New(ctx context.Context, config Config) UploadLogger {
 	uploader := newUploader(ctx, config)
 	jsonLogger := xopjson.New(uploader,
 		xopjson.WithAttributesObject(true),
+		xopjson.WithSpanStarts(false),
 	)
 	return UploadLogger{
 		Uploader: uploader,
@@ -150,11 +151,11 @@ func (u *Uploader) connect() (xopproto.IngestClient, error) {
 	return u.client, nil
 }
 
-func (u *Uploader) Request(request xopbytes.Request) xopbytes.BytesRequest {
+func (u *Uploader) Request(bytesRequest xopbytes.Request) xopbytes.BytesRequest {
 	r := &Request{
 		uploader: u,
-		request:  request,
-		bundle:   request.GetBundle(),
+		request:  bytesRequest,
+		bundle:   bytesRequest.GetBundle(),
 	}
 	u.lock.Lock()
 	defer u.lock.Unlock()
@@ -354,7 +355,6 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 		fragment.Traces[traceIndex].Requests = append(fragment.Traces[traceIndex].Requests, request)
 		size += sizeOfRequest
 	}
-	fmt.Println("len(fragment.Traces)", len(fragment.Traces))
 	return fragment.Traces[traceIndex].Requests[requestIndex], size
 }
 
