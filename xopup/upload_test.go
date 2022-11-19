@@ -101,18 +101,21 @@ func TestUpload(t *testing.T) {
 func verify(t *testing.T, tlog *xoptest.TestLogger, server *Server) {
 	fragment := combineFragments(t, server.getFragments())
 	var requestCount int
+	var lineCount int
 	for i, trace := range fragment.Traces {
 		traceID := xoptrace.NewHexBytes16FromSlice(trace.TraceID)
 		require.Falsef(t, traceID.IsZero(), "traceID not zero, trace #%d", i)
 		requestCount += len(trace.Requests)
 		for _, request := range trace.Requests {
 			requestID := xoptrace.NewHexBytes8FromSlice(request.RequestID)
+			lineCount += len(request.Lines)
 			for i, line := range request.Lines {
 				require.NotNilf(t, line, "line %d in trace %s in request %s is nil", i, traceID, requestID)
 			}
 		}
 	}
 	assert.Equal(t, len(tlog.Requests), requestCount, "count of requests")
+	assert.Equal(t, len(tlog.Lines), lineCount, "count of lines")
 }
 
 type OrderedTrace struct {
@@ -134,28 +137,31 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 	}
 	traceMap := make(map[[16]byte]*OrderedTrace)
 	var allTraces []*OrderedTrace
-	for _, fragment := range fragments {
+	t.Logf("combining %d fragments", len(fragments))
+	for fi, fragment := range fragments {
+		t.Logf(" fragment %d has %d traces", fi, len(fragment.Traces))
 		combined.AttributeDefinitions = append(combined.AttributeDefinitions, fragment.AttributeDefinitions...)
-		for _, trace := range fragment.Traces {
+		for ti, trace := range fragment.Traces {
 			require.Equal(t, 16, len(trace.TraceID), "traceID length")
-			var traceID [16]byte
-			copy(traceID[:], trace.TraceID)
-			ot, ok := traceMap[traceID]
-			if !ok {
+			traceID := xoptrace.NewHexBytes16FromSlice(trace.TraceID)
+			t.Logf("  trace %d (%s) has %d requests", ti, traceID, len(trace.Requests))
+			ot, existingTrace := traceMap[traceID.Array()]
+			if !existingTrace {
 				ot = &OrderedTrace{
 					Trace:      *trace,
 					RequestMap: make(map[[8]byte]*OrderedRequest),
 				}
-				traceMap[traceID] = ot
+				traceMap[traceID.Array()] = ot
 				allTraces = append(allTraces, ot)
 			}
-			for _, request := range trace.Requests {
+			for ri, request := range trace.Requests {
 				require.Equal(t, 8, len(request.RequestID), "requestID length")
 				requestID := xoptrace.NewHexBytes8FromSlice(request.RequestID)
+				t.Logf("   request %d (%s) has %d lines", ri, requestID, len(request.Lines))
 				combinedRequests, ok := ot.RequestMap[requestID.Array()]
 				if !ok {
 					if request.PriorLinesInRequest != 0 {
-						t.Logf("prior lines in %s: %d (new)", requestID, request.PriorLinesInRequest)
+						t.Logf("   prior lines in %s: %d (new)", requestID, request.PriorLinesInRequest)
 						newLines := make([]*xopproto.Line, int32(len(request.Lines))+request.PriorLinesInRequest)
 						copy(newLines[request.PriorLinesInRequest:], request.Lines)
 						request.Lines = newLines
@@ -170,10 +176,14 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 						or.SpanMap[spanID] = i
 					}
 					ot.RequestMap[requestID.Array()] = or
+					if existingTrace {
+						t.Logf("   appending request")
+						ot.Trace.Requests = append(ot.Trace.Requests, request)
+					}
 					continue
 				}
 				if int(request.PriorLinesInRequest)+len(request.Lines) < len(combinedRequests.Lines) {
-					t.Logf("prior lines in %s: %d (shifting)", requestID, request.PriorLinesInRequest)
+					t.Logf("   prior lines in %s: %d (shifting)", requestID, request.PriorLinesInRequest)
 					newLines := make([]*xopproto.Line, len(request.Lines)+int(request.PriorLinesInRequest))
 					copy(newLines, combinedRequests.Lines)
 					copy(newLines[request.PriorLinesInRequest:], request.Lines)
