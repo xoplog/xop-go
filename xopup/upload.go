@@ -51,7 +51,6 @@ type Config struct {
 //	BufDuration time.Duration `json:"bufDuration" config:"buffDuration" env:"XOPBUFSIZEK"  flag:"xopbufdur"   help:"how long to buffer"`
 
 type Uploader struct {
-	sequenceNumber    int64
 	ctx               context.Context
 	config            Config
 	client            xopproto.IngestClient
@@ -260,8 +259,7 @@ func (r *Request) Span(span xopbytes.Span, buffer xopbytes.Buffer) error {
 	defer r.uploader.lock.Unlock()
 	request, byteCount := r.uploader.getRequest(r, true)
 	request.Spans = append(request.Spans, &pbSpan)
-	r.uploader.noteBytes(byteCount + sizeOfSpan + len(pbSpan.JsonData) + len(pbSpan.Baggage) + len(pbSpan.TraceState))
-	return nil
+	return r.uploader.noteBytes(byteCount + sizeOfSpan + len(pbSpan.JsonData) + len(pbSpan.Baggage) + len(pbSpan.TraceState))
 }
 
 func (r *Request) Line(line xopbytes.Line) error {
