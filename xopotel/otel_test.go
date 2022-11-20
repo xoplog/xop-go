@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopotel"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/stretchr/testify/assert"
