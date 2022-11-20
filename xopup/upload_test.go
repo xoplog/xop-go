@@ -68,8 +68,11 @@ func TestUpload(t *testing.T) {
 	grpcServer := grpc.NewServer(opts...)
 	server := &Server{}
 	xopproto.RegisterIngestServer(grpcServer, server)
-	go grpcServer.Serve(listen)
+	go func() {
+		_ = grpcServer.Serve(listen)
+	}()
 	uploader := xopup.New(context.Background(), config)
+	defer uploader.Uploader.Close()
 
 	assert.NoError(t, uploader.Uploader.Ping(), "ping")
 	server.pingError = fmt.Errorf("ooka")
@@ -147,7 +150,7 @@ func verify(t *testing.T, tlog *xoptest.TestLogger, server *Server) {
 }
 
 type OrderedTrace struct {
-	xopproto.Trace
+	*xopproto.Trace
 	RequestMap map[[8]byte]*OrderedRequest
 }
 
@@ -176,7 +179,7 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 			ot, existingTrace := traceMap[traceID.Array()]
 			if !existingTrace {
 				ot = &OrderedTrace{
-					Trace:      *trace,
+					Trace:      trace,
 					RequestMap: make(map[[8]byte]*OrderedRequest),
 				}
 				traceMap[traceID.Array()] = ot
@@ -228,7 +231,7 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 		}
 	}
 	for _, trace := range allTraces {
-		combined.Traces = append(combined.Traces, &trace.Trace)
+		combined.Traces = append(combined.Traces, trace.Trace)
 	}
 	return combined
 }
