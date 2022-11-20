@@ -2,6 +2,7 @@ package xopup_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xopup"
 
+	"github.com/muir/list"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -99,6 +101,12 @@ func TestUpload(t *testing.T) {
 }
 
 func verify(t *testing.T, tlog *xoptest.TestLogger, server *Server) {
+	linesNotSeen := make(map[string][]int)
+	for i, line := range tlog.Lines {
+		m := line.TemplateOrMessage()
+		linesNotSeen[m] = append(linesNotSeen[m], i)
+	}
+
 	fragment := combineFragments(t, server.getFragments())
 	var requestCount int
 	var lineCount int
@@ -111,11 +119,31 @@ func verify(t *testing.T, tlog *xoptest.TestLogger, server *Server) {
 			lineCount += len(request.Lines)
 			for i, line := range request.Lines {
 				require.NotNilf(t, line, "line %d in trace %s in request %s is nil", i, traceID, requestID)
+				var super supersetObject
+				err := json.Unmarshal(line.JsonData, &super)
+				require.NoErrorf(t, err, "decode line %d in trace %s in request (%s)", i, traceID, requestID, string(line.JsonData))
+				if lines, ok := linesNotSeen[super.Msg]; ok && len(lines) > 0 {
+					linesNotSeen[super.Msg] = linesNotSeen[super.Msg][1:]
+				} else {
+					assert.Failf(t, "line not found", "not expecting '%s'", super.Msg)
+				}
 			}
 		}
 	}
-	assert.Equal(t, len(tlog.Requests), requestCount, "count of requests")
-	assert.Equal(t, len(tlog.Lines), lineCount, "count of lines")
+	require.Equal(t, len(tlog.Requests), requestCount, "count of requests")
+	require.Equal(t, len(tlog.Lines), lineCount, "count of lines")
+
+	// TODO: verify requests
+	// TODO: verify spans
+	// TODO: verify attribute definitions
+	// TODO: verify enum definitions
+
+	for _, ia := range linesNotSeen {
+		for _, li := range ia {
+			line := tlog.Lines[li]
+			t.Errorf("line '%s' not found in JSON output", line.Text)
+		}
+	}
 }
 
 type OrderedTrace struct {
@@ -124,7 +152,7 @@ type OrderedTrace struct {
 }
 
 type OrderedRequest struct {
-	xopproto.Request
+	*xopproto.Request
 	SpanMap map[[8]byte]int
 }
 
@@ -157,17 +185,16 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 			for ri, request := range trace.Requests {
 				require.Equal(t, 8, len(request.RequestID), "requestID length")
 				requestID := xoptrace.NewHexBytes8FromSlice(request.RequestID)
-				t.Logf("   request %d (%s) has %d lines", ri, requestID, len(request.Lines))
+				t.Logf("   request %d (%s) has %d lines with offset %d", ri, requestID, len(request.Lines), request.PriorLinesInRequest)
 				combinedRequests, ok := ot.RequestMap[requestID.Array()]
 				if !ok {
+					t.Logf("   prior lines in %s: %d, new lines %d (new)", requestID, request.PriorLinesInRequest, len(request.Lines))
 					if request.PriorLinesInRequest != 0 {
-						t.Logf("   prior lines in %s: %d (new)", requestID, request.PriorLinesInRequest)
-						newLines := make([]*xopproto.Line, int32(len(request.Lines))+request.PriorLinesInRequest)
-						copy(newLines[request.PriorLinesInRequest:], request.Lines)
+						newLines := list.ReplaceBeyond(nil, int(request.PriorLinesInRequest), request.Lines...)
 						request.Lines = newLines
 					}
 					or := &OrderedRequest{
-						Request: *request,
+						Request: request,
 						SpanMap: make(map[[8]byte]int),
 					}
 					for i, span := range request.Spans {
@@ -182,13 +209,8 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 					}
 					continue
 				}
-				if int(request.PriorLinesInRequest)+len(request.Lines) < len(combinedRequests.Lines) {
-					t.Logf("   prior lines in %s: %d (shifting)", requestID, request.PriorLinesInRequest)
-					newLines := make([]*xopproto.Line, len(request.Lines)+int(request.PriorLinesInRequest))
-					copy(newLines, combinedRequests.Lines)
-					copy(newLines[request.PriorLinesInRequest:], request.Lines)
-					combinedRequests.Lines = newLines
-				}
+				t.Logf("   prior lines in %s: %d, new lines %d (combining onto %d)", requestID, request.PriorLinesInRequest, len(request.Lines), len(combinedRequests.Lines))
+				combinedRequests.Lines = list.ReplaceBeyond(combinedRequests.Lines, int(request.PriorLinesInRequest), request.Lines...)
 				for _, span := range request.Spans {
 					var spanID [8]byte
 					copy(spanID[:], span.SpanID)
@@ -209,4 +231,35 @@ func combineFragments(t *testing.T, fragments []*xopproto.IngestFragment) *xoppr
 		combined.Traces = append(combined.Traces, &trace.Trace)
 	}
 	return combined
+}
+
+type supersetObject struct {
+	// lines, spans, and requests
+
+	Timestamp  xoptestutil.TS         `json:"ts"`
+	Attributes map[string]interface{} `json:"attributes"`
+
+	// lines
+
+	Level  int      `json:"lvl"`
+	SpanID string   `json:"span.id"`
+	Stack  []string `json:"stack"`
+	Msg    string   `json:"msg"`
+	Format string   `json:"fmt"`
+
+	// requests & spans
+
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Duration    int64  `json:"dur"`
+	SpanVersion int    `json:"span.ver"`
+
+	// requests
+
+	Implmentation string `json:"impl"`
+	TraceID       string `json:"trace.id"`
+	ParentID      string `json:"parent.id"`
+	RequestID     string `json:"request.id"`
+	State         string `json:"trace.state"`
+	Baggage       string `json:"trace.baggage"`
 }
