@@ -17,6 +17,7 @@ all:	$(ZZZGENERATED) $(PB) .gitattributes
 	echo '*.zzzgo linguist-language=Go' > $@
 	echo 'doc.go linguist-documentation' >> $@
 	echo '*.md linguist-documentation' >> $@
+	echo '*.pb.go linguist-generated' >> $@
 	for i in $(ZZZGENERATED); do echo "$$i linguist-generated" >> $@; done
 
 test:	$(ZZZGENERATED) testadjuster

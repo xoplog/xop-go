@@ -1,6 +1,7 @@
 *.zzzgo linguist-language=Go
 doc.go linguist-documentation
 *.md linguist-documentation
+*.pb.go linguist-generated
 basegroup.go linguist-generated
 line.go linguist-generated
 seed.go linguist-generated
