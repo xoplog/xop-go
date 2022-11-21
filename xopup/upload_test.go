@@ -59,7 +59,6 @@ func TestUpload(t *testing.T) {
 	require.NoError(t, err, "listen")
 	defer listen.Close()
 	config := xopup.Config{
-		InFlight:  6,
 		Address:   listen.Addr().String(),
 		Source:    t.Name(),
 		Namespace: "xoptest",
@@ -83,22 +82,30 @@ func TestUpload(t *testing.T) {
 	server.reset()
 	assert.NoError(t, uploader.Uploader.Ping(), "ping")
 
-	for _, mc := range xoptestutil.MessageCases {
-		mc := mc
-		t.Run(mc.Name, func(t *testing.T) {
-			defer server.reset()
-			tlog := xoptest.New(t)
-			seed := xop.NewSeed(
-				xop.WithBase(uploader),
-				xop.WithBase(tlog),
-			)
-			if len(mc.SeedMods) != 0 {
-				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
-				seed = seed.Copy(mc.SeedMods...)
+	for _, bufsize := range []int{0, 1024} {
+		t.Run(fmt.Sprintf("bufsize%d", bufsize), func(t *testing.T) {
+			config.BufSizeK = bufsize
+			for _, mc := range xoptestutil.MessageCases {
+				mc := mc
+				t.Run(mc.Name, func(t *testing.T) {
+					config.OnError = func(err error) {
+						assert.NoError(t, err, "on-error called")
+					}
+					defer server.reset()
+					tlog := xoptest.New(t)
+					seed := xop.NewSeed(
+						xop.WithBase(uploader),
+						xop.WithBase(tlog),
+					)
+					if len(mc.SeedMods) != 0 {
+						t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+						seed = seed.Copy(mc.SeedMods...)
+					}
+					log := seed.Request(t.Name())
+					mc.Do(t, log, tlog)
+					verify(t, tlog, server)
+				})
 			}
-			log := seed.Request(t.Name())
-			mc.Do(t, log, tlog)
-			verify(t, tlog, server)
 		})
 	}
 }
