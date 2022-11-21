@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
-	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbytes"
-	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -43,34 +42,40 @@ type Config struct {
 	Address   string `json:"address"   config:"address"   env:"XOPADDRESS"   flag:"xopaddress"  help:"host:port of xop ingest server"`
 	Proto     string `json:"proto"     config:"proto"     env:"XOPPROTO"     flag:"xopproto"    help:"protocol to use (includes version)"`
 	BufSizeK  int    `json:"bufsizeK"  config:"bufsizeK"  env:"XOPBUFSIZEK"  flag:"xopbufsizek" help:"how much to buffer (in K) per request"`
-	InFlight  int    `json:"inFlight"  config:"inFlight"  env:"XOPINFLIGHT"  flag:"xopinflight" help:"how many outstanding blocks in flight"`
 	OnError   func(error)
 }
 
-// XXX keep?
+// TODO: keep?
 //	BufDuration time.Duration `json:"bufDuration" config:"buffDuration" env:"XOPBUFSIZEK"  flag:"xopbufdur"   help:"how long to buffer"`
+// 	InFlight  int    `json:"inFlight"  config:"inFlight"  env:"XOPINFLIGHT"  flag:"xopinflight" help:"how many outstanding blocks in flight"`
 
 type Uploader struct {
-	ctx               context.Context
-	config            Config
-	client            xopproto.IngestClient
-	conn              *grpc.ClientConn
-	lock              sync.Mutex
-	fragment          *xopproto.IngestFragment
-	bytesBuffered     int
-	requests          []*Request
-	source            xopproto.SourceIdentity
-	traceIDIndex      map[[16]byte]int
-	requestIDIndex    map[[8]byte]int
-	attributesDefined map[attributeKey]struct{}
-	enumsDefined      map[enumKey]struct{}
+	ctx                 context.Context
+	config              Config
+	client              xopproto.IngestClient
+	conn                *grpc.ClientConn
+	lock                sync.Mutex
+	fragment            *xopproto.IngestFragment
+	requestsInFragment  []*Request
+	bytesBuffered       int
+	requests            []*Request
+	source              xopproto.SourceIdentity
+	traceIDIndex        map[[16]byte]int
+	requestIDIndex      map[[8]byte]int
+	attributesDefined   sync.Map
+	enumsDefined        sync.Map
+	definitionsComplete sync.Pool
+	completion          *sync.Cond
+	shutdown            int32 // 1 == shutting down
+	fragmentsInFlight   int32
 }
 
 type Request struct {
-	uploader  *Uploader
-	bundle    xoptrace.Bundle
-	lineCount int32
-	request   xopbytes.Request
+	uploader             *Uploader
+	bundle               xoptrace.Bundle
+	lineCount            int32
+	request              xopbytes.Request
+	fragmentsOutstanding int32
 }
 
 var _ xopbytes.BytesWriter = &Uploader{}
@@ -86,23 +91,6 @@ type enumKey struct {
 	value int64
 }
 
-type UploadLogger struct {
-	*xopjson.Logger
-	Uploader *Uploader
-}
-
-func New(ctx context.Context, config Config) UploadLogger {
-	uploader := newUploader(ctx, config)
-	jsonLogger := xopjson.New(uploader,
-		xopjson.WithAttributesObject(true),
-		xopjson.WithSpanStarts(false),
-	)
-	return UploadLogger{
-		Uploader: uploader,
-		Logger:   jsonLogger,
-	}
-}
-
 // newUploader is lazy: no connection is opened until there is data to send.
 func newUploader(ctx context.Context, c Config) *Uploader {
 	u := uuid.New()
@@ -114,8 +102,12 @@ func newUploader(ctx context.Context, c Config) *Uploader {
 			SourceStartTime: time.Now().UnixNano(),
 			SourceRandom:    u[:],
 		},
-		attributesDefined: make(map[attributeKey]struct{}),
-		enumsDefined:      make(map[enumKey]struct{}),
+		definitionsComplete: sync.Pool{
+			New: func() any {
+				return &definitionComplete{}
+			},
+		},
+		completion: sync.NewCond(&sync.Mutex{}),
 	}
 }
 
@@ -165,6 +157,13 @@ func (u *Uploader) Request(bytesRequest xopbytes.Request) xopbytes.BytesRequest 
 func (u *Uploader) Buffered() bool { return true }
 
 func (u *Uploader) Close() {
+	u.flush()
+	atomic.StoreInt32(&u.shutdown, 1)
+	u.completion.L.Lock()
+	for atomic.LoadInt32(&u.fragmentsInFlight) > 0 {
+		u.completion.Wait()
+	}
+	u.completion.L.Unlock()
 	u.lock.Lock()
 	defer u.lock.Unlock()
 	if u.conn != nil {
@@ -174,108 +173,27 @@ func (u *Uploader) Close() {
 	}
 }
 
-func (u *Uploader) DefineAttribute(a *xopat.Attribute) {
-	attributeKey := attributeKey{
-		key:       a.Key(),
-		namespace: a.Namespace(),
-	}
-	u.lock.Lock()
-	defer u.lock.Unlock()
-	if _, ok := u.attributesDefined[attributeKey]; ok {
-		return
-	}
-
-	u.attributesDefined[attributeKey] = struct{}{}
-	fragment := u.getFragment()
-	definition := xopproto.AttributeDefinition{
-		Key:             a.Key(),
-		Description:     a.Description(),
-		Namespace:       a.Namespace(),
-		NamespaceSemver: a.SemverString(),
-		Type:            xopproto.AttributeType(a.SubType()),
-		ShouldIndex:     a.Indexed(),
-		Prominance:      int32(a.Prominence()),
-		Locked:          a.Locked(),
-		Distinct:        a.Distinct(),
-		Multiple:        a.Multiple(),
-	}
-	fragment.AttributeDefinitions = append(fragment.AttributeDefinitions, &definition)
-}
-
-func (u *Uploader) DefineEnum(a *xopat.EnumAttribute, e xopat.Enum) {
-	enumKey := enumKey{
-		attributeKey: attributeKey{
-			key:       a.Key(),
-			namespace: a.Namespace(),
-		},
-		value: e.Int64(),
-	}
-	u.lock.Lock()
-	defer u.lock.Unlock()
-	if _, ok := u.enumsDefined[enumKey]; ok {
-		return
-	}
-
-	u.enumsDefined[enumKey] = struct{}{}
-	enum := xopproto.EnumDefinition{
-		AttributeKey:    a.Key(),
-		Namespace:       a.Namespace(),
-		NamespaceSemver: a.SemverString(),
-		String_:         e.String(),
-		IntValue:        e.Int64(),
-	}
-	fragment := u.getFragment()
-	fragment.EnumDefinitions = append(fragment.EnumDefinitions, &enum)
-}
-
+// Flush waits for the data to be sent
 func (r *Request) Flush() error {
-	r.uploader.lock.Lock()
-	defer r.uploader.lock.Unlock()
-	request, _ := r.uploader.getRequest(r, true)
-	if request != nil {
-		request.ErrorCount = r.request.GetErrorCount()
-		request.AlertCount = r.request.GetAlertCount()
+	func() {
+		r.uploader.lock.Lock()
+		defer r.uploader.lock.Unlock()
+		request, _ := r.uploader.getRequest(r, false)
+		if request != nil {
+			request.ErrorCount = r.request.GetErrorCount()
+			request.AlertCount = r.request.GetAlertCount()
+			r.uploader.flush()
+		}
+	}()
+	r.uploader.completion.L.Lock()
+	for atomic.LoadInt32(&r.fragmentsOutstanding) > 0 {
+		r.uploader.completion.Wait()
 	}
-	return r.uploader.flush()
+	r.uploader.completion.L.Unlock()
+	return nil
 }
 
 func (r *Request) ReclaimMemory() {}
-
-func (r *Request) Span(span xopbytes.Span, buffer xopbytes.Buffer) error {
-	bundle := span.GetBundle()
-	pbSpan := xopproto.Span{
-		SpanID:    bundle.Trace.GetSpanID().Bytes(),
-		ParentID:  bundle.Parent.GetSpanID().Bytes(),
-		JsonData:  buffer.AsBytes(),
-		StartTime: span.GetStartTime().UnixNano(),
-		EndTime:   pointerToInt64OrNil(span.GetEndTimeNano()),
-	}
-	if span.IsRequest() {
-		pbSpan.IsRequest = true
-		pbSpan.Baggage = bundle.Baggage.Bytes()
-		pbSpan.TraceState = bundle.State.Bytes()
-	}
-	r.uploader.lock.Lock()
-	defer r.uploader.lock.Unlock()
-	request, byteCount := r.uploader.getRequest(r, true)
-	request.Spans = append(request.Spans, &pbSpan)
-	return r.uploader.noteBytes(byteCount + sizeOfSpan + len(pbSpan.JsonData) + len(pbSpan.Baggage) + len(pbSpan.TraceState))
-}
-
-func (r *Request) Line(line xopbytes.Line) error {
-	pbLine := xopproto.Line{
-		SpanID:    line.GetSpanID().Bytes(),
-		LogLevel:  int32(line.GetLevel()),
-		Timestamp: line.GetTime().UnixNano(),
-		JsonData:  line.AsBytes(),
-	}
-	r.uploader.lock.Lock()
-	defer r.uploader.lock.Unlock()
-	request, byteCount := r.uploader.getRequest(r, true)
-	r.lineCount++
-	request.Lines = append(request.Lines, &pbLine)
-	return r.uploader.noteBytes(byteCount + sizeOfLine + len(pbLine.JsonData))
-}
 
 // TODO: do this before adding things rather than after
 // must be locked before calling
@@ -292,19 +210,37 @@ func (u *Uploader) flush() error {
 	if u.bytesBuffered == 0 {
 		return nil
 	}
+	if atomic.LoadInt32(&u.shutdown) == 1 {
+		return fmt.Errorf("uploader is shutdown")
+	}
 	client, err := u.connect()
 	if err != nil {
 		return err
 	}
 	u.fragment.Source = &u.source
-	pbErr, err := client.UploadFragment(u.ctx, u.fragment)
-	if err != nil {
-		return err
-	}
-	if pbErr.Text != "" {
-		return fmt.Errorf("upload error: %s", pbErr.Text)
-	}
+	fragment := u.fragment
+	requests := u.requestsInFragment
 	u.fragment = nil
+	u.requestsInFragment = make([]*Request, 0, len(u.requestsInFragment)*2)
+	atomic.AddInt32(&u.fragmentsInFlight, 1)
+	go func() {
+		// TODO: retry N times if atomic.LoadInt32(&u.shutdown) == 0
+		// TODO: track and limit total memory use
+		pbErr, err := client.UploadFragment(u.ctx, fragment)
+		if err == nil && pbErr.Text != "" {
+			err = fmt.Errorf("upload error: %s", pbErr.Text)
+		}
+		if err != nil {
+			if u.config.OnError != nil {
+				u.config.OnError(err)
+			}
+		}
+		for _, request := range requests {
+			atomic.AddInt32(&request.fragmentsOutstanding, -1)
+		}
+		atomic.AddInt32(&u.fragmentsInFlight, -1)
+		u.completion.Broadcast()
+	}()
 	return nil
 }
 
@@ -352,11 +288,11 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 		u.requestIDIndex[r.bundle.Trace.SpanID().Array()] = requestIndex
 		fragment.Traces[traceIndex].Requests = append(fragment.Traces[traceIndex].Requests, request)
 		size += sizeOfRequest
+		u.requestsInFragment = append(u.requestsInFragment, r)
+		atomic.AddInt32(&r.fragmentsOutstanding, 1)
 	}
 	return fragment.Traces[traceIndex].Requests[requestIndex], size
 }
-
-func (r *Request) AttributeReferenced(*xopat.Attribute) error { return nil } // TODO
 
 func pointerToInt64OrNil(i int64) *int64 {
 	if i == 0 {

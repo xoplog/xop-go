@@ -1,10 +1,6 @@
 
 # Just do it (build ready)
 
-- improve performance of xopup
-
-  - replace locks with atomics
-
 - sampling can be based on Boring() in which case the flags need to
   change before the "traceresponse" is set.  That means top logger
   must know if base loggers honored the boring.  Change xopbase.Boring
@@ -100,9 +96,13 @@
 
   - Console (emphasis on readable, but still retains full data)
 
+- xopup
+
+  - enforce memory limit
+  - enforce outstanding packet limit
+
 - xopjson
 
-  - respect per-request buffer limit
   - additional features:
 
     - change time of timestamp key
@@ -129,6 +129,14 @@
   - do something useful with Boring
 
 - Performmance
+
+  - replace locks with atomics where possible
+  - replace call to time.Format in xopjson with custom code
+  - switch to a faster JSON encoder when encoding arbitrary data
+  - too much of xopup is single-threaded
+
+    - switch almost everything to atomics instead
+    - shard the uploader on request id
 
   - mark all places in the code where an allocation happens `// allocate`
   - Use sync.Pool aggressively to reduce allocations
