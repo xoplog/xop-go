@@ -126,6 +126,7 @@ func verify(t *testing.T, tlog *xoptest.TestLogger, server *Server) {
 		requestCount += len(trace.Requests)
 		for _, request := range trace.Requests {
 			requestID := xoptrace.NewHexBytes8FromSlice(request.RequestID)
+			assert.NotEmptyf(t, request.StartTime, "request start time %s", requestID)
 			lineCount += len(request.Lines)
 			for i, line := range request.Lines {
 				require.NotNilf(t, line, "line %d in trace %s in request %s is nil", i, traceID, requestID)

@@ -75,6 +75,7 @@ type Request struct {
 	bundle               xoptrace.Bundle
 	lineCount            int32
 	request              xopbytes.Request
+	startTime            int64
 	fragmentsOutstanding int32
 }
 
@@ -144,9 +145,10 @@ func (u *Uploader) connect() (xopproto.IngestClient, error) {
 
 func (u *Uploader) Request(bytesRequest xopbytes.Request) xopbytes.BytesRequest {
 	r := &Request{
-		uploader: u,
-		request:  bytesRequest,
-		bundle:   bytesRequest.GetBundle(),
+		uploader:  u,
+		request:   bytesRequest,
+		bundle:    bytesRequest.GetBundle(),
+		startTime: bytesRequest.GetStartTime().UnixNano(),
 	}
 	u.lock.Lock()
 	defer u.lock.Unlock()
@@ -280,6 +282,7 @@ func (u *Uploader) getRequest(r *Request, makeNew bool) (*xopproto.Request, int)
 			RequestID:           r.bundle.Trace.SpanID().Bytes(),
 			ParentSpanID:        r.bundle.Parent.SpanID().Bytes(),
 			PriorLinesInRequest: r.lineCount,
+			StartTime:           r.startTime,
 		}
 		if r.bundle.ParentTraceIsDifferent() {
 			request.ParentTraceID = r.bundle.Parent.TraceID().Bytes()
