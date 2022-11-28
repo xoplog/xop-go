@@ -99,9 +99,11 @@ func newUploader(ctx context.Context, c Config) *Uploader {
 		ctx:    ctx,
 		config: c,
 		source: xopproto.SourceIdentity{
-			SourceID:        c.Source,
-			SourceStartTime: time.Now().UnixNano(),
-			SourceRandom:    u[:],
+			SourceNamespace:        c.Namespace,
+			SourceNamespaceVersion: c.Version,
+			SourceID:               c.Source,
+			SourceStartTime:        time.Now().UnixNano(),
+			SourceRandom:           u[:],
 		},
 		definitionsComplete: sync.Pool{
 			New: func() any {
