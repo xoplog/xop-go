@@ -22,7 +22,6 @@ type BytesRequest interface {
 	ReclaimMemory() // called when we know BytesRequest will never be used again
 	Span(Span, Buffer) error
 	Line(Line) error
-	AttributeReferenced(*xopat.Attribute) error
 }
 
 type Buffer interface {

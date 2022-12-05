@@ -12,8 +12,6 @@ type definitionComplete struct {
 	once sync.Once
 }
 
-func (r *Request) AttributeReferenced(*xopat.Attribute) error { return nil } // TODO
-
 func (u *Uploader) DefineAttribute(a *xopat.Attribute) {
 	attributeKey := attributeKey{
 		key:       a.Key(),

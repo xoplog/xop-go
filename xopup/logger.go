@@ -16,6 +16,7 @@ func New(ctx context.Context, config Config) UploadLogger {
 	jsonLogger := xopjson.New(uploader,
 		xopjson.WithAttributesObject(true),
 		xopjson.WithSpanStarts(false),
+		xopjson.WithDuration("dur", xopjson.AsMicros),
 	)
 	return UploadLogger{
 		Uploader: uploader,

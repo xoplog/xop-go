@@ -443,6 +443,7 @@ func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.AddEnum(v)
 }
 
+// TODO: make sending strings vs numbers configurable
 func (b *builder) AddEnum(v xopat.Enum) {
 	b.AddString(v.String())
 }
