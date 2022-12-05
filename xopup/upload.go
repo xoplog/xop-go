@@ -59,7 +59,7 @@ type Uploader struct {
 	requestsInFragment  []*Request
 	bytesBuffered       int
 	requests            []*Request
-	source              xopproto.SourceIdentity
+	source              xopproto.Source
 	traceIDIndex        map[[16]byte]int
 	requestIDIndex      map[[8]byte]int
 	attributesDefined   sync.Map
@@ -98,7 +98,7 @@ func newUploader(ctx context.Context, c Config) *Uploader {
 	return &Uploader{
 		ctx:    ctx,
 		config: c,
-		source: xopproto.SourceIdentity{
+		source: xopproto.Source{
 			SourceNamespace:        c.Namespace,
 			SourceNamespaceVersion: c.Version,
 			SourceID:               c.Source,
@@ -221,6 +221,7 @@ func (u *Uploader) flush() error {
 	if err != nil {
 		return err
 	}
+	u.fragment.Encoding = xopproto.Encoding_XopProtobuf
 	u.fragment.Source = &u.source
 	fragment := u.fragment
 	requests := u.requestsInFragment
