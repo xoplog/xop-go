@@ -1,6 +1,8 @@
 
 # Just do it (build ready)
 
+- sources should have key/value attributes
+
 - sampling can be based on Boring() in which case the flags need to
   change before the "traceresponse" is set.  That means top logger
   must know if base loggers honored the boring.  Change xopbase.Boring

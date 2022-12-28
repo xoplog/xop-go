@@ -3,7 +3,11 @@ package xoptrace
 import (
 	"bytes"
 	"crypto/rand"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/hex"
+
+	"github.com/pkg/errors"
 )
 
 // MACRO HexBytes
@@ -18,6 +22,10 @@ type WrappedZZZ struct {
 	offset int
 	trace  *Trace
 }
+
+// MACRO HexBytes
+var _ driver.Valuer = ZZZ{}
+var _ sql.Scanner = &ZZZ{}
 
 // MACRO HexBytes
 var zeroHexZZZ = bytes.Repeat([]byte{'0'}, zzz*2)
@@ -112,4 +120,24 @@ func (x ZZZ) initialized(t Trace) ZZZ {
 		hex.Encode(x.h[:], x.b[:])
 	}
 	return x
+}
+
+// MACRO HexBytes
+func (x *ZZZ) Scan(src any) error {
+	switch t := src.(type) {
+	case []byte:
+		*x = NewZZZFromSlice(t)
+		return nil
+	case string:
+		setBytesFromString(x.b[:], t)
+		hex.Encode(x.h[:], x.b[:])
+		return nil
+	default:
+		return errors.Errorf("unexpected type %T in scan", src)
+	}
+}
+
+// MACRO HexBytes
+func (x ZZZ) Value() (driver.Value, error) {
+	return x.Bytes(), nil
 }

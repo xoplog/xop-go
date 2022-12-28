@@ -5,7 +5,11 @@ package xoptrace
 import (
 	"bytes"
 	"crypto/rand"
+	"database/sql"
+	"database/sql/driver"
 	"encoding/hex"
+
+	"github.com/pkg/errors"
 )
 
 type HexBytes1 struct {
@@ -36,6 +40,15 @@ type WrappedHexBytes8 struct {
 	offset int
 	trace  *Trace
 }
+
+var (
+	_ driver.Valuer = HexBytes1{}
+	_ sql.Scanner   = &HexBytes1{}
+	_ driver.Valuer = HexBytes16{}
+	_ sql.Scanner   = &HexBytes16{}
+	_ driver.Valuer = HexBytes8{}
+	_ sql.Scanner   = &HexBytes8{}
+)
 
 var (
 	zeroHexHexBytes1  = bytes.Repeat([]byte{'0'}, 1*2)
@@ -273,4 +286,58 @@ func (x HexBytes8) initialized(t Trace) HexBytes8 {
 		hex.Encode(x.h[:], x.b[:])
 	}
 	return x
+}
+
+func (x *HexBytes1) Scan(src any) error {
+	switch t := src.(type) {
+	case []byte:
+		*x = NewHexBytes1FromSlice(t)
+		return nil
+	case string:
+		setBytesFromString(x.b[:], t)
+		hex.Encode(x.h[:], x.b[:])
+		return nil
+	default:
+		return errors.Errorf("unexpected type %T in scan", src)
+	}
+}
+
+func (x *HexBytes16) Scan(src any) error {
+	switch t := src.(type) {
+	case []byte:
+		*x = NewHexBytes16FromSlice(t)
+		return nil
+	case string:
+		setBytesFromString(x.b[:], t)
+		hex.Encode(x.h[:], x.b[:])
+		return nil
+	default:
+		return errors.Errorf("unexpected type %T in scan", src)
+	}
+}
+
+func (x *HexBytes8) Scan(src any) error {
+	switch t := src.(type) {
+	case []byte:
+		*x = NewHexBytes8FromSlice(t)
+		return nil
+	case string:
+		setBytesFromString(x.b[:], t)
+		hex.Encode(x.h[:], x.b[:])
+		return nil
+	default:
+		return errors.Errorf("unexpected type %T in scan", src)
+	}
+}
+
+func (x HexBytes1) Value() (driver.Value, error) {
+	return x.Bytes(), nil
+}
+
+func (x HexBytes16) Value() (driver.Value, error) {
+	return x.Bytes(), nil
+}
+
+func (x HexBytes8) Value() (driver.Value, error) {
+	return x.Bytes(), nil
 }
