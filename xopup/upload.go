@@ -68,6 +68,7 @@ type Uploader struct {
 	completion          *sync.Cond
 	shutdown            int32 // 1 == shutting down
 	fragmentsInFlight   int32
+	sequenceNumber      uint32
 }
 
 type Request struct {
@@ -251,7 +252,9 @@ func (u *Uploader) flush() error {
 
 func (u *Uploader) getFragment() *xopproto.IngestFragment {
 	if u.fragment == nil {
-		u.fragment = &xopproto.IngestFragment{}
+		u.fragment = &xopproto.IngestFragment{
+			SequenceNumber: atomic.AddUint32(&u.sequenceNumber, 1) - 1,
+		}
 		u.traceIDIndex = make(map[[16]byte]int)
 		u.requestIDIndex = make(map[[8]byte]int)
 	}

@@ -123,8 +123,12 @@ func (t Trace) GetTraceID() HexBytes16 { return t.traceID.initialized(t) }
 func (t Trace) GetSpanID() HexBytes8   { return t.spanID.initialized(t) }
 func (t Trace) GetFlags() HexBytes1    { return t.flags.initialized(t) }
 func (t Trace) Copy() Trace            { return t }
-func NewSpanID() HexBytes8             { return newHexBytes8() }
-func NewTraceID() HexBytes16           { return newHexBytes16() }
+
+// NewSpanID creates a zero SpanID.
+func NewSpanID() HexBytes8 { return newHexBytes8() }
+
+// NewTraceID creates a zero TraceID.
+func NewTraceID() HexBytes16 { return newHexBytes16() }
 
 func (t Trace) IsZero() bool {
 	return t.String() == "00-00000000000000000000000000000000-0000000000000000-00"
@@ -135,6 +139,12 @@ func (t Trace) String() string {
 		return "00-00000000000000000000000000000000-0000000000000000-00"
 	}
 	return t.headerString
+}
+
+func NewRandomTraceID() HexBytes16 {
+	traceID := newHexBytes16()
+	traceID.setRandom()
+	return traceID
 }
 
 func NewRandomSpanID() HexBytes8 {
