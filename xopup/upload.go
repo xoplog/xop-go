@@ -105,6 +105,7 @@ func newUploader(ctx context.Context, c Config) *Uploader {
 			SourceID:               c.Source,
 			SourceStartTime:        time.Now().UnixNano(),
 			SourceRandom:           u[:],
+			ProtoVersion:           1,
 		},
 		definitionsComplete: sync.Pool{
 			New: func() any {

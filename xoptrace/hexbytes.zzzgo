@@ -133,7 +133,7 @@ func (x *ZZZ) Scan(src any) error {
 		hex.Encode(x.h[:], x.b[:])
 		return nil
 	default:
-		return errors.Errorf("unexpected type %T in scan", src)
+		return errors.Errorf("unexpected type %T in ZZZ scan", src)
 	}
 }
 

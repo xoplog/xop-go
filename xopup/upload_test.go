@@ -72,6 +72,7 @@ func TestUpload(t *testing.T) {
 	}()
 	uploader := xopup.New(context.Background(), config)
 	defer uploader.Uploader.Close()
+	defer grpcServer.GracefulStop()
 
 	assert.NoError(t, uploader.Uploader.Ping(), "ping")
 	server.pingError = fmt.Errorf("ooka")

@@ -298,7 +298,7 @@ func (x *HexBytes1) Scan(src any) error {
 		hex.Encode(x.h[:], x.b[:])
 		return nil
 	default:
-		return errors.Errorf("unexpected type %T in scan", src)
+		return errors.Errorf("unexpected type %T in HexBytes1 scan", src)
 	}
 }
 
@@ -312,7 +312,7 @@ func (x *HexBytes16) Scan(src any) error {
 		hex.Encode(x.h[:], x.b[:])
 		return nil
 	default:
-		return errors.Errorf("unexpected type %T in scan", src)
+		return errors.Errorf("unexpected type %T in HexBytes16 scan", src)
 	}
 }
 
@@ -326,7 +326,7 @@ func (x *HexBytes8) Scan(src any) error {
 		hex.Encode(x.h[:], x.b[:])
 		return nil
 	default:
-		return errors.Errorf("unexpected type %T in scan", src)
+		return errors.Errorf("unexpected type %T in HexBytes8 scan", src)
 	}
 }
 
