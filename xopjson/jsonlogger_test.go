@@ -42,18 +42,17 @@ type supersetObject struct {
 	// requests & spans
 
 	Type        string `json:"type"`
-	Name        string `json:"name"`
+	Name        string `json:"span.name"`
 	Duration    int64  `json:"dur"`
 	SpanVersion int    `json:"span.ver"`
 
 	// requests
 
-	Implmentation string `json:"impl"`
-	TraceID       string `json:"trace.id"`
-	ParentID      string `json:"parent.id"`
-	RequestID     string `json:"request.id"`
-	State         string `json:"trace.state"`
-	Baggage       string `json:"trace.baggage"`
+	TraceID   string `json:"trace.id"`
+	ParentID  string `json:"parent.id"`
+	RequestID string `json:"request.id"`
+	State     string `json:"trace.state"`
+	Baggage   string `json:"trace.baggage"`
 }
 
 type checkConfig struct {

@@ -5,12 +5,16 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"database/sql/driver"
+	"encoding"
 	"encoding/hex"
 
 	"github.com/pkg/errors"
 )
 
 // MACRO HexBytes
+// ZZZ is both a binary and text representation of a fixed-length
+// byte slice.  It is comparable and relatively low-overhead.  It
+// serializes as hex digits.
 type ZZZ struct {
 	b [zzz]byte
 	h [zzz * 2]byte
@@ -26,6 +30,8 @@ type WrappedZZZ struct {
 // MACRO HexBytes
 var _ driver.Valuer = ZZZ{}
 var _ sql.Scanner = &ZZZ{}
+var _ encoding.TextMarshaler = ZZZ{}
+var _ encoding.TextUnmarshaler = &ZZZ{}
 
 // MACRO HexBytes
 var zeroHexZZZ = bytes.Repeat([]byte{'0'}, zzz*2)
@@ -140,4 +146,24 @@ func (x *ZZZ) Scan(src any) error {
 // MACRO HexBytes
 func (x ZZZ) Value() (driver.Value, error) {
 	return x.Bytes(), nil
+}
+
+// MACRO HexBytes
+func (x ZZZ) MarshalText() ([]byte, error) {
+	return x.h[:], nil
+}
+
+// MACRO HexBytes
+func (x *ZZZ) UnmarshalText(h []byte) error {
+	if len(h) != zzz*2 {
+		return errors.Errorf("UnmarshalText ZZZ: input is the wrong (%d) length", len(h))
+	}
+	_, err := hex.Decode(x.b[:], h)
+	if err != nil {
+		return errors.Wrap(err, "UnmarshalText ZZZ")
+	}
+	// We re-encode to because h might use different case for the letters
+	// that what we use elsewhere
+	hex.Encode(x.h[:], x.b[:])
+	return nil
 }

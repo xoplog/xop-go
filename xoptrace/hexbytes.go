@@ -7,19 +7,31 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"database/sql/driver"
+	"encoding"
 	"encoding/hex"
 
 	"github.com/pkg/errors"
 )
 
+// HexBytes1 is both a binary and text representation of a fixed-length
+// byte slice.  It is comparable and relatively low-overhead.  It
+// serializes as hex digits.
 type HexBytes1 struct {
 	b [1]byte
 	h [1 * 2]byte
 }
+
+// HexBytes16 is both a binary and text representation of a fixed-length
+// byte slice.  It is comparable and relatively low-overhead.  It
+// serializes as hex digits.
 type HexBytes16 struct {
 	b [16]byte
 	h [16 * 2]byte
 }
+
+// HexBytes8 is both a binary and text representation of a fixed-length
+// byte slice.  It is comparable and relatively low-overhead.  It
+// serializes as hex digits.
 type HexBytes8 struct {
 	b [8]byte
 	h [8 * 2]byte
@@ -42,12 +54,18 @@ type WrappedHexBytes8 struct {
 }
 
 var (
-	_ driver.Valuer = HexBytes1{}
-	_ sql.Scanner   = &HexBytes1{}
-	_ driver.Valuer = HexBytes16{}
-	_ sql.Scanner   = &HexBytes16{}
-	_ driver.Valuer = HexBytes8{}
-	_ sql.Scanner   = &HexBytes8{}
+	_ driver.Valuer            = HexBytes1{}
+	_ sql.Scanner              = &HexBytes1{}
+	_ encoding.TextMarshaler   = HexBytes1{}
+	_ encoding.TextUnmarshaler = &HexBytes1{}
+	_ driver.Valuer            = HexBytes16{}
+	_ sql.Scanner              = &HexBytes16{}
+	_ encoding.TextMarshaler   = HexBytes16{}
+	_ encoding.TextUnmarshaler = &HexBytes16{}
+	_ driver.Valuer            = HexBytes8{}
+	_ sql.Scanner              = &HexBytes8{}
+	_ encoding.TextMarshaler   = HexBytes8{}
+	_ encoding.TextUnmarshaler = &HexBytes8{}
 )
 
 var (
@@ -340,4 +358,58 @@ func (x HexBytes16) Value() (driver.Value, error) {
 
 func (x HexBytes8) Value() (driver.Value, error) {
 	return x.Bytes(), nil
+}
+
+func (x HexBytes1) MarshalText() ([]byte, error) {
+	return x.h[:], nil
+}
+
+func (x HexBytes16) MarshalText() ([]byte, error) {
+	return x.h[:], nil
+}
+
+func (x HexBytes8) MarshalText() ([]byte, error) {
+	return x.h[:], nil
+}
+
+func (x *HexBytes1) UnmarshalText(h []byte) error {
+	if len(h) != 1*2 {
+		return errors.Errorf("UnmarshalText HexBytes1: input is the wrong (%d) length", len(h))
+	}
+	_, err := hex.Decode(x.b[:], h)
+	if err != nil {
+		return errors.Wrap(err, "UnmarshalText HexBytes1")
+	}
+	// We re-encode to because h might use different case for the letters
+	// that what we use elsewhere
+	hex.Encode(x.h[:], x.b[:])
+	return nil
+}
+
+func (x *HexBytes16) UnmarshalText(h []byte) error {
+	if len(h) != 16*2 {
+		return errors.Errorf("UnmarshalText HexBytes16: input is the wrong (%d) length", len(h))
+	}
+	_, err := hex.Decode(x.b[:], h)
+	if err != nil {
+		return errors.Wrap(err, "UnmarshalText HexBytes16")
+	}
+	// We re-encode to because h might use different case for the letters
+	// that what we use elsewhere
+	hex.Encode(x.h[:], x.b[:])
+	return nil
+}
+
+func (x *HexBytes8) UnmarshalText(h []byte) error {
+	if len(h) != 8*2 {
+		return errors.Errorf("UnmarshalText HexBytes8: input is the wrong (%d) length", len(h))
+	}
+	_, err := hex.Decode(x.b[:], h)
+	if err != nil {
+		return errors.Wrap(err, "UnmarshalText HexBytes8")
+	}
+	// We re-encode to because h might use different case for the letters
+	// that what we use elsewhere
+	hex.Encode(x.h[:], x.b[:])
+	return nil
 }

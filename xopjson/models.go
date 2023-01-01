@@ -1,3 +1,7 @@
+/*
+Package xopjson implements the xopbase.Logger interface and is
+the primary output format for Xop logs.
+*/
 package xopjson
 
 import (

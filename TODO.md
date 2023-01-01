@@ -1,8 +1,6 @@
 
 # Just do it (build ready)
 
-- sources should have key/value attributes
-
 - sampling can be based on Boring() in which case the flags need to
   change before the "traceresponse" is set.  That means top logger
   must know if base loggers honored the boring.  Change xopbase.Boring
@@ -178,6 +176,10 @@
     copies of the original.  One that is redacted and one that is not?
 
 # Ideas to ponder
+
+- sources should have key/value attributes?
+
+- place limits on sizes of things and divert large items elsewhere
 
 - use [goccy json](https://github.com/goccy/go-json#benchmarks)?
 
