@@ -1,3 +1,46 @@
+# ponder now
+
+- Problem types
+
+  - `Any`.  I suspect most of the time, you don't want a key/value and 
+    actually want to log just the model.  Record the type?
+
+  - `Duration`.  How to distinquish from ints/strings?
+
+  - `int64` & `uint64`.  Cannot reliably marshsal as numbers.  Can do so
+    most of the time.
+
+  - `Link`.  How to distinquish from from models or strings?
+
+  - `Table`, `Encoded`, `ExternalReference`, `Enum`.  How to distinquish
+    from other types?
+
+  - Solutions:
+
+    - Allow `""` as a valid key for Any?  Or have `Any()` be like `Msg()` and
+      only allow one of them?  Rename `Any()` to `Model()` or `Object()`.
+
+    - Add an extra object level for `Any()`, `Duration()`, and `Link()`.  
+
+    - Split out attributes into separate maps:
+
+      - `bool`
+      - `string`
+      - `number`
+      - `typed`
+
+        Separate?  Or grouped
+
+        - `duration`
+        - `encoded`
+        - `object`
+        - `link`
+        - `uint64`
+        - `int64`
+
+    - Only allow one `Link()` so it's like `Msg()`
+
+
 
 # Just do it (build ready)
 
@@ -192,12 +235,12 @@
 - Consider replacing SeedModifier with a seed modifier type...
 
   ```
-	Instead of
-		log.Step(...SeedModifier)
-		and functions that produce SeedModifier
-	have:
-		log.Step(func(SeedModifier))
-		and methods on SeedModifier that directly write to the seed
+        Instead of
+                log.Step(...SeedModifier)
+                and functions that produce SeedModifier
+        have:
+                log.Step(func(SeedModifier))
+                and methods on SeedModifier that directly write to the seed
   ```
 
 - Should xop attributes in a line be bundled into a sub-object?

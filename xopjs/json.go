@@ -27,6 +27,8 @@ package xopjs
 
 import (
 	"encoding/json"
+	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -35,6 +37,9 @@ import (
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 )
+
+const MaxIntegerAsFloat = 2 * *53
+const MinIntegerAsFloat = -MaxIntegerAsFloat
 
 type Bundle struct {
 	Traces               []Trace
@@ -62,30 +67,48 @@ type Request struct {
 	Baggage       string               `json:"trace.baggage,omitempty"`
 	Lines         []Line               `json:"lines,omitempty"`
 	IsRequest     bool                 `json:"isRequest"`       // always true
-	Spans         []*Span               `json:"spans,omitempty"` // omitting itself
+	Spans         []*Span              `json:"spans,omitempty"` // omitting itself
 }
 
-type Span struct {
+type SpanCommon struct {
 	Timestamp    time.Time          `json:"ts"`
-	Attributes   json.RawMessage    `json:"attributes,omitempty"`
 	Type         string             `json:"type"` // "span" or "request"
 	Name         string             `json:"span.name"`
 	Duration     time.Duration      `json:"dur"`
 	SpanID       xoptrace.HexBytes8 `json:"span.id"`
 	ParentSpanID xoptrace.HexBytes8 `json:"span.id"`
 	SpanVersion  int                `json:"span.ver,omitempty"`
-	buffer       xopbytes.Buffer
+}
+
+type Span struct {
+	SpanCommon
+	Attributes map[string]SpanAttribute `json:"attributes,omitempty"`
+}
+
+type SpanWriter struct {
+	SpanCommon
+	Attributes json.RawMessage `json:"attributes,omitempty"`
+	buffer     xopbytes.Buffer
+}
+
+type LineCommon struct {
+	Timestamp time.Time          `json:"ts"`
+	Level     xopnum.Level       `json:"lvl"`
+	SpanID    xoptrace.HexBytes8 `json:"span.id"`
+	Msg       string             `json:"msg"`
+	Format    string             `json:"fmt,omitempty"`
+	Type      string             `json:"type,omitempty"` // value should be "line" if present
 }
 
 type Line struct {
-	Timestamp  time.Time          `json:"ts"`
-	Attributes json.RawMessage    `json:"attributes,omitempty"`
-	Level      xopnum.Level       `json:"lvl"`
-	SpanID     xoptrace.HexBytes8 `json:"span.id"`
-	Stack      json.RawMessage    `json:"stack,omitempty"` // []string
-	Msg        string             `json:"msg"`
-	Format     string             `json:"fmt,omitempty"`
-	Type       string             `json:"type,omitempty"` // value should be "line" if present
+	Attributes map[string]LineAttribute `json:"attributes,omitempty"`
+	Stack      []string                 `json:"stack,omitempty"`
+}
+
+type LineWriter struct {
+	LineCommon
+	Attributes json.RawMessage `json:"attributes,omitempty"`
+	Stack      json.RawMessage `json:"stack,omitempty"` // []string
 	line       xopbytes.Line
 }
 
@@ -96,4 +119,104 @@ type AttributeDefinition struct {
 	NamespaceSemver string                 `json:"namespaceSemver"`
 	EnumValues      map[string]int64       `json:"enum,omitempty"`
 	SourceIndex     int                    `json:"sourceIndex"`
+}
+
+type LineAttribute any
+
+func (x LineAttribute) MarshalJSON() ([]byte, error) {
+	switch t := x.(type) {
+	case int8, int16, int32, uint8, uint16, uint32, string, bool:
+		return json.Marshal(x)
+	case int, int64:
+		if t > MaxIntegerAsFloat || t < MinIntegerAsFloat {
+			return json.Marshal(strconv.FormatInt(t, i, 10))
+			o := make([]byte, 0, len(byts)+20)
+			o = append(o, []bytes(`{" ":"i","_":`))
+			o = append(o, byts...)
+			o = append(o, '}')
+		}
+		return json.Marshal(t)
+	case uint, uint64:
+		if t > MaxIntegerAsFloat {
+			byts, err := json.Marshal(strconv.FormatInt(t, i, 10))
+			if err != nil {
+				return nil, err
+			}
+			o := make([]byte, 0, len(byts)+10)
+			o = append(o, []bytes(`{" ":"u","_":`))
+			o = append(o, byts...)
+			o = append(o, '}')
+		}
+		return json.Marshal(t)
+	default:
+		byts, err := json.Marshal(x)
+		if err != nil {
+			return nil, err
+		}
+		typ := reflect.TypeOf(x).String()
+		o := make([]byte, 0, len(byts)+15+len(typ))
+		o = append(o, []bytes(`{" ":"o","_":`))
+		o = append(o, byts...)
+		o = append(o, []bytes(`,"t":`))
+		typeBytes, err := json.Marshal(typ)
+		if err != nil {
+			return err
+		}
+		o = append(o, typeBytes...)
+		o = append(o, '}')
+		return o, nil
+	}
+}
+
+func (x *LineAttribute) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 {
+		return errors.Errorf("cannot unmarshal empty input")
+	}
+	switch b[0]:
+	case '{': // }
+		if len(b) < len(`{" ":"?","_":`) /*}*/ { 
+			return errors.Errorf("cannot unmarshal input too short")
+		}
+		if b[1] != '"' || b[2] != ' ' || b[3] != '"' {
+			return errors.Errorf("cannot unmarshal invalid input")
+		}
+		switch b[6] {
+		case 'u':
+			var y struct {
+				U uint64 `json:"_"`
+			}
+			err := json.Unmarshal(b, &y)
+			if err != nil { return err }
+			*x = y.U
+		case 'i':
+			var y struct {
+				I int64 `json:"_"`
+			}
+			err := json.Unmarshal(b, &y)
+			if err != nil { return err }
+			*x = y.I
+		case 't': 
+			var y struct {
+				T time.Time `json:"_"`
+			}
+			err := json.Unmarshal(b, &y)
+			if err != nil { return err }
+			*x = y.T
+		case 'd': 
+			var y struct {
+				D time.Duration `json:"_"`
+			}
+			err := json.Unmarshal(b, &y)
+			if err != nil { return err }
+			*x = y.D
+		case 'o':
+		default:
+			return errors.Errorf("cannot unmarshal invalid input")
+	default:
+		// handles strings, ints, floats, etc
+		var a any
+		json.Unmarshal(b, &a)
+		*x = a
+		return nil
+	}
 }
