@@ -1,4 +1,35 @@
 
+
+# Big picture
+
+- Change logging API
+
+  - add `.Model(string, any)` as an alternative to `.Msg()` 
+  - change `.Link(string, any)` to be an alternative to `.Msg()`
+  - note that `.Table()` will also be an alternative to `.Msg()`
+
+- (Re)define/document output formats
+
+  - xopproto 
+  - xopjson (retains full type info)
+  - xopjs (focuses on human-readability)
+  - xopcon
+
+- Document the above and also
+
+  - xoptest
+  - xopotel
+
+- Build the above
+
+- Each of xopproto, xopjson, xoptest, xopotel needs a reversal function to take it's
+  output and call a xopbase.Logger to re-process it's data.  This is how one type can
+  be converted to another.  This library is maybe only in the server?
+
+- Rebuild xopup uploader to use the new xopproto
+
+- Rebuild server to ingest the new xopproto
+
 # Just do it (build ready)
 
 - sampling can be based on Boring() in which case the flags need to
