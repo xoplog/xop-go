@@ -2,6 +2,8 @@
 
 # Big picture
 
+- Change base logger Any to have additional parameters: type & de-redaction
+
 - Change logging API
 
   - add `.Model(string, any)` as an alternative to `.Msg()` 
