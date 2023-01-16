@@ -101,8 +101,8 @@ otel-generate: ../opentelemetry-specification ../opentelemetry-go
 ../xopproto/ingest.proto:
 	cd ..; git clone https://github.com/xoplog/xopproto.git
 
-xopproto/ingest.proto: ../xopproto/ingest.proto 
-	ln -sf ../../xopproto/ingest.proto xopproto/
+xopproto/%.proto: ../xopproto/%.proto
+	ln -sf ../$< xopproto/
 
-$(PB): xopproto/ingest.proto
-	cd xopproto && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative ingest.proto
+$(PB): xopproto/xop.proto
+	cd xopproto && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative *.proto

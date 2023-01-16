@@ -553,11 +553,6 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
-func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
-	s.attributes.MetadataLink(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
-}
-
 func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 	s.attributes.MetadataString(k, v)
 	s.logger.writer.DefineAttribute(&k.Attribute)

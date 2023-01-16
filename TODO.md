@@ -2,6 +2,9 @@
 
 # Big picture
 
+- rip out current redaction functions.  They aren't right but it's not time
+  to fix them
+
 - Change base logger Any to have additional parameters: type & de-redaction
 
 - Change logging API

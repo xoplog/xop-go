@@ -7,7 +7,6 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
-	"github.com/xoplog/xop-go/xoptrace"
 )
 
 var SkipLine = skipLine{}
@@ -26,7 +25,6 @@ func (_ skipLine) Template(string) {}
 func (_ skipLine) Any(string, interface{})        {}
 func (_ skipLine) Bool(string, bool)              {}
 func (_ skipLine) Duration(string, time.Duration) {}
-func (_ skipLine) Link(string, xoptrace.Trace)    {}
 func (_ skipLine) Time(string, time.Time)         {}
 
 func (_ skipLine) Float64(string, float64, xopbase.DataType) {}

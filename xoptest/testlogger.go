@@ -730,54 +730,6 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	}
 }
 
-// MetadataLink is a required method for xopbase.Span
-func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
-	func() {
-		s.testLogger.lock.Lock()
-		defer s.testLogger.lock.Unlock()
-		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
-		})
-	}()
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if k.Multiple() {
-		value := v
-		if k.Distinct() {
-			key := value
-			seenRaw, ok := s.metadataSeen[k.Key()]
-			if !ok {
-				seen := make(map[xoptrace.Trace]struct{})
-				s.metadataSeen[k.Key()] = seen
-				seen[key] = struct{}{}
-			} else {
-				seen := seenRaw.(map[xoptrace.Trace]struct{})
-				if _, ok := seen[key]; ok {
-					return
-				}
-				seen[key] = struct{}{}
-			}
-		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
-		} else {
-			s.Metadata[k.Key()] = []interface{}{value}
-			s.MetadataType[k.Key()] = xopbase.LinkArrayDataType
-		}
-	} else {
-		if _, ok := s.Metadata[k.Key()]; ok {
-			if k.Locked() {
-				return
-			}
-		} else {
-			s.MetadataType[k.Key()] = xopbase.LinkDataType
-		}
-		s.Metadata[k.Key()] = v
-	}
-}
-
 // MetadataString is a required method for xopbase.Span
 func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 	func() {

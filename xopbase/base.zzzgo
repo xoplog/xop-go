@@ -1,11 +1,13 @@
 /*
+Package xopbase defines the base-level loggers for xop.
+
 In xop, the logger is divided into a top-level logger and a lower-level
 logger.  The top-level logger is what users use to add logs to their
 programs.  The lower-level logger is used to send those logs somewhere
 useful.  Xopjson, xoptest, and xopotel are all examples.
 
-Package xopbase defines the base-level loggers for xop.  In OpenTelemetry,
-these are called "exporters".  In logr, they are called "LogSinks".
+In OpenTelemetry, these are called "exporters".
+In logr, they are called "LogSinks".
 */
 package xopbase
 
@@ -42,6 +44,23 @@ type Logger interface {
 	// it when Flush() is called. Even if Buffered() returns false,
 	// Flush() may still be invoked but it doesn't have to do anything.
 	Buffered() bool
+
+	// Replay is how a Logger will feed it's output to another Logger.  The
+	// input param should be the collected output from the first Logger.  If
+	// it isn't in the right format, or type, it should throw an error.  This
+	// capability can be used to transform from one format to another, it can
+	// also be used to during testing to make sure that a Logger can round-trip
+	// without data loss.  Loggers are not required to round-trip without
+	// data loss.
+	Replay(ctx context.Context, input any, logger Logger) error
+}
+
+type RoundTripLogger interface {
+	Logger
+
+	// LosslessReplay is just like Replay but guarantees that no data
+	// is lost.
+	LosslessReplay(ctx context.Context, input any, logger Logger) error
 }
 
 type Request interface {
@@ -109,7 +128,7 @@ type Span interface {
 }
 
 type Prefilling interface {
-	ObjectParts
+	AttributeParts
 
 	PrefillComplete(msg string) Prefilled
 }
@@ -122,35 +141,47 @@ type Prefilled interface {
 }
 
 type Line interface {
-	ObjectParts
+	AttributeParts
 
-	// Msg may only be called once.  After calling Msg, the line
-	// may not be used for anything else unless Recycle is called.
-	Msg(string)
-
-	// Template may only be called once.  It is an alternative to Msg.
-	Template(string)
-
-	// Static is the same as Msg, but it hints that the supplied string is
-	// constant rather than something generated.  Since it's static, base
-	// loggers may keep them a dictionary and send references.
-	Static(string)
+	LineDone
 }
 
-type ObjectParts interface {
+// LineDone are methods that complete the line.  No additional methods may
+// be invoked on the line after one of these is called.
+type LineDone interface {
+	Msg(string)
+	Template(string)
+	// Static(string) XXX remove implemenations
+	// Object may change in the future to also take an un-redaction string,
+	Model(string, ModelArg)
+	Link(string, xoptrace.Trace)
+}
+
+// ModelArg may be expanded in the future to supply: an Encoder; redaction
+// information.
+type ModelArg struct {
+	// If specified, overrides what would be provided by reflect.TypeOf(obj).Name()
+	TypeName string
+	Model    interface{}
+}
+
+type AttributeParts interface {
 	Enum(*xopat.EnumAttribute, xopat.Enum)
-	// TODO: split the above off as "BasicObjectParts"
+	Any(key string, typeName string, unredaction string, obj interface{})
+
+	// MACRO BaseDataWithType Skip:Any
+	ZZZ(string, zzz, DataType)
+
+	// MACRO BaseDataWithoutType
+	ZZZ(string, zzz)
+
+	// TODO: split the above off as "BasicAttributeParts"
 	// TODO: Table(string, table)
 	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
 	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
 	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
 	// TODO: ExternalReference(name string, itemID string, storageID string)
-
-	// MACRO BaseDataWithType
-	ZZZ(string, zzz, DataType)
-
-	// MACRO BaseDataWithoutType
-	ZZZ(string, zzz)
+	// TODO: RedactedString(name string, value string, unredaction string)
 }
 
 // TODO

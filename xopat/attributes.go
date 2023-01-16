@@ -296,7 +296,6 @@ const (
 	AttributeTypeInt32    = AttributeType(xopproto.AttributeType_Int32)
 	AttributeTypeInt64    = AttributeType(xopproto.AttributeType_Int64)
 	AttributeTypeInt8     = AttributeType(xopproto.AttributeType_Int8)
-	AttributeTypeLink     = AttributeType(xopproto.AttributeType_Link)
 	AttributeTypeString   = AttributeType(xopproto.AttributeType_String)
 	AttributeTypeTime     = AttributeType(xopproto.AttributeType_Time)
 )
@@ -345,10 +344,6 @@ type Float64Attribute struct{ Attribute }
 // Int64Attribute represents an attribute key that can be used
 // with int64 values.
 type Int64Attribute struct{ Attribute }
-
-// LinkAttribute represents an attribute key that can be used
-// with xoptrace.Trace values.
-type LinkAttribute struct{ Attribute }
 
 // StringAttribute represents an attribute key that can be used
 // with string values.

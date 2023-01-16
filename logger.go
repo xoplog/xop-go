@@ -7,8 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mohae/deepcopy"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 )
 
@@ -271,7 +273,7 @@ func (log *Log) hasActivity(startFlusher bool) {
 				log.shared.FlushTimer.Reset(log.shared.FlushDelay)
 			}
 			if wasDone := atomic.LoadInt32(&log.span.doneCount); wasDone != 0 {
-				log.Error().Static("XOP: log was already done, but was used again")
+				log.Error().Msg("XOP: log was already done, but was used again")
 			}
 		}
 	}
@@ -305,7 +307,7 @@ func (log *Log) hasActivity(startFlusher bool) {
 // trigger a call to Flush().
 func (log *Log) Done() {
 	if log.nonSpanSubLog {
-		log.Error().Static("XOP: invalid call to Done() in non-span sub-log")
+		log.Error().Msg("XOP: invalid call to Done() in non-span sub-log")
 		return
 	}
 	debugPrint("starting Done {", log.span.description, log.span.logNumber)
@@ -344,7 +346,7 @@ func (log *Log) done(explicit bool, now time.Time) {
 	postCount := log.recursiveDone(true, now)
 	if postCount > 1 && explicit {
 		debugPrint("donecount=", postCount, "logging error")
-		log.Error().Static("XOP: Done() called on log object when it was already Done()")
+		log.Error().Msg("XOP: Done() called on log object when it was already Done()")
 	}
 	if log.span.detached {
 		if func() bool {
@@ -575,7 +577,7 @@ func (line *Line) Template(template string) {
 
 // Msg sends a log line.  After Msg(), no further use of the *Line
 // is allowed.  Without calling Msg(), Template(), Msgf(), Msgs(),
-// or Static(), the log line will not be sent or output.
+// or Link(), Linkf(), Modelf() or Model(), the log line will not be sent or output.
 func (line *Line) Msg(msg string) {
 	line.line.Msg(msg)
 	line.log.span.linePool.Put(line)
@@ -589,11 +591,64 @@ func (line *Line) Msgf(msg string, v ...interface{}) {
 	}
 }
 
-// Static is the same as Msg, but it hints that the supplied string is
-// constant rather than something generated.  Since it's static, base
-// loggers may keep them a dictionary and send references.
-func (line *Line) Static(msg string) {
-	line.line.Static(msg)
+// Model and Any serve similar roles: both can log an arbitrary
+// data object.  Model terminates the log line where Any adds a key/value
+// attribute to the log line.
+//
+// Prefer Model() over Any() when the point of the log line is the model.
+// Prefer Any() over Model() when the model is just one of several key/value
+// attributes attached to the log line.
+func (line *Line) Model(obj interface{}, msg string) {
+	if line.skip {
+		line.Msg("")
+		return
+	}
+	if line.log.span.referencesKept {
+		// TODO: make copy function configurable
+		obj = deepcopy.Copy(obj)
+	}
+	line.ModelImmutable(obj, msg)
+}
+
+// ModelImmutable can be used to log something that is not going to be further modified
+// after this call.
+func (line *Line) ModelImmutable(obj interface{}, msg string) { // TODO: document
+	if line.skip {
+		line.Msg("")
+		return
+	}
+	line.line.Model(msg, xopbase.ModelArg{
+		Mode: obj,
+	})
+	line.log.span.linePool.Put(line)
+	line.log.hasActivity(true)
+}
+
+func (line *Line) Modelf(obj interface{}, msg string, v ...interface{}) { // TODO: document
+	if line.skip {
+		line.Msg("")
+		return
+	}
+	line.Model(obj, fmt.Sprint(msg, v...))
+}
+
+func (line *Line) ModelImmutablef(obj interface{}, msg string, v ...interface{}) { // TODO: document
+	if line.skip {
+		line.Msg("")
+		return
+	}
+	line.ModelImmutable(obj, fmt.Sprint(msg, v...))
+}
+
+func (line *Line) Linkf(link xoptrace.Trace, msg string, v ...interface{}) {
+	if line.skip {
+		line.Msg("")
+		return
+	}
+	line.Link(link, fmt.Sprintf(msg, msg, v...))
+}
+func (line *Line) Link(link xoptrace.Trace, msg string) {
+	line.line.Link(msg, link)
 	line.log.span.linePool.Put(line)
 	line.log.hasActivity(true)
 }

@@ -207,12 +207,6 @@ func (p prefillings) Duration(k string, v time.Duration) {
 	}
 }
 
-func (p prefillings) Link(k string, v xoptrace.Trace) {
-	for _, prefilling := range p {
-		prefilling.Link(k, v)
-	}
-}
-
 func (p prefillings) Time(k string, v time.Time) {
 	for _, prefilling := range p {
 		prefilling.Time(k, v)
@@ -258,12 +252,6 @@ func (l lines) Bool(k string, v bool) {
 func (l lines) Duration(k string, v time.Duration) {
 	for _, line := range l {
 		line.Duration(k, v)
-	}
-}
-
-func (l lines) Link(k string, v xoptrace.Trace) {
-	for _, line := range l {
-		line.Link(k, v)
 	}
 }
 
@@ -324,12 +312,6 @@ func (s baseSpans) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 func (s baseSpans) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	for _, span := range s {
 		span.MetadataInt64(k, v)
-	}
-}
-
-func (s baseSpans) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
-	for _, span := range s {
-		span.MetadataLink(k, v)
 	}
 }
 

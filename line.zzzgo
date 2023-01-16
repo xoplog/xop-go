@@ -7,21 +7,6 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-// AnyImmutable can be used to log something that is not going to be further modified
-// after this call.
-// The return value must be consumed for the line to be logged.
-func (line *Line) AnyImmutable(k string, v interface{}) *Line {
-	if line.skip {
-		return line
-	}
-	if line.log.settings.redactAny != nil {
-		line.log.settings.redactAny(line.line, k, v, true)
-		return line
-	}
-	line.line.Any(k, v)
-	return line
-}
-
 // AnyWithoutRedaction
 // The return value must be consumed for the line to be logged.
 func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
