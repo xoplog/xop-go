@@ -113,6 +113,7 @@ for spans must be pre-registered but for lines, any old string will do.
 | xoptest (text) | `testlogger.go:214: Start request T1.1=00-c23eb18b4a69db30a93ad5a450b562c2-97b3fac6fa50ec6b-01 TestRedaction` |
 | xoptest (model) | see Span in [xoptest](https://github.com/xoplog/xop-go |
 | xopcon | `2009/11/10 23:00:00 Start request T1.1=00-c23eb18b4a69db30a93ad5a450b562c2-97b3fac6fa50ec6b-01 GET /foo` |
+| xopconsole | `2009/11/10T23:00:00.2822Z Start request 00-c23eb18b4a69db30a93ad5a450b562c2-97b3fac6fa50ec6b-01 GET /foo` |
 | xopotel | [Span](https://pkg.go.dev/go.opentelemetry.io/otel/trace#Span) |
 | xoppb | see Request and Span in [xopproto](https://github.com/muir/xopproto) |
 
@@ -122,11 +123,12 @@ for spans must be pre-registered but for lines, any old string will do.
 
 | format | example |
 | --- | ---- |
-| xopjson | `"key(JSON-escaping)":"S:value(JSON-escaping)"` with the `S:` being optional most of the time, required if matching `^(?:\d|[A-Z]:|[a-f][\da-f]-)` |
+| xopjson | `"key(JSON-escaping)":"S:value(JSON-escaping)"` with the `S:` being optional most of the time, required if matching `^(?:\d\|[SUITD]:\|[a-f][\da-f]-)` |
 | xopjs | `"key(JSON-escaping)":"value(JSON-escaping)"` |
 | xoptest (text) | `key=value` |
 | xoptest (model) | `line.Data["key"] = "value"` and `line.DataType["key"] = xopbase.StringDataType` |
 | xopcon | `key="value"` or `"k e y"="value"` (if there are spaces in the key) |
+| xopconsole | `"key"="S:value"` (same rules as xopjson for values) |
 | xopotel | `attribute.String(key, value)` |
 | xoppb | in `Line`, `map<string,string> stringAttributes = 5` |
 
@@ -209,7 +211,7 @@ If integers will stored in strings, there is no way to tell that they're integer
 | xoptest (text) | `key={object here}` |
 | xoptest (model) | `line.Data["key"] = deepcopy.Copy(object)` and `line.DataType["key"] = deepcopy.Copy(object)` |
 | xopcon | `key={object here}` or `"k e y"={object here}` (if there are spaces in the key) |
-| xopotel | `attribute.StringSlice(key, []string{"duration", "5m10s"])` |
+| xopotel | `attribute.StringSlice(key, []string{"object", "thing", "application/json", "{object here}"])` |
 | xoppb (signed) | | 
 | xoppb (unsigned) | |
 
