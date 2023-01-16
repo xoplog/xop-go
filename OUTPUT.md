@@ -3,9 +3,11 @@
 
 As a bi-level logger, there are multiple base-logger implementations for Xop.
 
-Except where noted, all output formats can be converted to other output formats.  There are some
-exceptions in terms of the keys used: attribute keys that are not words may not convert between
-formats.
+Some of the base loggers retain the full information that is given to them.  That
+include xoptest (models), xopjson, xopconsole, and xoppb.  Some lose information: 
+xopjs, xopcon, xoptest (text output, xopotel).  All (except xoptest test output) can use
+their output steam to call other base loggers and thus all formats can convert
+to all other formats.
 
 ## xopjson
 
@@ -46,6 +48,15 @@ TO-BE-BUILT
 
 Xopcon has not yet been built.  It is the planned console format.
 
+Console output will lose precision in multiple ways: the time format is at second-level
+granularity rather than nanosecond.  Type information will be lost.  If the message has
+things that look like key/value pairs, they cannot be distinquished from actual key/value
+pairs.
+
+## xopconsole
+
+Xopconsole is a high-fidelity variant of xopcon.
+
 ## xoppb
 
 TO-BE-BUILT
@@ -60,7 +71,8 @@ TO-BE-BUILT
 | xopjs | `{"lvl":"INFO","ts":"2023-01-13T22:05:40.873462-08:00","span.id":"38c3ce6b70fb2468","do":"foobar","msg":"yes, foobar"}` |
 | xoptest (text) | `testlogger.go:420: T1.1: foo garden=nothing in my garden is taller than my daisy! story=I got the contract with a small consideration, just a sunflower cookie tale=I got the contract with a small consideration, just a sunflower cookie raw=I got the contract with a small bribe, just a sunflower cookie success=I got the contract with a small bribe, just a daisy cookie oops=outer: inner(as string) ` |
 | xoptest (model) | see [Line](https://pkg.go.dev/github.com/xoplog/xop-go/xoptest#Line) |
-| xopcon | `key="value"` or `"k e y"="value"` (if there are spaces in the key) |
+| xopcon | `2009/11/10 23:00:00 INFO T1.1: message goes here with key=value after=text` |
+| xopconsole | `2009/11/10T23:00:00.00329Z INFO 38c3ce6b70fb2468 "message goes here with" "key"="S:value" "after"="text"` |
 | xopotel | added as `Event` to a [Span](https://pkg.go.dev/go.opentelemetry.io/otel/trace#Span) |
 | xoppb | see Line in [xopproto](https://github.com/muir/xopproto) |
 
@@ -76,6 +88,21 @@ TO-BE-BUILT
 
 A primary difference between lines and spans is that the attribute keys
 for spans must be pre-registered but for lines, any old string will do.
+
+## Span Attribute
+
+| format | example |
+| --- | ---- |
+| xopjson | buffred for a resend of the span |
+| xopjs | buffred for a resend of the span |
+| xoptest (text) | |
+| xoptest (model) | see [Span](https://pkg.go.dev/github.com/xoplog/xop-go/xoptest#Span) |
+| xopcon | `2009/11/10 23:00:00 T1.1: key=value` |
+| xopconsole | `2009/11/10T23:00:00.00329Z 38c3ce6b70fb2468 "key"="value" |
+| xopotel | |
+| xoppb | |
+
+## Span flush  
 
 ## Requests
 
@@ -175,5 +202,27 @@ If integers will stored in strings, there is no way to tell that they're integer
 
 ## Objects
 
+| format | example |
+| --- | ---- |
+| xopjson | `"key(JSON-escaping)":{"type":"thing","value":{object here}}` |
+| xopjs | `"key(JSON-escaping)":{object here}` |
+| xoptest (text) | `key={object here}` |
+| xoptest (model) | `line.Data["key"] = deepcopy.Copy(object)` and `line.DataType["key"] = deepcopy.Copy(object)` |
+| xopcon | `key={object here}` or `"k e y"={object here}` (if there are spaces in the key) |
+| xopotel | `attribute.StringSlice(key, []string{"duration", "5m10s"])` |
+| xoppb (signed) | | 
+| xoppb (unsigned) | |
+
 ## Enums
 
+| format | example |
+| --- | ---- |
+| xopjson | `"key(JSON-escaping)":{"kind":"enum","namespace":"namespace-namspace-version","string":"string-value","int":328}` |
+| xopjs | `"key(JSON-escaping)":"string-value"` |
+| xoptest (text) | `key=enum_string_value` |
+| xoptest (model) | `line.Data["key"] = XXX` and `line.DataType["key"] = XXX` |
+| xopcon | `key=enum_string_value` or `"k e y"=enum_string_value` (if there are spaces in the key) |
+| xopconsole | `key="string-value"(32,namespace,namespace-version)
+| xopotel | `attribute.StringSlice(key, []string{"enum", "namespace", "namespace-version", "string-value", "32"])` |
+| xoppb (signed) | |
+| xoppb (unsigned) | |
