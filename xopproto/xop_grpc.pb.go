@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.7
-// source: ingest.proto
+// source: xop.proto
 
 package xopproto
 
@@ -36,7 +36,7 @@ func NewIngestClient(cc grpc.ClientConnInterface) IngestClient {
 
 func (c *ingestClient) Ping(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/Ingest/Ping", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/xop.Ingest/Ping", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *ingestClient) Ping(ctx context.Context, in *Empty, opts ...grpc.CallOpt
 
 func (c *ingestClient) UploadFragment(ctx context.Context, in *IngestFragment, opts ...grpc.CallOption) (*Error, error) {
 	out := new(Error)
-	err := c.cc.Invoke(ctx, "/Ingest/UploadFragment", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/xop.Ingest/UploadFragment", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func _Ingest_Ping_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Ingest/Ping",
+		FullMethod: "/xop.Ingest/Ping",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(IngestServer).Ping(ctx, req.(*Empty))
@@ -112,7 +112,7 @@ func _Ingest_UploadFragment_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Ingest/UploadFragment",
+		FullMethod: "/xop.Ingest/UploadFragment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(IngestServer).UploadFragment(ctx, req.(*IngestFragment))
@@ -124,7 +124,7 @@ func _Ingest_UploadFragment_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Ingest_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Ingest",
+	ServiceName: "xop.Ingest",
 	HandlerType: (*IngestServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -137,5 +137,5 @@ var Ingest_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "ingest.proto",
+	Metadata: "xop.proto",
 }

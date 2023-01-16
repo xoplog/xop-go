@@ -8,25 +8,9 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
-	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/mohae/deepcopy"
 )
-
-// AnyImmutable can be used to log something that is not going to be further modified
-// after this call.
-// The return value must be consumed for the line to be logged.
-func (line *Line) AnyImmutable(k string, v interface{}) *Line {
-	if line.skip {
-		return line
-	}
-	if line.log.settings.redactAny != nil {
-		line.log.settings.redactAny(line.line, k, v, true)
-		return line
-	}
-	line.line.Any(k, v)
-	return line
-}
 
 // AnyWithoutRedaction
 // The return value must be consumed for the line to be logged.
@@ -129,10 +113,6 @@ func (line *Line) Bool(k string, v bool) *Line { line.line.Bool(k, v); return li
 // Duration adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
 func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration(k, v); return line }
-
-// Link adds a key/value pair to the current log line.
-// The return value must be consumed for the line to be logged.
-func (line *Line) Link(k string, v xoptrace.Trace) *Line { line.line.Link(k, v); return line }
 
 // Time adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.

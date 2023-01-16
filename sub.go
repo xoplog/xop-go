@@ -11,7 +11,6 @@ import (
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
-	"github.com/xoplog/xop-go/xoptrace"
 )
 
 // Sub holds an ephemeral state of a log being tranformed to a new log.
@@ -373,21 +372,6 @@ func (sub *Sub) PrefillDuration(k string, v time.Duration) *Sub {
 func (settings *LogSettings) PrefillDuration(k string, v time.Duration) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Duration(k, v)
-	})
-}
-
-// PrefillLink is used to set a data element that is included on every log
-// line.
-// PrefillLink is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
-func (sub *Sub) PrefillLink(k string, v xoptrace.Trace) *Sub {
-	sub.settings.PrefillLink(k, v)
-	return sub
-}
-
-func (settings *LogSettings) PrefillLink(k string, v xoptrace.Trace) {
-	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
-		line.Link(k, v)
 	})
 }
 
