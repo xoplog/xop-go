@@ -10,7 +10,7 @@ import (
 // AnyWithoutRedaction
 // The return value must be consumed for the line to be logged.
 func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
-	line.line.Any(k, v)
+	line.line.Any(k, xopbase.ModelArg{Model: v})
 	return line
 }
 
@@ -30,8 +30,7 @@ func (line *Line) Any(k string, v interface{}) *Line {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
 	}
-	line.line.Any(k, v)
-	return line
+	return line.AnyWithoutRedaction(k, v)
 }
 
 // Float32 adds a key/value pair to the current log line.

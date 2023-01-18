@@ -35,8 +35,9 @@ var macros = map[string]map[string]string{
 		"Int16":    "int16",
 		"Int8":     "int8",
 		"Int":      "int",
+		"Link":     "xoptrace.Trace",
 		"String":   "string",
-		"Any":      "interface{}",
+		"Any":      "interface{}", // XXX change to xopbase.ModelArg
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
 		"Enum":     "xopat.Enum",
@@ -80,14 +81,14 @@ var macros = map[string]map[string]string{
 		"Uint64":   "uint64",
 		"String":   "string",
 		"Bool":     "bool",
-		"Any":      "interface{}",
+		"Any":      "xopbase.ModelArg",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
 		"Float64":  "float64",
 	},
 	"BaseDataWithoutType": {
 		"Bool":     "bool",
-		"Any":      "interface{}",
+		"Any":      "xopbase.ModelArg",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
 	},
@@ -96,6 +97,14 @@ var macros = map[string]map[string]string{
 		"Uint64":  "uint64",
 		"Float64": "float64",
 		"String":  "string",
+	},
+	"LineEndersWithData": {
+		"Link":  "xoptrace.Trace",
+		"Model": "xopbase.ModelArg",
+	},
+	"LineEndersWithoutData": {
+		"Msg":      "string",
+		"Template": "string",
 	},
 	"AllData": {
 		"Int":      "int",
@@ -111,7 +120,6 @@ var macros = map[string]map[string]string{
 		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",
-		"Link":     "xoptrace.Trace",
 		"Duration": "time.Duration",
 		"Error":    "error",
 		"Float64":  "float64",
@@ -172,6 +180,12 @@ func main() {
 		}
 		if m := packageRE.FindStringSubmatch(line); m != nil {
 			currentPackage = m[1]
+
+			for _, macros := range macros {
+				for k, v := range macros {
+					macros[k] = strings.TrimPrefix(v, currentPackage+".")
+				}
+			}
 		}
 		if errorRE.MatchString(line) {
 			panic(fmt.Errorf("found invalid //MACRO at line %d", index+1))

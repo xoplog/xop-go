@@ -123,6 +123,8 @@ type Line struct {
 	Message   string // Prefill text + line text (template evaluated)
 	Text      string // Complete text of line including key=value pairs
 	Tmpl      string // un-evaluated template
+	AsLink    xoptrace.Trace
+	AsModel   xopbase.ModelArg
 	Stack     []runtime.Frame
 }
 
@@ -374,9 +376,40 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	return line
 }
 
-// Static is a required method for xopbase.Line
-func (line *Line) Static(m string) {
-	line.Msg(m)
+/* XXX
+// Link is a required method for xopbase.ObjectParts
+func (b *Builder) Link(k string, v xoptrace.Trace) {
+	b.Data[k] = v
+	b.DataType[k] = xopbase.LinkDataType
+	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
+}
+*/
+
+// Link is a required method for xopbase.Line
+func (line *Line) Link(m string, v xoptrace.Trace) {
+	line.AsLink = v
+	line.Message += m
+	text := line.Span.Short + " LINK:" + line.Message + " " + v.String()
+	if len(line.kvText) > 0 {
+		text += " " + strings.Join(line.kvText, " ")
+		line.kvText = nil
+	}
+	line.Text = text
+	line.send(text)
+}
+
+// Model is a required method for xopbase.Line
+func (line *Line) Model(m string, v xopbase.ModelArg) {
+	line.AsModel = v
+	line.Message += m
+	enc, _ := json.Marshal(v.Model)
+	text := line.Span.Short + " MODEL:" + line.Message + " " + string(enc)
+	if len(line.kvText) > 0 {
+		text += " " + strings.Join(line.kvText, " ")
+		line.kvText = nil
+	}
+	line.Text = text
+	line.send(text)
 }
 
 // Msg is a required method for xopbase.Line
@@ -453,15 +486,8 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
-// Link is a required method for xopbase.ObjectParts
-func (b *Builder) Link(k string, v xoptrace.Trace) {
-	b.Data[k] = v
-	b.DataType[k] = xopbase.LinkDataType
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
-}
-
 // Any is a required method for xopbase.ObjectParts
-func (b *Builder) Any(k string, v interface{}) { b.any(k, v, xopbase.AnyDataType) }
+func (b *Builder) Any(k string, v xopbase.ModelArg) { b.any(k, v, xopbase.AnyDataType) }
 
 // Bool is a required method for xopbase.ObjectParts
 func (b *Builder) Bool(k string, v bool) { b.any(k, v, xopbase.BoolDataType) }

@@ -180,12 +180,13 @@ type ModelArg struct {
 
 type AttributeParts interface {
 	Enum(*xopat.EnumAttribute, xopat.Enum)
-	Any(key string, typeName string, unredaction string, obj interface{})
 
-	// MACRO BaseDataWithType Skip:Any
-	ZZZ(string, zzz, DataType)
+	Float64(string, float64, DataType)
+	Int64(string, int64, DataType)
+	String(string, string, DataType)
+	Uint64(string, uint64, DataType)
 
-	Any(string, interface{})
+	Any(string, ModelArg)
 	Bool(string, bool)
 	Duration(string, time.Duration)
 	Time(string, time.Time)
@@ -224,7 +225,6 @@ const (
 	Int32DataType         DataType = iota
 	Int64DataType         DataType = iota
 	Int8DataType          DataType = iota
-	LinkDataType          DataType = iota
 	StringDataType        DataType = iota
 	StringerDataType      DataType = iota
 	TimeDataType          DataType = iota
@@ -244,7 +244,6 @@ const (
 	Int32ArrayDataType    DataType = iota
 	Int64ArrayDataType    DataType = iota
 	Int8ArrayDataType     DataType = iota
-	LinkArrayDataType     DataType = iota
 	StringArrayDataType   DataType = iota
 	StringerArrayDataType DataType = iota
 	TimeArrayDataType     DataType = iota

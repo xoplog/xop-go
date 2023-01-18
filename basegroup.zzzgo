@@ -150,24 +150,6 @@ func (p prefilleds) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	return lines
 }
 
-func (l lines) Template(m string) {
-	for _, line := range l {
-		line.Template(m)
-	}
-}
-
-func (l lines) Msg(m string) {
-	for _, line := range l {
-		line.Msg(m)
-	}
-}
-
-func (l lines) Static(m string) {
-	for _, line := range l {
-		line.Static(m)
-	}
-}
-
 func (l lines) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, line := range l {
 		line.Enum(k, v)
@@ -177,6 +159,20 @@ func (l lines) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 func (p prefillings) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, prefilling := range p {
 		prefilling.Enum(k, v)
+	}
+}
+
+// MACRO LineEndersWithoutData
+func (l lines) ZZZ(m zzz) {
+	for _, line := range l {
+		line.ZZZ(m)
+	}
+}
+
+// MACRO LineEndersWithData
+func (l lines) ZZZ(k string, v zzz) {
+	for _, line := range l {
+		line.ZZZ(k, v)
 	}
 }
 

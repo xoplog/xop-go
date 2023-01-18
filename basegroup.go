@@ -159,24 +159,6 @@ func (p prefilleds) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	return lines
 }
 
-func (l lines) Template(m string) {
-	for _, line := range l {
-		line.Template(m)
-	}
-}
-
-func (l lines) Msg(m string) {
-	for _, line := range l {
-		line.Msg(m)
-	}
-}
-
-func (l lines) Static(m string) {
-	for _, line := range l {
-		line.Static(m)
-	}
-}
-
 func (l lines) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	for _, line := range l {
 		line.Enum(k, v)
@@ -189,7 +171,31 @@ func (p prefillings) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	}
 }
 
-func (p prefillings) Any(k string, v interface{}) {
+func (l lines) Msg(m string) {
+	for _, line := range l {
+		line.Msg(m)
+	}
+}
+
+func (l lines) Template(m string) {
+	for _, line := range l {
+		line.Template(m)
+	}
+}
+
+func (l lines) Link(k string, v xoptrace.Trace) {
+	for _, line := range l {
+		line.Link(k, v)
+	}
+}
+
+func (l lines) Model(k string, v xopbase.ModelArg) {
+	for _, line := range l {
+		line.Model(k, v)
+	}
+}
+
+func (p prefillings) Any(k string, v xopbase.ModelArg) {
 	for _, prefilling := range p {
 		prefilling.Any(k, v)
 	}
@@ -237,7 +243,7 @@ func (p prefillings) Uint64(k string, v uint64, dt xopbase.DataType) {
 	}
 }
 
-func (l lines) Any(k string, v interface{}) {
+func (l lines) Any(k string, v xopbase.ModelArg) {
 	for _, line := range l {
 		line.Any(k, v)
 	}
