@@ -24,7 +24,9 @@ type Detaching struct {
 // RedactAnyFunc is used to redact models as they're being logged.
 // It is RedactAnyFunc's responsibility to call
 //
-// 	baseLine.Any(k, v)
+// 	baseLine.Any(k, xopbase.ModelArg{
+//		Model: v,
+//	})
 //
 // if it wants the value to be logged.  If it does make that call, it
 // must pass an immutable value.  Perhaps use "github.com/mohae/deepcopy"
@@ -321,7 +323,7 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // Redaction is not supported.
 func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
-		line.Any(k, v)
+		line.Any(k, xopbase.ModelArg{Model: v})
 	})
 }
 

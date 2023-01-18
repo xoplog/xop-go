@@ -15,9 +15,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
@@ -167,9 +167,8 @@ type ModelArg struct {
 
 type AttributeParts interface {
 	Enum(*xopat.EnumAttribute, xopat.Enum)
-	Any(key string, typeName string, unredaction string, obj interface{})
 
-	// MACRO BaseDataWithType Skip:Any
+	// MACRO BaseDataWithType
 	ZZZ(string, zzz, DataType)
 
 	// MACRO BaseDataWithoutType

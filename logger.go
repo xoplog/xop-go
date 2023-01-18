@@ -618,7 +618,7 @@ func (line *Line) ModelImmutable(obj interface{}, msg string) { // TODO: documen
 		return
 	}
 	line.line.Model(msg, xopbase.ModelArg{
-		Mode: obj,
+		Model: obj,
 	})
 	line.log.span.linePool.Put(line)
 	line.log.hasActivity(true)
@@ -629,7 +629,7 @@ func (line *Line) Modelf(obj interface{}, msg string, v ...interface{}) { // TOD
 		line.Msg("")
 		return
 	}
-	line.Model(obj, fmt.Sprint(msg, v...))
+	line.Model(obj, fmt.Sprintf(msg, v...))
 }
 
 func (line *Line) ModelImmutablef(obj interface{}, msg string, v ...interface{}) { // TODO: document
@@ -637,7 +637,7 @@ func (line *Line) ModelImmutablef(obj interface{}, msg string, v ...interface{})
 		line.Msg("")
 		return
 	}
-	line.ModelImmutable(obj, fmt.Sprint(msg, v...))
+	line.ModelImmutable(obj, fmt.Sprintf(msg, v...))
 }
 
 func (line *Line) Linkf(link xoptrace.Trace, msg string, v ...interface{}) {
@@ -645,7 +645,7 @@ func (line *Line) Linkf(link xoptrace.Trace, msg string, v ...interface{}) {
 		line.Msg("")
 		return
 	}
-	line.Link(link, fmt.Sprintf(msg, msg, v...))
+	line.Link(link, fmt.Sprintf(msg, v...))
 }
 func (line *Line) Link(link xoptrace.Trace, msg string) {
 	line.line.Link(msg, link)
