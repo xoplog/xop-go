@@ -9,12 +9,6 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 )
 
-type replaying struct {
-	ctx    context.Context
-	output xopbase.Logger
-	spans  map[xoptrace.HexBytes8]xopbase.Span
-}
-
 func (log *TestLogger) Replay(ctx context.Context, input any, logger xopbase.Logger) error {
 	return log.LosslessReplay(ctx, input, logger)
 }
@@ -63,11 +57,32 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 				spans[event.Span.Bundle.Trace.GetSpanID()] = span
 			}
 		case LineEvent:
-			// XXX
+			span, ok := spans[event.Line.Span.Bundle.Trace.GetSpanID()]
+			if !ok {
+				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
+			}
+			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, nil /* XXX TODO */)
+			for k, v := range event.Line.Data {
+				dataType := event.Line.DataType[k]
+				switch dataType {
+				//MACRO BaseDataWithoutType
+				case xopbase.ZZZDataType:
+					line.ZZZ(k, v)
+				//END
+				//MACRO BaseDataWithType
+				case xopbase.ZZZDataType:
+					line.ZZZ(k, v, dataType)
+				//END
+				case xopbase.EnumDataType:
+					// XXX TODO
+				default:
+					return errors.Errorf("unexpected data type %s in line", dataType)
+				}
+			}
 		case MetadataSet:
 			// XXX
 		default:
 		}
 	}
-
+	return nil
 }
