@@ -5,6 +5,7 @@ package xopjson
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -365,15 +366,73 @@ func (l *line) Msg(m string) {
 		'}',
 		'\n',
 	})
+	l.done()
+}
+
+func (l *line) done() {
 	err := l.span.writer.Line(l)
 	if err != nil {
 		l.span.request.errorFunc(err)
 	}
 }
 
-func (l *line) Static(m string) {
-	l.Msg(m)
+func (l *line) Model(k string, v xopbase.ModelArg) {
+	if l.attributesStarted {
+		l.AppendByte( /*{*/ '}')
+	}
+	l.AppendBytes([]byte(`,"type":"model","model":`))
+	l.AddAny(v)
+	l.AppendBytes([]byte(`,"modelType":"`))
+	if v.TypeName == "" {
+		l.AddString(reflect.TypeOf(v.Model).Name())
+	} else {
+		l.AddString(v.TypeName)
+	}
+	l.AppendBytes([]byte(`","msg":"`))
+	if len(l.prefillMsgPreEncoded) != 0 {
+		l.AppendBytes(l.prefillMsgPreEncoded)
+	}
+	l.AddStringBody(k)
+	l.AppendBytes([]byte{
+		'"', // {
+		'}',
+		'\n',
+	})
+	l.done()
 }
+
+func (l *line) Link(k string, v xoptrace.Trace) {
+	if l.attributesStarted {
+		l.AppendByte( /*{*/ '}')
+	}
+	l.AppendBytes([]byte(`,"type":"link","link":"`))
+	l.AppendString(v.String())
+	l.AppendBytes([]byte(`","msg":"`))
+	if len(l.prefillMsgPreEncoded) != 0 {
+		l.AppendBytes(l.prefillMsgPreEncoded)
+	}
+	l.AddStringBody(k)
+	l.AppendBytes([]byte{
+		'"', // {
+		'}',
+		'\n',
+	})
+	l.done()
+}
+
+/* XXX
+func (b *builder) Link(k string, v xoptrace.Trace) {
+	b.startAttributes()
+	b.AddKey(k)
+	b.AddLink(v)
+}
+
+func (b *builder) AddLink(v xoptrace.Trace) {
+	b.AppendBytes([]byte(`{"xop.link":"`))
+	b.AppendString(v.String())
+	b.AppendBytes([]byte(`"}`))
+}
+*/
 
 func (b *builder) ReclaimMemory() {
 	if len(b.B) > maxBufferToKeep {
@@ -416,10 +475,10 @@ func (b *builder) startAttributes() {
 	}
 }
 
-func (b *builder) Any(k string, v interface{}) {
+func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.startAttributes()
 	b.AddKey(k)
-	b.AddAny(v)
+	b.AddAny(v.Model)
 }
 
 func (b *builder) AddAny(v interface{}) {
@@ -456,18 +515,6 @@ func (b *builder) Time(k string, t time.Time) {
 
 func (b *builder) AddTime(t time.Time) {
 	b.B = b.span.logger.timeFormatter(b.B, t)
-}
-
-func (b *builder) Link(k string, v xoptrace.Trace) {
-	b.startAttributes()
-	b.AddKey(k)
-	b.AddLink(v)
-}
-
-func (b *builder) AddLink(v xoptrace.Trace) {
-	b.AppendBytes([]byte(`{"xop.link":"`))
-	b.AppendString(v.String())
-	b.AppendBytes([]byte(`"}`))
 }
 
 func (b *builder) Bool(k string, v bool) {

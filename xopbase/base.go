@@ -176,6 +176,7 @@ type ModelArg struct {
 	// If specified, overrides what would be provided by reflect.TypeOf(obj).Name()
 	TypeName string
 	Model    interface{}
+	// TODO: extra fields for redacted models
 }
 
 type AttributeParts interface {

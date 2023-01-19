@@ -80,7 +80,6 @@ type Span struct {
 	IsRequest    bool
 	Parent       *Span
 	Spans        []*Span
-	RequestLines []*Line
 	Lines        []*Line
 	Short        string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
 	Metadata     map[string]interface{}
