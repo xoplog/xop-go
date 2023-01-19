@@ -345,6 +345,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 		Timestamp: t,
 	}
 	if len(pc) > 0 {
+		// XXX move to logger.go
 		frames := runtime.CallersFrames(pc)
 		stack := make([]runtime.Frame, 0, len(pc))
 		for {
@@ -481,7 +482,7 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
-// MACRO BaseDataWithoutType SKIP:Link
+// MACRO BaseDataWithoutType
 // ZZZ is a required method for xopbase.ObjectParts
 func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v, xopbase.ZZZDataType) }
 
