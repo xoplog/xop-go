@@ -203,29 +203,34 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) 
 	return line
 }
 
-func (line *line) Static(msg string) { line.Msg(msg) }
-
-func (line *line) Msg(msg string) {
-	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg))
-	if line.linkKey == "" {
-		line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
-		return
-		// PERFORMANCE: return line to pool
-	}
-	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, line.linkKey, oteltrace.WithLinks(
+func (line *line) Link(k string, v xoptrace.Trace) {
+	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+k), typeKey.String("link"))
+	line.attributes = append(builder.attributes, attribute.StringSlice("xop.link",
+		[]string{"link", v.TraceID().String(), v.SpanID().String()}))
+	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k, oteltrace.WithLinks(
 		oteltrace.Link{
 			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-				TraceID:    line.linkValue.TraceID().Array(),
-				SpanID:     line.linkValue.SpanID().Array(),
-				TraceFlags: oteltrace.TraceFlags(line.linkValue.Flags().Array()[0]),
+				TraceID:    v.TraceID().Array(),
+				SpanID:     v.SpanID().Array(),
+				TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
 				TraceState: emptyTraceState, // TODO: is this right?
 				Remote:     true,            // information not available
 			}),
 		},
 	))
 	tmpSpan.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
-	tmpSpan.SetAttributes(spanIsLinkEventKey.Bool(true))
+	tmpSpan.SetAttributes(typeKey.String("link-event"))
 	tmpSpan.End()
+}
+
+func (line *line) Model(msg string, xopbase.ModelArg) { }
+func (line *line) Msg(msg string) {
+	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), lineTypeKey.String("line"))
+	if line.linkKey == "" {
+		line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
+		return
+		// PERFORMANCE: return line to pool
+	}
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -315,16 +320,6 @@ func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
 	} else {
 		builder.attributes = append(builder.attributes, attribute.Int64(k, int64(v)))
 	}
-}
-
-func (builder *builder) Link(k string, v xoptrace.Trace) {
-	if builder.linkKey == "" {
-		builder.linkKey = k
-		builder.linkValue = v
-		return
-	}
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k,
-		[]string{"link", v.TraceID().String(), v.SpanID().String()}))
 }
 
 func (builder *builder) Bool(k string, v bool) {

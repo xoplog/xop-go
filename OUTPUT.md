@@ -82,8 +82,20 @@ TO-BE-BUILT
 
 ### Redacted values
 
-### Links
+### Links (line)
 
+| format | example |
+| --- | ---- |
+| xopjson | |
+| xopjs | |
+| xoptest (text) | |
+| xoptest (model) | |
+| xopcon | |
+| xopconsole | |
+| xopotel | (1) Event with `attribute.String("xop.message", prefill+linkText), attribute.String("xop.type", "link")`; and (2) sub-span with attribute.String("xop.type", "link-event"); and (3) an Event in the sub-span with the line attributes repeated |
+
+`attribute.StringSlice(key, []string{"enum", "namespace", "namespace-version", "string-value", "32"])` |
+| xoppb | |
 ## Spans
 
 A primary difference between lines and spans is that the attribute keys

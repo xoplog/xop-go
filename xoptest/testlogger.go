@@ -84,7 +84,6 @@ type Span struct {
 	IsRequest    bool
 	Parent       *Span
 	Spans        []*Span
-	RequestLines []*Line
 	Lines        []*Line
 	Short        string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
 	Metadata     map[string]interface{}
@@ -350,6 +349,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 		Timestamp: t,
 	}
 	if len(pc) > 0 {
+		// XXX move to logger.go
 		frames := runtime.CallersFrames(pc)
 		stack := make([]runtime.Frame, 0, len(pc))
 		for {
