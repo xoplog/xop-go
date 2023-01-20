@@ -63,9 +63,10 @@ var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-var logMessageKey = attribute.Key("log.message")
-var logSpanSequence = attribute.Key("log.xopSpanSequence")
-var spanIsLinkAttributeKey = attribute.Key("span.is-link-attribute")
-var spanIsLinkEventKey = attribute.Key("span.is-link-event")
+var logMessageKey = attribute.Key("xop.message")
+var logSpanSequence = attribute.Key("xop.xopSpanSequence")
+var typeKey = attribute.Key("xop.type")
+var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
+var spanIsLinkEventKey = attribute.Key("xop.span.is-link-event")
 
 var emptyTraceState oteltrace.TraceState
