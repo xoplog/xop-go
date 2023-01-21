@@ -223,7 +223,7 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 	tmpSpan.End()
 }
 
-func (line *line) Model(msg string, xopbase.ModelArg) { }
+func (line *line) Model(msg string, modelArg xopbase.ModelArg) {}
 func (line *line) Msg(msg string) {
 	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), lineTypeKey.String("line"))
 	if line.linkKey == "" {

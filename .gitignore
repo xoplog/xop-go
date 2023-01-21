@@ -1,4 +1,4 @@
 .idea
 *.iml
 coverage.txt
-xopproto/ingest.proto
+xopproto/xop.proto

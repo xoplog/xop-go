@@ -1,3 +1,5 @@
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xoptest
 
 import (
@@ -5,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
 )
@@ -43,17 +46,17 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			}
 		case FlushEvent:
 			id := event.Span.Bundle.Trace.GetSpanID()
-			if span, ok := spans[id]; ok {
-				span.Flush()
+			if req, ok := requests[id]; ok {
+				req.Flush()
 			} else {
-				return errors.Errorf("Flush for unknown span %s", event.Span.Bundle.Trace)
+				return errors.Errorf("Flush for unknown req %s", event.Span.Bundle.Trace)
 			}
 		case SpanStart:
 			if event.Span.Parent == nil {
 				return errors.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
 			}
 			if parent, ok := spans[event.Span.Parent.Bundle.Trace.GetSpanID()]; ok {
-				span := parent.Span(replaying.ctx, span.StartTime, span.Bundle, span.Name, span.SequenceCode)
+				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SequenceCode)
 				spans[event.Span.Bundle.Trace.GetSpanID()] = span
 			}
 		case LineEvent:
@@ -65,14 +68,32 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			for k, v := range event.Line.Data {
 				dataType := event.Line.DataType[k]
 				switch dataType {
-				//MACRO BaseDataWithoutType
-				case xopbase.ZZZDataType:
-					line.ZZZ(k, v)
-				//END
-				//MACRO BaseDataWithType
-				case xopbase.ZZZDataType:
-					line.ZZZ(k, v, dataType)
-				//END
+				case xopbase.AnyDataType:
+					line.Any(k, v.(xopbase.ModelArg))
+				// next line must be blank to end macro
+				case xopbase.BoolDataType:
+					line.Bool(k, v.(bool))
+				// next line must be blank to end macro
+				case xopbase.DurationDataType:
+					line.Duration(k, v.(time.Duration))
+				// next line must be blank to end macro
+				case xopbase.TimeDataType:
+					line.Time(k, v.(time.Time))
+				// next line must be blank to end macro
+
+				case xopbase.Float64DataType:
+					line.Float64(k, v.(float64), dataType)
+				// next line must be blank to end macro
+				case xopbase.Int64DataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro
+				case xopbase.StringDataType:
+					line.String(k, v.(string), dataType)
+				// next line must be blank to end macro
+				case xopbase.Uint64DataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro
+
 				case xopbase.EnumDataType:
 					// XXX TODO
 				default:
@@ -80,8 +101,165 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 				}
 			}
 		case MetadataSet:
-			// XXX
+			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
+			if !ok {
+				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
+			}
+			switch event.Attribute.ProtoType() {
+			case xopat.AttributeTypeAny:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataAny(event.Attribute, v)
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataAny(event.Attribute, v)
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeBool:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataBool(event.Attribute, v.(bool))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataBool(event.Attribute, v.(bool))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeDuration:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataDuration(event.Attribute, v.(time.Duration))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataDuration(event.Attribute, v.(time.Duration))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeEnum:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						enum, ok := event.Attribute.GetEnum(v.(string))
+						if !ok {
+							return errors.Errorf("missing enum value for %s key %s", v.(string), event.Attribute.Key())
+						}
+						span.MetadataEnum(event.Attribute, enum)
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					enum, ok := event.Attribute.GetEnum(v.(string))
+					if !ok {
+						return errors.Errorf("missing enum value for %s key %s", v.(string), event.Attribute.Key())
+					}
+					span.MetadataEnum(event.Attribute, enum)
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeFloat32:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataFloat32(event.Attribute, v.(float32))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataFloat32(event.Attribute, v.(float32))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeFloat64:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataFloat64(event.Attribute, v.(float64))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataFloat64(event.Attribute, v.(float64))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeInt:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataInt(event.Attribute, v.(int))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataInt(event.Attribute, v.(int))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeInt16:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataInt16(event.Attribute, v.(int16))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataInt16(event.Attribute, v.(int16))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeInt32:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataInt32(event.Attribute, v.(int32))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataInt32(event.Attribute, v.(int32))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeInt64:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataInt64(event.Attribute, v.(int64))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataInt64(event.Attribute, v.(int64))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeInt8:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataInt8(event.Attribute, v.(int8))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataInt8(event.Attribute, v.(int8))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeLink:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataLink(event.Attribute, v.(xoptrace.Trace))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataLink(event.Attribute, v.(xoptrace.Trace))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeString:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataString(event.Attribute, v.(string))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataString(event.Attribute, v.(string))
+				}
+				// next line must be blank to end macro
+			case xopat.AttributeTypeTime:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataTime(event.Attribute, v.(time.Time))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataTime(event.Attribute, v.(time.Time))
+				}
+				// next line must be blank to end macro
+
+			default:
+				return errors.Errorf("unknown attribute type %s", event.Attribute.ProtoType())
+			}
 		default:
+
 		}
 	}
 	return nil

@@ -126,11 +126,13 @@ func (s Make) TryEnumAttribute(exampleValue Enum) (_ *EnumAttribute, err error) 
 func (e *IotaEnumAttribute) Iota(s string) EmbeddedEnum {
 	old := atomic.AddInt64(&e.counter, 1)
 	e.Attribute.names.Store(old+1, s)
-	return enum{
+	n := enum{
 		value:         old + 1,
 		enumAttribute: &e.EnumAttribute,
 		str:           s,
 	}
+	e.Attribute.values.Store(s, n)
+	return n
 }
 
 // IotaEnumAttribute creates a new enum that embeds it's key with
@@ -206,9 +208,11 @@ func (e *EmbeddedEnumAttribute) Add(i int, s string) EmbeddedEnum { return e.Add
 
 func (e *EmbeddedEnumAttribute) Add64(i int64, s string) EmbeddedEnum {
 	e.Attribute.names.Store(i, s)
-	return enum{
+	n := enum{
 		value:         i,
 		enumAttribute: &e.EnumAttribute,
 		str:           s,
 	}
+	e.Attribute.values.Store(s, n)
+	return n
 }
