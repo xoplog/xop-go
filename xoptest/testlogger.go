@@ -128,11 +128,12 @@ type Line struct {
 }
 
 type Event struct {
-	Type EventType
-	Line *Line
-	Span *Span
-	Msg  string
-	Done bool
+	Type      EventType
+	Line      *Line
+	Span      *Span
+	Msg       string
+	Attribute *xopat.ZZZAttribute
+	Done      bool
 }
 
 func (log *TestLogger) Log() *xop.Log {
@@ -516,9 +517,9 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()
@@ -570,9 +571,9 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()
@@ -618,9 +619,9 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()
@@ -666,9 +667,9 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()
@@ -714,9 +715,9 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()
@@ -762,9 +763,9 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()
@@ -810,9 +811,9 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()

@@ -124,11 +124,12 @@ type Line struct {
 }
 
 type Event struct {
-	Type EventType
-	Line *Line
-	Span *Span
-	Msg  string
-	Done bool
+	Type      EventType
+	Line      *Line
+	Span      *Span
+	Msg       string
+	Attribute *xopat.ZZZAttribute
+	Done      bool
 }
 
 func (log *TestLogger) Log() *xop.Log {
@@ -497,9 +498,9 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
 		s.testLogger.Events = append(s.testLogger.Events, &Event{
-			Type: MetadataSet,
-			Msg:  k.Key(),
-			Span: s,
+			Type:      MetadataSet,
+			Attribute: k,
+			Span:      s,
 		})
 	}()
 	s.lock.Lock()

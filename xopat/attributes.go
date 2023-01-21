@@ -35,6 +35,7 @@ type Attribute struct {
 	typeName     string
 	subType      AttributeType
 	names        sync.Map // key:int64 values:string used for enums
+	values       sync.Map // name:enumValue used for enums
 	defSize      int32
 	semver       *semver.Version
 }
@@ -239,6 +240,13 @@ func (r Attribute) EnumName(v int64) string {
 		return n.(string)
 	}
 	return ""
+}
+
+func (r Attribute) GetEnum(n string) (Enum, bool) {
+	if e, ok := r.values.Load(n); ok {
+		return e.(Enum), true
+	}
+	return nil, false
 }
 
 func (s Make) DurationAttribute() *DurationAttribute {
