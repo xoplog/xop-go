@@ -222,6 +222,31 @@ func (r Attribute) Semver() *semver.Version           { return r.semver }
 func (r Attribute) SemverString() string              { return r.version }
 func (r *Attribute) Ptr() *Attribute                  { return r }
 
+type AttributeInterface interface {
+	JSONKey() JSONKey
+	ReflectType() reflect.Type
+	Key() string
+	Description() string
+	Namespace() string
+	Indexed() bool
+	Multiple() bool
+	Ranged() bool
+	Locked() bool
+	Distinct() bool
+	Prominence() int
+	RegistrationNumber() int
+	ExampleValue() interface{}
+	TypeName() string
+	SubType() AttributeType
+	ProtoType() xopproto.AttributeType
+	DefinitionSize() int32
+	Semver() *semver.Version
+	SemverString() string
+	Ptr() *Attribute
+	EnumName(v int64) string
+	GetEnum(n string) (Enum, bool)
+}
+
 // EnumName only provides non-empty answers when SubType() == AttributeTypeEnum
 func (r Attribute) EnumName(v int64) string {
 	if n, ok := r.names.Load(v); ok {

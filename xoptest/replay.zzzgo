@@ -37,7 +37,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			}
 		case SpanDone:
 			if span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]; ok {
-				req.Done(time.Unix(0, event.Span.EndTime), event.Done)
+				span.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
 				return errors.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)
 			}
@@ -86,35 +86,35 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			if !ok {
 				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
 			}
-			switch event.Attribute.ProtoType() {
-			//MACRO ZZZAttribute
+			switch event.Attribute.SubType() {
+			//MACRO BaseAttribute
 			case xopat.AttributeTypeZZZ:
 				if event.Attribute.Multiple() {
 					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
 						//CONDITIONAL ONLY:Any
-						span.MetadataZZZ(event.Attribute, v)
+						span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v)
 						//CONDITIONAL ONLY:Enum
 						enum, ok := event.Attribute.GetEnum(v.(string))
 						if !ok {
 							return errors.Errorf("missing enum value for %s key %s", v.(string), event.Attribute.Key())
 						}
-						span.MetadataZZZ(event.Attribute, enum)
+						span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), enum)
 						//CONDITIONAL SKIP:Enum,Any
-						span.MetadataZZZ(event.Attribute, v.(zzz))
+						span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(zzz))
 						//END CONDITIONAL
 					}
 				} else {
 					v := event.Span.Metadata[event.Attribute.Key()]
 					//CONDITIONAL ONLY:Any
-					span.MetadataZZZ(event.Attribute, v)
+					span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v)
 					//CONDITIONAL ONLY:Enum
 					enum, ok := event.Attribute.GetEnum(v.(string))
 					if !ok {
 						return errors.Errorf("missing enum value for %s key %s", v.(string), event.Attribute.Key())
 					}
-					span.MetadataZZZ(event.Attribute, enum)
+					span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), enum)
 					//CONDITIONAL SKIP:Enum,Any
-					span.MetadataZZZ(event.Attribute, v.(zzz))
+					span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(zzz))
 					//END CONDITIONAL
 				}
 				// next line must be blank to end macro
