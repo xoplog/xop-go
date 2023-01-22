@@ -132,7 +132,7 @@ type Event struct {
 	Line      *Line
 	Span      *Span
 	Msg       string
-	Attribute *xopat.ZZZAttribute
+	Attribute xopat.AttributeInterface
 	Done      bool
 }
 
