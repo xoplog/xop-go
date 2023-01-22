@@ -102,6 +102,13 @@ func (span *Span) Float64(k *xopat.Float64Attribute, v float64) *Span {
 	return span.eft()
 }
 
+// Link adds a xoptrace.Trace key/value attribute to the current Span.
+// The return value does not need to be used.
+func (span *Span) Link(k *xopat.LinkAttribute, v xoptrace.Trace) *Span {
+	span.base.MetadataLink(k, v)
+	return span.eft()
+}
+
 // String adds a string key/value attribute to the current Span.
 // The return value does not need to be used.
 func (span *Span) String(k *xopat.StringAttribute, v string) *Span {

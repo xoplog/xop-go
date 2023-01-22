@@ -49,6 +49,7 @@ var macros = map[string]map[string]string{
 		"Float64": "float64",
 		"Int64":   "int64",
 		"String":  "string",
+		"Link":    "xoptrace.Trace",
 		"Any":     "interface{}",
 		"Time":    "time.Time",
 		"Enum":    "xopat.Enum",
@@ -69,10 +70,12 @@ var macros = map[string]map[string]string{
 		"Int64": "int64",
 	},
 	"Uints": {
-		"Uint":   "uint",
-		"Uint8":  "uint8",
-		"Uint16": "uint16",
-		"Uint32": "uint32",
+		"Uint":    "uint",
+		"Uint8":   "uint8",
+		"Uint16":  "uint16",
+		"Uint32":  "uint32",
+		"Uint64":  "uint64",
+		"Uintptr": "uintptr",
 	},
 	// BaseData are the data types that are supported on a per-line basis in xopbase.Line
 	// Note: Enum is not included since it needs special handling every time
@@ -106,6 +109,7 @@ var macros = map[string]map[string]string{
 		"Msg":      "string",
 		"Template": "string",
 	},
+	// AllData includes all all span metadata, all base types, all line types
 	"AllData": {
 		"Int":      "int",
 		"Int8":     "int8",
@@ -117,6 +121,7 @@ var macros = map[string]map[string]string{
 		"Uint16":   "uint16",
 		"Uint32":   "uint32",
 		"Uint64":   "uint64",
+		"Uintptr":  "uintptr",
 		"String":   "string",
 		"Bool":     "bool",
 		"Any":      "interface{}",
@@ -126,6 +131,7 @@ var macros = map[string]map[string]string{
 		"Float32":  "float32",
 		"Time":     "time.Time",
 		"Stringer": "fmt.Stringer",
+		"Link":     "xoptrace.Trace",
 	},
 	"HexBytes": {
 		"HexBytes1":  "1",

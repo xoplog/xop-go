@@ -35,7 +35,7 @@ var MessageCases = []struct {
 
 			ss := log.Sub().Detach().Fork("a fork one span")
 			MicroNap()
-			ss.Alert().String("frightening", "stuff").Static("like a rock" + NeedsEscaping)
+			ss.Alert().String("frightening", "stuff").Msg("like a rock" + NeedsEscaping)
 			ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
 			MicroNap()
@@ -343,8 +343,8 @@ var MessageCases = []struct {
 			tlog2 := xoptest.New(t)
 			r2 := log.Span().Seed(xop.WithBase(tlog2)).Request("R2")
 			r3 := r2.Span().Seed(xop.WithoutBase(tlog2)).Request("R3")
-			r2.Info().Static("log to both test loggers")
-			r3.Info().Static("log to just the original set")
+			r2.Info().Msg("log to both test loggers")
+			r3.Info().Msg("log to just the original set")
 			MicroNap()
 			log.Done()
 			r2.Done()
@@ -357,8 +357,8 @@ var MessageCases = []struct {
 			tlog2 := xoptest.New(t)
 			s2 := log.Sub().Step("S2", xop.WithBase(tlog2))
 			s3 := s2.Sub().Detach().Fork("S3", xop.WithoutBase(tlog2))
-			s2.Info().Static("log to both test loggers")
-			s3.Info().Static("log to just the original set")
+			s2.Info().Msg("log to both test loggers")
+			s3.Info().Msg("log to just the original set")
 			MicroNap()
 			s2.Done()
 			s3.Done()
@@ -411,11 +411,10 @@ var MessageCases = []struct {
 				Float32("f32", 92.2).
 				Float64("f64", 292.1).
 				Any("any", map[string]interface{}{"x": "y", "z": 19}).
-				AnyImmutable("anyim", map[string]interface{}{"x": "y", "z": 19}).
 				Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				EmbeddedEnum(LockedEEnumTwo).
 				Msgs("ha", true)
-			p.Error().Static("prefilled!")
+			p.Error().Msg("prefilled!")
 			MicroNap()
 			log.Done()
 		},
@@ -441,8 +440,7 @@ var MessageCases = []struct {
 	{
 		Name: "type trace",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-			p := log.Sub().PrefillLink("me", log.Span().Bundle().Trace).Log()
-			p.Warn().Link("me, again", log.Span().Bundle().Trace).Static("trace")
+			log.Warn().Link(log.Span().Bundle().Trace, "me, again")
 			MicroNap()
 			log.Done()
 		},
@@ -466,7 +464,6 @@ var MessageCases = []struct {
 				Stringer("avoid", sc).
 				String("avoid", "blaf").
 				Any("null", nil).
-				AnyImmutable("null", nil).
 				Error("no", fmt.Errorf("bar")).
 				Msg("no foobar")
 			log.Trace().Stringer("do", sc).Msg("yes, foobar")

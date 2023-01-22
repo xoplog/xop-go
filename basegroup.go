@@ -321,6 +321,12 @@ func (s baseSpans) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	}
 }
 
+func (s baseSpans) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	for _, span := range s {
+		span.MetadataLink(k, v)
+	}
+}
+
 func (s baseSpans) MetadataString(k *xopat.StringAttribute, v string) {
 	for _, span := range s {
 		span.MetadataString(k, v)

@@ -193,3 +193,10 @@ func (line *Line) Uint8(k string, v uint8) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.Uint8DataType)
 	return line
 }
+
+// Uintptr adds a key/value pair to the current log line.
+// The return value must be consumed for the line to be logged.
+func (line *Line) Uintptr(k string, v uintptr) *Line {
+	line.line.Uint64(k, uint64(v), xopbase.UintptrDataType)
+	return line
+}

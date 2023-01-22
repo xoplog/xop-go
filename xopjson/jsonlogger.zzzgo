@@ -424,13 +424,13 @@ func (b *builder) Link(k string, v xoptrace.Trace) {
 	b.AddKey(k)
 	b.AddLink(v)
 }
+*/
 
 func (b *builder) AddLink(v xoptrace.Trace) {
 	b.AppendBytes([]byte(`{"xop.link":"`))
 	b.AppendString(v.String())
 	b.AppendBytes([]byte(`"}`))
 }
-*/
 
 func (b *builder) ReclaimMemory() {
 	if len(b.B) > maxBufferToKeep {

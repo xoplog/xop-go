@@ -47,7 +47,7 @@ type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyI
 // if it wants the value to be logged.
 //
 // RedactStringFunc is applied only to String(), and Stringer() attributes.
-// It is not applied to Msg(), Static(), Msgf(), or Msgs().
+// It is not applied to Msg(), Msgf(), or Msgs().
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
@@ -569,6 +569,21 @@ func (sub *Sub) PrefillUint8(k string, v uint8) *Sub {
 func (settings *LogSettings) PrefillUint8(k string, v uint8) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.Uint8DataType)
+	})
+}
+
+// PrefillUintptr is used to set a data element that is included on every log
+// line.
+// PrefillUintptr is not threadsafe with respect to other calls on the same *Sub.
+// Should not be used after Step(), Fork(), or Log() is called.
+func (sub *Sub) PrefillUintptr(k string, v uintptr) *Sub {
+	sub.settings.PrefillUintptr(k, v)
+	return sub
+}
+
+func (settings *LogSettings) PrefillUintptr(k string, v uintptr) {
+	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
+		line.Uint64(k, uint64(v), xopbase.UintptrDataType)
 	})
 }
 

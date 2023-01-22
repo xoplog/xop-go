@@ -101,6 +101,8 @@ type Span interface {
 	MetadataFloat64(*xopat.Float64Attribute, float64)
 	// MetadataInt64 adds a key/value pair to describe the span.
 	MetadataInt64(*xopat.Int64Attribute, int64)
+	// MetadataLink adds a key/value pair to describe the span.
+	MetadataLink(*xopat.LinkAttribute, xoptrace.Trace)
 	// MetadataString adds a key/value pair to describe the span.
 	MetadataString(*xopat.StringAttribute, string)
 	// MetadataTime adds a key/value pair to describe the span.
@@ -164,7 +166,6 @@ type Line interface {
 type LineDone interface {
 	Msg(string)
 	Template(string)
-	// Static(string) XXX remove implemenations
 	// Object may change in the future to also take an un-redaction string,
 	Model(string, ModelArg)
 	Link(string, xoptrace.Trace)
@@ -226,6 +227,7 @@ const (
 	Int32DataType         DataType = iota
 	Int64DataType         DataType = iota
 	Int8DataType          DataType = iota
+	LinkDataType          DataType = iota
 	StringDataType        DataType = iota
 	StringerDataType      DataType = iota
 	TimeDataType          DataType = iota
@@ -234,6 +236,7 @@ const (
 	Uint32DataType        DataType = iota
 	Uint64DataType        DataType = iota
 	Uint8DataType         DataType = iota
+	UintptrDataType       DataType = iota
 	AnyArrayDataType      DataType = iota
 	BoolArrayDataType     DataType = iota
 	DurationArrayDataType DataType = iota
@@ -245,6 +248,7 @@ const (
 	Int32ArrayDataType    DataType = iota
 	Int64ArrayDataType    DataType = iota
 	Int8ArrayDataType     DataType = iota
+	LinkArrayDataType     DataType = iota
 	StringArrayDataType   DataType = iota
 	StringerArrayDataType DataType = iota
 	TimeArrayDataType     DataType = iota
@@ -253,4 +257,5 @@ const (
 	Uint32ArrayDataType   DataType = iota
 	Uint64ArrayDataType   DataType = iota
 	Uint8ArrayDataType    DataType = iota
+	UintptrArrayDataType  DataType = iota
 )

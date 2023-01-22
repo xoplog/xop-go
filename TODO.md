@@ -53,7 +53,6 @@
 - dictionary support
 
   - if BytesWriter is also a DictionaryConsumer... 
-  - for Static(), lookup if existing key.  If not, add to dictionary and output dictionary record
     
     `{"type":"dict", "pairs":{"string":"foo", "number":28}}`
 
@@ -151,7 +150,6 @@
 
     - keep dictionary of static strings
 
-      - Line.Static()
       - Enum descriptions and types
 
   - xopbytes.BytesWriter

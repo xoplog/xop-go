@@ -154,7 +154,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			if r.Body != nil {
 				log.Trace().
 					Any("body", r.Body).
-					Static("request")
+					Msg("request")
 			}
 
 			log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
@@ -197,10 +197,10 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 				trace, ok := xoptrace.TraceFromString(tr)
 				if ok {
 					cv.response = true
-					log.Info().Link(xopconst.RemoteTrace.Key(), trace).Static("traceresponse")
+					log.Info().Link(trace, xopconst.RemoteTrace.Key())
 					log.Span().Link(xopconst.RemoteTrace, trace)
 				} else {
-					log.Warn().String("header", tr).Static("invalid traceresponse received")
+					log.Warn().String("header", tr).Msg("invalid traceresponse received")
 				}
 			}
 			if r.Result != nil {
@@ -212,7 +212,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 					Duration("request_time.total", ti.TotalTime).
 					Duration("request_time.server", ti.ServerTime).
 					Duration("request_time.dns", ti.DNSLookup).
-					Static("timings")
+					Msg("timings")
 			}
 			return nil
 		}).
