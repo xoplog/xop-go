@@ -20,7 +20,7 @@ The JSON format of a line with WithAttributesInObject(false) is like:
 		"prefilled": "prefilled attributes come first",
 		"user_attribute": "all in the main object",
 		"another_user_attribute": "line specific attributes come next",
-		"msg": "text given to the .Msg() or .Static() method prepended with PrefillText"
+		"msg": "text given to the .Msg() method prepended with PrefillText"
 	}
 
 The JSON format of a line with WithAttributesInObject(false) is like:
@@ -38,7 +38,7 @@ The JSON format of a line with WithAttributesInObject(false) is like:
 			"user_attribute": "all in the main object",
 			"another_user_attribute": "line specific attributes come next"
 		},
-		"msg": "text given to the .Msg() or .Static() method prepended with PrefillText"
+		"msg": "text given to the .Msg() method prepended with PrefillText"
 	}
 
 "lvl"`is the xopconst.Level number

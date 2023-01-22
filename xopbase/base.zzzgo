@@ -151,7 +151,6 @@ type Line interface {
 type LineDone interface {
 	Msg(string)
 	Template(string)
-	// Static(string) XXX remove implemenations
 	// Object may change in the future to also take an un-redaction string,
 	Model(string, ModelArg)
 	Link(string, xoptrace.Trace)

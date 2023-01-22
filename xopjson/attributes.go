@@ -9,6 +9,7 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 )
 
@@ -379,6 +380,54 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	m.Type = xopbase.Int64DataType
 	lenBefore := len(m.Builder.B)
 	m.Builder.AddInt64(v)
+	if k.Distinct() {
+		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		if m.Distinct == nil {
+			m.Distinct = make(map[string]struct{})
+			m.Distinct[sk] = struct{}{}
+		} else {
+			if _, ok := m.Distinct[sk]; ok {
+				m.Builder.B = m.Builder.B[:lenBefore]
+				if m.Builder.B[len(m.Builder.B)-1] == ',' {
+					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+				}
+			} else {
+				m.Distinct[sk] = struct{}{}
+			}
+		}
+	}
+}
+
+func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	a.anyChanged = true
+	if !k.Multiple() {
+		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		if preExisting {
+			if k.Locked() {
+				return
+			} else {
+				s.KeyValue = s.KeyValue[:s.keyLen]
+			}
+		} else {
+			s.keyLen = len(s.KeyValue)
+		}
+		s.Type = xopbase.LinkDataType
+		b := builder{
+			span: a.span,
+			JBuilder: xoputil.JBuilder{
+				B: s.KeyValue,
+			},
+		}
+		b.AddLink(v)
+		s.KeyValue = b.B
+		return
+	}
+	m := a.addMulti(k.Key(), k.JSONKey())
+	m.Type = xopbase.LinkDataType
+	lenBefore := len(m.Builder.B)
+	m.Builder.AddLink(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {

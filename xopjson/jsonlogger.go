@@ -426,13 +426,13 @@ func (b *builder) Link(k string, v xoptrace.Trace) {
 	b.AddKey(k)
 	b.AddLink(v)
 }
+*/
 
 func (b *builder) AddLink(v xoptrace.Trace) {
 	b.AppendBytes([]byte(`{"xop.link":"`))
 	b.AppendString(v.String())
 	b.AppendBytes([]byte(`"}`))
 }
-*/
 
 func (b *builder) ReclaimMemory() {
 	if len(b.B) > maxBufferToKeep {
@@ -597,6 +597,11 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 
 func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	s.attributes.MetadataInt64(k, v)
+	s.logger.writer.DefineAttribute(&k.Attribute)
+}
+
+func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	s.attributes.MetadataLink(k, v)
 	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 

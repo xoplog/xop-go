@@ -164,6 +164,16 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 					span.MetadataInt64(event.Attribute.(*xopat.Int64Attribute), v.(int64))
 				}
 				// next line must be blank to end macro
+			case xopat.AttributeTypeLink:
+				if event.Attribute.Multiple() {
+					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
+						span.MetadataLink(event.Attribute.(*xopat.LinkAttribute), v.(xoptrace.Trace))
+					}
+				} else {
+					v := event.Span.Metadata[event.Attribute.Key()]
+					span.MetadataLink(event.Attribute.(*xopat.LinkAttribute), v.(xoptrace.Trace))
+				}
+				// next line must be blank to end macro
 			case xopat.AttributeTypeString:
 				if event.Attribute.Multiple() {
 					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {

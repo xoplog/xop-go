@@ -22,7 +22,6 @@ func (_ skipLine) Enum(k *xopat.EnumAttribute, v xopat.Enum) {}
 func (_ skipLine) Msg(string)                     {}
 func (_ skipLine) Link(string, xoptrace.Trace)    {}
 func (_ skipLine) Model(string, xopbase.ModelArg) {}
-func (_ skipLine) Static(string)                  {}
 func (_ skipLine) Template(string)                {}
 
 func (_ skipLine) Any(string, xopbase.ModelArg)   {}

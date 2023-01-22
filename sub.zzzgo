@@ -44,7 +44,7 @@ type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyI
 // if it wants the value to be logged.
 //
 // RedactStringFunc is applied only to String(), and Stringer() attributes.
-// It is not applied to Msg(), Static(), Msgf(), or Msgs().
+// It is not applied to Msg(), Msgf(), or Msgs().
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
