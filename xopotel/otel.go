@@ -207,9 +207,11 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) 
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
-	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+k), typeKey.String("link"))
-	line.attributes = append(builder.attributes, attribute.StringSlice("xop.link",
-		[]string{"link", v.TraceID().String(), v.SpanID().String()}))
+	line.attributes = append(line.attributes,
+		logMessageKey.String(line.prefillMsg+k),
+		typeKey.String("link"),
+		attribute.StringSlice("xop.link", []string{"link", v.TraceID().String(), v.SpanID().String()}),
+	)
 	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k, oteltrace.WithLinks(
 		oteltrace.Link{
 			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
@@ -228,7 +230,7 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 
 func (line *line) Model(msg string, modelArg xopbase.ModelArg) {}
 func (line *line) Msg(msg string) {
-	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), lineTypeKey.String("line"))
+	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), typeKey.String("line"))
 	if line.linkKey == "" {
 		line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
 		return
@@ -277,8 +279,8 @@ func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	builder.attributes = append(builder.attributes, attribute.Stringer(k.Key(), v))
 }
 
-func (builder *builder) Any(k string, v interface{}) {
-	switch typed := v.(type) {
+func (builder *builder) Any(k string, v xopbase.ModelArg) {
+	switch typed := v.Model.(type) {
 	case bool:
 		builder.attributes = append(builder.attributes, attribute.Bool(k, typed))
 	case []bool:
