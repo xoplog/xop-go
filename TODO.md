@@ -211,6 +211,11 @@
 
 # Ideas to ponder
 
+- only deliver span metadata at Flush() time?  That could get rid of code to handle
+  multiple and distinct in the various bottom loggers
+
+  Alternatively, have a wrapper package that bottom loggers can use to manage these
+
 - use [goccy json](https://github.com/goccy/go-json#benchmarks)?
 
 - could we drop xopbase.Logger.ID() in favor of using pointers?   or change ID sequential integers?  Add Name()?
