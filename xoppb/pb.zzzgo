@@ -318,11 +318,47 @@ func (b *builder) Duration(k string, v time.Duration) {
 
 // MACRO BaseAttribute
 func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
-	s.attributes.MetadataZZZ(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
-	//CONDITIONAL ONLY:Enum
-	s.logger.writer.DefineEnum(k, v)
-	//END CONDITIONAL
+	var attribute *xopproto.Attribute
+	var existingAttribute bool
+	func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		attribute, existingAttribute = s.attributeMap[k.Key()]
+		if !existingAttribute {
+			attribute = *xopproto.Attribute{
+				AttributeDefinitionSequenceNumber: 
+				Values: make([]*xopproto.AttributeValue, 1, 1),
+			}
+			s.Attributes = append(s.Attributes, attribute)
+		}
+	}()
+	if k.Multiple() {
+		//CONDITIONAL ONLY:Any
+		enc, err := json.Marshal(v)
+		if err != nil {
+			
+		// 
+		//END CONDITIONAL
+		if k.Distinct() {
+			
+
+
+			
+			
+		
+		"Bool":    "bool",
+		"Float64": "float64",
+		"Int64":   "int64",
+		"String":  "string",
+		"Link":    "xoptrace.Trace",
+		"Any":     "interface{}",
+		"Time":    "time.Time",
+		"Enum":    "xopat.Enum",
+	} else {
+		if k.Locked() && ok { 
+			return
+		}
+	}
 }
 
 // end

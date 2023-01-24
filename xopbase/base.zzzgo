@@ -22,6 +22,8 @@ import (
 
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
+//
+// Loggers must support concurrent requests for all methods.
 type Logger interface {
 	// Request beings a new span that represents the start of an
 	// operation: either a call to a server, a cron-job, or an event
@@ -86,11 +88,14 @@ type Request interface {
 }
 
 type Span interface {
-	// Span creates a new Span that should inherit prefil but not data
+	// Span creates a new Span that should inherit prefil but not data.  Calls
+	// to Span can be made in parallel.
 	Span(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
 	// MACRO BaseAttribute
-	// MetadataZZZ adds a key/value pair to describe the span.
+	// MetadataZZZ adds a key/value pair to describe the span.  Calls to
+	// MetadataZZZ are single-threaded with respect to other calls to
+	// set Metadata.  XXX make true!
 	MetadataZZZ(*xopat.ZZZAttribute, zzz)
 
 	// Boring true indicates that a span (or request) is boring.  The
@@ -98,6 +103,9 @@ type Span interface {
 	// can ignore Flush() and never get sent to output.  A boring span
 	// can be un-indexed. Boring requests that do get sent to output can
 	// be marked as boring so that they're dropped at the indexing stage.
+	//
+	// Calls to Boring are single-threaded with respect to other calls to
+	// Boring.  XXX make true.
 	Boring(bool)
 
 	// ID must return the same string as the Logger it came from
@@ -106,6 +114,8 @@ type Span interface {
 	// TODO: Gauge()
 	// TODO: Event()
 
+	// NoPrefill must work in parallel with other calls to NoPrefill, Span,
+	// and StartPrefill.
 	NoPrefill() Prefilled
 
 	StartPrefill() Prefilling
