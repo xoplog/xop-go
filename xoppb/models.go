@@ -78,8 +78,9 @@ type span struct {
 	bundle             xoptrace.Bundle
 	logger             *Logger
 	request            *request
-	attributeMap map[string]int 
-	distinctMap map[string]int
+	attributeMap map[string]*xopproto.Attribute
+	distinctMap map[string]
+	mu sync.Mutex
 }
 
 type prefilling struct {

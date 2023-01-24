@@ -37,6 +37,10 @@
 
 # Just do it (build ready)
 
+- Make sure there aren't races for defintion of span attributes at
+  the request or span level.  Do base loggers need to be able to handle
+  multiple requests at the same time?
+
 - sampling can be based on Boring() in which case the flags need to
   change before the "traceresponse" is set.  That means top logger
   must know if base loggers honored the boring.  Change xopbase.Boring
