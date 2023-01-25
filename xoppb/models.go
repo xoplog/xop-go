@@ -1,13 +1,12 @@
-package xopjson
+package xoppb
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
-	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
@@ -25,37 +24,18 @@ var _ xopbytes.Line = &line{}
 var _ xopbytes.Span = &span{}
 var _ xopbytes.Request = &request{}
 
-type Option func(*Logger, *xoputil.Prealloc)
-
-// TimeFormatter is the function signature for custom time formatters
-// if anything other than time.RFC3339Nano is desired.  The value must
-// be appended to the byte slice (which must be returned).
-//
-// For example:
-//
-//	func timeFormatter(b []byte, t time.Time) []byte {
-//		b = append(b, '"')
-//		b = append(b, []byte(t.Format(time.RFC3339))...)
-//		b = append(b, '"')
-//		return b
-//	}
-//
-// The slice may not be safely accessed outside of the duration of the
-// call.  The only acceptable operation on the slice is to append.
-type TimeFormatter func(b []byte, t time.Time) []byte
-
 type Logger struct {
-	writer           xopbytes.BytesWriter
+	writer xopbytes.BytesWriter
 	// fastKeys         bool
 	// durationFormat   DurationOption
 	// spanStarts       bool
 	// spanChangesOnly  bool
-	id               uuid.UUID
+	id uuid.UUID
 	// tagOption        TagOption
 	// requestCount     int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	// attributesObject bool
-	builderPool      sync.Pool // filled with *builder
-	linePool         sync.Pool // filled with *line
+	builderPool sync.Pool // filled with *builder
+	linePool    sync.Pool // filled with *line
 	// preallocatedKeys [100]byte
 	// durationKey      []byte
 	// stackLineRewrite func(string) string
@@ -72,15 +52,23 @@ type request struct {
 }
 
 type span struct {
-	xopproto.Span
-	endTime            int64
-	writer             xopbytes.BytesRequest
-	bundle             xoptrace.Bundle
-	logger             *Logger
-	request            *request
-	attributeMap map[string]*xopproto.Attribute
-	distinctMap map[string]
-	mu sync.Mutex
+	protoSpan    xopproto.Span
+	endTime      int64
+	writer       xopbytes.BytesRequest
+	bundle       xoptrace.Bundle
+	logger       *Logger
+	request      *request
+	attributeMap map[string]*xopproto.SpanAttribute
+	distinctMaps map[string]*distinction
+	mu           sync.Mutex
+}
+
+type distinction struct {
+	mu         sync.Mutex
+	seenString map[string]struct{}
+	seenInt    map[int64]struct{}
+	seenUint   map[uint64]struct{}
+	seenFloat  map[float64]struct{}
 }
 
 type prefilling struct {
@@ -88,7 +76,7 @@ type prefilling struct {
 }
 
 type prefilled struct {
-	data          []xopyproto.Attribute
+	data          []xopproto.Attribute
 	preEncodedMsg string
 	span          *span
 }
@@ -101,5 +89,5 @@ type line struct {
 
 type builder struct {
 	attributes []xopproto.Attribute
-	span              *span
+	span       *span
 }
