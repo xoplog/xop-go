@@ -94,8 +94,7 @@ type Span interface {
 
 	// MACRO BaseAttribute
 	// MetadataZZZ adds a key/value pair to describe the span.  Calls to
-	// MetadataZZZ are single-threaded with respect to other calls to
-	// set Metadata.  XXX make true!
+	// MetadataZZZ are can be concurrent with other calls to set Metadata.
 	MetadataZZZ(*xopat.ZZZAttribute, zzz)
 
 	// Boring true indicates that a span (or request) is boring.  The
@@ -118,6 +117,8 @@ type Span interface {
 	// and StartPrefill.
 	NoPrefill() Prefilled
 
+	// StartPrefill must work in parallel with other calls to NoPrefill, Span,
+	// and StartPrefill.
 	StartPrefill() Prefilling
 
 	// Done is called when (1) log.Done is called on the log corresponding
@@ -176,12 +177,21 @@ type ModelArg struct {
 }
 
 type AttributeParts interface {
+	// Enum adds a key/value pair.  Calls to Enum are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Enum(*xopat.EnumAttribute, xopat.Enum)
 
-	// MACRO BaseDataWithType
+	//MACRO BaseDataWithType
+	// ZZZ adds a key/value pair.  Calls to ZZZ are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	ZZZ(string, zzz, DataType)
 
 	// MACRO BaseDataWithoutType
+	// ZZZ adds a key/value pair.  Calls to ZZZ are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	ZZZ(string, zzz)
 
 	// TODO: split the above off as "BasicAttributeParts"

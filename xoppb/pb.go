@@ -1,3 +1,5 @@
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xoppb
 
 import (
@@ -311,8 +313,7 @@ func (b *builder) Duration(k string, v time.Duration) {
 	b.Int64(k, v, xopbase.DataTypeDuration)
 }
 
-// MACRO BaseAttribute
-func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -332,7 +333,6 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
-	//CONDITIONAL ONLY:Any
 	typeName := reflect.TypeOf(v).Name()
 	enc, err := json.Marshal(v)
 	if err != nil {
@@ -349,77 +349,162 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	if k.Distinct() {
 		dkAny = string(enc)
 	}
-	//END CONDITIONAL
 	setValue := func(value *xopproto.AttributeValue) {
-		//CONDITIONAL ONLY:Any
 		value.StringValue = typeName
 		value.BytesValue = enc
-		//CONDITIONAL ONLY:Link
-		value.StringValue = v.String()
-		//CONDITIONAL ONLY:String
-		value.StringValue = v
-		//CONDITIONAL ONLY:Bool
-		if v {
-			value.IntValue = 1
-		} else {
-			value.IntValue = 0
-		}
-		//CONDITIONAL ONLY:Int64
-		value.IntValue = v
-		//CONDITIONAL ONLY:Time
-		value.IntValue = v.UnixNano()
-		//CONDITIONAL ONLY:Float64
-		value.FloatValue = v
-		//CONDITIONAL ONLY:Enum
-		value.IntValue = v.Int()
-		value.StringValue = v.String()
-		//END CONDITIONAL
 	}
 	if k.Multiple() {
 		if k.Distinct() {
 			func() {
 				distinct.mu.Lock()
 				defer distinct.mu.Unlock()
-				//CONDITIONAL ONLY:Any,Link,String
 				if distinct.seenString == nil {
 					distinct.seenString = make(map[string]struct{})
 				}
-				//CONDITIONAL ONLY:Any
 				dk := dkAny
-				//CONDITIONAL ONLY:Link
-				dk := v.String()
-				//CONDITIONAL ONLY:String
-				dk := v
-				//CONDITIONAL ONLY:Any,Link,String
 				if _, ok := distinct.seenString[dk]; ok {
 					return
 				}
 				distinct.seenString[dk] = struct{}{}
-				//CONDITIONAL ONLY:Int64,Bool
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		if v {
+			value.IntValue = 1
+		} else {
+			value.IntValue = 0
+		}
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
 				if distinct.seenInt == nil {
 					distinct.seenInt = make(map[int64]struct{})
 				}
-				//CONDITIONAL ONLY:Int64
-				dk := v
-				//CONDITIONAL ONLY:Bool
 				var dk int64
 				if v {
 					dk = 1
 				}
-				//CONDITIONAL ONLY:Int64,Bool
 				if _, ok := distinct.seenInt[dk]; ok {
 					return
 				}
 				distinct.seenInt[dk] = struct{}{}
-				//CONDITIONAL ONLY:Uint64
-				if distinct.seenUint == nil {
-					distinct.seenUint = make(map[uint64]struct{})
-				}
-				if _, ok := distinct.seenUint[v]; ok {
-					return
-				}
-				distinct.seenUint[v] = struct{}{}
-				//CONDITIONAL ONLY:Float64
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		value.IntValue = v.Int()
+		value.StringValue = v.String()
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		value.FloatValue = v
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
 				if distinct.seenFloat64 == nil {
 					distinct.seenFloat64 = make(map[float64]struct{})
 				}
@@ -427,7 +512,194 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 					return
 				}
 				distinct.seenFloat[v] = struct{}{}
-				//END CONDITIONAL
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		value.IntValue = v
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
+				if distinct.seenInt == nil {
+					distinct.seenInt = make(map[int64]struct{})
+				}
+				dk := v
+				if _, ok := distinct.seenInt[dk]; ok {
+					return
+				}
+				distinct.seenInt[dk] = struct{}{}
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		value.StringValue = v.String()
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
+				if distinct.seenString == nil {
+					distinct.seenString = make(map[string]struct{})
+				}
+				dk := v.String()
+				if _, ok := distinct.seenString[dk]; ok {
+					return
+				}
+				distinct.seenString[dk] = struct{}{}
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		value.StringValue = v
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
+				if distinct.seenString == nil {
+					distinct.seenString = make(map[string]struct{})
+				}
+				dk := v
+				if _, ok := distinct.seenString[dk]; ok {
+					return
+				}
+				distinct.seenString[dk] = struct{}{}
+			}()
+		}
+		var value xopproto.AttributeValue
+		setValue(&value)
+		attribute.Values = append(attribute.Values, &value)
+	} else {
+		if k.Locked() && existingAttribute {
+			return
+		}
+		setValue(attribute.Values[0])
+	}
+}
+
+func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+	var distinct *distinction
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	attribute, existingAttribute := s.attributeMap[k.Key()]
+	if !existingAttribute {
+		var c int
+		if !k.Multiple() {
+			c = 1
+		}
+		attribute = &xopproto.SpanAttribute{
+			// XXX AttributeDefinitionSequenceNumber:
+			Values: make([]*xopproto.AttributeValue, c, 1),
+		}
+		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
+		if k.Distinct() {
+			distinct = &distinction{}
+			s.distinctMaps[k.Key()] = distinct
+		}
+	}
+	setValue := func(value *xopproto.AttributeValue) {
+		value.IntValue = v.UnixNano()
+	}
+	if k.Multiple() {
+		if k.Distinct() {
+			func() {
+				distinct.mu.Lock()
+				defer distinct.mu.Unlock()
 			}()
 		}
 		var value xopproto.AttributeValue

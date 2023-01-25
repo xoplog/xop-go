@@ -24,6 +24,8 @@ import (
 
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
+//
+// Loggers must support concurrent requests for all methods.
 type Logger interface {
 	// Request beings a new span that represents the start of an
 	// operation: either a call to a server, a cron-job, or an event
@@ -88,24 +90,33 @@ type Request interface {
 }
 
 type Span interface {
-	// Span creates a new Span that should inherit prefil but not data
+	// Span creates a new Span that should inherit prefil but not data.  Calls
+	// to Span can be made in parallel.
 	Span(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
-	// MetadataAny adds a key/value pair to describe the span.
+	// MetadataAny adds a key/value pair to describe the span.  Calls to
+	// MetadataAny are can be concurrent with other calls to set Metadata.
 	MetadataAny(*xopat.AnyAttribute, interface{})
-	// MetadataBool adds a key/value pair to describe the span.
+	// MetadataBool adds a key/value pair to describe the span.  Calls to
+	// MetadataBool are can be concurrent with other calls to set Metadata.
 	MetadataBool(*xopat.BoolAttribute, bool)
-	// MetadataEnum adds a key/value pair to describe the span.
+	// MetadataEnum adds a key/value pair to describe the span.  Calls to
+	// MetadataEnum are can be concurrent with other calls to set Metadata.
 	MetadataEnum(*xopat.EnumAttribute, xopat.Enum)
-	// MetadataFloat64 adds a key/value pair to describe the span.
+	// MetadataFloat64 adds a key/value pair to describe the span.  Calls to
+	// MetadataFloat64 are can be concurrent with other calls to set Metadata.
 	MetadataFloat64(*xopat.Float64Attribute, float64)
-	// MetadataInt64 adds a key/value pair to describe the span.
+	// MetadataInt64 adds a key/value pair to describe the span.  Calls to
+	// MetadataInt64 are can be concurrent with other calls to set Metadata.
 	MetadataInt64(*xopat.Int64Attribute, int64)
-	// MetadataLink adds a key/value pair to describe the span.
+	// MetadataLink adds a key/value pair to describe the span.  Calls to
+	// MetadataLink are can be concurrent with other calls to set Metadata.
 	MetadataLink(*xopat.LinkAttribute, xoptrace.Trace)
-	// MetadataString adds a key/value pair to describe the span.
+	// MetadataString adds a key/value pair to describe the span.  Calls to
+	// MetadataString are can be concurrent with other calls to set Metadata.
 	MetadataString(*xopat.StringAttribute, string)
-	// MetadataTime adds a key/value pair to describe the span.
+	// MetadataTime adds a key/value pair to describe the span.  Calls to
+	// MetadataTime are can be concurrent with other calls to set Metadata.
 	MetadataTime(*xopat.TimeAttribute, time.Time)
 
 	// Boring true indicates that a span (or request) is boring.  The
@@ -113,6 +124,9 @@ type Span interface {
 	// can ignore Flush() and never get sent to output.  A boring span
 	// can be un-indexed. Boring requests that do get sent to output can
 	// be marked as boring so that they're dropped at the indexing stage.
+	//
+	// Calls to Boring are single-threaded with respect to other calls to
+	// Boring.  XXX make true.
 	Boring(bool)
 
 	// ID must return the same string as the Logger it came from
@@ -121,8 +135,12 @@ type Span interface {
 	// TODO: Gauge()
 	// TODO: Event()
 
+	// NoPrefill must work in parallel with other calls to NoPrefill, Span,
+	// and StartPrefill.
 	NoPrefill() Prefilled
 
+	// StartPrefill must work in parallel with other calls to NoPrefill, Span,
+	// and StartPrefill.
 	StartPrefill() Prefilling
 
 	// Done is called when (1) log.Done is called on the log corresponding
@@ -181,16 +199,43 @@ type ModelArg struct {
 }
 
 type AttributeParts interface {
+	// Enum adds a key/value pair.  Calls to Enum are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Enum(*xopat.EnumAttribute, xopat.Enum)
 
+	// Float64 adds a key/value pair.  Calls to Float64 are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Float64(string, float64, DataType)
+	// Int64 adds a key/value pair.  Calls to Int64 are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Int64(string, int64, DataType)
+	// String adds a key/value pair.  Calls to String are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	String(string, string, DataType)
+	// Uint64 adds a key/value pair.  Calls to Uint64 are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Uint64(string, uint64, DataType)
 
+	// Any adds a key/value pair.  Calls to Any are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Any(string, ModelArg)
+	// Bool adds a key/value pair.  Calls to Bool are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Bool(string, bool)
+	// Duration adds a key/value pair.  Calls to Duration are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Duration(string, time.Duration)
+	// Time adds a key/value pair.  Calls to Time are expected to be
+	// serialized with other calls to add attributes to prefill and/or
+	// lines.
 	Time(string, time.Time)
 
 	// TODO: split the above off as "BasicAttributeParts"
