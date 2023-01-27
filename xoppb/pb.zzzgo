@@ -151,13 +151,13 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 }
 
 func (l *line) Template(m string) {
-	l.LineKind = xopjson.KindLine
+	l.LineKind = xopproto.KindLine
 	l.MessageTemplate = m
 	l.done()
 }
 
 func (l *line) Msg(m string) {
-	l.LineKind = xopjson.KindLine
+	l.LineKind = xopproto.KindLine
 	l.Message = m
 	l.done()
 }
@@ -179,13 +179,13 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 	} else {
 		l.Model.Type = v.TypeName
 	}
-	l.LineKind = xopjson.KindModel
+	l.LineKind = xopproto.KindModel
 	l.Message = k
 	l.done()
 }
 
 func (l *line) Link(k string, v xoptrace.Trace) {
-	l.LineKind = xopjson.KindLink
+	l.LineKind = xopproto.KindLink
 	l.Message = v.Trace.String() // XXX custom type?
 	l.done()
 }
@@ -211,51 +211,51 @@ func (l *line) ReclaimMemory() {
 }
 
 func (b *builder) Any(k string, v xopbase.ModelArg) {
-	var intValue int
+	var intValue int64
 	enc, err := json.Marshal(v.Model)
 	if err != nil {
 		enc = []byte(err.Error())
 		intValue = -1
 	}
 	typeName := reflect.TypeOf(v).Name()
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeAny,
-			StringValue:   typeName,
-			BytesValue:    enc,
-			IntValue:      intValue,
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_Any,
+		Value: &xopproto.AttributeValue{
+			StringValue: typeName,
+			BytesValue:  enc,
+			IntValue:    intValue,
 		},
 	})
 }
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeEnum,
-			StringValue:   v.String(),
-			IntValue:      v.Int64(),
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k.Key(),
+		Type: xopproto.AttributeType_Enum,
+		Value: &xopproto.AttributeValue{
+			StringValue: v.String(),
+			IntValue:    v.Int64(),
 		},
 	})
 }
 
 func (b *builder) Time(k string, t time.Time) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeTime,
-			IntValue:      t.UnixNano(),
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_Time,
+		AttributeValue: &xopproto.AttributeValue{
+			IntValue: t.UnixNano(),
 		},
 	})
 }
 
 func (b *builder) Bool(k string, v bool) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeBool,
-			IntValue:      boolToInt64(v),
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_Bool,
+		Value: &xopproto.AttributeValue{
+			IntValue: boolToInt64(v),
 		},
 	})
 }
@@ -268,47 +268,47 @@ func boolToInt64(b bool) int64 {
 }
 
 func (b *builder) Int64(k string, v int64, _ xopbase.DataType) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeInt64, // Convert to xopproto
-			IntValue:      v,
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_Int64, // Convert to xopproto
+		Value: &xopproto.AttributeValue{
+			IntValue: v,
 		},
 	})
 }
 
 func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeUint64, // Convert to xopproto
-			UintValue:     v,
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_Uint64, // Convert to xopproto
+		Value: &xopproto.AttributeValue{
+			UintValue: v,
 		},
 	})
 }
 
 func (b *builder) String(k string, v string, _ xopbase.DataType) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeString, // Convert to xopproto
-			StringValue:   v,
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_String, // Convert to xopproto
+		Value: &xopproto.AttributeValue{
+			StringValue: v,
 		},
 	})
 }
 
 func (b *builder) Float64(k string, v float64, _ xopbase.DataType) {
-	b.Attributes = append(b.Attributes, xopproto.Attribute{
-		Key: k.Key(),
-		AttributeCommon: &xopproto.AttributeCommon{
-			AttributeType: xopproto.AttributeTypeFloat64, // Convert to xopproto
-			FloatValue:    v,
+	b.attributes = append(b.attributes, xopproto.Attribute{
+		Key:  k,
+		Type: xopproto.AttributeType_Float64, // Convert to xopproto
+		Value: &xopproto.AttributeValue{
+			FloatValue: v,
 		},
 	})
 }
 
 func (b *builder) Duration(k string, v time.Duration) {
-	b.Int64(k, v, xopbase.DataTypeDuration)
+	b.Int64(k, int64(v), xopbase.DataTypeDuration)
 }
 
 // MACRO BaseAttribute
