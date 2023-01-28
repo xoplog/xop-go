@@ -2,13 +2,11 @@ package xoppb
 
 import (
 	"sync"
-	"time"
 
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
-	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
 )
@@ -76,18 +74,18 @@ type prefilling struct {
 }
 
 type prefilled struct {
-	data          []xopproto.Attribute
-	preEncodedMsg string
-	span          *span
+	data       []*xopproto.Attribute
+	prefillMsg string
+	span       *span
 }
 
 type line struct {
 	*builder
-	xopproto.Line
+	protoLine xopproto.Line
 	//XXX spanID?
 }
 
 type builder struct {
-	attributes []xopproto.Attribute
+	attributes []*xopproto.Attribute
 	span       *span
 }
