@@ -15,29 +15,16 @@ import (
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
-	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
+	"github.com/muir/list"
 )
 
 func New(w xopbytes.BytesWriter) *Logger {
 	log := &Logger{
-		writer:        w,
-		id:            uuid.New(),
-		timeFormatter: defaultTimeFormatter,
+		writer: w,
+		id:     uuid.New(),
 	}
-	prealloc := xoputil.NewPrealloc(log.preallocatedKeys[:])
-	for _, f := range opts {
-		f(log, prealloc)
-	}
-	if log.tagOption == 0 {
-		if w.Buffered() {
-			log.tagOption = SpanIDTagOption
-		} else {
-			log.tagOption = SpanIDTagOption | TraceIDTagOption
-		}
-	}
-	log.activeRequests.Add(1)
 	return log
 }
 
@@ -48,18 +35,15 @@ func (logger *Logger) ReferencesKept() bool { return false }
 func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string) xopbase.Request {
 	request := &request{
 		span: span{
-			logger:    logger,
-			bundle:    bundle,
-			endTime:   ts.UnixNano(),
-			isRequest: true,
+			logger:  logger,
+			bundle:  bundle,
+			endTime: ts.UnixNano(),
 			protoSpan: xopproto.Span{
 				Name:      name,
 				StartTime: ts.UnixNano(),
+				IsRequest: true,
 			},
 		},
-	}
-	if logger.tagOption&TraceNumberTagOption != 0 {
-		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
 	request.request = request
 	request.writer = logger.writer.Request(request)
@@ -102,9 +86,9 @@ func (s *span) Done(t time.Time, _ bool) {
 func (s *span) Boring(bool)                {}
 func (s *span) ID() string                 { return s.logger.id.String() }
 func (s *span) GetBundle() xoptrace.Bundle { return s.bundle }
-func (s *span) GetStartTime() time.Time    { return s.startTime }
+func (s *span) GetStartTime() time.Time    { return time.Unix(0, s.protoSpan.StartTime) }
 func (s *span) GetEndTimeNano() int64      { return s.endTime }
-func (s *span) IsRequest() bool            { return s.isRequest }
+func (s *span) IsRequest() bool            { return s.protoSpan.IsRequest }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
@@ -112,14 +96,10 @@ func (s *span) NoPrefill() xopbase.Prefilled {
 	}
 }
 
-func (b *builder) reset(s *span) {
-	b.span = s
-	b.B = b.B[:0]
-	b.attributesWanted = false
-	b.attributesStarted = false
-}
-
 func (s *span) builder() *builder {
+	return &builder{
+		span: s,
+	}
 }
 
 func (s *span) StartPrefill() xopbase.Prefilling {
@@ -129,7 +109,11 @@ func (s *span) StartPrefill() xopbase.Prefilling {
 }
 
 func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
-	return prefilled
+	return &prefilled{
+		data:       p.attributes,
+		prefillMsg: m,
+		span:       p.span,
+	}
 }
 
 func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
@@ -141,26 +125,26 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 			_ = atomic.AddInt32(&p.span.request.errorCount, 1)
 		}
 	}
-	l = &line{
+	l := &line{
 		builder: p.span.builder(),
-		Line: xopproto.Line{
-			LogLevel:  int32(level),
-			TimeStamp: t.UnixNano(),
+		protoLine: xopproto.Line{
+			LogLevel:   int32(level),
+			Timestamp:  t.UnixNano(),
+			Attributes: list.Copy(p.data),
 		},
-		prefillMsgPreEncoded: p.preEncodedMsg,
 	}
 	return l
 }
 
 func (l *line) Template(m string) {
-	l.LineKind = xopproto.KindLine
-	l.MessageTemplate = m
+	l.protoLine.LineKind = xopproto.LineKind_KindLine
+	l.protoLine.MessageTemplate = m
 	l.done()
 }
 
 func (l *line) Msg(m string) {
-	l.LineKind = xopproto.KindLine
-	l.Message = m
+	l.protoLine.LineKind = xopproto.LineKind_KindLine
+	l.protoLine.Message = m
 	l.done()
 }
 
@@ -169,26 +153,27 @@ func (l *line) done() {
 }
 
 func (l *line) Model(k string, v xopbase.ModelArg) {
-	l.Model = &xopbase.Model{}
+	l.protoLine.Model = &xopproto.Model{}
 	enc, err := json.Marshal(v.Model)
 	if err != nil {
-		l.Model.Error = err.Error()
+		l.protoLine.Model.Error = err.Error()
 	} else {
-		l.Model.Json = enc
+		l.protoLine.Model.Json = enc
 	}
 	if v.TypeName == "" {
-		l.Model.Type = reflect.TypeOf(v.Model).Name()
+		l.protoLine.Model.Type = reflect.TypeOf(v.Model).Name()
 	} else {
-		l.Model.Type = v.TypeName
+		l.protoLine.Model.Type = v.TypeName
 	}
-	l.LineKind = xopproto.KindModel
-	l.Message = k
+	l.protoLine.LineKind = xopproto.LineKind_KindModel
+	l.protoLine.Message = k
 	l.done()
 }
 
 func (l *line) Link(k string, v xoptrace.Trace) {
-	l.LineKind = xopproto.KindLink
-	l.Message = v.Trace.String() // XXX custom type?
+	l.protoLine.LineKind = xopproto.LineKind_KindLink
+	l.protoLine.Message = k
+	l.protoLine.Link = v.String()
 	l.done()
 }
 
@@ -206,8 +191,8 @@ func (b *builder) ReclaimMemory() {
 
 func (b *builder) AsBytes() []byte            // XXX
 func (l *line) GetSpanID() xoptrace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
-func (l *line) GetLevel() xopnum.Level        { return xopnum.Level(l.LogLevel) }
-func (l *line) GetTime() time.Time            { return time.UnixNano(0, l.Timestamp) }
+func (l *line) GetLevel() xopnum.Level        { return xopnum.Level(l.protoLine.LogLevel) }
+func (l *line) GetTime() time.Time            { return time.Unix(0, l.protoLine.Timestamp) }
 
 func (l *line) ReclaimMemory() {
 }
@@ -220,7 +205,7 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 		intValue = -1
 	}
 	typeName := reflect.TypeOf(v).Name()
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Any,
 		Value: &xopproto.AttributeValue{
@@ -232,7 +217,7 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 }
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k.Key(),
 		Type: xopproto.AttributeType_Enum,
 		Value: &xopproto.AttributeValue{
@@ -243,17 +228,17 @@ func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 }
 
 func (b *builder) Time(k string, t time.Time) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Time,
-		AttributeValue: &xopproto.AttributeValue{
+		Value: &xopproto.AttributeValue{
 			IntValue: t.UnixNano(),
 		},
 	})
 }
 
 func (b *builder) Bool(k string, v bool) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Bool,
 		Value: &xopproto.AttributeValue{
@@ -270,7 +255,7 @@ func boolToInt64(b bool) int64 {
 }
 
 func (b *builder) Int64(k string, v int64, _ xopbase.DataType) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Int64, // Convert to xopproto
 		Value: &xopproto.AttributeValue{
@@ -280,7 +265,7 @@ func (b *builder) Int64(k string, v int64, _ xopbase.DataType) {
 }
 
 func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Uint64, // Convert to xopproto
 		Value: &xopproto.AttributeValue{
@@ -290,7 +275,7 @@ func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
 }
 
 func (b *builder) String(k string, v string, _ xopbase.DataType) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_String, // Convert to xopproto
 		Value: &xopproto.AttributeValue{
@@ -300,7 +285,7 @@ func (b *builder) String(k string, v string, _ xopbase.DataType) {
 }
 
 func (b *builder) Float64(k string, v float64, _ xopbase.DataType) {
-	b.attributes = append(b.attributes, xopproto.Attribute{
+	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Float64, // Convert to xopproto
 		Value: &xopproto.AttributeValue{
@@ -310,7 +295,7 @@ func (b *builder) Float64(k string, v float64, _ xopbase.DataType) {
 }
 
 func (b *builder) Duration(k string, v time.Duration) {
-	b.Int64(k, int64(v), xopbase.DataTypeDuration)
+	b.Int64(k, int64(v), xopbase.DurationDataType)
 }
 
 func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
@@ -456,7 +441,7 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
-		value.IntValue = v.Int()
+		value.IntValue = v.Int64()
 		value.StringValue = v.String()
 	}
 	if k.Multiple() {
@@ -505,8 +490,8 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			func() {
 				distinct.mu.Lock()
 				defer distinct.mu.Unlock()
-				if distinct.seenFloat64 == nil {
-					distinct.seenFloat64 = make(map[float64]struct{})
+				if distinct.seenFloat == nil {
+					distinct.seenFloat = make(map[float64]struct{})
 				}
 				if _, ok := distinct.seenFloat[v]; ok {
 					return
