@@ -2,9 +2,14 @@ package xop
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
+	"github.com/xoplog/xop-go/internal/util/version"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 // Seed is used to create a Log.
@@ -64,6 +69,7 @@ type spanSeed struct {
 	currentReactiveIndex int
 	traceSet             bool
 	spanSet              bool
+	sourceInfo           xopbase.SourceInfo
 }
 
 func (s spanSeed) copy(withHistory bool) spanSeed {
@@ -90,6 +96,12 @@ func NewSeed(mods ...SeedModifier) Seed {
 func (seed Seed) applyMods(mods []SeedModifier) Seed {
 	for _, mod := range mods {
 		mod(&seed)
+	}
+	if seed.sourceInfo.Source == "" {
+		seed.sourceInfo.Source = filepath.Base(os.Args[0])
+	}
+	if seed.sourceInfo.Namespace == "" {
+		seed.sourceInfo.Namespace, seed.sourceInfo.NamespaceVersion = version.SplitVersion(xopat.DefaultNamespace)
 	}
 	return seed
 }
@@ -166,6 +178,35 @@ func WithTrace(trace xoptrace.Trace) SeedModifier {
 func WithSettings(f func(*LogSettings)) SeedModifier {
 	return func(s *Seed) {
 		f(&s.settings)
+	}
+}
+
+// WithNamespace serves to provide informationa about where logs
+// will come from. The best value for the namespace is either the
+// go module name for the overall project or the repository path.
+// If Xop was logging, it should use "github.com/xoplog/xop-go"
+// as the source. The source can cal be versioned. Split on space
+// or dash (eg. "github.com/xoplog/xop-go v1.3.10")
+//
+// The namespace exists to establish the which semantic conventions are
+// in use for whatever logging follows.
+//
+// If not specified, namespace will default to xopat.DefaultNamespace
+func WithNamespace(namespace string) SeedModifier {
+	return func(s *Seed) {
+		s.sourceInfo.Namespace, s.sourceInfo.NamespaceVersion = version.SplitVersion(namespace)
+	}
+}
+
+// WithSource specifies the source of the the logs. This should be the program
+// name or the program family if there are a group of related programs.
+//
+// Versioning is supported.
+//
+// If not specified, filepath.Base(os.Argv[0]) will be used.
+func WithSource(source string) SeedModifier {
+	return func(s *Seed) {
+		s.sourceInfo.Source, s.sourceInfo.SourceVersion = version.SplitVersion(source)
 	}
 }
 

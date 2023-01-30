@@ -18,6 +18,8 @@ import (
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 // Logger is the bottom half of a logger -- the part that actually
@@ -30,7 +32,7 @@ type Logger interface {
 	// being processed.  The provided Context is a pass-through from
 	// the Seed and if the seed does not provide a context, the context
 	// can be nil.
-	Request(ctx context.Context, ts time.Time, span xoptrace.Bundle, description string) Request
+	Request(ctx context.Context, ts time.Time, span xoptrace.Bundle, description string, source SourceInfo) Request
 
 	// ID returns a unique id for this instance of a logger.  This
 	// is used to prevent duplicate Requets from being created when
@@ -57,6 +59,17 @@ type Logger interface {
 	Replay(ctx context.Context, input any, logger Logger) error
 }
 
+// SourceInfo records both the running program (log source) and the logging
+// namespace that it uses. Note that atttributes are separately namespaced, but
+// that does not cover request and span naming. Source will be called once
+// for each base Logger instance.
+type SourceInfo struct {
+	Source           string
+	SourceVersion    *semver.Version
+	Namespace        string
+	NamespaceVersion *semver.Version
+}
+
 type RoundTripLogger interface {
 	Logger
 
@@ -70,7 +83,8 @@ type Request interface {
 
 	// Flush calls are single-threaded.  Flush can be triggered explicitly by
 	// users and it can be triggered because all parts of a request have had
-	// Done() called on them.
+	// Done() called on them.  Flush can be callled more than once on the same
+	// request.
 	Flush()
 
 	// SetErrorReported will always be called before any other method on the

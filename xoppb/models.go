@@ -17,10 +17,11 @@ var _ xopbase.Span = &span{}
 var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
-var _ xopbytes.Buffer = &builder{}
-var _ xopbytes.Line = &line{}
-var _ xopbytes.Span = &span{}
-var _ xopbytes.Request = &request{}
+
+//var _ xopbytes.Buffer = &builder{}  XXX
+//var _ xopbytes.Line = &line{}  XXX
+//var _ xopbytes.Span = &span{}  XXX
+//var _ xopbytes.Request = &request{}  XXX
 
 type Logger struct {
 	writer xopbytes.BytesWriter

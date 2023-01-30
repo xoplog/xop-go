@@ -95,7 +95,7 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName, log.span.seed.sourceInfo)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
@@ -209,7 +209,7 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 				debugPrint("ignoring additional flusher, already in flusher set", id)
 				continue
 			}
-			req := added.Request(log.request.span.seed.ctx, ts, log.request.span.seed.traceBundle, log.shared.Description)
+			req := added.Request(log.request.span.seed.ctx, ts, log.request.span.seed.traceBundle, log.shared.Description, log.request.span.seed.sourceInfo)
 			spanSet[id] = req
 			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
 			debugPrint("adding flusher to flusher set", id)
