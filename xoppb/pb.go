@@ -189,7 +189,7 @@ func (b *builder) ReclaimMemory() {
 	// XXX
 }
 
-func (b *builder) AsBytes() []byte            // XXX
+// func (b *builder) AsBytes() []byte            // XXX
 func (l *line) GetSpanID() xoptrace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
 func (l *line) GetLevel() xopnum.Level        { return xopnum.Level(l.protoLine.LogLevel) }
 func (l *line) GetTime() time.Time            { return time.Unix(0, l.protoLine.Timestamp) }

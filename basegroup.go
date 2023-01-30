@@ -35,9 +35,9 @@ var (
 	_ xopbase.Prefilling = prefillings{}
 )
 
-func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string) (xopbase.Request, map[string]xopbase.Request) {
+func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
-		req := l[0].Request(ctx, ts, span, descriptionOrName)
+		req := l[0].Request(ctx, ts, span, descriptionOrName, sourceInfo)
 		return req, map[string]xopbase.Request{l[0].ID(): req}
 	}
 	m := make(map[string]xopbase.Request)
@@ -51,7 +51,7 @@ func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span xoptr
 			// duplicate!
 			continue
 		}
-		req := logger.Request(ctx, ts, span, descriptionOrName)
+		req := logger.Request(ctx, ts, span, descriptionOrName, sourceInfo)
 		r.baseRequests = append(r.baseRequests, req)
 		r.baseSpans = append(r.baseSpans, req.(xopbase.Span))
 		m[id] = req
