@@ -52,7 +52,8 @@ func (logger *Logger) ID() string           { return logger.id.String() }
 func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
 
-func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string) xopbase.Request {
+func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, _ xopbase.SourceInfo) xopbase.Request {
+	// XXX SourceInfo
 	request := &request{
 		span: span{
 			logger:    logger,

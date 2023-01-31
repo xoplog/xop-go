@@ -35,7 +35,7 @@ type Logger interface {
 	Request(ctx context.Context, ts time.Time, span xoptrace.Bundle, description string, source SourceInfo) Request
 
 	// ID returns a unique id for this instance of a logger.  This
-	// is used to prevent duplicate Requets from being created when
+	// is used to prevent duplicate Requests from being created when
 	// additional loggers to added to an ongoing Request.
 	ID() string
 
