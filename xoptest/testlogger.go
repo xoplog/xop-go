@@ -94,6 +94,7 @@ type Span struct {
 	Name         string
 	SequenceCode string
 	Ctx          context.Context
+	SourceInfo   *xopbase.SourceInfo
 }
 
 type Prefilling struct {
@@ -169,7 +170,7 @@ func (log *TestLogger) ReferencesKept() bool { return true }
 func (log *TestLogger) SetErrorReporter(func(error)) {}
 
 // Request is a required method for xopbase.Logger
-func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string) xopbase.Request {
+func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, sourceInfo xopbase.SourceInfo) xopbase.Request {
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
@@ -182,6 +183,7 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle xoptrac
 		MetadataType: make(map[string]xopbase.DataType),
 		metadataSeen: make(map[string]interface{}),
 		Ctx:          ctx,
+		SourceInfo:   &sourceInfo,
 	}
 	s.setShortRequest()
 	log.Requests = append(log.Requests, s)

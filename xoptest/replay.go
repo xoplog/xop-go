@@ -28,7 +28,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 		case CustomEvent:
 			// ignore
 		case RequestStart:
-			request := logger.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name)
+			request := logger.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, *event.Span.SourceInfo)
 			id := event.Span.Bundle.Trace.GetSpanID()
 			requests[id] = request
 			spans[id] = request
