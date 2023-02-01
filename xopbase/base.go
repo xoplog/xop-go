@@ -72,6 +72,10 @@ type SourceInfo struct {
 	NamespaceVersion *semver.Version
 }
 
+func (si SourceInfo) Size() int32 {
+	return int32(len(si.Source) + len(si.Namespace) + len(si.SourceVersion.String()) + len(si.NamespaceVersion.String()))
+}
+
 type RoundTripLogger interface {
 	Logger
 
@@ -171,6 +175,9 @@ type Span interface {
 	//
 	// If the application never calls log.Done(), then final will never
 	// be true.
+	//
+	// Done can be called in parallel to calls to Done on other Spans
+	// and other activity including Flush().
 	Done(endTime time.Time, final bool)
 }
 

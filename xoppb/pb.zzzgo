@@ -9,7 +9,6 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
-	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -18,7 +17,7 @@ import (
 	"github.com/muir/list"
 )
 
-func New(w xopbytes.BytesWriter) *Logger {
+func New(w Writer) *Logger {
 	log := &Logger{
 		writer: w,
 		id:     uuid.New(),
@@ -27,11 +26,10 @@ func New(w xopbytes.BytesWriter) *Logger {
 }
 
 func (logger *Logger) ID() string           { return logger.id.String() }
-func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
+func (logger *Logger) Buffered() bool       { return false }
 func (logger *Logger) ReferencesKept() bool { return false }
 
-func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, _ xopbase.SourceInfo) xopbase.Request {
-	// XXX sourceInfo
+func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, sourceInfo xopbase.SourceInfo) xopbase.Request {
 	request := &request{
 		span: span{
 			logger:  logger,
@@ -43,20 +41,46 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 				IsRequest: true,
 			},
 		},
+		sourceInfo: sourceInfo,
+		spans:      make([]*xopproto.Span, 1, 20), // reserving space for self
+		lines:      make([]*xopproto.Line, 0, 200),
 	}
 	request.request = request
-	request.writer = logger.writer.Request(request)
-
 	return request
 }
 
 func (r *request) Flush() {
-	r.writer.Flush()
+	var rproto xopproto.Request
+	nSpans := make([]*xopproto.Span, 1, 20)
+	nLines := make([]*xopproto.Line, 0, 200)
+	func() {
+		r.spanLock.Lock()
+		defer r.spanLock.Unlock()
+		rproto.Spans = r.spans
+		r.spans = nSpans
+	}()
+	rproto.Spans[0] = r.span.getProto()
+	func() {
+		r.lineLock.Lock()
+		defer r.lineLock.Unlock()
+		rproto.PriorLinesInRequest = int32(r.priorLines)
+		r.priorLines += len(r.lines)
+		rproto.Lines = r.lines
+		r.lines = nLines
+		rproto.AlertCount = atomic.LoadInt32(&r.alertCount)
+		rproto.ErrorCount = atomic.LoadInt32(&r.errorCount)
+	}()
+	rproto.RequestID = r.bundle.Trace.GetSpanID().Bytes()
+	rproto.ParentTraceID = r.bundle.Parent.GetTraceID().Bytes()
+	rproto.SourceNamespace = r.sourceInfo.Namespace
+	rproto.SourceNamespaceVersion = r.sourceInfo.NamespaceVersion.String()
+	rproto.SourceID = r.sourceInfo.Source
+	rproto.SourceVersion = r.sourceInfo.SourceVersion.String()
+	r.logger.writer.Request(r.bundle.Trace.GetTraceID(), &rproto)
+	r.logger.writer.Flush()
 }
 
-func (r *request) Final() {
-	r.writer.ReclaimMemory()
-}
+func (r *request) Final() {}
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
 func (r *request) GetErrorCount() int32                  { return atomic.LoadInt32(&r.errorCount) }
@@ -65,7 +89,6 @@ func (r *request) GetAlertCount() int32                  { return atomic.LoadInt
 func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &span{
 		logger:  s.logger,
-		writer:  s.writer,
 		bundle:  bundle,
 		request: s.request,
 		endTime: ts.UnixNano(),
@@ -78,8 +101,24 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 	return n
 }
 
+func (s *span) getProto() *xopproto.Span {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.protoSpan.Version++
+	c := s.protoSpan
+	c.Attributes = list.Copy(c.Attributes)
+	return &c
+}
+
 func (s *span) Done(t time.Time, _ bool) {
 	atomic.StoreInt64(&s.endTime, t.UnixNano())
+	if s.protoSpan.IsRequest {
+		return
+	}
+	p := s.getProto()
+	s.request.spanLock.Lock()
+	defer s.request.spanLock.Unlock()
+	s.request.spans = append(s.request.spans, p)
 }
 
 func (s *span) Boring(bool)                {}
@@ -126,7 +165,7 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	}
 	l := &line{
 		builder: p.span.builder(),
-		protoLine: xopproto.Line{
+		protoLine: &xopproto.Line{
 			LogLevel:   int32(level),
 			Timestamp:  t.UnixNano(),
 			Attributes: list.Copy(p.data),
@@ -148,7 +187,9 @@ func (l *line) Msg(m string) {
 }
 
 func (l *line) done() {
-	// XXX
+	l.span.request.lineLock.Lock()
+	defer l.span.request.lineLock.Unlock()
+	l.span.request.lines = append(l.span.request.lines, l.protoLine)
 }
 
 func (l *line) Model(k string, v xopbase.ModelArg) {
