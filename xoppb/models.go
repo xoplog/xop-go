@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/xoplog/xop-go/xopbase"
-	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -23,8 +22,14 @@ var _ xopbase.Prefilled = &prefilled{}
 //var _ xopbytes.Span = &span{}  XXX
 //var _ xopbytes.Request = &request{}  XXX
 
+type Writer interface {
+	SizeLimit() int32
+	Request(traceID xoptrace.HexBytes16, request *xopproto.Request)
+	Flush() error
+}
+
 type Logger struct {
-	writer xopbytes.BytesWriter
+	writer Writer
 	// fastKeys         bool
 	// durationFormat   DurationOption
 	// spanStarts       bool
@@ -48,12 +53,17 @@ type request struct {
 	errorFunc  func(error)
 	idNum      int64
 	alertCount int32
+	sourceInfo xopbase.SourceInfo
+	lines      []*xopproto.Line
+	lineLock   sync.Mutex
+	spans      []*xopproto.Span
+	spanLock   sync.Mutex
+	priorLines int
 }
 
 type span struct {
 	protoSpan    xopproto.Span
 	endTime      int64
-	writer       xopbytes.BytesRequest
 	bundle       xoptrace.Bundle
 	logger       *Logger
 	request      *request
@@ -82,8 +92,7 @@ type prefilled struct {
 
 type line struct {
 	*builder
-	protoLine xopproto.Line
-	//XXX spanID?
+	protoLine *xopproto.Line
 }
 
 type builder struct {
