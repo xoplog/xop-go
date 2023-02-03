@@ -350,8 +350,8 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			c = 1
 		}
 		attribute = &xopproto.SpanAttribute{
-			// XXX AttributeDefinitionSequenceNumber:
-			Values: make([]*xopproto.AttributeValue, c, 1),
+			AttributeDefinitionSequenceNumber: s.request.DefineAttribute(k),
+			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
