@@ -30,10 +30,10 @@ import (
 func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
 	span := oteltrace.SpanFromContext(ctx)
 	var xoptrace xoptrace.Trace
-	xoptrace.TraceID().Set(span.SpanContext().TraceID())
-	xoptrace.SpanID().Set(span.SpanContext().SpanID())
-	xoptrace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
-	xoptrace.Version().Set([1]byte{1})
+	xoptrace.TraceID().SetArray(span.SpanContext().TraceID())
+	xoptrace.SpanID().SetArray(span.SpanContext().SpanID())
+	xoptrace.Flags().SetArray([1]byte{byte(span.SpanContext().TraceFlags())})
+	xoptrace.Version().SetArray([1]byte{1})
 	log := xop.NewSeed(
 		xop.CombineSeedModifiers(extraModifiers...),
 		xop.WithContext(ctx),
@@ -95,11 +95,11 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 			bundle := seed.Bundle()
 			if bundle.Parent.IsZero() {
 				bundle.State.SetString(span.SpanContext().TraceState().String())
-				bundle.Trace.Flags().Set([1]byte{byte(span.SpanContext().TraceFlags())})
-				bundle.Trace.Version().Set([1]byte{1})
-				bundle.Trace.TraceID().Set(span.SpanContext().TraceID())
+				bundle.Trace.Flags().SetArray([1]byte{byte(span.SpanContext().TraceFlags())})
+				bundle.Trace.Version().SetArray([1]byte{1})
+				bundle.Trace.TraceID().SetArray(span.SpanContext().TraceID())
 			}
-			bundle.Trace.SpanID().Set(span.SpanContext().SpanID())
+			bundle.Trace.SpanID().SetArray(span.SpanContext().SpanID())
 			return []xop.SeedModifier{
 				xop.WithContext(ctx),
 				xop.WithBundle(bundle),

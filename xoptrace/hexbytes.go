@@ -131,19 +131,19 @@ func (x WrappedHexBytes8) SetBytes(b []byte) {
 	x.trace.rebuild()
 }
 
-func (x WrappedHexBytes1) Set(b [1]byte) {
+func (x WrappedHexBytes1) SetArray(b [1]byte) {
 	x.b = b
 	hex.Encode(x.h[:], x.b[:])
 	x.trace.rebuild()
 }
 
-func (x WrappedHexBytes16) Set(b [16]byte) {
+func (x WrappedHexBytes16) SetArray(b [16]byte) {
 	x.b = b
 	hex.Encode(x.h[:], x.b[:])
 	x.trace.rebuild()
 }
 
-func (x WrappedHexBytes8) Set(b [8]byte) {
+func (x WrappedHexBytes8) SetArray(b [8]byte) {
 	x.b = b
 	hex.Encode(x.h[:], x.b[:])
 	x.trace.rebuild()
@@ -209,6 +209,21 @@ func (x WrappedHexBytes16) SetRandom() {
 
 func (x WrappedHexBytes8) SetRandom() {
 	x.HexBytes8.setRandom()
+	x.trace.rebuild()
+}
+
+func (x WrappedHexBytes1) Set(b HexBytes1) {
+	*x.HexBytes1 = b
+	x.trace.rebuild()
+}
+
+func (x WrappedHexBytes16) Set(b HexBytes16) {
+	*x.HexBytes16 = b
+	x.trace.rebuild()
+}
+
+func (x WrappedHexBytes8) Set(b HexBytes8) {
+	*x.HexBytes8 = b
 	x.trace.rebuild()
 }
 

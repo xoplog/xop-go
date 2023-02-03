@@ -59,7 +59,7 @@ func (x WrappedZZZ) SetBytes(b []byte) {
 }
 
 // MACRO HexBytes
-func (x WrappedZZZ) Set(b [zzz]byte) {
+func (x WrappedZZZ) SetArray(b [zzz]byte) {
 	x.b = b
 	hex.Encode(x.h[:], x.b[:])
 	x.trace.rebuild()
@@ -87,6 +87,12 @@ func (x WrappedZZZ) SetZero() {
 // MACRO HexBytes
 func (x WrappedZZZ) SetRandom() {
 	x.ZZZ.setRandom()
+	x.trace.rebuild()
+}
+
+// MACRO HexBytes
+func (x WrappedZZZ) Set(b ZZZ) {
+	*x.ZZZ = b
 	x.trace.rebuild()
 }
 
