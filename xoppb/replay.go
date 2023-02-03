@@ -23,8 +23,11 @@ func (_ *Logger) LosslessReplay(ctx context.Context, input any, logger xopbase.L
 		return errors.Errorf("expected *xopproto.Trace for xoppb.Replay, got %T", input)
 	}
 	for _, request := range trace.Requests {
-		traceID := xoptrace.NewHexBytes16FromSlice(trace.TraceID)
-		err := replayRequest(ctx, traceID, request, logger)
+		err := replayRequest{
+			logger: logger,
+			requestInput: request,
+			traceID: xoptrace.NewHexBytes16FromSlice(trace.TraceID),
+		}.Replay(ctx)
 		if err != nil {
 			return err
 		}
@@ -32,21 +35,29 @@ func (_ *Logger) LosslessReplay(ctx context.Context, input any, logger xopbase.L
 	return nil
 }
 
-func replayRequest(ctx context.Context, traceID xoptrace.HexBytes16, input *xopproto.Request, logger xopbase.Logger) error {
-	requestID := xoptrace.NewHexBytes8FromSlice(input.RequestID)
+type replayRequest struct {
+	logger xopbase.Logger
+	requestInput *xopproto.Request
+	traceID xoptrace.HexBytes16
+	request xopbase.Request
+	spansSeen map[xoptrace.HexBytes8]int32
+}
+
+func (x replayRequest) Replay(ctx context.Context) error {
+	requestID := xoptrace.NewHexBytes8FromSlice(x.requestInput.RequestID)
 	if len(input.Spans) == 0 {
-		return errors.Errorf("expected >0 spans in request (%s-%s)", traceID, requestID)
+		return errors.Errorf("expected >0 spans in request (%s-%s)", x.traceID, requestID)
 	}
-	if !bytes.Equal(input.RequestID, input.Spans[0].SpanID) {
-		return errors.Errorf("expected first span of request (%s-%s) to be the request", traceID, requestID)
+	if !bytes.Equal(x.requestInput.RequestID, x.requestInput.Spans[0].SpanID) {
+		return errors.Errorf("expected first span of request (%s-%s) to be the request", x.traceID, requestID)
 	}
-	requestSpan := input.Spans[0]
+	requestSpan := x.requestInput.Spans[0]
 	var bundle xoptrace.Bundle
 	bundle.Trace.TraceID().Set(traceID)
 	bundle.Trace.SpanID().Set(requestID)
 	bundle.Parent.SpanID().SetBytes(requestSpan.ParentID)
 	if len(input.ParentTraceID) != 0 {
-		bundle.Parent.TraceID().SetBytes(input.ParentTraceID)
+		bundle.Parent.TraceID().SetBytes(x.requestInput.ParentTraceID)
 	} else {
 		bundle.Parent.TraceID().Set(traceID)
 	}
@@ -54,31 +65,37 @@ func replayRequest(ctx context.Context, traceID xoptrace.HexBytes16, input *xopp
 	bundle.Baggage.SetString(requestSpan.Baggage)
 
 	sourceInfo := xopbase.SourceInfo{
-		Source:    input.SourceID,
-		Namespace: input.SourceNamespace,
+		Source:    x.requestInput.SourceID,
+		Namespace: x.requestInput.SourceNamespace,
 	}
 	var err error
-	sourceInfo.SourceVersion, err = semver.StrictNewVersion(input.SourceVersion)
+	sourceInfo.SourceVersion, err = semver.StrictNewVersion(x.requestInput.SourceVersion)
 	if err != nil {
-		return errors.Errorf("invalid source version in request (%s-%s): %w", traceID, requestID, err)
+		return errors.Errorf("invalid source version in request (%s-%s): %w", x.traceID, requestID, err)
 	}
 	sourceInfo.NamespaceVersion, err = semver.StrictNewVersion(input.SourceNamespaceVersion)
 	if err != nil {
-		return errors.Errorf("invalid namespace version in request (%s-%s): %w", traceID, requestID, err)
+		return errors.Errorf("invalid namespace version in request (%s-%s): %w", x.traceID, requestID, err)
 	}
 
-	request := logger.Request(ctx,
+	x.request = logger.Request(ctx,
 		time.Unix(0, requestSpan.StartTime),
 		bundle,
 		requestSpan.Name,
 		sourceInfo)
-	spansSeen := make(map[xoptrace.HexBytes8]int32)
-	err = replaySpan(ctx, spansSeen, requestSpan)
+	x.spansSeen = make(map[xoptrace.HexBytes8]int32)
+	err = replaySpan{
+		replayRequest: x,
+		spanInput: requestSpan,
+	}.Replay(ctx)
 	if err != nil {
 		return err
 	}
 	for i := len(input.Spans) - 1; i > 0; i-- { // 0 is processed above
-		err := replaySpan(ctx, spansSeen, input.Spans[i])
+		err = replaySpan{
+			replayRequest: x,
+			spanInput: input.Spans[i],
+		}.Replay(ctx)
 		if err != nil {
 			return err
 		}
@@ -86,11 +103,34 @@ func replayRequest(ctx context.Context, traceID xoptrace.HexBytes16, input *xopp
 	return nil
 }
 
-func replaySpan(ctx context.Context, spansSeen map[xoptrace.HexBytes8]struct{}, span *xopproto.Span) error {
-	spanID := xoptrace.NewHexBytes8FromSlice(span.SpanID)
-	if version, ok := spansSeen[spanID]; ok && version > span.Version {
+type replaySpan struct {
+	replayRequest
+	spanInput *xopproto.Span
+}
+	
+
+func (x replaySpan) Replay(ctx context.Context) error {
+	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
+	if version, ok := spansSeen[spanID]; ok && version > x.spanInput.Version {
 		return nil
 	}
-	spansSeen[spanID] = span.Version
+	spansSeen[spanID] = x.spanInput.Version
+	var bundle xoptrace.Bundle
+	bundle.Trace.TraceID().Set(x.traceID)
+	bundle.Trace.SpanID().Set(spanID)
+	bundle.Parent.SpanID().SetBytes(x.spanInput.ParentID)
+	bundle.Parent.TraceID().Set(traceID)
+	span := request.Span(ctx, 
+		time.Unix(0, x.spanInput.StartTime)
+		bundle,
+		x.spanInput.Name,
+		x.spanInput.SequenceCode)
+	for _, attribute := range x.spanInput.Attributes {
+		// attribute.AttributeDefinitionSequenceNumber
+	// repeated AttributeValue values = 2; // at least one is required
 
+	}
+	if x.spanInput.endTime != nil {
+		span.Done(time.Unix(0, *x.spanInput.EndTime), false)
+	}
 }

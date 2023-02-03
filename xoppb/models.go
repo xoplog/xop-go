@@ -67,7 +67,7 @@ type span struct {
 	bundle       xoptrace.Bundle
 	logger       *Logger
 	request      *request
-	attributeMap map[string]*xopproto.SpanAttribute
+	attributeMap map[string]*xopproto.SpanAttribute // XXX combine with distinction?
 	distinctMaps map[string]*distinction
 	mu           sync.Mutex
 }
