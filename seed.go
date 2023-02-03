@@ -164,7 +164,7 @@ func WithBundle(bundle xoptrace.Bundle) SeedModifier {
 
 func WithSpan(spanID [8]byte) SeedModifier {
 	return func(s *Seed) {
-		s.traceBundle.Trace.SpanID().Set(spanID)
+		s.traceBundle.Trace.SpanID().SetArray(spanID)
 		s.spanSet = true
 	}
 }
