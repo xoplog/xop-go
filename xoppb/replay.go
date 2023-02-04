@@ -107,7 +107,6 @@ type replaySpan struct {
 	replayRequest
 	spanInput *xopproto.Span
 }
-	
 
 func (x replaySpan) Replay(ctx context.Context) error {
 	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
@@ -126,9 +125,8 @@ func (x replaySpan) Replay(ctx context.Context) error {
 		x.spanInput.Name,
 		x.spanInput.SequenceCode)
 	for _, attribute := range x.spanInput.Attributes {
-		// attribute.AttributeDefinitionSequenceNumber
-	// repeated AttributeValue values = 2; // at least one is required
-
+		def := requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
+		// repeated AttributeValue values = 2; // at least one is required
 	}
 	if x.spanInput.endTime != nil {
 		span.Done(time.Unix(0, *x.spanInput.EndTime), false)

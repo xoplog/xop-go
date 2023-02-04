@@ -49,16 +49,18 @@ type Logger struct {
 
 type request struct {
 	span
-	errorCount int32
-	errorFunc  func(error)
-	idNum      int64
-	alertCount int32
-	sourceInfo xopbase.SourceInfo
-	lines      []*xopproto.Line
-	lineLock   sync.Mutex
-	spans      []*xopproto.Span
-	spanLock   sync.Mutex
-	priorLines int
+	errorCount           int32
+	errorFunc            func(error)
+	idNum                int64
+	alertCount           int32
+	sourceInfo           xopbase.SourceInfo
+	lines                []*xopproto.Line
+	lineLock             sync.Mutex
+	spans                []*xopproto.Span
+	spanLock             sync.Mutex
+	priorLines           int
+	attributeDefinitions []*xopproto.AttributeDefinition
+	attributeIndex       map[int32]int32
 }
 
 type span struct {
