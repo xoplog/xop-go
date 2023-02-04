@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xoplog/xop-go/internal/util/version"
@@ -16,13 +17,14 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
+var attributeCount int32 = 1
+
 // Attribute is the base type for the keys that are used to add
 // key/value metadata to spans.  The actual keys are matched to the
 // values to provide compile-time type checking on the metadata calls.
 // For example:
 //
 //	func (span *Span) String(k *xopconst.StringAttribute, v string) *Span
-//
 type Attribute struct {
 	namespace    string
 	version      string
@@ -37,6 +39,7 @@ type Attribute struct {
 	values       sync.Map // name:enumValue used for enums
 	defSize      int32
 	semver       *semver.Version
+	number       int32
 }
 
 // DefaultNamespace sets the namespace for attribute names
@@ -165,7 +168,13 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 	if _, ok := reservedKeys[s.Key]; ok {
 		return Attribute{}, fmt.Errorf("key is reserved for internal use '%s'", s.Key)
 	}
+	ra, err := s.makeNoCheck(exampleValue, subType)
+	registeredNames[s.Key] = &ra
+	allAttributes = append(allAttributes, &ra)
+	return ra, nil
+}
 
+func (s Make) makeNoCheck(exampleValue interface{}, subType AttributeType) (Attribute, error) {
 	namespace := s.Namespace
 	if namespace == "" {
 		namespace = DefaultNamespace
@@ -192,9 +201,8 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 		jsonKey:      string(jsonKey) + ":",
 		defSize:      int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
 		semver:       sver,
+		number:       atomic.AddInt32(&attributeCount, 1),
 	}
-	registeredNames[s.Key] = &ra
-	allAttributes = append(allAttributes, &ra)
 	return ra, nil
 }
 
@@ -215,7 +223,7 @@ func (r Attribute) Description() string               { return r.properties.Desc
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
 func (r Attribute) Multiple() bool                    { return r.properties.Multiple }
-func (r Attribute) Ranged() bool                      { return r.properties.Ranged }
+func (r Attribute) Ranged() bool                      { return r.properties.Ranged } // XXX add to proto
 func (r Attribute) Locked() bool                      { return r.properties.Locked }
 func (r Attribute) Distinct() bool                    { return r.properties.Distinct }
 func (r Attribute) Prominence() int                   { return r.properties.Prominence }
@@ -227,6 +235,7 @@ func (r Attribute) ProtoType() xopproto.AttributeType { return xopproto.Attribut
 func (r Attribute) DefinitionSize() int32             { return r.defSize }
 func (r Attribute) Semver() *semver.Version           { return r.semver }
 func (r Attribute) SemverString() string              { return r.version }
+func (r Attribute) Number() int32                     { return r.number }
 func (r *Attribute) Ptr() *Attribute                  { return r }
 
 type AttributeInterface interface {
@@ -285,13 +294,13 @@ const (
 	AttributeTypeZZZ = AttributeType(xopproto.AttributeType_ZZZ)
 )
 
-//MACRO IntsPlus SKIP:Int64
+// MACRO IntsPlus SKIP:Int64
 // ZZZAttribute is a just an Int64Attribute that with
 // SubType() == AttributeTypeDuration.  A base logger may
 // look at SubType() to provide specialized behavior.
 type ZZZAttribute struct{ Int64Attribute }
 
-//MACRO ZZZAttribute SKIP:Enum,Duration,Int,Int8,Int16,Int32
+// MACRO ZZZAttribute SKIP:Enum,Duration,Int,Int8,Int16,Int32
 // ZZZAttribute represents an attribute key that can be used
 // with zzz values.
 type ZZZAttribute struct{ Attribute }
