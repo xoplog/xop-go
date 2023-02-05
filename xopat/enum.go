@@ -45,7 +45,7 @@ type EmbeddedEnum interface {
 // Enum is a value that can be paired with an EnumAttribute to provide
 // a key/value metadata attribute for a span:
 //
-//   func (span *Span) Enum(k *xopconst.EnumAttribute, v xopconst.Enum)
+//	func (span *Span) Enum(k *xopconst.EnumAttribute, v xopconst.Enum)
 //
 // The key (*xopconst.EnumAttribute) and value (xopconst.Enum) are
 // provided separately, unlike with an EmbeddedEnum.
@@ -91,19 +91,18 @@ func (e enum) String() string {
 //	func (e SpanKindEnum) Int64() int64 { return int64(e) }
 //
 //	var SpanKind = xopconst.Make{Key: "span.kind", Namespace: "OTAP", Indexed: true, Prominence: 30,
-// 		Description: "https://opentelemetry.io/docs/reference/specification/trace/api/#spankind" +
-// 			" Use one of SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer, SpanKindInternal"}.
-// 		EnumAttribute(SpanKindServer)
+//		Description: "https://opentelemetry.io/docs/reference/specification/trace/api/#spankind" +
+//			" Use one of SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer, SpanKindInternal"}.
+//		EnumAttribute(SpanKindServer)
 //
 //	log := xop.NewSeed().Request("an example")
 //	log.Request().EmbeddedEnum(SpanTypeHTTPClientRequest)
-//
 func (s Make) EnumAttribute(exampleValue Enum) *EnumAttribute {
-	return &EnumAttribute{Attribute: s.attribute(exampleValue, nil, AttributeTypeEnum)}
+	return &EnumAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, nil, AttributeTypeEnum)}
 }
 
 func (s Make) TryEnumAttribute(exampleValue Enum) (_ *EnumAttribute, err error) {
-	return &EnumAttribute{Attribute: s.attribute(exampleValue, &err, AttributeTypeEnum)}, err
+	return &EnumAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeEnum)}, err
 }
 
 // Iota creates new enum values.
@@ -122,7 +121,6 @@ func (s Make) TryEnumAttribute(exampleValue Enum) (_ *EnumAttribute, err error) 
 //
 //	log := xop.NewSeed().Request("an example")
 //	log.Request().EmbeddedEnum(SpanTypeHTTPClientRequest)
-//
 func (e *IotaEnumAttribute) Iota(s string) EmbeddedEnum {
 	old := atomic.AddInt64(&e.counter, 1)
 	e.Attribute.names.Store(old+1, s)
@@ -148,7 +146,7 @@ func (s Make) IotaEnumAttribute() *IotaEnumAttribute {
 func (s Make) TryIotaEnumAttribute() (_ *IotaEnumAttribute, err error) {
 	ie := &IotaEnumAttribute{
 		EnumAttribute: EnumAttribute{
-			Attribute: s.attribute(EmbeddedEnum(enum{}), &err, AttributeTypeEnum),
+			Attribute: s.attribute(defaultRegistry, EmbeddedEnum(enum{}), &err, AttributeTypeEnum),
 		},
 	}
 	if err != nil {
@@ -170,7 +168,7 @@ func (s Make) EmbeddedEnumAttribute(exampleValue interface{}) *EmbeddedEnumAttri
 func (s Make) TryEmbeddedEnumAttribute(exampleValue interface{}) (_ *EmbeddedEnumAttribute, err error) {
 	ie := &EmbeddedEnumAttribute{
 		EnumAttribute: EnumAttribute{
-			Attribute: s.attribute(exampleValue, &err, AttributeTypeEnum),
+			Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeEnum),
 		},
 	}
 	if err != nil {

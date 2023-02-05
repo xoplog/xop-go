@@ -37,6 +37,8 @@
 
 # Just do it (build ready)
 
+- Remove example values from attribute registrations
+
 - Make sure there aren't races for defintion of span attributes at
   the request or span level.  Do base loggers need to be able to handle
   multiple requests at the same time?

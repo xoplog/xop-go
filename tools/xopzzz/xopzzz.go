@@ -54,6 +54,17 @@ var macros = map[string]map[string]string{
 		"Time":    "time.Time",
 		"Enum":    "xopat.Enum",
 	},
+	"BaseAttributeExample": {
+		"Bool":    "true",
+		"Float64": "float64(0.0)",
+		"Float32": "float32(0.0)",
+		"Int64":   "int64(0)",
+		"String":  "\"\"",
+		"Link":    "xoptrace.Trace{}",
+		"Any":     "interface{}",
+		"Time":    "time.Time{}",
+		"Enum":    "xopat.Enum",
+	},
 	"IntsPlus": {
 		"Int":      "int",
 		"Int8":     "int8",

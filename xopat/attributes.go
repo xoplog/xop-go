@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xoplog/xop-go/internal/util/version"
@@ -18,18 +19,18 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
+var attributeCount int32 = 1
+
 // Attribute is the base type for the keys that are used to add
 // key/value metadata to spans.  The actual keys are matched to the
 // values to provide compile-time type checking on the metadata calls.
 // For example:
 //
 //	func (span *Span) String(k *xopconst.StringAttribute, v string) *Span
-//
 type Attribute struct {
 	namespace    string
 	version      string
 	properties   Make
-	number       int
 	jsonKey      string
 	exampleValue interface{}
 	reflectType  reflect.Type
@@ -39,6 +40,7 @@ type Attribute struct {
 	values       sync.Map // name:enumValue used for enums
 	defSize      int32
 	semver       *semver.Version
+	number       int32
 }
 
 // DefaultNamespace sets the namespace for attribute names
@@ -85,80 +87,22 @@ type Make struct {
 	Locked      bool   // only keep the first value
 }
 
-var (
-	lock            sync.RWMutex
-	registeredNames = make(map[string]*Attribute)
-	allAttributes   []*Attribute
-)
-
 // Can't use MACRO for these since default values are needed
 
-func (s Make) LinkAttribute() *LinkAttribute {
-	return &LinkAttribute{Attribute: s.attribute(xoptrace.Trace{}, nil, AttributeTypeLink)}
-}
-
-func (s Make) TryLinkAttribute() (_ *LinkAttribute, err error) {
-	return &LinkAttribute{Attribute: s.attribute(xoptrace.Trace{}, &err, AttributeTypeLink)}, err
-}
-
-func (s Make) StringAttribute() *StringAttribute {
-	return &StringAttribute{Attribute: s.attribute("", nil, AttributeTypeString)}
-}
-
-func (s Make) TryStringAttribute() (_ *StringAttribute, err error) {
-	return &StringAttribute{Attribute: s.attribute("", &err, AttributeTypeString)}, err
-}
-
-func (s Make) BoolAttribute() *BoolAttribute {
-	return &BoolAttribute{Attribute: s.attribute(false, nil, AttributeTypeBool)}
-}
-
-func (s Make) TryBoolAttribute() (_ *BoolAttribute, err error) {
-	return &BoolAttribute{Attribute: s.attribute(false, &err, AttributeTypeBool)}, err
-}
-
-func (s Make) TimeAttribute() *TimeAttribute {
-	return &TimeAttribute{Attribute: s.attribute(time.Time{}, nil, AttributeTypeEnum)}
-}
-
-func (s Make) TryTimeAttribute() (_ *TimeAttribute, err error) {
-	return &TimeAttribute{Attribute: s.attribute(time.Time{}, &err, AttributeTypeEnum)}, err
-}
-
 func (s Make) AnyAttribute(exampleValue interface{}) *AnyAttribute {
-	return &AnyAttribute{Attribute: s.attribute(exampleValue, nil, AttributeTypeAny)}
+	return &AnyAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, nil, AttributeTypeAny)}
 }
 
 func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err error) {
-	return &AnyAttribute{Attribute: s.attribute(exampleValue, &err, AttributeTypeAny)}, err
+	return &AnyAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeAny)}, err
 }
 
-func (s Make) Int64Attribute() *Int64Attribute {
-	return &Int64Attribute{Attribute: s.attribute(int64(0), nil, AttributeTypeInt64)}
+func (r *Registry) ContructAnyAttribute(s Make) (_ *AnyAttribute, err error) {
+	return &AnyAttribute{Attribute: s.attribute(r, 0, &err, AttributeTypeAny)}, err
 }
 
-func (s Make) TryInt64Attribute() (_ *Int64Attribute, err error) {
-	return &Int64Attribute{Attribute: s.attribute(int64(0), &err, AttributeTypeInt64)}, err
-}
-
-func (s Make) Float64Attribute() *Float64Attribute {
-	return &Float64Attribute{Attribute: s.attribute(float64(0), nil, AttributeTypeFloat64)}
-}
-
-func (s Make) TryFloat64Attribute() (_ *Float64Attribute, err error) {
-	return &Float64Attribute{Attribute: s.attribute(float64(0), &err, AttributeTypeFloat64)}, err
-}
-
-func (s Make) Float32Attribute() *Float32Attribute {
-	return &Float32Attribute{Attribute: s.attribute(float32(0), nil, AttributeTypeFloat32)}
-}
-
-func (s Make) TryFloat32Attribute() (_ *Float32Attribute, err error) {
-	return &Float32Attribute{Attribute: s.attribute(float32(0), &err, AttributeTypeFloat32)}, err
-}
-
-func (s Make) attribute(exampleValue interface{}, ep *error, subType AttributeType) Attribute {
-	a, err := s.make(exampleValue, subType)
+func (s Make) attribute(registry *Registry, exampleValue interface{}, ep *error, subType AttributeType) Attribute {
+	a, err := s.make(registry, exampleValue, subType)
 	if err != nil {
 		if ep == nil {
 			panic(err)
@@ -168,11 +112,15 @@ func (s Make) attribute(exampleValue interface{}, ep *error, subType AttributeTy
 	return a
 }
 
-func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, error) {
-	lock.Lock()
-	defer lock.Unlock()
-	if prior, ok := registeredNames[s.Key]; ok {
-		return *prior, fmt.Errorf("duplicate attribute registration for '%s'", s.Key)
+func (s Make) make(registry *Registry, exampleValue interface{}, subType AttributeType) (Attribute, error) {
+	registry.lock.Lock()
+	defer registry.lock.Unlock()
+	if prior, ok := registry.registeredNames[s.Key]; ok {
+		if registry.errOnDuplicate {
+			return *prior, fmt.Errorf("duplicate attribute registration for '%s'", s.Key)
+		} else {
+			return *prior, nil
+		}
 	}
 	if _, ok := reservedKeys[s.Key]; ok {
 		return Attribute{}, fmt.Errorf("key is reserved for internal use '%s'", s.Key)
@@ -204,9 +152,10 @@ func (s Make) make(exampleValue interface{}, subType AttributeType) (Attribute, 
 		jsonKey:      string(jsonKey) + ":",
 		defSize:      int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
 		semver:       sver,
+		number:       atomic.AddInt32(&attributeCount, 1),
 	}
-	registeredNames[s.Key] = &ra
-	allAttributes = append(allAttributes, &ra)
+	registry.registeredNames[s.Key] = &ra
+	registry.allAttributes = append(registry.allAttributes, &ra)
 	return ra, nil
 }
 
@@ -227,11 +176,11 @@ func (r Attribute) Description() string               { return r.properties.Desc
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
 func (r Attribute) Multiple() bool                    { return r.properties.Multiple }
-func (r Attribute) Ranged() bool                      { return r.properties.Ranged }
+func (r Attribute) Ranged() bool                      { return r.properties.Ranged } // XXX add to proto
 func (r Attribute) Locked() bool                      { return r.properties.Locked }
 func (r Attribute) Distinct() bool                    { return r.properties.Distinct }
 func (r Attribute) Prominence() int                   { return r.properties.Prominence }
-func (r Attribute) RegistrationNumber() int           { return r.number }
+func (r Attribute) RegistrationNumber() int32         { return r.number }
 func (r Attribute) ExampleValue() interface{}         { return r.exampleValue }
 func (r Attribute) TypeName() string                  { return r.typeName }
 func (r Attribute) SubType() AttributeType            { return r.subType }
@@ -253,7 +202,7 @@ type AttributeInterface interface {
 	Locked() bool
 	Distinct() bool
 	Prominence() int
-	RegistrationNumber() int
+	RegistrationNumber() int32
 	ExampleValue() interface{}
 	TypeName() string
 	SubType() AttributeType
@@ -281,44 +230,148 @@ func (r Attribute) GetEnum(n string) (Enum, bool) {
 	return nil, false
 }
 
-func (s Make) DurationAttribute() *DurationAttribute {
-	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(time.Duration(0), nil, AttributeTypeDuration)}}
+func (s Make) BoolAttribute() *BoolAttribute {
+	return &BoolAttribute{Attribute: s.attribute(defaultRegistry, true, nil, AttributeTypeBool)}
 }
 
-func (s Make) TryDurationAttribute() (_ *DurationAttribute, err error) {
-	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(time.Duration(0), &err, AttributeTypeDuration)}}, err
+func (s Make) TryBoolAttribute() (*BoolAttribute, error) {
+	return defaultRegistry.ConstructBoolAttribute(s)
+}
+
+func (r *Registry) ConstructBoolAttribute(s Make) (_ *BoolAttribute, err error) {
+	return &BoolAttribute{Attribute: s.attribute(r, true, &err, AttributeTypeBool)}, err
+}
+
+func (s Make) Float32Attribute() *Float32Attribute {
+	return &Float32Attribute{Attribute: s.attribute(defaultRegistry, float32(0.0), nil, AttributeTypeFloat32)}
+}
+
+func (s Make) TryFloat32Attribute() (*Float32Attribute, error) {
+	return defaultRegistry.ConstructFloat32Attribute(s)
+}
+
+func (r *Registry) ConstructFloat32Attribute(s Make) (_ *Float32Attribute, err error) {
+	return &Float32Attribute{Attribute: s.attribute(r, float32(0.0), &err, AttributeTypeFloat32)}, err
+}
+
+func (s Make) Float64Attribute() *Float64Attribute {
+	return &Float64Attribute{Attribute: s.attribute(defaultRegistry, float64(0.0), nil, AttributeTypeFloat64)}
+}
+
+func (s Make) TryFloat64Attribute() (*Float64Attribute, error) {
+	return defaultRegistry.ConstructFloat64Attribute(s)
+}
+
+func (r *Registry) ConstructFloat64Attribute(s Make) (_ *Float64Attribute, err error) {
+	return &Float64Attribute{Attribute: s.attribute(r, float64(0.0), &err, AttributeTypeFloat64)}, err
+}
+
+func (s Make) Int64Attribute() *Int64Attribute {
+	return &Int64Attribute{Attribute: s.attribute(defaultRegistry, int64(0), nil, AttributeTypeInt64)}
+}
+
+func (s Make) TryInt64Attribute() (*Int64Attribute, error) {
+	return defaultRegistry.ConstructInt64Attribute(s)
+}
+
+func (r *Registry) ConstructInt64Attribute(s Make) (_ *Int64Attribute, err error) {
+	return &Int64Attribute{Attribute: s.attribute(r, int64(0), &err, AttributeTypeInt64)}, err
+}
+
+func (s Make) LinkAttribute() *LinkAttribute {
+	return &LinkAttribute{Attribute: s.attribute(defaultRegistry, xoptrace.Trace{}, nil, AttributeTypeLink)}
+}
+
+func (s Make) TryLinkAttribute() (*LinkAttribute, error) {
+	return defaultRegistry.ConstructLinkAttribute(s)
+}
+
+func (r *Registry) ConstructLinkAttribute(s Make) (_ *LinkAttribute, err error) {
+	return &LinkAttribute{Attribute: s.attribute(r, xoptrace.Trace{}, &err, AttributeTypeLink)}, err
+}
+
+func (s Make) StringAttribute() *StringAttribute {
+	return &StringAttribute{Attribute: s.attribute(defaultRegistry, "", nil, AttributeTypeString)}
+}
+
+func (s Make) TryStringAttribute() (*StringAttribute, error) {
+	return defaultRegistry.ConstructStringAttribute(s)
+}
+
+func (r *Registry) ConstructStringAttribute(s Make) (_ *StringAttribute, err error) {
+	return &StringAttribute{Attribute: s.attribute(r, "", &err, AttributeTypeString)}, err
+}
+
+func (s Make) TimeAttribute() *TimeAttribute {
+	return &TimeAttribute{Attribute: s.attribute(defaultRegistry, time.Time{}, nil, AttributeTypeTime)}
+}
+
+func (s Make) TryTimeAttribute() (*TimeAttribute, error) {
+	return defaultRegistry.ConstructTimeAttribute(s)
+}
+
+func (r *Registry) ConstructTimeAttribute(s Make) (_ *TimeAttribute, err error) {
+	return &TimeAttribute{Attribute: s.attribute(r, time.Time{}, &err, AttributeTypeTime)}, err
+}
+
+func (s Make) DurationAttribute() *DurationAttribute {
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(defaultRegistry, time.Duration(0), nil, AttributeTypeDuration)}}
+}
+
+func (s Make) TryDurationAttribute() (*DurationAttribute, error) {
+	return defaultRegistry.ConstructDurationAttribute(s)
+}
+
+func (r *Registry) ConstructDurationAttribute(s Make) (_ *DurationAttribute, err error) {
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(r, time.Duration(0), &err, AttributeTypeDuration)}}, err
 }
 
 func (s Make) IntAttribute() *IntAttribute {
-	return &IntAttribute{Int64Attribute{Attribute: s.attribute(int(0), nil, AttributeTypeInt)}}
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(defaultRegistry, int(0), nil, AttributeTypeInt)}}
 }
 
-func (s Make) TryIntAttribute() (_ *IntAttribute, err error) {
-	return &IntAttribute{Int64Attribute{Attribute: s.attribute(int(0), &err, AttributeTypeInt)}}, err
+func (s Make) TryIntAttribute() (*IntAttribute, error) {
+	return defaultRegistry.ConstructIntAttribute(s)
+}
+
+func (r *Registry) ConstructIntAttribute(s Make) (_ *IntAttribute, err error) {
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(r, int(0), &err, AttributeTypeInt)}}, err
 }
 
 func (s Make) Int16Attribute() *Int16Attribute {
-	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(int16(0), nil, AttributeTypeInt16)}}
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(defaultRegistry, int16(0), nil, AttributeTypeInt16)}}
 }
 
-func (s Make) TryInt16Attribute() (_ *Int16Attribute, err error) {
-	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(int16(0), &err, AttributeTypeInt16)}}, err
+func (s Make) TryInt16Attribute() (*Int16Attribute, error) {
+	return defaultRegistry.ConstructInt16Attribute(s)
+}
+
+func (r *Registry) ConstructInt16Attribute(s Make) (_ *Int16Attribute, err error) {
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(r, int16(0), &err, AttributeTypeInt16)}}, err
 }
 
 func (s Make) Int32Attribute() *Int32Attribute {
-	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(int32(0), nil, AttributeTypeInt32)}}
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(defaultRegistry, int32(0), nil, AttributeTypeInt32)}}
 }
 
-func (s Make) TryInt32Attribute() (_ *Int32Attribute, err error) {
-	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(int32(0), &err, AttributeTypeInt32)}}, err
+func (s Make) TryInt32Attribute() (*Int32Attribute, error) {
+	return defaultRegistry.ConstructInt32Attribute(s)
+}
+
+func (r *Registry) ConstructInt32Attribute(s Make) (_ *Int32Attribute, err error) {
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(r, int32(0), &err, AttributeTypeInt32)}}, err
 }
 
 func (s Make) Int8Attribute() *Int8Attribute {
-	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(int8(0), nil, AttributeTypeInt8)}}
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(defaultRegistry, int8(0), nil, AttributeTypeInt8)}}
 }
 
-func (s Make) TryInt8Attribute() (_ *Int8Attribute, err error) {
-	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(int8(0), &err, AttributeTypeInt8)}}, err
+func (s Make) TryInt8Attribute() (*Int8Attribute, error) {
+	return defaultRegistry.ConstructInt8Attribute(s)
+}
+
+func (r *Registry) ConstructInt8Attribute(s Make) (_ *Int8Attribute, err error) {
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(r, int8(0), &err, AttributeTypeInt8)}}, err
 }
 
 type AttributeType int
