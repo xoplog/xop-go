@@ -105,6 +105,10 @@ func (s Make) TryEnumAttribute(exampleValue Enum) (_ *EnumAttribute, err error) 
 	return &EnumAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeEnum)}, err
 }
 
+func (r *Registry) ConstructEnumAttribute(s Make) (_ *EnumAttribute, err error) {
+	return &EnumAttribute{Attribute: s.attribute(defaultRegistry, nil, &err, AttributeTypeEnum)}, err
+}
+
 // Iota creates new enum values.
 //
 // For example:

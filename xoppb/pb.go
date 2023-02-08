@@ -89,14 +89,14 @@ func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporte
 func (r *request) GetErrorCount() int32                  { return atomic.LoadInt32(&r.errorCount) }
 func (r *request) GetAlertCount() int32                  { return atomic.LoadInt32(&r.alertCount) }
 
-func (r *request) defineAttribute(k xopat.Attribute) int32 {
+func (r *request) defineAttribute(k xopat.Attribute) uint32 {
 	r.spanLock.Lock()
 	defer r.spanLock.Unlock()
 	n := k.Number()
 	if i, ok := attributeIndex[n]; ok {
 		return i
 	}
-	i := int32(len(r.attributeDefinitions))
+	i := uint32(len(r.attributeDefinitions))
 	attributeIndex[n] = i
 	r.attributeDefintions = append(r.attributeDefintions, &xopproto.AttributeDefinition{
 		Key:             k.Key(),

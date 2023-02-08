@@ -87,14 +87,14 @@ func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporte
 func (r *request) GetErrorCount() int32                  { return atomic.LoadInt32(&r.errorCount) }
 func (r *request) GetAlertCount() int32                  { return atomic.LoadInt32(&r.alertCount) }
 
-func (r *request) defineAttribute(k xopat.Attribute) int32 {
+func (r *request) defineAttribute(k xopat.Attribute) uint32 {
 	r.spanLock.Lock()
 	defer r.spanLock.Unlock()
 	n := k.Number()
 	if i, ok := attributeIndex[n]; ok {
 		return i
 	}
-	i := int32(len(r.attributeDefinitions))
+	i := uint32(len(r.attributeDefinitions))
 	attributeIndex[n] = i
 	r.attributeDefintions = append(r.attributeDefintions, &xopproto.AttributeDefinition{
 		Key:             k.Key(),
@@ -219,16 +219,25 @@ func (l *line) done() {
 
 func (l *line) Model(k string, v xopbase.ModelArg) {
 	l.protoLine.Model = &xopproto.Model{}
-	enc, err := json.Marshal(v.Model)
-	if err != nil {
-		l.protoLine.Model.Error = err.Error()
-	} else {
-		l.protoLine.Model.Json = enc
-	}
-	if v.TypeName == "" {
-		l.protoLine.Model.Type = reflect.TypeOf(v.Model).Name()
-	} else {
+	if v.Encoding != xopproto.Encoding_Unset {
+		l.protoLine.Model.Error = v.Error
+		l.protoLine.Model.Encoded = v.Encoded
 		l.protoLine.Model.Type = v.TypeName
+		l.protoLine.Model.Encoding = v.Encoding
+	} else {
+		// ZZZ do this work in logger.go
+		l.protoLine.Model.Encoding = xopproto.Encoding_JSON
+		enc, err := json.Marshal(v.Model)
+		if err != nil {
+			l.protoLine.Model.Error = err.Error()
+		} else {
+			l.protoLine.Model.Encoded = enc
+		}
+		if v.TypeName == "" {
+			l.protoLine.Model.Type = reflect.TypeOf(v.Model).Name()
+		} else {
+			l.protoLine.Model.Type = v.TypeName
+		}
 	}
 	l.protoLine.LineKind = xopproto.LineKind_KindModel
 	l.protoLine.Message = k
@@ -263,13 +272,33 @@ func (l *line) ReclaimMemory() {
 }
 
 func (b *builder) Any(k string, v xopbase.ModelArg) {
+	if v.Encoding != xopproto.Encoding_Unset {
+		b.attributes = append(b.attributes, &xopproto.Attribute{
+			Key:  k,
+			Type: xopproto.AttributeType_Any,
+			Value: &xopproto.AttributeValue{
+				StringValue: v.TypeName,
+				BytesValue:  v.Encoded
+				IntValue:    intValue,
+			},
+		})
+		XX
+		XXX
+		XX
+
+		
 	var intValue int64
 	enc, err := json.Marshal(v.Model)
 	if err != nil {
 		enc = []byte(err.Error())
 		intValue = -1
+	} else {
+		intValue = int64(xopproto.Encoding_JSON)
 	}
-	typeName := reflect.TypeOf(v).Name()
+	typeName := v.TypeName
+	if typeName == "" {
+		typeName := reflect.TypeOf(v).Name()
+	}
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Any,

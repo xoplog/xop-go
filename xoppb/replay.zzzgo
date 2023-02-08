@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -24,9 +25,10 @@ func (_ *Logger) LosslessReplay(ctx context.Context, input any, logger xopbase.L
 	}
 	for _, request := range trace.Requests {
 		err := replayRequest{
-			logger: logger,
+			logger:       logger,
 			requestInput: request,
-			traceID: xoptrace.NewHexBytes16FromSlice(trace.TraceID),
+			traceID:      xoptrace.NewHexBytes16FromSlice(trace.TraceID),
+			registry:     xopat.NewRegistry(false),
 		}.Replay(ctx)
 		if err != nil {
 			return err
@@ -36,11 +38,12 @@ func (_ *Logger) LosslessReplay(ctx context.Context, input any, logger xopbase.L
 }
 
 type replayRequest struct {
-	logger xopbase.Logger
+	logger       xopbase.Logger
 	requestInput *xopproto.Request
-	traceID xoptrace.HexBytes16
-	request xopbase.Request
-	spansSeen map[xoptrace.HexBytes8]int32
+	traceID      xoptrace.HexBytes16
+	request      xopbase.Request
+	spansSeen    map[xoptrace.HexBytes8]int32
+	registry     *xopat.Registry
 }
 
 func (x replayRequest) Replay(ctx context.Context) error {
@@ -86,7 +89,7 @@ func (x replayRequest) Replay(ctx context.Context) error {
 	x.spansSeen = make(map[xoptrace.HexBytes8]int32)
 	err = replaySpan{
 		replayRequest: x,
-		spanInput: requestSpan,
+		spanInput:     requestSpan,
 	}.Replay(ctx)
 	if err != nil {
 		return err
@@ -94,7 +97,7 @@ func (x replayRequest) Replay(ctx context.Context) error {
 	for i := len(input.Spans) - 1; i > 0; i-- { // 0 is processed above
 		err = replaySpan{
 			replayRequest: x,
-			spanInput: input.Spans[i],
+			spanInput:     input.Spans[i],
 		}.Replay(ctx)
 		if err != nil {
 			return err
@@ -119,16 +122,61 @@ func (x replaySpan) Replay(ctx context.Context) error {
 	bundle.Trace.SpanID().Set(spanID)
 	bundle.Parent.SpanID().SetBytes(x.spanInput.ParentID)
 	bundle.Parent.TraceID().Set(traceID)
-	span := request.Span(ctx, 
-		time.Unix(0, x.spanInput.StartTime)
+	span := request.Span(ctx,
+		time.Unix(0, x.spanInput.StartTime),
 		bundle,
 		x.spanInput.Name,
 		x.spanInput.SequenceCode)
 	for _, attribute := range x.spanInput.Attributes {
-		def := requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
-		// repeated AttributeValue values = 2; // at least one is required
+		attr := x.replayAttribute(attribute)
 	}
 	if x.spanInput.endTime != nil {
 		span.Done(time.Unix(0, *x.spanInput.EndTime), false)
+	}
+}
+
+func (x replaySpan) getAttribute(attribute *xopproto.SpanAttribute) error {
+	def := requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
+	m := Make{
+		Key:         def.Key,
+		Description: def.Description,
+		Namespace:   def.Namespace + " " + def.NamespaceSemver,
+		Indexed:     def.ShouldIndex,
+		Prominence:  def.Prominence,
+		Multiple:    def.Multiple,
+		Distinct:    def.Distinct,
+		// XXX Ranged      :
+		Locked: def.Locked,
+	}
+	switch xopat.AttributeType(def.AttributeType) {
+	// MACRO SimpleAttributeReconstruction
+	case xopat.AttributeTypeZZZ:
+		registeredAttribute, err := x.registry.ConstructZZZAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			// CONDITIONAL ONLY:Float64,Float32,String,Time,Int64,Int32,Int16,Int8,Duration
+			span.MetadataZZZ(&registeredAttribute, zzz)
+			// CONDITIONAL ONLY:Bool
+			var b bool
+			if v.intValue != 0 {
+				b = true
+			}
+			span.MetadataZZZ(&registeredAttribute, b)
+			// CONDITIONAL ONLY:Link
+			t, ok := xoptrace.TraceFromString(v.StringValue)
+			if !ok {
+				return errors.Errorf("invalid trace attribute '%s'", v.StringValue)
+			}
+			span.MetadataZZZ(&registeredAttribute, t)
+			// CONDITIONAL ONLY:Any
+			// CONDITIONAL ONLY:Enum
+			// END CONDITIONAL
+		}
+		return &a, nil
+
+	default:
+		return nil, errors.Errorf("unexpected attribute type %s", def.AttributeType)
 	}
 }
