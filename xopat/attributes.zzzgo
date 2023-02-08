@@ -224,7 +224,7 @@ func (r Attribute) GetEnum(n string) (Enum, bool) {
 	return nil, false
 }
 
-// MACRO BaseAttributeExample SKIP:Any,Enum
+// MACRO BaseAttributeExample SKIP:Any,Enum,Int,Int8,Int16,Int32,Duration
 func (s Make) ZZZAttribute() *ZZZAttribute {
 	return &ZZZAttribute{Attribute: s.attribute(defaultRegistry, zzz, nil, AttributeTypeZZZ)}
 }
