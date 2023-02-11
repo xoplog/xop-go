@@ -221,17 +221,10 @@ func (l *line) done() {
 
 func (l *line) Model(k string, v xopbase.ModelArg) {
 	l.protoLine.Model = &xopproto.Model{}
-	enc, err := json.Marshal(v.Model)
-	if err != nil {
-		l.protoLine.Model.Error = err.Error()
-	} else {
-		l.protoLine.Model.Json = enc
-	}
-	if v.TypeName == "" {
-		l.protoLine.Model.Type = reflect.TypeOf(v.Model).Name()
-	} else {
-		l.protoLine.Model.Type = v.TypeName
-	}
+	v.Encode()
+	l.protoLine.Model.Encoded = v.Encoded
+	l.protoLine.Model.Type = v.TypeName
+	l.protoLine.Model.Encoding = v.Encoding
 	l.protoLine.LineKind = xopproto.LineKind_KindModel
 	l.protoLine.Message = k
 	l.done()
@@ -265,20 +258,14 @@ func (l *line) ReclaimMemory() {
 }
 
 func (b *builder) Any(k string, v xopbase.ModelArg) {
-	var intValue int64
-	enc, err := json.Marshal(v.Model)
-	if err != nil {
-		enc = []byte(err.Error())
-		intValue = -1
-	}
-	typeName := reflect.TypeOf(v).Name()
+	v.Encode()
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType_Any,
 		Value: &xopproto.AttributeValue{
-			StringValue: typeName,
-			BytesValue:  enc,
-			IntValue:    intValue,
+			StringValue: v.TypeName,
+			BytesValue:  v.Encoded,
+			IntValue:    int64(v.Encoding),
 		},
 	})
 }

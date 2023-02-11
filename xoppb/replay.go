@@ -1,3 +1,5 @@
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xoppb
 
 import (
@@ -149,35 +151,132 @@ func (x replaySpan) getAttribute(attribute *xopproto.SpanAttribute) error {
 		Locked: def.Locked,
 	}
 	switch xopat.AttributeType(def.AttributeType) {
-	// MACRO SimpleAttributeReconstruction
-	case xopat.AttributeTypeZZZ:
-		registeredAttribute, err := x.registry.ConstructZZZAttribute(m)
+	case xopat.AttributeTypeAny:
+		registeredAttribute, err := x.registry.ConstructAnyAttribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			// CONDITIONAL ONLY:Float64,Float32,String,Time,Int64,Int32,Int16,Int8,Duration
-			span.MetadataZZZ(&registeredAttribute, zzz)
-			// CONDITIONAL ONLY:Bool
-			var b bool
-			if v.intValue != 0 {
-				b = true
-			}
-			span.MetadataZZZ(&registeredAttribute, b)
-			// CONDITIONAL ONLY:Link
-			t, ok := xoptrace.TraceFromString(v.StringValue)
-			if !ok {
-				return errors.Errorf("invalid trace attribute '%s'", v.StringValue)
-			}
-			span.MetadataZZZ(&registeredAttribute, t)
-			// CONDITIONAL ONLY:Any
 			span.MetadataAny(&registeredAttribute, xopbase.Model{
 				TypeName: v.StringValue,
 				Encoded:  v.BytesValue,
 				Encoding: xopproto.Encoding(v.IntValue),
 			})
-			// CONDITIONAL ONLY:Enum
-			// END CONDITIONAL
+		}
+		return &a, nil
+	case xopat.AttributeTypeBool:
+		registeredAttribute, err := x.registry.ConstructBoolAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			var b bool
+			if v.intValue != 0 {
+				b = true
+			}
+			span.MetadataBool(&registeredAttribute, b)
+		}
+		return &a, nil
+	case xopat.AttributeTypeDuration:
+		registeredAttribute, err := x.registry.ConstructDurationAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataDuration(&registeredAttribute, time.Duration(v.IntValue))
+		}
+		return &a, nil
+	case xopat.AttributeTypeEnum:
+		registeredAttribute, err := x.registry.ConstructEnumAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+		}
+		return &a, nil
+	case xopat.AttributeTypeFloat32:
+		registeredAttribute, err := x.registry.ConstructFloat32Attribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataFloat32(&registeredAttribute, float32(v.FloatValue))
+		}
+		return &a, nil
+	case xopat.AttributeTypeFloat64:
+		registeredAttribute, err := x.registry.ConstructFloat64Attribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataFloat64(&registeredAttribute, v.FloatValue)
+		}
+		return &a, nil
+	case xopat.AttributeTypeInt16:
+		registeredAttribute, err := x.registry.ConstructInt16Attribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataInt16(&registeredAttribute, int16(v.IntValue))
+		}
+		return &a, nil
+	case xopat.AttributeTypeInt32:
+		registeredAttribute, err := x.registry.ConstructInt32Attribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataInt32(&registeredAttribute, int32(v.IntValue))
+		}
+		return &a, nil
+	case xopat.AttributeTypeInt64:
+		registeredAttribute, err := x.registry.ConstructInt64Attribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataInt64(&registeredAttribute, v.IntValue)
+		}
+		return &a, nil
+	case xopat.AttributeTypeInt8:
+		registeredAttribute, err := x.registry.ConstructInt8Attribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataInt8(&registeredAttribute, int8(v.IntValue))
+		}
+		return &a, nil
+	case xopat.AttributeTypeLink:
+		registeredAttribute, err := x.registry.ConstructLinkAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			t, ok := xoptrace.TraceFromString(v.StringValue)
+			if !ok {
+				return errors.Errorf("invalid trace attribute '%s'", v.StringValue)
+			}
+			span.MetadataLink(&registeredAttribute, t)
+		}
+		return &a, nil
+	case xopat.AttributeTypeString:
+		registeredAttribute, err := x.registry.ConstructStringAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataString(&registeredAttribute, v.StringValue)
+		}
+		return &a, nil
+	case xopat.AttributeTypeTime:
+		registeredAttribute, err := x.registry.ConstructTimeAttribute(m)
+		if err != nil {
+			return err
+		}
+		for _, v := range attribute.Values {
+			span.MetadataTime(&registeredAttribute, time.Unix(0, v.IntValue))
 		}
 		return &a, nil
 
