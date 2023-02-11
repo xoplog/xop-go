@@ -210,15 +210,6 @@ type LineDone interface {
 	Link(string, xoptrace.Trace)
 }
 
-// ModelArg may be expanded in the future to supply: an Encoder; redaction
-// information.
-type ModelArg struct {
-	// If specified, overrides what would be provided by reflect.TypeOf(obj).Name()
-	TypeName string
-	Model    interface{}
-	// TODO: extra fields for redacted models
-}
-
 type AttributeParts interface {
 	// Enum adds a key/value pair.  Calls to Enum are expected to be
 	// serialized with other calls to add attributes to prefill and/or
