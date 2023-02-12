@@ -50,7 +50,7 @@ type replayRequest struct {
 
 func (x replayRequest) Replay(ctx context.Context) error {
 	requestID := xoptrace.NewHexBytes8FromSlice(x.requestInput.RequestID)
-	if len(input.Spans) == 0 {
+	if len(x.requestInput.Spans) == 0 {
 		return errors.Errorf("expected >0 spans in request (%s-%s)", x.traceID, requestID)
 	}
 	if !bytes.Equal(x.requestInput.RequestID, x.requestInput.Spans[0].SpanID) {
@@ -58,13 +58,13 @@ func (x replayRequest) Replay(ctx context.Context) error {
 	}
 	requestSpan := x.requestInput.Spans[0]
 	var bundle xoptrace.Bundle
-	bundle.Trace.TraceID().Set(traceID)
+	bundle.Trace.TraceID().Set(x.traceID)
 	bundle.Trace.SpanID().Set(requestID)
 	bundle.Parent.SpanID().SetBytes(requestSpan.ParentID)
-	if len(input.ParentTraceID) != 0 {
+	if len(x.requestInput.ParentTraceID) != 0 {
 		bundle.Parent.TraceID().SetBytes(x.requestInput.ParentTraceID)
 	} else {
-		bundle.Parent.TraceID().Set(traceID)
+		bundle.Parent.TraceID().Set(x.traceID)
 	}
 	bundle.State.SetString(requestSpan.TraceState)
 	bundle.Baggage.SetString(requestSpan.Baggage)
@@ -78,12 +78,12 @@ func (x replayRequest) Replay(ctx context.Context) error {
 	if err != nil {
 		return errors.Errorf("invalid source version in request (%s-%s): %w", x.traceID, requestID, err)
 	}
-	sourceInfo.NamespaceVersion, err = semver.StrictNewVersion(input.SourceNamespaceVersion)
+	sourceInfo.NamespaceVersion, err = semver.StrictNewVersion(x.requestInput.SourceNamespaceVersion)
 	if err != nil {
 		return errors.Errorf("invalid namespace version in request (%s-%s): %w", x.traceID, requestID, err)
 	}
 
-	x.request = logger.Request(ctx,
+	x.request = x.logger.Request(ctx,
 		time.Unix(0, requestSpan.StartTime),
 		bundle,
 		requestSpan.Name,
@@ -96,10 +96,10 @@ func (x replayRequest) Replay(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for i := len(input.Spans) - 1; i > 0; i-- { // 0 is processed above
+	for i := len(x.requestInput.Spans) - 1; i > 0; i-- { // 0 is processed above
 		err = replaySpan{
 			replayRequest: x,
-			spanInput:     input.Spans[i],
+			spanInput:     x.requestInput.Spans[i],
 		}.Replay(ctx)
 		if err != nil {
 			return err
@@ -111,59 +111,64 @@ func (x replayRequest) Replay(ctx context.Context) error {
 type replaySpan struct {
 	replayRequest
 	spanInput *xopproto.Span
+	span      xopbase.Span
 }
 
 func (x replaySpan) Replay(ctx context.Context) error {
 	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
-	if version, ok := spansSeen[spanID]; ok && version > x.spanInput.Version {
+	if version, ok := x.spansSeen[spanID]; ok && version > x.spanInput.Version {
 		return nil
 	}
-	spansSeen[spanID] = x.spanInput.Version
+	x.spansSeen[spanID] = x.spanInput.Version
 	var bundle xoptrace.Bundle
 	bundle.Trace.TraceID().Set(x.traceID)
 	bundle.Trace.SpanID().Set(spanID)
 	bundle.Parent.SpanID().SetBytes(x.spanInput.ParentID)
-	bundle.Parent.TraceID().Set(traceID)
-	span := request.Span(ctx,
+	bundle.Parent.TraceID().Set(x.traceID)
+	x.span = x.request.Span(ctx,
 		time.Unix(0, x.spanInput.StartTime),
 		bundle,
 		x.spanInput.Name,
 		x.spanInput.SequenceCode)
 	for _, attribute := range x.spanInput.Attributes {
-		attr := x.replayAttribute(attribute)
+		err := x.replayAttribute(attribute)
+		if err != nil {
+			return err
+		}
 	}
-	if x.spanInput.endTime != nil {
-		span.Done(time.Unix(0, *x.spanInput.EndTime), false)
+	if x.spanInput.EndTime != nil {
+		x.span.Done(time.Unix(0, *x.spanInput.EndTime), false)
 	}
+	return nil
 }
 
-func (x replaySpan) getAttribute(attribute *xopproto.SpanAttribute) error {
-	def := requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
-	m := Make{
+func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
+	def := x.requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
+	m := xopat.Make{
 		Key:         def.Key,
 		Description: def.Description,
 		Namespace:   def.Namespace + " " + def.NamespaceSemver,
 		Indexed:     def.ShouldIndex,
-		Prominence:  def.Prominence,
+		Prominence:  int(def.Prominence),
 		Multiple:    def.Multiple,
 		Distinct:    def.Distinct,
 		// XXX Ranged      :
 		Locked: def.Locked,
 	}
-	switch xopat.AttributeType(def.AttributeType) {
+	switch xopat.AttributeType(def.Type) {
 	case xopat.AttributeTypeAny:
 		registeredAttribute, err := x.registry.ConstructAnyAttribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			span.MetadataAny(&registeredAttribute, xopbase.Model{
+			x.span.MetadataAny(registeredAttribute, xopbase.ModelArg{
 				TypeName: v.StringValue,
 				Encoded:  v.BytesValue,
 				Encoding: xopproto.Encoding(v.IntValue),
 			})
 		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeBool:
 		registeredAttribute, err := x.registry.ConstructBoolAttribute(m)
 		if err != nil {
@@ -171,83 +176,40 @@ func (x replaySpan) getAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		for _, v := range attribute.Values {
 			var b bool
-			if v.intValue != 0 {
+			if v.IntValue != 0 {
 				b = true
 			}
-			span.MetadataBool(&registeredAttribute, b)
+			x.span.MetadataBool(registeredAttribute, b)
 		}
-		return &a, nil
-	case xopat.AttributeTypeDuration:
-		registeredAttribute, err := x.registry.ConstructDurationAttribute(m)
-		if err != nil {
-			return err
-		}
-		for _, v := range attribute.Values {
-			span.MetadataDuration(&registeredAttribute, time.Duration(v.IntValue))
-		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeEnum:
 		registeredAttribute, err := x.registry.ConstructEnumAttribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
+			enum := registeredAttribute.Add64(v.IntValue, v.StringValue)
+			x.span.MetadataEnum(&registeredAttribute.EnumAttribute, enum)
 		}
-		return &a, nil
-	case xopat.AttributeTypeFloat32:
-		registeredAttribute, err := x.registry.ConstructFloat32Attribute(m)
-		if err != nil {
-			return err
-		}
-		for _, v := range attribute.Values {
-			span.MetadataFloat32(&registeredAttribute, float32(v.FloatValue))
-		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeFloat64:
 		registeredAttribute, err := x.registry.ConstructFloat64Attribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			span.MetadataFloat64(&registeredAttribute, v.FloatValue)
+			x.span.MetadataFloat64(registeredAttribute, v.FloatValue)
 		}
-		return &a, nil
-	case xopat.AttributeTypeInt16:
-		registeredAttribute, err := x.registry.ConstructInt16Attribute(m)
-		if err != nil {
-			return err
-		}
-		for _, v := range attribute.Values {
-			span.MetadataInt16(&registeredAttribute, int16(v.IntValue))
-		}
-		return &a, nil
-	case xopat.AttributeTypeInt32:
-		registeredAttribute, err := x.registry.ConstructInt32Attribute(m)
-		if err != nil {
-			return err
-		}
-		for _, v := range attribute.Values {
-			span.MetadataInt32(&registeredAttribute, int32(v.IntValue))
-		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeInt64:
 		registeredAttribute, err := x.registry.ConstructInt64Attribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			span.MetadataInt64(&registeredAttribute, v.IntValue)
+			x.span.MetadataInt64(registeredAttribute, v.IntValue)
 		}
-		return &a, nil
-	case xopat.AttributeTypeInt8:
-		registeredAttribute, err := x.registry.ConstructInt8Attribute(m)
-		if err != nil {
-			return err
-		}
-		for _, v := range attribute.Values {
-			span.MetadataInt8(&registeredAttribute, int8(v.IntValue))
-		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeLink:
 		registeredAttribute, err := x.registry.ConstructLinkAttribute(m)
 		if err != nil {
@@ -258,29 +220,29 @@ func (x replaySpan) getAttribute(attribute *xopproto.SpanAttribute) error {
 			if !ok {
 				return errors.Errorf("invalid trace attribute '%s'", v.StringValue)
 			}
-			span.MetadataLink(&registeredAttribute, t)
+			x.span.MetadataLink(registeredAttribute, t)
 		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeString:
 		registeredAttribute, err := x.registry.ConstructStringAttribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			span.MetadataString(&registeredAttribute, v.StringValue)
+			x.span.MetadataString(registeredAttribute, v.StringValue)
 		}
-		return &a, nil
+		return nil
 	case xopat.AttributeTypeTime:
 		registeredAttribute, err := x.registry.ConstructTimeAttribute(m)
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			span.MetadataTime(&registeredAttribute, time.Unix(0, v.IntValue))
+			x.span.MetadataTime(registeredAttribute, time.Unix(0, v.IntValue))
 		}
-		return &a, nil
+		return nil
 
 	default:
-		return nil, errors.Errorf("unexpected attribute type %s", def.AttributeType)
+		return errors.Errorf("unexpected attribute type %s", def.Type)
 	}
 }

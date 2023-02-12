@@ -190,19 +190,19 @@ type LineDone interface {
 
 type AttributeParts interface {
 	// Enum adds a key/value pair.  Calls to Enum are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Enum(*xopat.EnumAttribute, xopat.Enum)
 
 	//MACRO BaseDataWithType
 	// ZZZ adds a key/value pair.  Calls to ZZZ are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	ZZZ(string, zzz, DataType)
 
 	// MACRO BaseDataWithoutType
 	// ZZZ adds a key/value pair.  Calls to ZZZ are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	ZZZ(string, zzz)
 

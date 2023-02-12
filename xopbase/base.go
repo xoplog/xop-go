@@ -212,41 +212,41 @@ type LineDone interface {
 
 type AttributeParts interface {
 	// Enum adds a key/value pair.  Calls to Enum are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Enum(*xopat.EnumAttribute, xopat.Enum)
 
 	// Float64 adds a key/value pair.  Calls to Float64 are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Float64(string, float64, DataType)
 	// Int64 adds a key/value pair.  Calls to Int64 are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Int64(string, int64, DataType)
 	// String adds a key/value pair.  Calls to String are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	String(string, string, DataType)
 	// Uint64 adds a key/value pair.  Calls to Uint64 are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Uint64(string, uint64, DataType)
 
 	// Any adds a key/value pair.  Calls to Any are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Any(string, ModelArg)
 	// Bool adds a key/value pair.  Calls to Bool are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Bool(string, bool)
 	// Duration adds a key/value pair.  Calls to Duration are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Duration(string, time.Duration)
 	// Time adds a key/value pair.  Calls to Time are expected to be
-	// serialized with other calls to add attributes to prefill and/or
+	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
 	Time(string, time.Time)
 

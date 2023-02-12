@@ -97,7 +97,7 @@ func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err er
 	return &AnyAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeAny)}, err
 }
 
-func (r *Registry) ContructAnyAttribute(s Make) (_ *AnyAttribute, err error) {
+func (r *Registry) ConstructAnyAttribute(s Make) (_ *AnyAttribute, err error) {
 	return &AnyAttribute{Attribute: s.attribute(r, 0, &err, AttributeTypeAny)}, err
 }
 
