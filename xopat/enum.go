@@ -105,10 +105,6 @@ func (s Make) TryEnumAttribute(exampleValue Enum) (_ *EnumAttribute, err error) 
 	return &EnumAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeEnum)}, err
 }
 
-func (r *Registry) ConstructEnumAttribute(s Make) (_ *EnumAttribute, err error) {
-	return &EnumAttribute{Attribute: s.attribute(defaultRegistry, nil, &err, AttributeTypeEnum)}, err
-}
-
 // Iota creates new enum values.
 //
 // For example:
@@ -173,6 +169,19 @@ func (s Make) TryEmbeddedEnumAttribute(exampleValue interface{}) (_ *EmbeddedEnu
 	ie := &EmbeddedEnumAttribute{
 		EnumAttribute: EnumAttribute{
 			Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeEnum),
+		},
+	}
+	if err != nil {
+		return nil, err
+	}
+	return ie, nil
+}
+
+// ConstructEnumAttribute actually returns an EmbeddedEnumAttribute
+func (r *Registry) ConstructEnumAttribute(s Make) (_ *EmbeddedEnumAttribute, err error) {
+	ie := &EmbeddedEnumAttribute{
+		EnumAttribute: EnumAttribute{
+			Attribute: s.attribute(r, nil, &err, AttributeTypeEnum),
 		},
 	}
 	if err != nil {

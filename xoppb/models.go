@@ -60,7 +60,7 @@ type request struct {
 	spanLock             sync.Mutex
 	priorLines           int
 	attributeDefinitions []*xopproto.AttributeDefinition
-	attributeIndex       map[int32]int32
+	attributeIndex       map[int32]uint32
 }
 
 type span struct {
