@@ -493,7 +493,7 @@ func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	ks := k.Key()
 	b.Enums[ks] = k
-	b.Data[ks] = v.String()
+	b.Data[ks] = v
 	b.DataType[ks] = xopbase.EnumDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
@@ -638,9 +638,9 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if k.Multiple() {
-		value := v.String()
+		value := v
 		if k.Distinct() {
-			key := value
+			key := v.String()
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				seen := make(map[string]struct{})
@@ -668,7 +668,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.EnumDataType
 		}
-		s.Metadata[k.Key()] = v.String()
+		s.Metadata[k.Key()] = v
 	}
 }
 
