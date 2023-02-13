@@ -1,15 +1,18 @@
 package xoptest_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 )
 
 func TestLogMethods(t *testing.T) {
@@ -79,4 +82,22 @@ func TestCustomEvent(t *testing.T) {
 	assert.Len(t, tLog.Events, 1)
 	assert.Equal(t, "custom message (foo-bar)", tLog.Events[0].Msg)
 	assert.Equal(t, xoptest.CustomEvent, tLog.Events[0].Type)
+}
+
+func TestReplay(t *testing.T) {
+	for _, mc := range xoptestutil.MessageCases {
+		mc := mc
+		t.Run(mc.Name, func(t *testing.T) {
+			tLog := xoptest.New(t)
+			log := tLog.Log()
+			t.Log("generate logs")
+			mc.Do(t, log, tLog)
+			rLog := xoptest.New(t)
+			t.Log("replay from generated logs")
+			err := tLog.LosslessReplay(context.Background(), tLog, rLog)
+			require.NoError(t, err, "replay")
+			t.Log("verify replay equals original")
+			xoptestutil.VerifyReplay(t, tLog, rLog)
+		})
+	}
 }

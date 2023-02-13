@@ -45,9 +45,13 @@ func TestRedaction(t *testing.T) {
 					v = deepcopy.Copy(v)
 				}
 				if canRedact, ok := v.(redactor); ok {
-					baseLine.Any(k, canRedact.Redact())
+					baseLine.Any(k, xopbase.ModelArg{
+						Model: canRedact.Redact(),
+					})
 				} else {
-					baseLine.Any(k, v)
+					baseLine.Any(k, xopbase.ModelArg{
+						Model: v,
+					})
 				}
 			})
 			settings.SetRedactErrorFunc(func(baseLine xopbase.Line, k string, v error) {
@@ -61,7 +65,7 @@ func TestRedaction(t *testing.T) {
 	log.Info().
 		String("garden", "nothing in my garden is taller than my sunflower!").
 		Any("story", a).
-		AnyImmutable("tale", a).
+		Any("tale", a).
 		AnyWithoutRedaction("raw", a).
 		Stringer("success", a).
 		Error("oops", fmt.Errorf("outer: %w", fmt.Errorf("inner"))).
@@ -71,9 +75,9 @@ func TestRedaction(t *testing.T) {
 	require.NotEmpty(t, foos, "foo line")
 
 	assert.Equal(t, "nothing in my garden is taller than my daisy!", foos[0].Data["garden"], "garden")
-	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie", foos[0].Data["story"].(selfRedactor).V, "story")
-	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie", foos[0].Data["tale"].(selfRedactor).V, "tale")
-	assert.Equal(t, "I got the contract with a small bribe, just a sunflower cookie", foos[0].Data["raw"].(selfRedactor).V, "raw")
+	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie", foos[0].Data["story"].(xopbase.ModelArg).Model.(selfRedactor).V, "story")
+	assert.Equal(t, "I got the contract with a small consideration, just a sunflower cookie", foos[0].Data["tale"].(xopbase.ModelArg).Model.(selfRedactor).V, "tale")
+	assert.Equal(t, "I got the contract with a small bribe, just a sunflower cookie", foos[0].Data["raw"].(xopbase.ModelArg).Model.(selfRedactor).V, "raw")
 	assert.Equal(t, "I got the contract with a small bribe, just a daisy cookie", foos[0].Data["success"], "success")
 	assert.Equal(t, "outer: inner(as string)", foos[0].Data["oops"], "oops")
 }
