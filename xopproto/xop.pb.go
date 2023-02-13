@@ -362,7 +362,7 @@ type IngestFragment struct {
 	EndodingVersion uint32    `protobuf:"varint,3,opt,name=endodingVersion,proto3" json:"endodingVersion,omitempty"`
 	SequenceNumber  uint32    `protobuf:"varint,4,opt,name=sequenceNumber,proto3" json:"sequenceNumber,omitempty"`
 	Traces          []*Trace  `protobuf:"bytes,5,rep,name=traces,proto3" json:"traces,omitempty"`
-	ReceivedAt      int64     `protobuf:"varint,6,opt,name=receivedAt,proto3" json:"receivedAt,omitempty"` // XXX repeated EnumDefinition enumDefinitions = 8;
+	ReceivedAt      int64     `protobuf:"varint,6,opt,name=receivedAt,proto3" json:"receivedAt,omitempty"`
 }
 
 func (x *IngestFragment) Reset() {
@@ -1073,7 +1073,7 @@ type AttributeValue struct {
 	IntValue    int64   `protobuf:"zigzag64,2,opt,name=intValue,proto3" json:"intValue,omitempty"`
 	FloatValue  float64 `protobuf:"fixed64,3,opt,name=floatValue,proto3" json:"floatValue,omitempty"`
 	BytesValue  []byte  `protobuf:"bytes,4,opt,name=bytesValue,proto3" json:"bytesValue,omitempty"`
-	UintValue   uint64  `protobuf:"varint,5,opt,name=uintValue,proto3" json:"uintValue,omitempty"` // XXX needed?
+	UintValue   uint64  `protobuf:"varint,5,opt,name=uintValue,proto3" json:"uintValue,omitempty"`
 }
 
 func (x *AttributeValue) Reset() {

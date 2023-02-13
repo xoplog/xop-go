@@ -237,14 +237,6 @@ func (l *line) Link(k string, v xoptrace.Trace) {
 	l.done()
 }
 
-/* XXX
-func (b *builder) Link(k string, v xoptrace.Trace) {
-	b.startAttributes()
-	b.AddKey(k)
-	b.AddLink(v)
-}
-*/
-
 func (b *builder) ReclaimMemory() {
 	// XXX
 }

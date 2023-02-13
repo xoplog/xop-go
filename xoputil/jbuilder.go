@@ -58,7 +58,8 @@ func (b *JBuilder) AddSafeString(v string) {
 	b.B = append(b.B, '"')
 }
 
-// AddString adds a JSON-encoded string
+// AddString adds a JSON-encoded string, adding quotes and escaping any characters
+// that need escaping
 func (b *JBuilder) AddString(v string) {
 	b.B = append(b.B, '"')
 	b.AddStringBody(v)

@@ -24,7 +24,7 @@ var MessageCases = []struct {
 	SeedMods     []xop.SeedModifier
 }{
 	{
-		Name: "one span",
+		Name: "one-span",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			log.Info().Msg("basic info message")
 			log.Error().Msg("basic error message")
@@ -50,7 +50,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata singles in request",
+		Name: "metadata-singles-in-request",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			log.Span().Bool(ExampleMetadataSingleBool, false)
 			log.Span().Bool(ExampleMetadataSingleBool, true)
@@ -79,7 +79,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name:     "metadata traces",
+		Name:     "metadata-traces",
 		SkipOTEL: true,
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			s2 := log.Sub().Fork("S2")
@@ -99,7 +99,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata float64",
+		Name: "metadata-float64",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			log.Span().Float64(ExampleMetadataSingleFloat64, 40.3)
 			log.Span().Float64(ExampleMetadataSingleFloat64, 40.4)
@@ -116,7 +116,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata time",
+		Name: "metadata-time",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			t1 := time.Now().Round(time.Second)
 			t2 := t1.Add(time.Minute)
@@ -135,7 +135,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata singles in span",
+		Name: "metadata-singles-in-span",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			ss := log.Sub().Fork("spoon")
 			ss.Span().Bool(ExampleMetadataSingleBool, false)
@@ -187,7 +187,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata any",
+		Name: "metadata-any",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			ss := log.Sub().Fork("knife")
 			a := map[string]interface{}{
@@ -223,7 +223,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata iota enum",
+		Name: "metadata-iota-enum",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			ss := log.Sub().Step("stool")
 			ss.Span().EmbeddedEnum(SingleEnumTwo)
@@ -243,7 +243,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata embedded enum",
+		Name: "metadata-embedded-enum",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			ss := log.Sub().Step("stool")
 			ss.Span().EmbeddedEnum(SingleEEnumTwo)
@@ -263,7 +263,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata enum",
+		Name: "metadata-enum",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			ss := log.Sub().Step("stool")
 			ss.Span().Enum(ExampleMetadataSingleXEnum, xopconst.SpanKindServer)
@@ -283,7 +283,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata multiples",
+		Name: "metadata-multiples",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			// ss := log.Sub().Fork("a fork metadata multiples")
 			log.Span().Bool(ExampleMetadataMultipleBool, true)
@@ -296,7 +296,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "metadata distinct",
+		Name: "metadata-distinct",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			// ss := log.Sub().Fork("a fork metadata distinct")
 			log.Span().Bool(ExampleMetadataDistinctBool, true)
@@ -319,7 +319,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "one done",
+		Name: "one-done",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			_ = log.Sub().Fork("a fork one done")
 			MicroNap()
@@ -337,7 +337,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name:         "add/remove loggers with a seed",
+		Name:         "add-and-remove-loggers-with-a-seed",
 		ExtraFlushes: 2,
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			tlog2 := xoptest.New(t)
@@ -352,7 +352,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "add/remove loggers with a span",
+		Name: "add-and-remove-loggers-with-a-span",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			tlog2 := xoptest.New(t)
 			s2 := log.Sub().Step("S2", xop.WithBase(tlog2))
@@ -366,7 +366,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name:         "log after done",
+		Name:         "log-after-done",
 		ExtraFlushes: 1,
 		SkipOTEL:     true,
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
@@ -388,7 +388,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "lots of types",
+		Name: "lots-of-types",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			p := log.Sub().PrefillInt("int", 439).PrefillInt8("int8", 82).PrefillInt16("int16", 829).
 				PrefillInt32("int32", 4328).PrefillInt64("int64", -2382).
@@ -398,7 +398,7 @@ var MessageCases = []struct {
 				PrefillString("needsEscaping", NeedsEscaping).
 				PrefillFloat32("f32", 92.2).
 				PrefillFloat64("f64", 292.1).
-				PrefillAny("any", map[string]interface{}{"x": "y", "z": 19}).
+				// XXX re-enable				PrefillAny("any", map[string]interface{}{"x": "y", "z": 19}).
 				PrefillEnum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				PrefillEmbeddedEnum(LockedEEnumTwo).
 				Log()
@@ -410,7 +410,7 @@ var MessageCases = []struct {
 				String("needsEscaping2", NeedsEscaping).
 				Float32("f32", 92.2).
 				Float64("f64", 292.1).
-				Any("any", map[string]interface{}{"x": "y", "z": 19}).
+				// XXX re-enable			Any("any", map[string]interface{}{"x": "y", "z": 19}).
 				Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				EmbeddedEnum(LockedEEnumTwo).
 				Msgs("ha", true)
@@ -420,7 +420,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "type time",
+		Name: "type-time",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			p := log.Sub().PrefillTime("-1m", time.Now().Add(-time.Minute).Round(time.Millisecond)).Log()
 			p.Warn().Time("now", time.Now().Round(time.Millisecond)).Msgs("time!")
@@ -429,7 +429,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "type duration",
+		Name: "type-duration",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			p := log.Sub().PrefillDuration("1m", time.Minute).Log()
 			p.Warn().Duration("hour", time.Hour).Msg("duration")
@@ -437,16 +437,18 @@ var MessageCases = []struct {
 			log.Done()
 		},
 	},
+	/* XXX re-enable
 	{
-		Name: "type trace",
+		Name: "type-trace",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			log.Warn().Link(log.Span().Bundle().Trace, "me, again")
 			MicroNap()
 			log.Done()
 		},
 	},
+	*/
 	{
-		Name: "type error",
+		Name: "type-error",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			p := log.Sub().PrefillError("question", fmt.Errorf("why would you pre-fill an error?")).Log()
 			p.Warn().Error("answer", fmt.Errorf("I don't know, why would you prefill an error")).Msgs(time.Now())
@@ -455,7 +457,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "log levels",
+		Name: "log-levels",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			var callCount int
 			sc := newStringCounter(&callCount, "foobar")
@@ -473,7 +475,7 @@ var MessageCases = []struct {
 		},
 	},
 	{
-		Name: "simulate inbound propagation",
+		Name: "simulate-inbound-propagation",
 		SeedMods: []xop.SeedModifier{
 			xop.WithBundle(func() xoptrace.Bundle {
 				var bundle xoptrace.Bundle

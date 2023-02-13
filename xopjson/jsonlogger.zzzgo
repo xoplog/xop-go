@@ -3,7 +3,6 @@ package xopjson
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -13,6 +12,7 @@ import (
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
@@ -379,15 +379,18 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 	if l.attributesStarted {
 		l.AppendByte( /*{*/ '}')
 	}
+	v.Encode()
 	l.AppendBytes([]byte(`,"type":"model","model":`))
-	l.AddAny(v)
-	l.AppendBytes([]byte(`,"modelType":"`))
-	if v.TypeName == "" {
-		l.AddString(reflect.TypeOf(v.Model).Name())
+	if v.Encoding == xopproto.Encoding_JSON {
+		l.AppendBytes(v.Encoded)
 	} else {
-		l.AddString(v.TypeName)
+		l.AddString(string(v.Encoded))
+		l.AppendBytes([]byte(`,"encoding":`))
+		l.AddSafeString(v.Encoding.String())
 	}
-	l.AppendBytes([]byte(`","msg":"`))
+	l.AppendBytes([]byte(`,"modelType":`))
+	l.AddString(v.TypeName)
+	l.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {
 		l.AppendBytes(l.prefillMsgPreEncoded)
 	}
@@ -477,7 +480,18 @@ func (b *builder) startAttributes() {
 func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.startAttributes()
 	b.AddKey(k)
-	b.AddAny(v.Model)
+	v.Encode()
+	b.AppendBytes([]byte(`{"type":"model","model":`)) // }
+	if v.Encoding == xopproto.Encoding_JSON {
+		b.AppendBytes(v.Encoded)
+	} else {
+		b.AddString(string(v.Encoded))
+		b.AppendBytes([]byte(`,"encoding":`))
+		b.AddSafeString(v.Encoding.String())
+	}
+	b.AppendBytes([]byte(`,"modelType":`))
+	b.AddString(v.TypeName)
+	b.AppendByte( /* { */ '}')
 }
 
 func (b *builder) AddAny(v interface{}) {
