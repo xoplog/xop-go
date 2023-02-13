@@ -489,7 +489,7 @@ func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	ks := k.Key()
 	b.Enums[ks] = k
-	b.Data[ks] = v.String()
+	b.Data[ks] = v
 	b.DataType[ks] = xopbase.EnumDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
@@ -518,7 +518,7 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	defer s.lock.Unlock()
 	if k.Multiple() {
 		//CONDITIONAL ONLY:Enum
-		value := v.String()
+		value := v
 		//ELSE CONDITIONAL
 		value := v
 		//END CONDITIONAL
@@ -531,7 +531,9 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			} else {
 				key = string(enc)
 			}
-			//ELSE CONDITIONAL
+			//CONDITIONAL ONLY:Enum
+			key := v.String()
+			//CONDITIONAL SKIP:Enum,Any
 			key := value
 			//END CONDITIONAL
 			seenRaw, ok := s.metadataSeen[k.Key()]
@@ -569,10 +571,6 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		} else {
 			s.MetadataType[k.Key()] = xopbase.ZZZDataType
 		}
-		//CONDITIONAL ONLY:Enum
-		s.Metadata[k.Key()] = v.String()
-		//ELSE CONDITIONAL
 		s.Metadata[k.Key()] = v
-		//END CONDITIONAL
 	}
 }

@@ -123,6 +123,10 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 					line.Uint64(k, v.(uint64), dataType)
 				// next line must be blank to end macro Ints
 
+				case xopbase.ErrorDataType, xopbase.StringerDataType:
+					line.String(k, v.(string), dataType)
+				case xopbase.Float32DataType:
+					line.Float64(k, v.(float64), dataType)
 				case xopbase.EnumDataType:
 					line.Enum(event.Line.Enums[k], v.(xopat.Enum))
 				default:
@@ -169,17 +173,17 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			case xopat.AttributeTypeEnum:
 				if event.Attribute.Multiple() {
 					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
-						enum, ok := event.Attribute.GetEnum(v.(string))
+						enum, ok := v.(xopat.Enum)
 						if !ok {
-							return errors.Errorf("missing enum value for %s key %s", v.(string), event.Attribute.Key())
+							return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
 						}
 						span.MetadataEnum(event.Attribute.(*xopat.EnumAttribute), enum)
 					}
 				} else {
 					v := event.Span.Metadata[event.Attribute.Key()]
-					enum, ok := event.Attribute.GetEnum(v.(string))
+					enum, ok := v.(xopat.Enum)
 					if !ok {
-						return errors.Errorf("missing enum value for %s key %s", v.(string), event.Attribute.Key())
+						return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
 					}
 					span.MetadataEnum(event.Attribute.(*xopat.EnumAttribute), enum)
 				}
