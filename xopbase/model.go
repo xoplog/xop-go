@@ -15,19 +15,19 @@ import (
 // information.
 type ModelArg struct {
 	// If specified, overrides what would be provided by reflect.TypeOf(obj).Name()
-	TypeName string
-	Model    interface{}
 	// Encoding and Encoded can be set for models that are already encoded. If they're
 	// set, then Model will be ignored.
-	Encoding xopproto.Encoding
-	Encoded  []byte
+	Encoding xopproto.Encoding `json:"encoding"`
+	Encoded  []byte            `json:"model"`
+	TypeName string            `json:"modelType"`
+	Model    interface{}       `json:"-"`
 	// TODO: extra fields for redacted models
 }
 
 // Calls to Encode are idempotent but not thread-safe
 func (m *ModelArg) Encode() {
 	if m.TypeName == "" && m.Model != nil {
-		m.TypeName = reflect.TypeOf(m.Model).Name()
+		m.TypeName = reflect.TypeOf(m.Model).String()
 	}
 	if len(m.Encoded) != 0 {
 		return
