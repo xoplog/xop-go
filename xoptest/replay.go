@@ -70,42 +70,82 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 				switch dataType {
 				case xopbase.AnyDataType:
 					line.Any(k, v.(xopbase.ModelArg))
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithoutType
 				case xopbase.BoolDataType:
 					line.Bool(k, v.(bool))
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithoutType
 				case xopbase.DurationDataType:
 					line.Duration(k, v.(time.Duration))
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithoutType
 				case xopbase.TimeDataType:
 					line.Time(k, v.(time.Time))
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithoutType
 
 				case xopbase.Float64DataType:
 					line.Float64(k, v.(float64), dataType)
-				// next line must be blank to end macro
-				case xopbase.Int64DataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithType
 				case xopbase.StringDataType:
 					line.String(k, v.(string), dataType)
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithType
+
+				case xopbase.IntDataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.Int16DataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.Int32DataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.Int64DataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.Int8DataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+
+				case xopbase.UintDataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.Uint16DataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.Uint32DataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
 				case xopbase.Uint64DataType:
 					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro
+				// next line must be blank to end macro Ints
+				case xopbase.Uint8DataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
+				case xopbase.UintptrDataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
 
 				case xopbase.EnumDataType:
-					// XXX TODO
+					line.Enum(event.Line.Enums[k], v.(xopat.Enum))
 				default:
 					return errors.Errorf("unexpected data type %s in line", dataType)
 				}
 			}
+			switch {
+			case event.Line.Tmpl != "":
+				line.Template(event.Line.Tmpl)
+			case event.Line.AsLink != nil:
+				line.Link(event.Line.Message, *event.Line.AsLink)
+			case event.Line.AsModel != nil:
+				line.Model(event.Line.Message, *event.Line.AsModel)
+			default:
+				line.Msg(event.Line.Message)
+			}
+
 		case MetadataSet:
 			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
 				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
 			}
-			switch event.Attribute.SubType() {
+			switch event.Attribute.SubType().SpanAttributeType() {
 			case xopat.AttributeTypeAny:
 				if event.Attribute.Multiple() {
 					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {

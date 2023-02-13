@@ -68,25 +68,46 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 				//MACRO BaseDataWithoutType
 				case xopbase.ZZZDataType:
 					line.ZZZ(k, v.(zzz))
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithoutType
 
-				//MACRO BaseDataWithType
+				//MACRO BaseDataWithType SKIP:Int64,Uint64
 				case xopbase.ZZZDataType:
 					line.ZZZ(k, v.(zzz), dataType)
-				// next line must be blank to end macro
+				// next line must be blank to end macro BaseDataWithType
+
+				//MACRO Ints
+				case xopbase.ZZZDataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+
+				//MACRO Uints
+				case xopbase.ZZZDataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
 
 				case xopbase.EnumDataType:
-					// XXX TODO
+					line.Enum(event.Line.Enums[k], v.(xopat.Enum))
 				default:
 					return errors.Errorf("unexpected data type %s in line", dataType)
 				}
 			}
+			switch {
+			case event.Line.Tmpl != "":
+				line.Template(event.Line.Tmpl)
+			case event.Line.AsLink != nil:
+				line.Link(event.Line.Message, *event.Line.AsLink)
+			case event.Line.AsModel != nil:
+				line.Model(event.Line.Message, *event.Line.AsModel)
+			default:
+				line.Msg(event.Line.Message)
+			}
+
 		case MetadataSet:
 			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
 				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
 			}
-			switch event.Attribute.SubType() {
+			switch event.Attribute.SubType().SpanAttributeType() {
 			//MACRO BaseAttribute
 			case xopat.AttributeTypeZZZ:
 				if event.Attribute.Multiple() {

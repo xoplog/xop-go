@@ -42,7 +42,7 @@ var macros = map[string]map[string]string{
 		"Duration": "time.Duration",
 		"Enum":     "xopat.Enum",
 	},
-	// BaseAttributes are the span decorators that base loggers must
+	// BaseAttributes are the span attributes that base loggers must
 	// implement.  These turn into things like Base.MetadataBool()
 	"BaseAttribute": {
 		"Bool":    "bool",

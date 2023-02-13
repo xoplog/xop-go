@@ -102,6 +102,7 @@ type Prefilling struct {
 }
 
 type Builder struct {
+	Enums    map[string]*xopat.EnumAttribute
 	Data     map[string]interface{}
 	DataType map[string]xopbase.DataType
 	Span     *Span
@@ -109,6 +110,7 @@ type Builder struct {
 }
 
 type Prefilled struct {
+	Enums    map[string]*xopat.EnumAttribute
 	Data     map[string]interface{}
 	DataType map[string]xopbase.DataType
 	Span     *Span
@@ -123,8 +125,8 @@ type Line struct {
 	Message   string // Prefill text + line text (template evaluated)
 	Text      string // Complete text of line including key=value pairs
 	Tmpl      string // un-evaluated template
-	AsLink    xoptrace.Trace
-	AsModel   xopbase.ModelArg
+	AsLink    *xoptrace.Trace
+	AsModel   *xopbase.ModelArg
 	Stack     []runtime.Frame
 }
 
@@ -321,6 +323,7 @@ func (span *Span) NoPrefill() xopbase.Prefilled {
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
+			Enums:    make(map[string]*xopat.EnumAttribute),
 			Data:     make(map[string]interface{}),
 			DataType: make(map[string]xopbase.DataType),
 			Span:     span,
@@ -331,6 +334,7 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 // PrefillComplete is a required method for xopbase.Prefilling
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
+		Enums:    p.Enums,
 		Data:     p.Data,
 		DataType: p.DataType,
 		Span:     p.Span,
@@ -344,6 +348,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	atomic.StoreInt64(&p.Span.EndTime, t.UnixNano())
 	line := &Line{
 		Builder: Builder{
+			Enums:    make(map[string]*xopat.EnumAttribute),
 			Data:     make(map[string]interface{}),
 			DataType: make(map[string]xopbase.DataType),
 			Span:     p.Span,
@@ -370,6 +375,9 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	for k, v := range p.Data {
 		line.Data[k] = v
 		line.DataType[k] = p.DataType[k]
+		if e, ok := p.Enums[k]; ok {
+			line.Enums[k] = e
+		}
 	}
 	if len(p.kvText) != 0 {
 		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
@@ -390,7 +398,7 @@ func (b *Builder) Link(k string, v xoptrace.Trace) {
 
 // Link is a required method for xopbase.Line
 func (line *Line) Link(m string, v xoptrace.Trace) {
-	line.AsLink = v
+	line.AsLink = &v
 	line.Message += m
 	text := line.Span.Short + " LINK:" + line.Message + " " + v.String()
 	if len(line.kvText) > 0 {
@@ -403,7 +411,7 @@ func (line *Line) Link(m string, v xoptrace.Trace) {
 
 // Model is a required method for xopbase.Line
 func (line *Line) Model(m string, v xopbase.ModelArg) {
-	line.AsModel = v
+	line.AsModel = &v
 	line.Message += m
 	enc, _ := json.Marshal(v.Model)
 	text := line.Span.Short + " MODEL:" + line.Message + " " + string(enc)
@@ -484,6 +492,7 @@ func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
 // Enum is a required method for xopbase.ObjectParts
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	ks := k.Key()
+	b.Enums[ks] = k
 	b.Data[ks] = v.String()
 	b.DataType[ks] = xopbase.EnumDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
