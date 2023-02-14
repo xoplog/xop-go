@@ -43,9 +43,10 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 				IsRequest: true,
 			},
 		},
-		sourceInfo: sourceInfo,
-		spans:      make([]*xopproto.Span, 1, 20), // reserving space for self
-		lines:      make([]*xopproto.Line, 0, 200),
+		sourceInfo:     sourceInfo,
+		spans:          make([]*xopproto.Span, 1, 20), // reserving space for self
+		lines:          make([]*xopproto.Line, 0, 200),
+		attributeIndex: make(map[int32]uint32),
 	}
 	request.request = request
 	return request
@@ -403,8 +404,12 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -459,8 +464,12 @@ func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -501,8 +510,12 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -549,8 +562,12 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -598,8 +615,12 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -647,8 +668,12 @@ func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -696,8 +721,12 @@ func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
@@ -737,8 +766,12 @@ func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}

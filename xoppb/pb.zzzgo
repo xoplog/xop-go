@@ -41,9 +41,10 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 				IsRequest: true,
 			},
 		},
-		sourceInfo: sourceInfo,
-		spans:      make([]*xopproto.Span, 1, 20), // reserving space for self
-		lines:      make([]*xopproto.Line, 0, 200),
+		sourceInfo:     sourceInfo,
+		spans:          make([]*xopproto.Span, 1, 20), // reserving space for self
+		lines:          make([]*xopproto.Line, 0, 200),
+		attributeIndex: make(map[int32]uint32),
 	}
 	request.request = request
 	return request
@@ -465,8 +466,12 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		setValue(&value)
 		attribute.Values = append(attribute.Values, &value)
 	} else {
-		if k.Locked() && existingAttribute {
-			return
+		if existingAttribute {
+			if k.Locked() {
+				return
+			}
+		} else {
+			attribute.Values[0] = &xopproto.AttributeValue{}
 		}
 		setValue(attribute.Values[0])
 	}
