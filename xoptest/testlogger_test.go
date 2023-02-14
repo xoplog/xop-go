@@ -90,6 +90,10 @@ func TestReplay(t *testing.T) {
 		t.Run(mc.Name, func(t *testing.T) {
 			tLog := xoptest.New(t)
 			log := tLog.Log()
+			if len(mc.SeedMods) != 0 {
+				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+				log = log.Span().Seed(mc.SeedMods...).Request(t.Name())
+			}
 			t.Log("generate logs")
 			mc.Do(t, log, tLog)
 			rLog := xoptest.New(t)
