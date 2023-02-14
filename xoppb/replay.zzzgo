@@ -74,11 +74,11 @@ func (x replayRequest) Replay(ctx context.Context) error {
 	var err error
 	sourceInfo.SourceVersion, err = semver.StrictNewVersion(x.requestInput.SourceVersion)
 	if err != nil {
-		return errors.Errorf("invalid source version in request (%s-%s): %w", x.traceID, requestID, err)
+		return errors.Wrapf(err, "invalid source version in request (%s-%s)", x.traceID, requestID)
 	}
 	sourceInfo.NamespaceVersion, err = semver.StrictNewVersion(x.requestInput.SourceNamespaceVersion)
 	if err != nil {
-		return errors.Errorf("invalid namespace version in request (%s-%s): %w", x.traceID, requestID, err)
+		return errors.Wrapf(err, "invalid namespace version in request (%s-%s)", x.traceID, requestID)
 	}
 
 	x.request = x.logger.Request(ctx,
