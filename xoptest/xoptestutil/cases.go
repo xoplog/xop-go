@@ -398,7 +398,7 @@ var MessageCases = []struct {
 				PrefillString("needsEscaping", NeedsEscaping).
 				PrefillFloat32("f32", 92.2).
 				PrefillFloat64("f64", 292.1).
-				// XXX re-enable				PrefillAny("any", map[string]interface{}{"x": "y", "z": 19}).
+				PrefillAny("anyhow", map[string]interface{}{"x": "y", "z": 19}).
 				PrefillEnum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				PrefillEmbeddedEnum(LockedEEnumTwo).
 				Log()
@@ -410,7 +410,7 @@ var MessageCases = []struct {
 				String("needsEscaping2", NeedsEscaping).
 				Float32("f32", 92.2).
 				Float64("f64", 292.1).
-				// XXX re-enable			Any("any", map[string]interface{}{"x": "y", "z": 19}).
+				Any("any", map[string]interface{}{"x": "y", "z": 19}).
 				Enum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				EmbeddedEnum(LockedEEnumTwo).
 				Msgs("ha", true)
@@ -437,16 +437,22 @@ var MessageCases = []struct {
 			log.Done()
 		},
 	},
-	/* XXX re-enable
 	{
-		Name: "type-trace",
+		Name: "type-link",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			log.Warn().Link(log.Span().Bundle().Trace, "me, again")
 			MicroNap()
 			log.Done()
 		},
 	},
-	*/
+	{
+		Name: "type-model",
+		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+			log.Warn().Model(map[string]interface{}{"x": "y", "z": 19}, "some stuff")
+			MicroNap()
+			log.Done()
+		},
+	},
 	{
 		Name: "type-error",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
