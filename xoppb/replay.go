@@ -9,6 +9,7 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -44,8 +45,13 @@ type replayRequest struct {
 	requestInput *xopproto.Request
 	traceID      xoptrace.HexBytes16
 	request      xopbase.Request
-	spansSeen    map[xoptrace.HexBytes8]int32
+	spansSeen    map[xoptrace.HexBytes8]spanData
 	registry     *xopat.Registry
+}
+
+type spanData struct {
+	version int32
+	span    xopbase.Span
 }
 
 func (x replayRequest) Replay(ctx context.Context) error {
@@ -54,7 +60,7 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		return errors.Errorf("expected >0 spans in request (%s-%s)", x.traceID, requestID)
 	}
 	if !bytes.Equal(x.requestInput.RequestID, x.requestInput.Spans[0].SpanID) {
-		return errors.Errorf("expected first span of request (%s-%s) to be the request", x.traceID, requestID)
+		return errors.Errorf("expected first span of request (%s-%s) to be the request (got %s)", x.traceID, requestID, x.requestInput.Spans[0].SpanID)
 	}
 	requestSpan := x.requestInput.Spans[0]
 	var bundle xoptrace.Bundle
@@ -88,18 +94,27 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		bundle,
 		requestSpan.Name,
 		sourceInfo)
-	x.spansSeen = make(map[xoptrace.HexBytes8]int32)
-	err = replaySpan{
-		replayRequest: x,
-		spanInput:     requestSpan,
-	}.Replay(ctx)
-	if err != nil {
-		return err
-	}
+	x.spansSeen = make(map[xoptrace.HexBytes8]spanData)
 	for i := len(x.requestInput.Spans) - 1; i > 0; i-- { // 0 is processed above
 		err = replaySpan{
 			replayRequest: x,
 			spanInput:     x.requestInput.Spans[i],
+		}.Replay(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, line := range x.requestInput.Lines {
+		spanID := xoptrace.NewHexBytes8FromSlice(line.SpanID)
+		span, ok := x.spansSeen[spanID]
+		if !ok {
+			return errors.Errorf("line references spanID (%s) that does not exist", spanID)
+		}
+		err := replayLine{
+			replayRequest: x,
+			span:          span,
+			lineInput:     line,
 		}.Replay(ctx)
 		if err != nil {
 			return err
@@ -116,10 +131,9 @@ type replaySpan struct {
 
 func (x replaySpan) Replay(ctx context.Context) error {
 	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
-	if version, ok := x.spansSeen[spanID]; ok && version > x.spanInput.Version {
+	if sd, ok := x.spansSeen[spanID]; ok && sd.version > x.spanInput.Version {
 		return nil
 	}
-	x.spansSeen[spanID] = x.spanInput.Version
 	var bundle xoptrace.Bundle
 	bundle.Trace.TraceID().Set(x.traceID)
 	bundle.Trace.SpanID().Set(spanID)
@@ -130,6 +144,10 @@ func (x replaySpan) Replay(ctx context.Context) error {
 		bundle,
 		x.spanInput.Name,
 		x.spanInput.SequenceCode)
+	x.spansSeen[spanID] = spanData{
+		version: x.spanInput.Version,
+		span:    x.span,
+	}
 	for _, attribute := range x.spanInput.Attributes {
 		err := x.replayAttribute(attribute)
 		if err != nil {
@@ -245,4 +263,74 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 	default:
 		return errors.Errorf("unexpected attribute type %s", def.Type)
 	}
+}
+
+type replayLine struct {
+	replayRequest
+	lineInput *xopproto.Line
+	span      xopbase.Span
+}
+
+func (x replayLine) Replay(ctx context.Context) error {
+	line := span.NoPrefill().Line(
+		xopnum.Level(x.lineInput.LogLevel),
+		time.Unix(0, x.lineInput.Timestamp),
+		nil, // XXX todo
+	)
+	for _, attribute := range line.Attributes {
+		switch attribute.Type {
+		case xopproto.AttributeType_Enum:
+			m := xopat.Make{
+				Key: attribute.Key,
+			}
+			ea, err := x.registry.ConstructEnumAttribute(m)
+			enum := ea.Add64(attribute.Value.IntValue, attribute.Value.StringValue)
+			line = line.Enum(&ea.EnumAttribute, enum)
+		case xopproto.AttributeType_Float64:
+			line = line.Float64(attribute.Key, attribute.Value.FloatValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_Int64:
+			line = line.Int64(attribute.Key, attribute.Value.IntValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_String:
+			line = line.String(attribute.Key, attribute.Value.StringValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_Uint64:
+			line = line.Uint64(attribute.Key, attribute.Value.UintValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_Any:
+			line = line.Any(attribute.Key, models.ModelArg{
+				TypeName: attribute.Value.StringValue,
+				Encoded:  attribute.Value.BytesValue,
+				Encoding: xopproto.Encoding(attribute.Value.IntValue),
+			})
+		case xopproto.AttributeType_Bool:
+			var b bool
+			if attribute.Value.IntValue != 0 {
+				b = true
+			}
+			line = line.Any(attribute.Key, b)
+		case xopproto.AttributeType_Duration:
+			line = line.Duration(attribute.Key, time.Duration(attribute.Value.IntValue))
+		case xopproto.AttributeType_Time:
+			line = line.Time(attribute.Key, time.Unix(0, attribute.Value.IntValue))
+		default:
+			return errors.Errorf("unknown data type %s", attribute.Type)
+		}
+	}
+	switch {
+	case x.lineInput.Model != nil:
+		line.Model(x.lineInput.Message, xopbase.ModelArg{
+			TypeName: x.lineInput.Model.Type,
+			Encoded:  x.lineInput.Model.Encoded,
+			Encoding: x.lineInput.Model.Encoding,
+		})
+	case x.lineInput.Link != "":
+		trace, ok := xoptrace.TraceFromString(x.lineInput.Link)
+		if !ok {
+			return errors.Errorf("invalid trace (%s)", x.lineInput.Link)
+		}
+		line.Link(x.lineInput.Message, trace)
+	case x.lineInput.MessageTemplate != "":
+		line.Template(x.lineInput.MessageTemplate)
+	default:
+		line.Msg(x.lineInput.Message)
+	}
+	return nil
 }
