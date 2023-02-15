@@ -362,6 +362,9 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -432,6 +435,9 @@ func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -492,6 +498,9 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -538,6 +547,9 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -590,6 +602,9 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -643,6 +658,9 @@ func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -696,6 +714,9 @@ func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
@@ -749,6 +770,9 @@ func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}

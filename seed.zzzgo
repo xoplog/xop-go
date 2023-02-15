@@ -98,10 +98,16 @@ func (seed Seed) applyMods(mods []SeedModifier) Seed {
 		mod(&seed)
 	}
 	if seed.sourceInfo.Source == "" {
-		seed.sourceInfo.Source = filepath.Base(os.Args[0])
+		seed.sourceInfo.Source, seed.sourceInfo.SourceVersion = version.SplitVersion(filepath.Base(os.Args[0]))
+	}
+	if seed.sourceInfo.SourceVersion == nil {
+		seed.sourceInfo.SourceVersion = version.ZeroVersion
 	}
 	if seed.sourceInfo.Namespace == "" {
 		seed.sourceInfo.Namespace, seed.sourceInfo.NamespaceVersion = version.SplitVersion(xopat.DefaultNamespace)
+	}
+	if seed.sourceInfo.NamespaceVersion == nil {
+		seed.sourceInfo.NamespaceVersion = version.ZeroVersion
 	}
 	return seed
 }

@@ -3,6 +3,7 @@ package xoppb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -361,6 +362,9 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
+			if s.distinctMaps == nil {
+				s.distinctMaps = make(map[string]*distinction)
+			}
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
