@@ -5,6 +5,7 @@ package xoppb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -41,6 +42,8 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 				Name:      name,
 				StartTime: ts.UnixNano(),
 				IsRequest: true,
+				ParentID:  bundle.Parent.GetSpanID().Bytes(),
+				SpanID:    bundle.Trace.GetSpanID().Bytes(),
 			},
 		},
 		sourceInfo:     sourceInfo,
@@ -124,6 +127,8 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 			Name:         name,
 			StartTime:    ts.UnixNano(),
 			SequenceCode: spanSequenceCode,
+			ParentID:     bundle.Parent.GetSpanID().Bytes(),
+			SpanID:       bundle.Trace.GetSpanID().Bytes(),
 		},
 	}
 	return n
@@ -146,6 +151,7 @@ func (s *span) Done(t time.Time, _ bool) {
 	p := s.getProto()
 	s.request.spanLock.Lock()
 	defer s.request.spanLock.Unlock()
+	fmt.Printf("XXX in span.Done, appending %s\n", s.bundle.Trace.GetSpanID())
 	s.request.spans = append(s.request.spans, p)
 }
 
@@ -321,20 +327,20 @@ func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
 	})
 }
 
-func (b *builder) String(k string, v string, _ xopbase.DataType) {
+func (b *builder) String(k string, v string, typ xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
-		Type: xopproto.AttributeType_String, // Convert to xopproto
+		Type: xopproto.AttributeType(typ),
 		Value: &xopproto.AttributeValue{
 			StringValue: v,
 		},
 	})
 }
 
-func (b *builder) Float64(k string, v float64, _ xopbase.DataType) {
+func (b *builder) Float64(k string, v float64, typ xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
-		Type: xopproto.AttributeType_Float64, // Convert to xopproto
+		Type: xopproto.AttributeType(typ),
 		Value: &xopproto.AttributeValue{
 			FloatValue: v,
 		},
