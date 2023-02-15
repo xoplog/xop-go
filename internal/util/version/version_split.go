@@ -24,7 +24,7 @@ func SplitVersionWithError(namespace string) (string, *semver.Version, error) {
 	return namespace, sver, nil
 }
 
-var zeroVersion = func() *semver.Version {
+var ZeroVersion = func() *semver.Version {
 	sver, err := semver.StrictNewVersion("0.0.0")
 	if err != nil {
 		panic(err)
@@ -35,7 +35,7 @@ var zeroVersion = func() *semver.Version {
 func SplitVersion(namespace string) (string, *semver.Version) {
 	n, v, err := SplitVersionWithError(namespace)
 	if err != nil {
-		return namespace, zeroVersion
+		return namespace, ZeroVersion
 	}
 	return n, v
 }

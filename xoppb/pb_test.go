@@ -1,8 +1,11 @@
 package xoppb_test
 
 import (
+	"bytes"
+	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xoppb"
 	"github.com/xoplog/xop-go/xopproto"
@@ -12,21 +15,20 @@ import (
 )
 
 type testWriter struct {
-	captured []writtenRequest
+	captured []*xopproto.Trace
 }
 
-type writtenRequest struct {
-	traceID xoptrace.HexBytes16
-	request *xopproto.Request
-}
-
-func (tw *testWriter) SizeLimit() int32 { return 1<<25 }
+func (tw *testWriter) SizeLimit() int32 { return 1 << 25 }
 func (tw *testWriter) Flush() error     { return nil }
 func (tw *testWriter) Request(traceID xoptrace.HexBytes16, request *xopproto.Request) {
-	tw.captured = append(tw.captured, writtenRequest{
-		traceID: traceID,
-		request: request,
-	})
+	if len(tw.captured) != 0 && bytes.Equal(tw.captured[len(tw.captured)-1].TraceID, traceID.Bytes()) {
+		tw.captured[len(tw.captured)-1].Requests = append(tw.captured[len(tw.captured)-1].Requests, request)
+	} else {
+		tw.captured = append(tw.captured, &xopproto.Trace{
+			TraceID:  traceID.Bytes(),
+			Requests: []*xopproto.Request{request},
+		})
+	}
 }
 
 func TestReplay(t *testing.T) {
@@ -48,14 +50,14 @@ func TestReplay(t *testing.T) {
 			t.Log("generate logs")
 			mc.Do(t, log, tLog)
 
-			/*
-				rLog := xoptest.New(t)
-				t.Log("replay from generated logs")
-				err := tLog.LosslessReplay(context.Background(), tLog, rLog)
+			rLog := xoptest.New(t)
+			t.Log("replay from generated logs")
+			for _, trace := range tWriter.captured {
+				err := pbLog.LosslessReplay(context.Background(), trace, rLog)
 				require.NoError(t, err, "replay")
-				t.Log("verify replay equals original")
-				xoptestutil.VerifyReplay(t, tLog, rLog)
-			*/
+			}
+			t.Log("verify replay equals original")
+			xoptestutil.VerifyReplay(t, tLog, rLog)
 		})
 	}
 }
