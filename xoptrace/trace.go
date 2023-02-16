@@ -40,7 +40,6 @@ import (
 //
 // These headers can be used with gRPC too
 // (https://github.com/grpc/grpc-go/blob/master/Documentation/grpc-metadata.md)
-//
 type Trace struct {
 	version HexBytes1
 
@@ -158,7 +157,7 @@ func setBytes(dest []byte, b []byte) {
 	if len(b) >= len(dest) {
 		copy(dest, b[0:len(dest)])
 	} else {
-		copy(dest, b[0:len(dest)])
+		copy(dest, b)
 		copy(dest[len(b):], zeroBytes[:len(dest)-len(b)])
 	}
 }

@@ -5,7 +5,6 @@ package xoppb
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -151,7 +150,6 @@ func (s *span) Done(t time.Time, _ bool) {
 	p := s.getProto()
 	s.request.spanLock.Lock()
 	defer s.request.spanLock.Unlock()
-	fmt.Printf("XXX in span.Done, appending %s\n", s.bundle.Trace.GetSpanID())
 	s.request.spans = append(s.request.spans, p)
 }
 
@@ -203,6 +201,7 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 			LogLevel:   int32(level),
 			Timestamp:  t.UnixNano(),
 			Attributes: list.Copy(p.data),
+			SpanID:     p.span.bundle.Trace.SpanID().Bytes(),
 		},
 	}
 	return l
