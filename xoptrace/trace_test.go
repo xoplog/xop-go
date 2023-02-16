@@ -75,3 +75,10 @@ func TestTraceCopy(t *testing.T) {
 	t2.TraceID().SetRandom()
 	assert.NotEqual(t, t1, t2)
 }
+
+func TestNewFragment(t *testing.T) {
+	var orig xoptrace.Trace
+	orig.SpanID().SetRandom()
+	got := xoptrace.NewHexBytes8FromSlice(orig.SpanID().Bytes()[0:4])
+	assert.Equal(t, orig.SpanID().String()[0:8]+"00000000", got.String())
+}
