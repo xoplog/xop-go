@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -15,8 +16,65 @@ import (
 func VerifyReplay(t *testing.T, want *xoptest.TestLogger, got *xoptest.TestLogger) {
 	verifyReplaySpans(t, "request", want.Requests, got.Requests)
 	verifyReplaySpans(t, "spans", want.Spans, got.Spans)
-	// XXX improve lines
-	require.Equal(t, len(want.Lines), len(got.Lines), "count of lines")
+	verifyReplayLines(t, want.Lines, got.Lines)
+}
+
+func verifyReplayLines(t *testing.T, want []*xoptest.Line, got []*xoptest.Line) {
+	require.Equal(t, len(want), len(got), "count of lines")
+	for i := range want {
+		verifyReplayLine(t, want[i], got[i])
+	}
+}
+
+func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
+	t.Log("verify line", want.Text)
+	assert.Equal(t, want.Level, got.Level, "level")
+	assert.Truef(t, want.Timestamp.Equal(got.Timestamp), "timestamp %s vs %s", want.Timestamp.Format(time.RFC3339), got.Timestamp.Format(time.RFC3339))
+	assert.Equal(t, want.Message, got.Message, "message")
+	assert.Equal(t, want.Tmpl, got.Tmpl, "template")
+	if want.AsLink != nil && assert.NotNil(t, got.AsLink, "link") {
+		assert.Equal(t, want.AsLink.String(), got.AsLink.String(), "link")
+	}
+	if want.AsModel != nil && assert.NotNil(t, got.AsModel, "model") {
+		want.AsModel.Encode()
+		got.AsModel.Encode()
+		assert.Equal(t, want.AsModel.Encoding, got.AsModel.Encoding, "encoding")
+		assert.Equal(t, want.AsModel.TypeName, got.AsModel.TypeName, "encoding")
+		assert.Equal(t, want.AsModel.Encoded, got.AsModel.Encoded, "encoded")
+	}
+	assert.Equal(t, want.Tmpl, got.Tmpl, "template")
+	for key, wdata := range want.Data {
+		gdata, ok := got.Data[key]
+		if !assert.True(t, ok, "data element '%s' in want, but not got", key) {
+			continue
+		}
+		dt := want.DataType[key]
+		if !assert.Equalf(t, dt, got.DataType[key], "data type for key '%s'", key) {
+			continue
+		}
+		switch dt {
+		case xopbase.AnyDataType:
+			wany := wdata.(xopbase.ModelArg)
+			gany := wdata.(xopbase.ModelArg)
+			wany.Encode()
+			gany.Encode()
+			assert.Equalf(t, wany.Encoding, gany.Encoding, "encoding %s", key)
+			assert.Equalf(t, wany.TypeName, gany.TypeName, "encoding %s", key)
+			assert.Equalf(t, wany.Encoded, gany.Encoded, "encoded %s", key)
+		case xopbase.EnumDataType:
+			wenum := wdata.(xopat.Enum)
+			genum := gdata.(xopat.Enum)
+			assert.Equalf(t, wenum.String(), genum.String(), "enum %s", key)
+			assert.Equalf(t, wenum.Int64(), genum.Int64(), "enum %s", key)
+		default:
+			assert.Equal(t, wdata, gdata, "data")
+		}
+	}
+
+	for key := range got.Data {
+		_, ok := want.Data[key]
+		assert.Truef(t, ok, "data element '%s' in got, but not want", key)
+	}
 }
 
 func verifyReplaySpans(t *testing.T, kind string, want []*xoptest.Span, got []*xoptest.Span) {

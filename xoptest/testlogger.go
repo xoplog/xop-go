@@ -137,6 +137,7 @@ type Event struct {
 	Msg       string
 	Attribute xopat.AttributeInterface
 	Done      bool
+	Value     interface{}
 }
 
 func (log *TestLogger) Log() *xop.Log {
@@ -531,6 +532,7 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -558,8 +560,8 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.AnyArrayDataType
@@ -585,6 +587,7 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -606,8 +609,8 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.BoolArrayDataType
@@ -633,6 +636,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -654,8 +658,8 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.EnumArrayDataType
@@ -681,6 +685,7 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -702,8 +707,8 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.Float64ArrayDataType
@@ -729,6 +734,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -750,8 +756,8 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.Int64ArrayDataType
@@ -777,6 +783,7 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -798,8 +805,8 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.LinkArrayDataType
@@ -825,6 +832,7 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -846,8 +854,8 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.StringArrayDataType
@@ -873,6 +881,7 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -894,8 +903,8 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.TimeArrayDataType
