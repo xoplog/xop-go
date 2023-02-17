@@ -14,6 +14,7 @@ import (
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
 	"github.com/muir/list"
@@ -34,9 +35,8 @@ func (logger *Logger) ReferencesKept() bool { return false }
 func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, sourceInfo xopbase.SourceInfo) xopbase.Request {
 	request := &request{
 		span: span{
-			logger:  logger,
-			bundle:  bundle,
-			endTime: ts.UnixNano(),
+			logger: logger,
+			bundle: bundle,
 			protoSpan: xopproto.Span{
 				Name:      name,
 				StartTime: ts.UnixNano(),
@@ -121,7 +121,6 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 		logger:  s.logger,
 		bundle:  bundle,
 		request: s.request,
-		endTime: ts.UnixNano(),
 		protoSpan: xopproto.Span{
 			Name:         name,
 			StartTime:    ts.UnixNano(),
@@ -143,7 +142,7 @@ func (s *span) getProto() *xopproto.Span {
 }
 
 func (s *span) Done(t time.Time, _ bool) {
-	atomic.StoreInt64(&s.endTime, t.UnixNano())
+	xoputil.AtomicMaxInt64(&s.endTime, t.UnixNano())
 	if s.protoSpan.IsRequest {
 		return
 	}
@@ -187,7 +186,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 }
 
 func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
-	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
+	xoputil.AtomicMaxInt64(&p.span.endTime, t.UnixNano())
 	if level >= xopnum.ErrorLevel {
 		if level >= xopnum.AlertLevel {
 			_ = atomic.AddInt32(&p.span.request.alertCount, 1) // XXX move to logger and include in flush?

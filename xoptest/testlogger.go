@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +18,7 @@ import (
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil"
 )
 
 //go:generate enumer -type=EventType -linecomment -json -sql
@@ -77,6 +77,7 @@ type traceInfo struct {
 }
 
 type Span struct {
+	EndTime      int64
 	lock         sync.Mutex
 	testLogger   *TestLogger
 	RequestNum   int // sequence of requests with the same traceID
@@ -90,7 +91,6 @@ type Span struct {
 	MetadataType map[string]xopbase.DataType
 	metadataSeen map[string]interface{}
 	StartTime    time.Time
-	EndTime      int64
 	Name         string
 	SequenceCode string
 	Ctx          context.Context
@@ -233,7 +233,7 @@ func (span *Span) setShortSpan() {
 
 // Done is a required method for xopbase.Span
 func (span *Span) Done(t time.Time, final bool) {
-	atomic.StoreInt64(&span.EndTime, t.UnixNano())
+	xoputil.AtomicMaxInt64(&span.EndTime, t.UnixNano())
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
 	if span.IsRequest {
@@ -346,7 +346,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 
 // Line is a required method for xopbase.Prefilled
 func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
-	atomic.StoreInt64(&p.Span.EndTime, t.UnixNano())
+	xoputil.AtomicMaxInt64(&p.Span.EndTime, t.UnixNano())
 	line := &Line{
 		Builder: Builder{
 			Enums:    make(map[string]*xopat.EnumAttribute),

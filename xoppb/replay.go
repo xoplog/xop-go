@@ -82,7 +82,9 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		var bundle xoptrace.Bundle
 		bundle.Trace.TraceID().Set(x.traceID)
 		bundle.Trace.SpanID().Set(requestID)
+		bundle.Trace.Flags().SetBytes([]byte{1})
 		bundle.Parent.SpanID().SetBytes(requestSpan.ParentID)
+		bundle.Parent.Flags().SetBytes([]byte{1})
 		if len(x.requestInput.ParentTraceID) != 0 {
 			bundle.Parent.TraceID().SetBytes(x.requestInput.ParentTraceID)
 		} else {
@@ -140,6 +142,10 @@ func (x replayRequest) Replay(ctx context.Context) error {
 			return err
 		}
 	}
+
+	if requestSpan.EndTime != nil {
+		x.request.Done(time.Unix(0, *requestSpan.EndTime), false)
+	}
 	return nil
 }
 
@@ -160,9 +166,11 @@ func (x replaySpan) Replay(ctx context.Context) error {
 	} else {
 		var bundle xoptrace.Bundle
 		bundle.Trace.TraceID().Set(x.traceID)
+		bundle.Trace.Flags().SetBytes([]byte{1})
 		bundle.Trace.SpanID().Set(spanID)
 		bundle.Parent.SpanID().SetBytes(x.spanInput.ParentID)
 		bundle.Parent.TraceID().Set(x.traceID)
+		bundle.Parent.Flags().SetBytes([]byte{1})
 		x.span = x.request.Span(ctx,
 			time.Unix(0, x.spanInput.StartTime),
 			bundle,

@@ -45,6 +45,7 @@ type Option func(*Logger, *xoputil.Prealloc)
 type TimeFormatter func(b []byte, t time.Time) []byte
 
 type Logger struct {
+	requestCount     int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	writer           xopbytes.BytesWriter
 	fastKeys         bool
 	durationFormat   DurationOption
@@ -52,7 +53,6 @@ type Logger struct {
 	spanChangesOnly  bool
 	id               uuid.UUID
 	tagOption        TagOption
-	requestCount     int64 // only incremented with tagOption == TraceSequenceNumberTagOption
 	attributesObject bool
 	builderPool      sync.Pool // filled with *builder
 	linePool         sync.Pool // filled with *line
