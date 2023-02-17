@@ -27,8 +27,8 @@ type EmbeddedEnumAttribute struct{ EnumAttribute }
 // Enum attributes are logged as strings or as integers depending
 // on the base logger used.
 type IotaEnumAttribute struct {
+	counter int64 // first to make sure it's 64-bit aligned
 	EnumAttribute
-	counter int64
 }
 
 // EmbeddedEnum is a value that can be passed to the Span.EmbeddedEnum()
