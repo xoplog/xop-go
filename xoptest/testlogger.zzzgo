@@ -133,6 +133,7 @@ type Event struct {
 	Msg       string
 	Attribute xopat.AttributeInterface
 	Done      bool
+	Value     interface{}
 }
 
 func (log *TestLogger) Log() *xop.Log {
@@ -512,6 +513,7 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			Type:      MetadataSet,
 			Attribute: k,
 			Span:      s,
+			Value:     v,
 		})
 	}()
 	s.lock.Lock()
@@ -557,8 +559,8 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 				seen[key] = struct{}{}
 			}
 		}
-		if p, ok := s.Metadata[k.Key()]; ok {
-			s.Metadata[k.Key()] = append(p.([]interface{}), value)
+		if prior, ok := s.Metadata[k.Key()]; ok {
+			s.Metadata[k.Key()] = append(prior.([]interface{}), value)
 		} else {
 			s.Metadata[k.Key()] = []interface{}{value}
 			s.MetadataType[k.Key()] = xopbase.ZZZArrayDataType

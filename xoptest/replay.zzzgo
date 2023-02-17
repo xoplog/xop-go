@@ -114,34 +114,18 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			switch event.Attribute.SubType().SpanAttributeType() {
 			//MACRO BaseAttribute
 			case xopat.AttributeTypeZZZ:
-				if event.Attribute.Multiple() {
-					for _, v := range event.Span.Metadata[event.Attribute.Key()].([]interface{}) {
-						//CONDITIONAL ONLY:Any
-						span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v)
-						//CONDITIONAL ONLY:Enum
-						enum, ok := v.(xopat.Enum)
-						if !ok {
-							return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
-						}
-						span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), enum)
-						//CONDITIONAL SKIP:Enum,Any
-						span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(zzz))
-						//END CONDITIONAL
-					}
-				} else {
-					v := event.Span.Metadata[event.Attribute.Key()]
-					//CONDITIONAL ONLY:Any
-					span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v)
-					//CONDITIONAL ONLY:Enum
-					enum, ok := v.(xopat.Enum)
-					if !ok {
-						return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
-					}
-					span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), enum)
-					//CONDITIONAL SKIP:Enum,Any
-					span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(zzz))
-					//END CONDITIONAL
+				v := event.Value
+				//CONDITIONAL ONLY:Any
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v)
+				//CONDITIONAL ONLY:Enum
+				enum, ok := v.(xopat.Enum)
+				if !ok {
+					return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
 				}
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), enum)
+				//CONDITIONAL SKIP:Enum,Any
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(zzz))
+				//END CONDITIONAL
 				// next line must be blank to end macro
 
 			default:
