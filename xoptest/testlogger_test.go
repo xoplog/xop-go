@@ -84,7 +84,7 @@ func TestCustomEvent(t *testing.T) {
 	assert.Equal(t, xoptest.CustomEvent, tLog.Events[0].Type)
 }
 
-func TestReplay(t *testing.T) {
+func TestReplayTextLogger(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
 		t.Run(mc.Name, func(t *testing.T) {

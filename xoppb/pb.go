@@ -102,6 +102,7 @@ func (r *request) defineAttribute(k xopat.AttributeInterface) uint32 {
 	}
 	i := uint32(len(r.attributeDefinitions))
 	r.attributeIndex[n] = i
+	fmt.Println("XXX defining attribute ", i, k.Key(), k.ProtoType())
 	r.attributeDefinitions = append(r.attributeDefinitions, &xopproto.AttributeDefinition{
 		Key:             k.Key(),
 		Description:     k.Description(),
@@ -142,6 +143,7 @@ func (s *span) getProto() *xopproto.Span {
 	}
 	c := s.protoSpan
 	c.Attributes = list.Copy(c.Attributes)
+	fmt.Println("XXX copied in span.getProto", len(c.Attributes), "of", len(s.protoSpan.Attributes))
 	return &c
 }
 
@@ -331,7 +333,6 @@ func (b *builder) Uint64(k string, v uint64, dataType xopbase.DataType) {
 }
 
 func (b *builder) String(k string, v string, dataType xopbase.DataType) {
-	fmt.Println("XXX pb record string", k, v, dataType)
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
 		Type: xopproto.AttributeType(dataType),
@@ -369,6 +370,7 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -442,6 +444,7 @@ func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -505,6 +508,7 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -554,6 +558,7 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -609,6 +614,7 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -665,6 +671,7 @@ func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -721,6 +728,7 @@ func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -777,6 +785,7 @@ func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
+		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}

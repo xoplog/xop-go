@@ -66,6 +66,7 @@ func (x WrappedZZZ) SetArray(b [zzz]byte) {
 }
 
 // MACRO HexBytes
+// Array returns the underlying byte array.  Do not modify it!
 func (x *ZZZ) Array() [zzz]byte {
 	return x.b
 }

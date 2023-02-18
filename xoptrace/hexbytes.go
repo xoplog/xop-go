@@ -149,14 +149,17 @@ func (x WrappedHexBytes8) SetArray(b [8]byte) {
 	x.trace.rebuild()
 }
 
+// Array returns the underlying byte array.  Do not modify it!
 func (x *HexBytes1) Array() [1]byte {
 	return x.b
 }
 
+// Array returns the underlying byte array.  Do not modify it!
 func (x *HexBytes16) Array() [16]byte {
 	return x.b
 }
 
+// Array returns the underlying byte array.  Do not modify it!
 func (x *HexBytes8) Array() [8]byte {
 	return x.b
 }
