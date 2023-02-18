@@ -49,7 +49,7 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 			continue
 		}
 		dt := want.DataType[key]
-		if !assert.Equalf(t, dt, got.DataType[key], "data type for key '%s'", key) {
+		if !assert.Equalf(t, dt.String(), got.DataType[key].String(), "data type for key '%s'", key) {
 			continue
 		}
 		switch dt {

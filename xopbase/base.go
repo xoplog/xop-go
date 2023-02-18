@@ -19,6 +19,7 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/Masterminds/semver/v3"
@@ -266,53 +267,55 @@ type Encoder interface {
 	Encode(elementName string, data interface{}) ([]byte, error)
 }
 
-//go:generate enumer -type=DataType -linecomment -json -sql
-
 type DataType int
 
 const (
-	EnumDataType          DataType = iota
-	EnumArrayDataType     DataType = iota
-	AnyDataType           DataType = iota
-	BoolDataType          DataType = iota
-	DurationDataType      DataType = iota
-	ErrorDataType         DataType = iota
-	Float32DataType       DataType = iota
-	Float64DataType       DataType = iota
-	IntDataType           DataType = iota
-	Int16DataType         DataType = iota
-	Int32DataType         DataType = iota
-	Int64DataType         DataType = iota
-	Int8DataType          DataType = iota
-	LinkDataType          DataType = iota
-	StringDataType        DataType = iota
-	StringerDataType      DataType = iota
-	TimeDataType          DataType = iota
-	UintDataType          DataType = iota
-	Uint16DataType        DataType = iota
-	Uint32DataType        DataType = iota
-	Uint64DataType        DataType = iota
-	Uint8DataType         DataType = iota
-	UintptrDataType       DataType = iota
-	AnyArrayDataType      DataType = iota
-	BoolArrayDataType     DataType = iota
-	DurationArrayDataType DataType = iota
-	ErrorArrayDataType    DataType = iota
-	Float32ArrayDataType  DataType = iota
-	Float64ArrayDataType  DataType = iota
-	IntArrayDataType      DataType = iota
-	Int16ArrayDataType    DataType = iota
-	Int32ArrayDataType    DataType = iota
-	Int64ArrayDataType    DataType = iota
-	Int8ArrayDataType     DataType = iota
-	LinkArrayDataType     DataType = iota
-	StringArrayDataType   DataType = iota
-	StringerArrayDataType DataType = iota
-	TimeArrayDataType     DataType = iota
-	UintArrayDataType     DataType = iota
-	Uint16ArrayDataType   DataType = iota
-	Uint32ArrayDataType   DataType = iota
-	Uint64ArrayDataType   DataType = iota
-	Uint8ArrayDataType    DataType = iota
-	UintptrArrayDataType  DataType = iota
+	EnumDataType          = DataType(xopproto.AttributeType_Enum)
+	EnumArrayDataType     = DataType(xopproto.AttributeType_ArrayEnum)
+	AnyDataType           = DataType(xopproto.AttributeType_Any)
+	AnyArrayDataType      = DataType(xopproto.AttributeType_ArrayAny)
+	BoolDataType          = DataType(xopproto.AttributeType_Bool)
+	BoolArrayDataType     = DataType(xopproto.AttributeType_ArrayBool)
+	DurationDataType      = DataType(xopproto.AttributeType_Duration)
+	DurationArrayDataType = DataType(xopproto.AttributeType_ArrayDuration)
+	ErrorDataType         = DataType(xopproto.AttributeType_Error)
+	ErrorArrayDataType    = DataType(xopproto.AttributeType_ArrayError)
+	Float32DataType       = DataType(xopproto.AttributeType_Float32)
+	Float32ArrayDataType  = DataType(xopproto.AttributeType_ArrayFloat32)
+	Float64DataType       = DataType(xopproto.AttributeType_Float64)
+	Float64ArrayDataType  = DataType(xopproto.AttributeType_ArrayFloat64)
+	IntDataType           = DataType(xopproto.AttributeType_Int)
+	IntArrayDataType      = DataType(xopproto.AttributeType_ArrayInt)
+	Int16DataType         = DataType(xopproto.AttributeType_Int16)
+	Int16ArrayDataType    = DataType(xopproto.AttributeType_ArrayInt16)
+	Int32DataType         = DataType(xopproto.AttributeType_Int32)
+	Int32ArrayDataType    = DataType(xopproto.AttributeType_ArrayInt32)
+	Int64DataType         = DataType(xopproto.AttributeType_Int64)
+	Int64ArrayDataType    = DataType(xopproto.AttributeType_ArrayInt64)
+	Int8DataType          = DataType(xopproto.AttributeType_Int8)
+	Int8ArrayDataType     = DataType(xopproto.AttributeType_ArrayInt8)
+	LinkDataType          = DataType(xopproto.AttributeType_Link)
+	LinkArrayDataType     = DataType(xopproto.AttributeType_ArrayLink)
+	StringDataType        = DataType(xopproto.AttributeType_String)
+	StringArrayDataType   = DataType(xopproto.AttributeType_ArrayString)
+	StringerDataType      = DataType(xopproto.AttributeType_Stringer)
+	StringerArrayDataType = DataType(xopproto.AttributeType_ArrayStringer)
+	TimeDataType          = DataType(xopproto.AttributeType_Time)
+	TimeArrayDataType     = DataType(xopproto.AttributeType_ArrayTime)
+	UintDataType          = DataType(xopproto.AttributeType_Uint)
+	UintArrayDataType     = DataType(xopproto.AttributeType_ArrayUint)
+	Uint16DataType        = DataType(xopproto.AttributeType_Uint16)
+	Uint16ArrayDataType   = DataType(xopproto.AttributeType_ArrayUint16)
+	Uint32DataType        = DataType(xopproto.AttributeType_Uint32)
+	Uint32ArrayDataType   = DataType(xopproto.AttributeType_ArrayUint32)
+	Uint64DataType        = DataType(xopproto.AttributeType_Uint64)
+	Uint64ArrayDataType   = DataType(xopproto.AttributeType_ArrayUint64)
+	Uint8DataType         = DataType(xopproto.AttributeType_Uint8)
+	Uint8ArrayDataType    = DataType(xopproto.AttributeType_ArrayUint8)
+	UintptrDataType       = DataType(xopproto.AttributeType_Uintptr)
+	UintptrArrayDataType  = DataType(xopproto.AttributeType_ArrayUintptr)
 )
+
+func (dt DataType) String() string {
+	return xopproto.AttributeType(dt).String()
+}

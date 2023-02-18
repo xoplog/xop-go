@@ -17,6 +17,7 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/Masterminds/semver/v3"
@@ -222,15 +223,16 @@ type Encoder interface {
 	Encode(elementName string, data interface{}) ([]byte, error)
 }
 
-//go:generate enumer -type=DataType -linecomment -json -sql
-
 type DataType int
 
 const (
-	EnumDataType      DataType = iota
-	EnumArrayDataType DataType = iota
+	EnumDataType      = DataType(xopproto.AttributeType_Enum)
+	EnumArrayDataType = DataType(xopproto.AttributeType_ArrayEnum)
 	// MACRO AllData
-	ZZZDataType DataType = iota
-	// MACRO AllData
-	ZZZArrayDataType DataType = iota
+	ZZZDataType      = DataType(xopproto.AttributeType_ZZZ)
+	ZZZArrayDataType = DataType(xopproto.AttributeType_ArrayZZZ)
 )
+
+func (dt DataType) String() string {
+	return xopproto.AttributeType(dt).String()
+}

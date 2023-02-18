@@ -5,6 +5,7 @@ package xoppb
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -311,6 +312,7 @@ func (x replayLine) Replay(ctx context.Context) error {
 		nil, // XXX todo
 	)
 	for _, attribute := range x.lineInput.Attributes {
+		fmt.Println("XXX replay line attribute", attribute.Key, attribute.Type)
 		switch attribute.Type {
 		case xopproto.AttributeType_Enum:
 			m := xopat.Make{

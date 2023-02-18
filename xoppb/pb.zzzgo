@@ -221,6 +221,7 @@ func (l *line) Msg(m string) {
 }
 
 func (l *line) done() {
+	l.protoLine.Attributes = l.attributes
 	l.span.request.lineLock.Lock()
 	defer l.span.request.lineLock.Unlock()
 	l.span.request.lines = append(l.span.request.lines, l.protoLine)
@@ -307,40 +308,41 @@ func boolToInt64(b bool) int64 {
 	return 0
 }
 
-func (b *builder) Int64(k string, v int64, _ xopbase.DataType) {
+func (b *builder) Int64(k string, v int64, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
-		Type: xopproto.AttributeType_Int64, // Convert to xopproto
+		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			IntValue: v,
 		},
 	})
 }
 
-func (b *builder) Uint64(k string, v uint64, _ xopbase.DataType) {
+func (b *builder) Uint64(k string, v uint64, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
-		Type: xopproto.AttributeType_Uint64, // Convert to xopproto
+		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			UintValue: v,
 		},
 	})
 }
 
-func (b *builder) String(k string, v string, typ xopbase.DataType) {
+func (b *builder) String(k string, v string, dataType xopbase.DataType) {
+	fmt.Println("XXX pb record string", k, v, dataType)
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
-		Type: xopproto.AttributeType(typ),
+		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			StringValue: v,
 		},
 	})
 }
 
-func (b *builder) Float64(k string, v float64, typ xopbase.DataType) {
+func (b *builder) Float64(k string, v float64, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
 		Key:  k,
-		Type: xopproto.AttributeType(typ),
+		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			FloatValue: v,
 		},
