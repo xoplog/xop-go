@@ -3,6 +3,7 @@ package xoppb
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -61,17 +62,9 @@ type spanData struct {
 }
 
 func (x replayRequest) Replay(ctx context.Context) error {
-	requestID := xoptrace.NewHexBytes8FromSlice(x.requestInput.RequestID)
-	if len(x.requestInput.Spans) == 0 {
-		return errors.Errorf("expected >0 spans in request (%s-%s)", x.traceID, requestID)
-	}
-	if !bytes.Equal(x.requestInput.RequestID, x.requestInput.Spans[0].SpanID) {
-		return errors.Errorf("expected first span of request (%s-%s) to be the request (got %s)", x.traceID, requestID, x.requestInput.Spans[0].SpanID)
-	}
-	requestSpan := x.requestInput.Spans[0]
-
+	requestID := xoptrace.NewHexBytes8FromSlice(x.requestInput.Span.SpanID)
 	previous, ok := x.spansSeen[requestID]
-	if ok && previous.version > requestSpan.Version {
+	if ok && previous.version > x.requestInput.Span.Version {
 		return nil
 	}
 	if ok {
@@ -81,15 +74,15 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		bundle.Trace.TraceID().Set(x.traceID)
 		bundle.Trace.SpanID().Set(requestID)
 		bundle.Trace.Flags().SetBytes([]byte{1})
-		bundle.Parent.SpanID().SetBytes(requestSpan.ParentID)
+		bundle.Parent.SpanID().SetBytes(x.requestInput.Span.ParentID)
 		bundle.Parent.Flags().SetBytes([]byte{1})
 		if len(x.requestInput.ParentTraceID) != 0 {
 			bundle.Parent.TraceID().SetBytes(x.requestInput.ParentTraceID)
 		} else {
 			bundle.Parent.TraceID().Set(x.traceID)
 		}
-		bundle.State.SetString(requestSpan.TraceState)
-		bundle.Baggage.SetString(requestSpan.Baggage)
+		bundle.State.SetString(x.requestInput.TraceState)
+		bundle.Baggage.SetString(x.requestInput.Baggage)
 
 		sourceInfo := xopbase.SourceInfo{
 			Source:    x.requestInput.SourceID,
@@ -106,23 +99,22 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		}
 
 		x.request = x.logger.Request(ctx,
-			time.Unix(0, requestSpan.StartTime),
+			time.Unix(0, x.requestInput.Span.StartTime),
 			bundle,
-			requestSpan.Name,
+			x.requestInput.Span.Name,
 			sourceInfo)
 	}
 	x.spansSeen[requestID] = spanData{
-		version: requestSpan.Version,
+		version: x.requestInput.Span.Version,
 		span:    x.request,
 	}
-	for i := len(x.requestInput.Spans) - 1; i >= 0; i-- {
-		err := replaySpan{
-			replayRequest: x,
-			spanInput:     x.requestInput.Spans[i],
-		}.Replay(ctx, i > 0)
-		if err != nil {
-			return err
-		}
+	err := replaySpan{
+		parentSpan:    x.request,
+		replayRequest: x,
+		spanInput:     x.requestInput.Span,
+	}.Replay(ctx, false)
+	if err != nil {
+		return err
 	}
 
 	for _, line := range x.requestInput.Lines {
@@ -141,20 +133,22 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		}
 	}
 
-	if requestSpan.EndTime != nil {
-		x.request.Done(time.Unix(0, *requestSpan.EndTime), false)
+	if x.requestInput.Span.EndTime != nil {
+		x.request.Done(time.Unix(0, *x.requestInput.Span.EndTime), false)
 	}
 	return nil
 }
 
 type replaySpan struct {
 	replayRequest
-	spanInput *xopproto.Span
-	span      xopbase.Span
+	parentSpan xopbase.Span
+	spanInput  *xopproto.Span
+	span       xopbase.Span
 }
 
 func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
+	fmt.Printf("XXX %v\n", x.spansSeen == nil)
 	previous, ok := x.spansSeen[spanID]
 	if ok && previous.version > x.spanInput.Version {
 		return nil
@@ -169,7 +163,7 @@ func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 		bundle.Parent.SpanID().SetBytes(x.spanInput.ParentID)
 		bundle.Parent.TraceID().Set(x.traceID)
 		bundle.Parent.Flags().SetBytes([]byte{1})
-		x.span = x.request.Span(ctx,
+		x.span = x.parentSpan.Span(ctx,
 			time.Unix(0, x.spanInput.StartTime),
 			bundle,
 			x.spanInput.Name,
@@ -178,6 +172,16 @@ func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 	x.spansSeen[spanID] = spanData{
 		version: x.spanInput.Version,
 		span:    x.span,
+	}
+
+	for i := len(x.spanInput.Spans) - 1; i >= 0; i-- {
+		err := replaySpan{
+			parentSpan: x.span,
+			spanInput:  x.spanInput.Spans[i],
+		}.Replay(ctx, true)
+		if err != nil {
+			return err
+		}
 	}
 	fmt.Println("XXX ", len(x.spanInput.Attributes), "for ", spanID)
 	for _, attribute := range x.spanInput.Attributes {
