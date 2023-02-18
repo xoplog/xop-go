@@ -136,6 +136,9 @@ func (s *span) getProto() *xopproto.Span {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.protoSpan.Version++
+	if s.endTime != 0 {
+		s.protoSpan.EndTime = &s.endTime
+	}
 	c := s.protoSpan
 	c.Attributes = list.Copy(c.Attributes)
 	return &c
