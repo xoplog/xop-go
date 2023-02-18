@@ -23,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type IngestClient interface {
 	Ping(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
-	UploadFragment(ctx context.Context, in *IngestFragment, opts ...grpc.CallOption) (*Error, error)
+	UploadFragment(ctx context.Context, in *IngestFragment, opts ...grpc.CallOption) (*ErrorResponse, error)
 }
 
 type ingestClient struct {
@@ -43,8 +43,8 @@ func (c *ingestClient) Ping(ctx context.Context, in *Empty, opts ...grpc.CallOpt
 	return out, nil
 }
 
-func (c *ingestClient) UploadFragment(ctx context.Context, in *IngestFragment, opts ...grpc.CallOption) (*Error, error) {
-	out := new(Error)
+func (c *ingestClient) UploadFragment(ctx context.Context, in *IngestFragment, opts ...grpc.CallOption) (*ErrorResponse, error) {
+	out := new(ErrorResponse)
 	err := c.cc.Invoke(ctx, "/xop.Ingest/UploadFragment", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (c *ingestClient) UploadFragment(ctx context.Context, in *IngestFragment, o
 // for forward compatibility
 type IngestServer interface {
 	Ping(context.Context, *Empty) (*Empty, error)
-	UploadFragment(context.Context, *IngestFragment) (*Error, error)
+	UploadFragment(context.Context, *IngestFragment) (*ErrorResponse, error)
 	mustEmbedUnimplementedIngestServer()
 }
 
@@ -68,7 +68,7 @@ type UnimplementedIngestServer struct {
 func (UnimplementedIngestServer) Ping(context.Context, *Empty) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
-func (UnimplementedIngestServer) UploadFragment(context.Context, *IngestFragment) (*Error, error) {
+func (UnimplementedIngestServer) UploadFragment(context.Context, *IngestFragment) (*ErrorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadFragment not implemented")
 }
 func (UnimplementedIngestServer) mustEmbedUnimplementedIngestServer() {}
