@@ -45,28 +45,34 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 				ParentID:  bundle.Parent.GetSpanID().Bytes(),
 				SpanID:    bundle.Trace.GetSpanID().Bytes(),
 			},
+			spans: make([]*xopproto.Span, 0, 10),
 		},
 		sourceInfo:     sourceInfo,
-		spans:          make([]*xopproto.Span, 1, 20), // reserving space for self
 		lines:          make([]*xopproto.Line, 0, 200),
 		attributeIndex: make(map[int32]uint32),
 	}
 	request.request = request
+	request.parent = &request.span
 	return request
 }
 
 func (r *request) Flush() {
-	var rproto xopproto.Request
-	nSpans := make([]*xopproto.Span, 1, 20)
+	rproto := xopproto.Request{
+		Span:                   r.span.getProto(),
+		ParentTraceID:          r.bundle.Parent.GetTraceID().Bytes(),
+		SourceNamespace:        r.sourceInfo.Namespace,
+		SourceNamespaceVersion: r.sourceInfo.NamespaceVersion.String(),
+		SourceID:               r.sourceInfo.Source,
+		SourceVersion:          r.sourceInfo.SourceVersion.String(),
+		Baggage:                r.bundle.Baggage.String(),
+		TraceState:             r.bundle.State.String(),
+	}
 	nLines := make([]*xopproto.Line, 0, 200)
 	func() {
-		r.spanLock.Lock()
-		defer r.spanLock.Unlock()
-		rproto.Spans = r.spans
-		r.spans = nSpans
+		r.requestLock.Lock()
+		defer r.requestLock.Unlock()
 		rproto.AttributeDefinitions = r.attributeDefinitions[:]
 	}()
-	rproto.Spans[0] = r.span.getProto()
 	func() {
 		r.lineLock.Lock()
 		defer r.lineLock.Unlock()
@@ -77,12 +83,6 @@ func (r *request) Flush() {
 		rproto.AlertCount = atomic.LoadInt32(&r.alertCount)
 		rproto.ErrorCount = atomic.LoadInt32(&r.errorCount)
 	}()
-	rproto.RequestID = r.bundle.Trace.GetSpanID().Bytes()
-	rproto.ParentTraceID = r.bundle.Parent.GetTraceID().Bytes()
-	rproto.SourceNamespace = r.sourceInfo.Namespace
-	rproto.SourceNamespaceVersion = r.sourceInfo.NamespaceVersion.String()
-	rproto.SourceID = r.sourceInfo.Source
-	rproto.SourceVersion = r.sourceInfo.SourceVersion.String()
 	r.logger.writer.Request(r.bundle.Trace.GetTraceID(), &rproto)
 	r.logger.writer.Flush()
 }
@@ -94,8 +94,8 @@ func (r *request) GetErrorCount() int32                  { return atomic.LoadInt
 func (r *request) GetAlertCount() int32                  { return atomic.LoadInt32(&r.alertCount) }
 
 func (r *request) defineAttribute(k xopat.AttributeInterface) uint32 {
-	r.spanLock.Lock()
-	defer r.spanLock.Unlock()
+	r.requestLock.Lock()
+	defer r.requestLock.Unlock()
 	n := k.RegistrationNumber()
 	if i, ok := r.attributeIndex[n]; ok {
 		return i
@@ -123,6 +123,7 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 		logger:  s.logger,
 		bundle:  bundle,
 		request: s.request,
+		parent:  s,
 		protoSpan: xopproto.Span{
 			Name:         name,
 			StartTime:    ts.UnixNano(),
@@ -135,14 +136,24 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 }
 
 func (s *span) getProto() *xopproto.Span {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.protoSpan.Version++
-	if s.endTime != 0 {
-		s.protoSpan.EndTime = &s.endTime
-	}
-	c := s.protoSpan
-	c.Attributes = list.Copy(c.Attributes)
+	nSpans := make([]*xopproto.Span, 0, 5)
+	var c xopproto.Span
+	func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.protoSpan.Version++
+		if s.endTime != 0 {
+			s.protoSpan.EndTime = &s.endTime
+		}
+		c = s.protoSpan
+		c.Attributes = list.Copy(c.Attributes)
+	}()
+	func() {
+		s.spanLock.Lock()
+		defer s.spanLock.Unlock()
+		c.Spans = s.spans
+		s.spans = nSpans
+	}()
 	fmt.Println("XXX copied in span.getProto", len(c.Attributes), "of", len(s.protoSpan.Attributes))
 	return &c
 }
@@ -153,9 +164,9 @@ func (s *span) Done(t time.Time, _ bool) {
 		return
 	}
 	p := s.getProto()
-	s.request.spanLock.Lock()
-	defer s.request.spanLock.Unlock()
-	s.request.spans = append(s.request.spans, p)
+	s.parent.spanLock.Lock()
+	defer s.parent.spanLock.Unlock()
+	s.parent.spans = append(s.parent.spans, p)
 }
 
 func (s *span) Boring(bool)                {}

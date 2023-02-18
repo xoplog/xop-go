@@ -56,8 +56,7 @@ type request struct {
 	sourceInfo           xopbase.SourceInfo
 	lines                []*xopproto.Line
 	lineLock             sync.Mutex
-	spans                []*xopproto.Span
-	spanLock             sync.Mutex
+	requestLock          sync.Mutex
 	priorLines           int
 	attributeDefinitions []*xopproto.AttributeDefinition
 	attributeIndex       map[int32]uint32
@@ -72,6 +71,9 @@ type span struct {
 	attributeMap map[string]*xopproto.SpanAttribute // XXX combine with distinction?
 	distinctMaps map[string]*distinction
 	mu           sync.Mutex
+	spanLock     sync.Mutex
+	parent       *span
+	spans        []*xopproto.Span
 }
 
 type distinction struct {

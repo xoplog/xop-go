@@ -179,6 +179,10 @@ type Span interface {
 	//
 	// Done can be called in parallel to calls to Done on other Spans
 	// and other activity including Flush().
+	//
+	// After Done is called on a Span, Done will also be called on the
+	// span's parent span.  Flush() on the request will be called after Done()
+	// is called on the spans that are within the request.
 	Done(endTime time.Time, final bool)
 }
 
