@@ -359,7 +359,7 @@ func (builder *builder) String(k string, v string, _ xopbase.DataType) {
 	builder.attributes = append(builder.attributes, attribute.String(k, v))
 }
 
-func (span *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	key := k.Key()
 	enc, err := json.Marshal(v)
 	var value string

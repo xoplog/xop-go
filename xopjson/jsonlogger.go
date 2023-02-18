@@ -589,7 +589,7 @@ func (b *builder) AddDuration(v time.Duration) {
 	}
 }
 
-func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	s.attributes.MetadataAny(k, v)
 	s.logger.writer.DefineAttribute(&k.Attribute)
 }

@@ -115,7 +115,7 @@ type Span interface {
 
 	// MetadataAny adds a key/value pair to describe the span.  Calls to
 	// MetadataAny are can be concurrent with other calls to set Metadata.
-	MetadataAny(*xopat.AnyAttribute, interface{})
+	MetadataAny(*xopat.AnyAttribute, ModelArg)
 	// MetadataBool adds a key/value pair to describe the span.  Calls to
 	// MetadataBool are can be concurrent with other calls to set Metadata.
 	MetadataBool(*xopat.BoolAttribute, bool)
@@ -178,11 +178,8 @@ type Span interface {
 	// be true.
 	//
 	// Done can be called in parallel to calls to Done on other Spans
-	// and other activity including Flush().
-	//
-	// After Done is called on a Span, Done will also be called on the
-	// span's parent span.  Flush() on the request will be called after Done()
-	// is called on the spans that are within the request.
+	// and other activity including Flush(). There is no particular order
+	// to the calls to Done().
 	Done(endTime time.Time, final bool)
 }
 

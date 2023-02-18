@@ -116,7 +116,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			case xopat.AttributeTypeZZZ:
 				v := event.Value
 				//CONDITIONAL ONLY:Any
-				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v)
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(xopbase.ModelArg))
 				//CONDITIONAL ONLY:Enum
 				enum, ok := v.(xopat.Enum)
 				if !ok {

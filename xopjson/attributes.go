@@ -150,7 +150,7 @@ func (a *AttributeBuilder) addSingle(k string, jsonKey xopat.JSONKey) (*singleAt
 	return s, ok
 }
 
-func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true

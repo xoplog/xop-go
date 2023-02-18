@@ -152,7 +152,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			switch event.Attribute.SubType().SpanAttributeType() {
 			case xopat.AttributeTypeAny:
 				v := event.Value
-				span.MetadataAny(event.Attribute.(*xopat.AnyAttribute), v)
+				span.MetadataAny(event.Attribute.(*xopat.AnyAttribute), v.(xopbase.ModelArg))
 				// next line must be blank to end macro
 			case xopat.AttributeTypeBool:
 				v := event.Value

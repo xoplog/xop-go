@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/mohae/deepcopy"
@@ -62,7 +63,9 @@ func (span *Span) EmbeddedEnum(kv xopat.EmbeddedEnum) *Span {
 // on the base logger being used.
 // The return value does not need to be used.
 func (span *Span) AnyImmutable(k *xopat.AnyAttribute, v interface{}) *Span {
-	span.base.MetadataAny(k, v)
+	span.base.MetadataAny(k, xopbase.ModelArg{
+		Model: v,
+	})
 	return span.eft()
 }
 
@@ -77,7 +80,9 @@ func (span *Span) Any(k *xopat.AnyAttribute, v interface{}) *Span {
 	if span.log.span.referencesKept {
 		v = deepcopy.Copy(v)
 	}
-	span.base.MetadataAny(k, v)
+	span.base.MetadataAny(k, xopbase.ModelArg{
+		Model: v,
+	})
 	return span.eft()
 }
 

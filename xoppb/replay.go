@@ -4,7 +4,6 @@ package xoppb
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -149,7 +148,6 @@ type replaySpan struct {
 
 func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
-	fmt.Printf("XXX %v\n", x.spansSeen == nil)
 	previous, ok := x.spansSeen[spanID]
 	if ok && previous.version > x.spanInput.Version {
 		return nil
@@ -177,14 +175,14 @@ func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 
 	for i := len(x.spanInput.Spans) - 1; i >= 0; i-- {
 		err := replaySpan{
-			parentSpan: x.span,
-			spanInput:  x.spanInput.Spans[i],
+			replayRequest: x.replayRequest,
+			parentSpan:    x.span,
+			spanInput:     x.spanInput.Spans[i],
 		}.Replay(ctx, true)
 		if err != nil {
 			return err
 		}
 	}
-	fmt.Println("XXX ", len(x.spanInput.Attributes), "for ", spanID)
 	for _, attribute := range x.spanInput.Attributes {
 		err := x.replayAttribute(attribute)
 		if err != nil {
@@ -199,7 +197,6 @@ func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 
 func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 	def := x.requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
-	fmt.Println("XXX replay define attribute", def.Key, def.Type)
 	m := xopat.Make{
 		Key:         def.Key,
 		Description: def.Description,
@@ -316,7 +313,6 @@ func (x replayLine) Replay(ctx context.Context) error {
 		nil, // XXX todo
 	)
 	for _, attribute := range x.lineInput.Attributes {
-		fmt.Println("XXX replay line attribute", attribute.Key, attribute.Type)
 		switch attribute.Type {
 		case xopproto.AttributeType_Enum:
 			m := xopat.Make{

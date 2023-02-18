@@ -130,19 +130,13 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 			}
 			switch typ {
 			case xopbase.LinkArrayDataType:
-				wa := want.Metadata[k].([]interface{})
-				ga := want.Metadata[k].([]interface{})
-				if assert.Equal(t, len(wa), len(ga), "equal number of traces in link array") {
-					for i := range wa {
-						w := wa[i].(xoptrace.Trace)
-						g := ga[i].(xoptrace.Trace)
-						assert.Equalf(t, w.String(), g.String(), "link[%d]", i)
-					}
-				}
+				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataLink)
 			case xopbase.LinkDataType:
-				w := want.Metadata[k].(xoptrace.Trace)
-				g := want.Metadata[k].(xoptrace.Trace)
-				assert.Equal(t, w.String(), g.String(), "metadata")
+				verifyMetadataLink(t, k, want.Metadata[k], got.Metadata[k])
+			case xopbase.AnyArrayDataType:
+				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataAny)
+			case xopbase.AnyDataType:
+				verifyMetadataAny(t, k, want.Metadata[k], got.Metadata[k])
 			default:
 				assert.Equalf(t, want.Metadata[k], got.Metadata[k], "metadata %s", typ)
 			}
@@ -152,4 +146,28 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 		_, ok := want.MetadataType[k]
 		assert.Truef(t, ok, "extraneous metadata key '%s'", k)
 	}
+}
+
+func verifyMetadataArray(t *testing.T, k string, want interface{}, got interface{}, validate func(*testing.T, string, interface{}, interface{})) {
+	wa := want.([]interface{})
+	ga := got.([]interface{})
+	if assert.Equalf(t, len(wa), len(ga), "equal number of traces in array %s", k) {
+		for i := range wa {
+			validate(t, k, wa[i], ga[i])
+		}
+	}
+}
+
+func verifyMetadataAny(t *testing.T, k string, want interface{}, got interface{}) {
+	w := want.(xopbase.ModelArg)
+	g := want.(xopbase.ModelArg)
+	assert.Equalf(t, w.Encoding.String(), g.Encoding.String(), "metadata %s encoding", k)
+	assert.Equalf(t, w.TypeName, g.TypeName, "metadata %s type name", k)
+	assert.Equalf(t, string(w.Encoded), string(g.Encoded), "metadata %s encoded", k)
+}
+
+func verifyMetadataLink(t *testing.T, k string, want interface{}, got interface{}) {
+	w := want.(xoptrace.Trace)
+	g := got.(xoptrace.Trace)
+	assert.Equalf(t, w.String(), g.String(), "metadata %s", k)
 }

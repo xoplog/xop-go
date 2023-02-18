@@ -528,12 +528,8 @@ func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		if k.Distinct() {
 			//CONDITIONAL ONLY:Any
 			var key string
-			enc, err := json.Marshal(v)
-			if err != nil {
-				key = fmt.Sprintf("%+v", v)
-			} else {
-				key = string(enc)
-			}
+			v.Encode()
+			key = string(v.Encoded)
 			//CONDITIONAL ONLY:Enum
 			key := v.String()
 			//CONDITIONAL SKIP:Enum,Any

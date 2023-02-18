@@ -45,7 +45,7 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 				ParentID:  bundle.Parent.GetSpanID().Bytes(),
 				SpanID:    bundle.Trace.GetSpanID().Bytes(),
 			},
-			spans: make([]*xopproto.Span, 0, 10),
+			needFlushing: make([]*span, 0, 10),
 		},
 		sourceInfo:     sourceInfo,
 		lines:          make([]*xopproto.Line, 0, 200),
@@ -57,8 +57,10 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 }
 
 func (r *request) Flush() {
+	fmt.Println("XXX begin flush", r.bundle.Trace.GetSpanID())
+	r.flushGeneration++
 	rproto := xopproto.Request{
-		Span:                   r.span.getProto(),
+		Span:                   r.span.getProto(r.flushGeneration),
 		ParentTraceID:          r.bundle.Parent.GetTraceID().Bytes(),
 		SourceNamespace:        r.sourceInfo.Namespace,
 		SourceNamespaceVersion: r.sourceInfo.NamespaceVersion.String(),
@@ -87,6 +89,41 @@ func (r *request) Flush() {
 	r.logger.writer.Flush()
 }
 
+func (s *span) getProto(flushGeneration int) *xopproto.Span {
+	if s.lastFlush == flushGeneration {
+		return nil
+	}
+	s.lastFlush = flushGeneration
+	var c xopproto.Span
+	func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.protoSpan.Version++
+		if s.endTime != 0 {
+			s.protoSpan.EndTime = &s.endTime
+		}
+		c = s.protoSpan
+		c.Attributes = list.Copy(c.Attributes)
+	}()
+	nSpans := make([]*span, 0, 5)
+	var needFlushing []*span
+	func() {
+		s.spanLock.Lock()
+		defer s.spanLock.Unlock()
+		needFlushing = s.needFlushing
+		s.needFlushing = nSpans
+	}()
+	c.Spans = make([]*xopproto.Span, 0, len(needFlushing))
+	for _, span := range needFlushing {
+		p := span.getProto(flushGeneration)
+		if p != nil {
+			c.Spans = append(c.Spans, p)
+		}
+	}
+	fmt.Println("XXX getProto", s.bundle.Trace.GetSpanID(), "has", len(c.Spans), "subspans")
+	return &c
+}
+
 func (r *request) Final() {}
 
 func (r *request) SetErrorReporter(reporter func(error)) { r.errorFunc = reporter }
@@ -102,7 +139,6 @@ func (r *request) defineAttribute(k xopat.AttributeInterface) uint32 {
 	}
 	i := uint32(len(r.attributeDefinitions))
 	r.attributeIndex[n] = i
-	fmt.Println("XXX defining attribute ", i, k.Key(), k.ProtoType())
 	r.attributeDefinitions = append(r.attributeDefinitions, &xopproto.AttributeDefinition{
 		Key:             k.Key(),
 		Description:     k.Description(),
@@ -135,38 +171,23 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 	return n
 }
 
-func (s *span) getProto() *xopproto.Span {
-	nSpans := make([]*xopproto.Span, 0, 5)
-	var c xopproto.Span
-	func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		s.protoSpan.Version++
-		if s.endTime != 0 {
-			s.protoSpan.EndTime = &s.endTime
-		}
-		c = s.protoSpan
-		c.Attributes = list.Copy(c.Attributes)
-	}()
-	func() {
-		s.spanLock.Lock()
-		defer s.spanLock.Unlock()
-		c.Spans = s.spans
-		s.spans = nSpans
-	}()
-	fmt.Println("XXX copied in span.getProto", len(c.Attributes), "of", len(s.protoSpan.Attributes))
-	return &c
-}
-
 func (s *span) Done(t time.Time, _ bool) {
 	xoputil.AtomicMaxInt64(&s.endTime, t.UnixNano())
+	fmt.Println("XXX Done with", s.bundle.Trace.GetSpanID(), "adding to", s.parent.bundle.Trace.GetSpanID())
+	s.done()
+}
+
+func (s *span) done() {
 	if s.protoSpan.IsRequest {
 		return
 	}
-	p := s.getProto()
-	s.parent.spanLock.Lock()
-	defer s.parent.spanLock.Unlock()
-	s.parent.spans = append(s.parent.spans, p)
+	func() {
+		s.parent.spanLock.Lock()
+		defer s.parent.spanLock.Unlock()
+		fmt.Println("XXX done with", s.bundle.Trace.GetSpanID(), "adding to", s.parent.bundle.Trace.GetSpanID())
+		s.parent.needFlushing = append(s.parent.needFlushing, s)
+	}()
+	s.parent.done()
 }
 
 func (s *span) Boring(bool)                {}
@@ -367,7 +388,7 @@ func (b *builder) Duration(k string, v time.Duration) {
 	b.Int64(k, int64(v), xopbase.DurationDataType)
 }
 
-func (s *span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
