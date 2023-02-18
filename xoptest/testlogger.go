@@ -77,24 +77,25 @@ type traceInfo struct {
 }
 
 type Span struct {
-	EndTime      int64
-	lock         sync.Mutex
-	testLogger   *TestLogger
-	RequestNum   int // sequence of requests with the same traceID
-	Bundle       xoptrace.Bundle
-	IsRequest    bool
-	Parent       *Span
-	Spans        []*Span
-	Lines        []*Line
-	Short        string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
-	Metadata     map[string]interface{}
-	MetadataType map[string]xopbase.DataType
-	metadataSeen map[string]interface{}
-	StartTime    time.Time
-	Name         string
-	SequenceCode string
-	Ctx          context.Context
-	SourceInfo   *xopbase.SourceInfo
+	EndTime            int64
+	provisionalEndTime int64
+	lock               sync.Mutex
+	testLogger         *TestLogger
+	RequestNum         int // sequence of requests with the same traceID
+	Bundle             xoptrace.Bundle
+	IsRequest          bool
+	Parent             *Span
+	Spans              []*Span
+	Lines              []*Line
+	Short              string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
+	Metadata           map[string]interface{}
+	MetadataType       map[string]xopbase.DataType
+	metadataSeen       map[string]interface{}
+	StartTime          time.Time
+	Name               string
+	SequenceCode       string
+	Ctx                context.Context
+	SourceInfo         *xopbase.SourceInfo
 }
 
 type Prefilling struct {
@@ -233,7 +234,7 @@ func (span *Span) setShortSpan() {
 
 // Done is a required method for xopbase.Span
 func (span *Span) Done(t time.Time, final bool) {
-	xoputil.AtomicMaxInt64(&span.EndTime, t.UnixNano())
+	xoputil.AtomicMaxInt64(&span.EndTime, xoputil.AtomicMaxInt64(&span.provisionalEndTime, t.UnixNano()))
 	span.testLogger.lock.Lock()
 	defer span.testLogger.lock.Unlock()
 	if span.IsRequest {
@@ -346,7 +347,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 
 // Line is a required method for xopbase.Prefilled
 func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
-	xoputil.AtomicMaxInt64(&p.Span.EndTime, t.UnixNano())
+	xoputil.AtomicMaxInt64(&p.Span.provisionalEndTime, t.UnixNano())
 	line := &Line{
 		Builder: Builder{
 			Enums:    make(map[string]*xopat.EnumAttribute),

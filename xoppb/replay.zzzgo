@@ -3,7 +3,6 @@ package xoppb
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
