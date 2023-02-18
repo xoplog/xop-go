@@ -50,7 +50,7 @@ var macros = map[string]map[string]string{
 		"Int64":   "int64",
 		"String":  "string",
 		"Link":    "xoptrace.Trace",
-		"Any":     "interface{}",
+		"Any":     "xopbase.ModelArg",
 		"Time":    "time.Time",
 		"Enum":    "xopat.Enum",
 	},

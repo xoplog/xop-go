@@ -291,7 +291,7 @@ func (l lines) Uint64(k string, v uint64, dt xopbase.DataType) {
 	}
 }
 
-func (s baseSpans) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (s baseSpans) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	for _, span := range s {
 		span.MetadataAny(k, v)
 	}

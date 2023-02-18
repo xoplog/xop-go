@@ -525,7 +525,7 @@ func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v, 
 func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // MetadataAny is a required method for xopbase.Span
-func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
+func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -542,12 +542,8 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v interface{}) {
 		value := v
 		if k.Distinct() {
 			var key string
-			enc, err := json.Marshal(v)
-			if err != nil {
-				key = fmt.Sprintf("%+v", v)
-			} else {
-				key = string(enc)
-			}
+			v.Encode()
+			key = string(v.Encoded)
 			seenRaw, ok := s.metadataSeen[k.Key()]
 			if !ok {
 				seen := make(map[string]struct{})

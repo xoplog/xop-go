@@ -60,6 +60,7 @@ type request struct {
 	priorLines           int
 	attributeDefinitions []*xopproto.AttributeDefinition
 	attributeIndex       map[int32]uint32
+	flushGeneration      int
 }
 
 type span struct {
@@ -73,7 +74,8 @@ type span struct {
 	mu           sync.Mutex
 	spanLock     sync.Mutex
 	parent       *span
-	spans        []*xopproto.Span
+	needFlushing []*span
+	lastFlush    int // not atomic, no locking because only used inside Flush()
 }
 
 type distinction struct {
