@@ -115,11 +115,11 @@ func (x replayRequest) Replay(ctx context.Context) error {
 		version: requestSpan.Version,
 		span:    x.request,
 	}
-	for i := len(x.requestInput.Spans) - 1; i > 0; i-- { // 0 is processed above
+	for i := len(x.requestInput.Spans) - 1; i >= 0; i-- {
 		err := replaySpan{
 			replayRequest: x,
 			spanInput:     x.requestInput.Spans[i],
-		}.Replay(ctx)
+		}.Replay(ctx, i > 0)
 		if err != nil {
 			return err
 		}
@@ -153,7 +153,7 @@ type replaySpan struct {
 	span      xopbase.Span
 }
 
-func (x replaySpan) Replay(ctx context.Context) error {
+func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 	spanID := xoptrace.NewHexBytes8FromSlice(x.spanInput.SpanID)
 	previous, ok := x.spansSeen[spanID]
 	if ok && previous.version > x.spanInput.Version {
@@ -179,13 +179,14 @@ func (x replaySpan) Replay(ctx context.Context) error {
 		version: x.spanInput.Version,
 		span:    x.span,
 	}
+	fmt.Println("XXX ", len(x.spanInput.Attributes), "for ", spanID)
 	for _, attribute := range x.spanInput.Attributes {
 		err := x.replayAttribute(attribute)
 		if err != nil {
 			return err
 		}
 	}
-	if x.spanInput.EndTime != nil {
+	if x.spanInput.EndTime != nil && doDone {
 		x.span.Done(time.Unix(0, *x.spanInput.EndTime), false)
 	}
 	return nil
@@ -193,6 +194,7 @@ func (x replaySpan) Replay(ctx context.Context) error {
 
 func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 	def := x.requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
+	fmt.Println("XXX replay define attribute", def.Key, def.Type)
 	m := xopat.Make{
 		Key:         def.Key,
 		Description: def.Description,

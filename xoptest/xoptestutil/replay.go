@@ -2,15 +2,18 @@ package xoptestutil
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptrace"
+
+	"github.com/muir/list"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func VerifyReplay(t *testing.T, want *xoptest.TestLogger, got *xoptest.TestLogger) {
@@ -78,10 +81,22 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 }
 
 func verifyReplaySpans(t *testing.T, kind string, want []*xoptest.Span, got []*xoptest.Span) {
-	require.Equalf(t, len(want), len(got), "count of %s", kind)
+	if !assert.Equalf(t, len(want), len(got), "count of %s", kind) {
+		return
+	}
+	want = sortSpans(want)
+	got = sortSpans(got)
 	for i := range want {
 		verifyReplaySpan(t, want[i], got[i])
 	}
+}
+
+func sortSpans(spans []*xoptest.Span) []*xoptest.Span {
+	spans = list.Copy(spans)
+	sort.Slice(spans, func(i, j int) bool {
+		return spans[i].Bundle.Trace.GetSpanID().String() < spans[j].Bundle.Trace.GetSpanID().String()
+	})
+	return spans
 }
 
 func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
@@ -105,7 +120,10 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 	assert.Equal(t, want.SourceInfo, got.SourceInfo, "source info")
 	for k, typ := range want.MetadataType {
 		t.Logf(" validating metadata %s", k)
-		if assert.Equal(t, want.MetadataType[k], got.MetadataType[k], "metadata type") {
+		if _, ok := got.MetadataType[k]; !assert.Truef(t, ok, "missing metadata %s", k) {
+			continue
+		}
+		if assert.Equal(t, want.MetadataType[k].String(), got.MetadataType[k].String(), "metadata type") {
 			if ws, ok := want.Metadata[k].(fmt.Stringer); ok {
 				gs := got.Metadata[k].(fmt.Stringer)
 				assert.Equal(t, ws, gs, "metadata (as string)")

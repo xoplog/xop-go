@@ -31,7 +31,7 @@ func (tw *testWriter) Request(traceID xoptrace.HexBytes16, request *xopproto.Req
 	}
 }
 
-func TestReplay(t *testing.T) {
+func TestReplayPB(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
 		t.Run(mc.Name, func(t *testing.T) {
