@@ -4,9 +4,7 @@ package xoppb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 	"sync/atomic"
 	"time"
 
@@ -199,7 +197,9 @@ func (s *span) IsRequest() bool            { return s.protoSpan.IsRequest }
 
 func (s *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
-		span: s,
+		builder: &builder{
+			span: s,
+		},
 	}
 }
 
@@ -217,9 +217,8 @@ func (s *span) StartPrefill() xopbase.Prefilling {
 
 func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &prefilled{
-		data:       p.attributes,
+		builder:    p.builder,
 		prefillMsg: m,
-		span:       p.span,
 	}
 }
 
@@ -235,29 +234,30 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	l := &line{
 		builder: p.span.builder(),
 		protoLine: &xopproto.Line{
-			LogLevel:   int32(level),
-			Timestamp:  t.UnixNano(),
-			Attributes: list.Copy(p.data),
-			SpanID:     p.span.bundle.Trace.SpanID().Bytes(),
+			LogLevel:  int32(level),
+			Timestamp: t.UnixNano(),
+			SpanID:    p.span.bundle.Trace.SpanID().Bytes(),
 		},
+		prefillMsg: p.prefillMsg,
 	}
+	l.builder.attributes = list.Copy(p.attributes)
 	return l
 }
 
 func (l *line) Template(m string) {
 	l.protoLine.LineKind = xopproto.LineKind_KindLine
-	l.protoLine.MessageTemplate = m
+	l.protoLine.MessageTemplate = l.prefillMsg + m
 	l.done()
 }
 
 func (l *line) Msg(m string) {
 	l.protoLine.LineKind = xopproto.LineKind_KindLine
-	l.protoLine.Message = m
+	l.protoLine.Message = l.prefillMsg + m
 	l.done()
 }
 
 func (l *line) done() {
-	l.protoLine.Attributes = l.attributes
+	l.protoLine.Attributes = l.builder.attributes
 	l.span.request.lineLock.Lock()
 	defer l.span.request.lineLock.Unlock()
 	l.span.request.lines = append(l.span.request.lines, l.protoLine)
@@ -412,25 +412,11 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 			s.distinctMaps[k.Key()] = distinct
 		}
 	}
-	typeName := reflect.TypeOf(v).Name()
-	enc, err := json.Marshal(v)
-	if err != nil {
-		if !existingAttribute {
-			attribute.Values = append(attribute.Values, &xopproto.AttributeValue{
-				StringValue: typeName,
-				BytesValue:  []byte(err.Error()),
-				IntValue:    -1,
-			})
-		}
-		return
-	}
-	var dkAny string
-	if k.Distinct() {
-		dkAny = string(enc)
-	}
+	v.Encode()
 	setValue := func(value *xopproto.AttributeValue) {
-		value.StringValue = typeName
-		value.BytesValue = enc
+		value.StringValue = v.TypeName
+		value.BytesValue = v.Encoded
+		value.IntValue = int64(v.Encoding)
 	}
 	if k.Multiple() {
 		if k.Distinct() {
@@ -440,7 +426,7 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 				if distinct.seenString == nil {
 					distinct.seenString = make(map[string]struct{})
 				}
-				dk := dkAny
+				dk := string(v.Encoded)
 				if _, ok := distinct.seenString[dk]; ok {
 					return
 				}
