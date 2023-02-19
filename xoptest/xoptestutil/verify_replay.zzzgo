@@ -1,5 +1,3 @@
-// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
-
 package xoptestutil
 
 import (
@@ -162,18 +160,11 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 				assert.Equalf(t, ws.String(), gs.String(), "metadata (as string) %s", k)
 			}
 			switch typ {
-			case xopbase.AnyArrayDataType:
-				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataAny)
-			case xopbase.AnyDataType:
-				verifyMetadataAny(t, k, want.Metadata[k], got.Metadata[k])
-			case xopbase.EnumArrayDataType:
-				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataEnum)
-			case xopbase.EnumDataType:
-				verifyMetadataEnum(t, k, want.Metadata[k], got.Metadata[k])
-			case xopbase.LinkArrayDataType:
-				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataLink)
-			case xopbase.LinkDataType:
-				verifyMetadataLink(t, k, want.Metadata[k], got.Metadata[k])
+			// MACRO BaseAttribute ONLY:Link,Any,Enum
+			case xopbase.ZZZArrayDataType:
+				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataZZZ)
+			case xopbase.ZZZDataType:
+				verifyMetadataZZZ(t, k, want.Metadata[k], got.Metadata[k])
 
 			default:
 				assert.Equalf(t, want.Metadata[k], got.Metadata[k], "metadata %s", typ)

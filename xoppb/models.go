@@ -91,14 +91,14 @@ type prefilling struct {
 }
 
 type prefilled struct {
-	data       []*xopproto.Attribute
+	*builder
 	prefillMsg string
-	span       *span
 }
 
 type line struct {
 	*builder
-	protoLine *xopproto.Line
+	prefillMsg string
+	protoLine  *xopproto.Line
 }
 
 type builder struct {

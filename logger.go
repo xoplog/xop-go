@@ -569,6 +569,10 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 // The names used for "{name}" substitutions are restricted: they may
 // not include any characters that would be escapsed in a JSON string.
 // No double quote.  No linefeed.  No backslash.  Etc.
+//
+// Prefilled text (PrefillText()) will be prepended to the template.  If
+// the prefilled text has {name} patterns in it, they'll be treated as if
+// they're part of the template.
 func (line *Line) Template(template string) {
 	line.line.Template(template)
 	line.log.span.linePool.Put(line)

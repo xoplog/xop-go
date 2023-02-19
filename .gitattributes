@@ -20,3 +20,4 @@ xoptest/testlogger.go linguist-generated
 xoptrace/hexbytes.go linguist-generated
 xoputil/skip.go linguist-generated
 xoptest/xoptestutil/enums.go linguist-generated
+xoptest/xoptestutil/verify_replay.go linguist-generated
