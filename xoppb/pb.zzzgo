@@ -53,7 +53,6 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 }
 
 func (r *request) Flush() {
-	fmt.Println("XXX begin flush", r.bundle.Trace.GetSpanID())
 	r.flushGeneration++
 	rproto := xopproto.Request{
 		Span:                   r.span.getProto(r.flushGeneration),
@@ -116,7 +115,6 @@ func (s *span) getProto(flushGeneration int) *xopproto.Span {
 			c.Spans = append(c.Spans, p)
 		}
 	}
-	fmt.Println("XXX getProto", s.bundle.Trace.GetSpanID(), "has", len(c.Spans), "subspans")
 	return &c
 }
 
@@ -169,7 +167,6 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 
 func (s *span) Done(t time.Time, _ bool) {
 	xoputil.AtomicMaxInt64(&s.endTime, t.UnixNano())
-	fmt.Println("XXX Done with", s.bundle.Trace.GetSpanID(), "adding to", s.parent.bundle.Trace.GetSpanID())
 	s.done()
 }
 
@@ -180,7 +177,6 @@ func (s *span) done() {
 	func() {
 		s.parent.spanLock.Lock()
 		defer s.parent.spanLock.Unlock()
-		fmt.Println("XXX done with", s.bundle.Trace.GetSpanID(), "adding to", s.parent.bundle.Trace.GetSpanID())
 		s.parent.needFlushing = append(s.parent.needFlushing, s)
 	}()
 	s.parent.done()
@@ -401,7 +397,6 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}

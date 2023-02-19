@@ -275,6 +275,7 @@ func (log *Log) hasActivity(startFlusher bool) {
 			if wasDone := atomic.LoadInt32(&log.span.doneCount); wasDone != 0 {
 				log.Error().Msg("XOP: log was already done, but was used again")
 			}
+			log.done(false, time.Now())
 		}
 	}
 }
