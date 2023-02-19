@@ -4,7 +4,6 @@ package xoppb
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -55,7 +54,6 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 }
 
 func (r *request) Flush() {
-	fmt.Println("XXX begin flush", r.bundle.Trace.GetSpanID())
 	r.flushGeneration++
 	rproto := xopproto.Request{
 		Span:                   r.span.getProto(r.flushGeneration),
@@ -118,7 +116,6 @@ func (s *span) getProto(flushGeneration int) *xopproto.Span {
 			c.Spans = append(c.Spans, p)
 		}
 	}
-	fmt.Println("XXX getProto", s.bundle.Trace.GetSpanID(), "has", len(c.Spans), "subspans")
 	return &c
 }
 
@@ -171,7 +168,6 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 
 func (s *span) Done(t time.Time, _ bool) {
 	xoputil.AtomicMaxInt64(&s.endTime, t.UnixNano())
-	fmt.Println("XXX Done with", s.bundle.Trace.GetSpanID(), "adding to", s.parent.bundle.Trace.GetSpanID())
 	s.done()
 }
 
@@ -182,7 +178,6 @@ func (s *span) done() {
 	func() {
 		s.parent.spanLock.Lock()
 		defer s.parent.spanLock.Unlock()
-		fmt.Println("XXX done with", s.bundle.Trace.GetSpanID(), "adding to", s.parent.bundle.Trace.GetSpanID())
 		s.parent.needFlushing = append(s.parent.needFlushing, s)
 	}()
 	s.parent.done()
@@ -402,7 +397,6 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -462,7 +456,6 @@ func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -526,7 +519,6 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -576,7 +568,6 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -632,7 +623,6 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -689,7 +679,6 @@ func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -746,7 +735,6 @@ func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}
@@ -803,7 +791,6 @@ func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			AttributeDefinitionSequenceNumber: s.request.defineAttribute(k),
 			Values:                            make([]*xopproto.AttributeValue, c, 1),
 		}
-		fmt.Println("XXX adding", k.Key(), "to protoSpan.Attributes")
 		s.protoSpan.Attributes = append(s.protoSpan.Attributes, attribute)
 		if k.Distinct() {
 			distinct = &distinction{}

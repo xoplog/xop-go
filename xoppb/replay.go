@@ -324,15 +324,15 @@ func (x replayLine) Replay(ctx context.Context) error {
 			}
 			enum := ea.Add64(attribute.Value.IntValue, attribute.Value.StringValue)
 			line.Enum(&ea.EnumAttribute, enum)
-		case xopproto.AttributeType_Float64:
+		case xopproto.AttributeType_Float64, xopproto.AttributeType_Float32:
 			line.Float64(attribute.Key, attribute.Value.FloatValue, xopbase.DataType(attribute.Type))
 		case xopproto.AttributeType_Int64, xopproto.AttributeType_Int32, xopproto.AttributeType_Int16,
 			xopproto.AttributeType_Int8, xopproto.AttributeType_Int:
 			line.Int64(attribute.Key, attribute.Value.IntValue, xopbase.DataType(attribute.Type))
-		case xopproto.AttributeType_String:
+		case xopproto.AttributeType_String, xopproto.AttributeType_Error, xopproto.AttributeType_Stringer:
 			line.String(attribute.Key, attribute.Value.StringValue, xopbase.DataType(attribute.Type))
 		case xopproto.AttributeType_Uint64, xopproto.AttributeType_Uint32, xopproto.AttributeType_Uint16,
-			xopproto.AttributeType_Uint8, xopproto.AttributeType_Uintptr:
+			xopproto.AttributeType_Uint8, xopproto.AttributeType_Uintptr, xopproto.AttributeType_Uint:
 			line.Uint64(attribute.Key, attribute.Value.UintValue, xopbase.DataType(attribute.Type))
 		case xopproto.AttributeType_Any:
 			line.Any(attribute.Key, xopbase.ModelArg{
