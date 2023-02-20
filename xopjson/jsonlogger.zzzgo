@@ -50,7 +50,7 @@ func (logger *Logger) ID() string           { return logger.id.String() }
 func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
 
-func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, _ xopbase.SourceInfo) xopbase.Request {
+func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, s xopbase.SourceInfo) xopbase.Request {
 	// XXX SourceInfo
 	request := &request{
 		span: span{
@@ -61,6 +61,7 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 			endTime:   ts.UnixNano(),
 			isRequest: true,
 		},
+		sourceInfo: s,
 	}
 	if logger.tagOption&TraceNumberTagOption != 0 {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
@@ -105,6 +106,18 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeKey("span.name")
 	rq.AddString(s.name)
 	rq.Time("ts", s.startTime)
+	rq.AddSafeKey("source")
+	rq.AppendByte('"')
+	rq.AddStringBody(s.request.sourceInfo.Source)
+	rq.AppendByte(' ')
+	rq.AddStringBody(s.request.sourceInfo.SourceVersion.String())
+	rq.AppendByte('"')
+	rq.AddSafeKey("ns")
+	rq.AppendByte('"')
+	rq.AddStringBody(s.request.sourceInfo.Namespace)
+	rq.AppendByte(' ')
+	rq.AddStringBody(s.request.sourceInfo.NamespaceVersion.String())
+	rq.AppendByte('"')
 }
 
 func (r *request) Flush() {
