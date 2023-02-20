@@ -1,19 +1,17 @@
 package xopjson_test
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopjson"
-	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
-	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/stretchr/testify/assert"
@@ -25,16 +23,22 @@ const (
 	debugTspan = true
 )
 
+type checkConfig struct {
+	minVersions         int
+	maxVersions         int
+	hasAttributesObject bool
+}
+
 type supersetObject struct {
 	// lines, spans, and requests
 
 	Timestamp  xoptestutil.TS         `json:"ts"`
 	Attributes map[string]interface{} `json:"attributes"`
+	SpanID     string                 `json:"span.id"`
 
 	// lines
 
 	Level  int      `json:"lvl"`
-	SpanID string   `json:"span.id"`
 	Stack  []string `json:"stack"`
 	Msg    string   `json:"msg"`
 	Format string   `json:"fmt"`
@@ -51,17 +55,11 @@ type supersetObject struct {
 	Implmentation string `json:"impl"`
 	TraceID       string `json:"trace.id"`
 	ParentID      string `json:"parent.id"`
-	RequestID     string `json:"request.id"`
 	State         string `json:"trace.state"`
 	Baggage       string `json:"trace.baggage"`
 }
 
-type checkConfig struct {
-	minVersions         int
-	maxVersions         int
-	hasAttributesObject bool
-}
-
+/* XXX
 type checker struct {
 	tlog             *xoptest.TestLogger
 	config           checkConfig
@@ -73,6 +71,7 @@ type checker struct {
 	accumulatedSpans map[string]map[string]interface{}
 	sequencing       map[string]int
 }
+*/
 
 func TestASingleLine(t *testing.T) {
 	var buffer xoputil.Buffer
@@ -164,7 +163,7 @@ func TestParameters(t *testing.T) {
 					jlog := xopjson.New(
 						xopbytes.WriteToIOWriter(&buffer),
 						joptions...)
-					tlog := xoptest.New(t)
+					tLog := xoptest.New(t)
 					settings := func(settings *xop.LogSettings) {
 						settings.SynchronousFlush(true)
 					}
@@ -174,7 +173,7 @@ func TestParameters(t *testing.T) {
 					seed := xop.NewSeed(
 						xop.WithBase(jlog),
 						xop.WithSettings(settings),
-					).Copy(xop.WithBase(tlog))
+					).Copy(xop.WithBase(tLog))
 
 					if len(mc.SeedMods) != 0 {
 						t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
@@ -183,23 +182,45 @@ func TestParameters(t *testing.T) {
 
 					log := seed.Request(t.Name())
 
-					mc.Do(t, log, tlog)
+					mc.Do(t, log, tLog)
 
 					expectedFlushes := 1 + tc.extraFlushes + mc.ExtraFlushes
 					if tc.waitForFlush {
 						assert.Eventually(t, func() bool {
-							return xoptestutil.EventCount(tlog, xoptest.FlushEvent) >= expectedFlushes
+							return xoptestutil.EventCount(tLog, xoptest.FlushEvent) >= expectedFlushes
 						}, time.Second, time.Millisecond*3)
 					}
 					t.Log("\n", buffer.String())
-					xoptestutil.DumpEvents(t, tlog)
-					assert.Equal(t, expectedFlushes, xoptestutil.EventCount(tlog, xoptest.FlushEvent), "count of flush")
-					newChecker(t, tlog, tc.checkConfig).check(t, buffer.String())
+					xoptestutil.DumpEvents(t, tLog)
+					assert.Equal(t, expectedFlushes, xoptestutil.EventCount(tLog, xoptest.FlushEvent), "count of flush")
+
+					t.Log("verify generated JSON decodes as JSON")
+					for _, inputText := range strings.Split(buffer.String(), "\n") {
+						if inputText == "" {
+							continue
+						}
+						var generic map[string]interface{}
+						err := json.Unmarshal([]byte(inputText), &generic)
+						require.NoErrorf(t, err, "unmarshal to generic '%s': %s", inputText, err)
+					}
+
+					t.Log("Replay")
+					rLog := xoptest.New(t)
+					err := xopjson.ReplayFromStrings(context.Background(), buffer.String(), rLog)
+					require.NoError(t, err, "replay")
+
+					t.Log("verify replay equals original")
+					xoptestutil.VerifyReplay(t, tLog, rLog)
 				})
 			}
 		})
 	}
 }
+
+/*
+					// XXX newChecker(t, tLog, tc.checkConfig).check(t, buffer.String())
+
+XXX
 
 func newChecker(t *testing.T, tlog *xoptest.TestLogger, config checkConfig) *checker {
 	if config.maxVersions < config.minVersions {
@@ -455,3 +476,4 @@ func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xo
 	}
 	assert.Equalf(t, aRedone, bRedone, "%s vs %s", aDesc, bDesc)
 }
+*/
