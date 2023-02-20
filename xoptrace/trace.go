@@ -69,16 +69,23 @@ func NewTrace() Trace {
 var traceRE = regexp.MustCompile(`^([a-fA-F0-9]{2})-([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-([a-fA-F0-9]{2})$`)
 
 func TraceFromString(s string) (Trace, bool) {
+	var trace Trace
+	ok := trace.SetString(s)
+	return trace, ok
+}
+
+func (t *Trace) SetString(s string) bool {
 	m := traceRE.FindStringSubmatch(s)
 	if m == nil {
-		return NewTrace(), false
+		t.flags.b[0] = 1
+		t.initialize()
+		return false
 	}
-	var trace Trace
-	trace.Version().SetString(m[1])
-	trace.TraceID().SetString(m[2])
-	trace.SpanID().SetString(m[3])
-	trace.Flags().SetString(m[4])
-	return trace, true
+	t.Version().SetString(m[1])
+	t.TraceID().SetString(m[2])
+	t.SpanID().SetString(m[3])
+	t.Flags().SetString(m[4])
+	return true
 }
 
 func (t *Trace) Version() WrappedHexBytes1 {

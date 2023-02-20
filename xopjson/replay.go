@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/pkg/errors"
 )
@@ -68,6 +70,8 @@ type decodeRequestExclusive struct {
 	ParentID      string `json:"parent.id"`
 	State         string `json:"trace.state"`
 	Baggage       string `json:"trace.baggage"`
+	Namespace     string `json:"ns"`
+	Source        string `json:"source"`
 }
 
 type replayTrace struct {
@@ -88,11 +92,15 @@ func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logg
 	return errors.Errorf("format not supported")
 }
 
-func ReplayFromStrings(ctx context.Context, data string, output xopbase.Logger) error {
+func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) error {
 	var lines []decodedLine
 	var requests []*decodedRequest
 	var spans []*decodedSpan
 	spanMap := make(map[string]*decodedSpan)
+	x := replayTrace{
+		logger:    logger,
+		spansSeen: make(map[string]spanData),
+	}
 	for _, inputText := range strings.Split(data, "\n") {
 		if inputText == "" {
 			continue
@@ -145,10 +153,41 @@ func ReplayFromStrings(ctx context.Context, data string, output xopbase.Logger) 
 	}
 
 	for i := len(requests) - 1; i >= 0; i-- {
-		request := requests[i]
-		if previous, ok := processed[request.SpanID]; ok && previous.ver > request.SpanVersion {
-
+		// example: {"type":"request","span.ver":0,"trace.id":"29ee2638726b8ef34fa2f51fa2c7f82e","span.id":"9a6bc944044578c6","span.name":"TestParameters/unbuffered/no-attributes/one-span","ts":"2023-02-20T14:01:28.343114-06:00","source":"xopjson.test 0.0.0","ns":"xopjson.test 0.0.0"}
+		requestInput := requests[i]
+		if previous, ok := x.spansSeen[requestInput.SpanID]; ok && previous.version > requestInput.SpanVersion {
 		} else {
+			var bundle xoptrace.Bundle
+			bundle.Trace.TraceID().SetString(requestInput.TraceID)
+			bundle.Trace.SpanID().SetString(requestInput.SpanID)
+			bundle.Trace.Flags().SetBytes([]byte{1})
+			if requestInput.ParentID != "" {
+				if !bundle.Parent.SetString(requestInput.ParentID) {
+					return errors.Errorf("invalid parent id (%s) in request (%s)", requestInput.ParentID, bundle.Trace)
+				}
+			}
+			if requestInput.Baggage != "" {
+				bundle.Baggage.SetString(requestInput.Baggage)
+			}
+			if requestInput.State != "" {
+				bundle.State.SetString(requestInput.State)
+			}
+			var err error
+			var sourceInfo xopbase.SourceInfo
+			sourceInfo.Source, sourceInfo.SourceVersion, err = version.SplitVersionWithError(requestInput.Source)
+			if err != nil {
+				return errors.Errorf("invalid source (%s) in request (%s)", requestInput.Source, bundle.Trace)
+			}
+			sourceInfo.Namespace, sourceInfo.NamespaceVersion, err = version.SplitVersionWithError(requestInput.Namespace)
+			if err != nil {
+				return errors.Errorf("invalid namespace (%s) in request (%s)", requestInput.Namespace, bundle.Trace)
+			}
+
+			x.request = x.logger.Request(ctx,
+				requestInput.Timestamp.Time,
+				bundle,
+				requestInput.Name,
+				sourceInfo)
 		}
 	}
 	return nil

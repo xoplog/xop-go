@@ -64,11 +64,12 @@ type Logger struct {
 }
 
 type request struct {
+	idNum      int64
 	errorCount int32
 	span
 	errorFunc  func(error)
-	idNum      int64
 	alertCount int32
+	sourceInfo xopbase.SourceInfo
 }
 
 type span struct {
