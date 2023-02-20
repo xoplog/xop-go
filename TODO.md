@@ -37,6 +37,8 @@
 
 # Just do it (build ready)
 
+- pass a pre-made encoder to model.Encode()
+
 - switch over to using the new atomic types rather than pointers to int32/int64...
 
 - Remove example values from attribute registrations

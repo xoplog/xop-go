@@ -144,7 +144,7 @@ func (a *AttributeBuilder) addSingle(k string, jsonKey xopat.JSONKey) (*singleAt
 	return s, ok
 }
 
-//MACRO BaseAttribute
+// MACRO BaseAttribute
 func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	a.lock.Lock()
 	defer a.lock.Unlock()

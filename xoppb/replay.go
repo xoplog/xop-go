@@ -49,16 +49,16 @@ func (_ *Logger) LosslessReplay(ctx context.Context, input any, logger xopbase.L
 	return nil
 }
 
+type spanData struct {
+	version int32
+	span    xopbase.Span
+}
+
 type replayRequest struct {
 	*replayTrace
 	requestInput *xopproto.Request
 	request      xopbase.Request
 	registry     *xopat.Registry
-}
-
-type spanData struct {
-	version int32
-	span    xopbase.Span
 }
 
 func (x replayRequest) Replay(ctx context.Context) error {

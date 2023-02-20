@@ -50,8 +50,8 @@ func TestReplayPB(t *testing.T) {
 			t.Log("generate logs")
 			mc.Do(t, log, tLog)
 
-			rLog := xoptest.New(t)
 			t.Log("replay from generated logs")
+			rLog := xoptest.New(t)
 			for _, trace := range tWriter.captured {
 				err := pbLog.LosslessReplay(context.Background(), trace, rLog)
 				require.NoError(t, err, "replay")
