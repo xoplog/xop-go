@@ -40,9 +40,13 @@ type decodeLineExclusive struct {
 	Format string   `json:"fmt"`
 }
 
-type decodedSpan struct {
+type decodedSpanShared struct {
 	*decodeCommon
 	*decodeSpanShared
+}
+
+type decodedSpan struct {
+	decodedSpanShared
 	*decodeSpanExclusive
 }
 
@@ -55,12 +59,11 @@ type decodeSpanShared struct {
 	Name        string `json:"name"`
 	Duration    int64  `json:"dur"`
 	SpanVersion int    `json:"span.ver"`
-	subspans    []string
+	subSpans    []string
 }
 
 type decodedRequest struct {
-	*decodeCommon
-	*decodeSpanShared
+	decodedSpanShared
 	*decodeRequestExclusive
 }
 
@@ -74,9 +77,12 @@ type decodeRequestExclusive struct {
 	Source        string `json:"source"`
 }
 
-type replayTrace struct {
+type baseReplay struct {
 	logger    xopbase.Logger
 	spansSeen map[string]spanData
+	request   xopbase.Request
+	spanMap   map[string]*decodedSpan
+	traceID   xoptrace.HexBytes16
 }
 
 type spanData struct {
@@ -96,10 +102,10 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 	var lines []decodedLine
 	var requests []*decodedRequest
 	var spans []*decodedSpan
-	spanMap := make(map[string]*decodedSpan)
-	x := replayTrace{
+	x := baseReplay{
 		logger:    logger,
 		spansSeen: make(map[string]spanData),
+		spanMap:   make(map[string]*decodedSpan),
 	}
 	for _, inputText := range strings.Split(data, "\n") {
 		if inputText == "" {
@@ -120,23 +126,29 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			})
 		case "request":
 			requests = append(requests, &decodedRequest{
-				decodeCommon:           &super.decodeCommon,
-				decodeSpanShared:       &super.decodeSpanShared,
+				decodedSpanShared: decodedSpanShared{
+					decodeCommon:     &super.decodeCommon,
+					decodeSpanShared: &super.decodeSpanShared,
+				},
 				decodeRequestExclusive: &super.decodeRequestExclusive,
 			})
 			dc := &decodedSpan{
-				decodeCommon:     &super.decodeCommon,
-				decodeSpanShared: &super.decodeSpanShared,
+				decodedSpanShared: decodedSpanShared{
+					decodeCommon:     &super.decodeCommon,
+					decodeSpanShared: &super.decodeSpanShared,
+				},
 				// decodeSpanExclusive: &super.decodeSpanExclusive,
 			}
-			spanMap[super.SpanID] = dc
+			x.spanMap[super.SpanID] = dc // this may overwrite previous versions
 		case "span":
 			dc := &decodedSpan{
-				decodeCommon:        &super.decodeCommon,
-				decodeSpanShared:    &super.decodeSpanShared,
+				decodedSpanShared: decodedSpanShared{
+					decodeCommon:     &super.decodeCommon,
+					decodeSpanShared: &super.decodeSpanShared,
+				},
 				decodeSpanExclusive: &super.decodeSpanExclusive,
 			}
-			spanMap[super.SpanID] = dc
+			x.spanMap[super.SpanID] = dc // this may overwrite previous versions
 			spans = append(spans, dc)
 		}
 	}
@@ -145,20 +157,22 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		if span.ParentSpanID == "" {
 			return errors.Errorf("span (%s) is missing a span.parent_span", span.SpanID)
 		}
-		parent, ok := spanMap[span.ParentSpanID]
+		parent, ok := x.spanMap[span.ParentSpanID]
 		if !ok {
 			return errors.Errorf("parent span (%s) of span (%s) does not exist", span.ParentSpanID, span.SpanID)
 		}
-		parent.subspans = append(parent.subspans, span.SpanID)
+		parent.subSpans = append(parent.subSpans, span.SpanID)
 	}
 
 	for i := len(requests) - 1; i >= 0; i-- {
 		// example: {"type":"request","span.ver":0,"trace.id":"29ee2638726b8ef34fa2f51fa2c7f82e","span.id":"9a6bc944044578c6","span.name":"TestParameters/unbuffered/no-attributes/one-span","ts":"2023-02-20T14:01:28.343114-06:00","source":"xopjson.test 0.0.0","ns":"xopjson.test 0.0.0"}
 		requestInput := requests[i]
 		if previous, ok := x.spansSeen[requestInput.SpanID]; ok && previous.version > requestInput.SpanVersion {
+			x.request = previous.span.(xopbase.Request)
 		} else {
 			var bundle xoptrace.Bundle
-			bundle.Trace.TraceID().SetString(requestInput.TraceID)
+			x.traceID.SetString(requestInput.TraceID)
+			bundle.Trace.TraceID().Set(x.traceID)
 			bundle.Trace.SpanID().SetString(requestInput.SpanID)
 			bundle.Trace.Flags().SetBytes([]byte{1})
 			if requestInput.ParentID != "" {
@@ -188,6 +202,46 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 				bundle,
 				requestInput.Name,
 				sourceInfo)
+			x.spansSeen[requestInput.SpanID] = spanData{
+				version: requestInput.SpanVersion,
+				span:    x.request,
+			}
+		}
+		err := replaySpan(ctx, spanReplayData{
+			baseReplay:  x,
+			span:        x.request,
+			spanInput:   requestInput.decodedSpanShared,
+			parentTrace: bundle.Trace,
+		}).Replay(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type spanReplayData struct {
+	baseReplay
+	span        xopbase.Span
+	spanInput   requestInput.decodedSpanShared
+	parentTrace xoptrace.Trace
+}
+
+func (x spanReplayData) Replay(ctx context.Context) error {
+	for _, subSpanID := range spanInput.subSpans {
+		spanInput, ok := x.spanMap[subSpanID]
+		if !ok {
+			return errors.Errorf("internal error")
+		}
+		var bundle xoptrace.Bundle
+		bundle.Trace.TraceID().Set(x.traceID)
+		bundle.Trace.Flags().SetBytes([]byte{1})
+		bundle.Trace.SpanID().Set(subSpanID)
+		bundle.Parent = x.parentTrace
+		err := spanReplayData{
+			baseReplay: x.baseReplay,
+			span:       span,
+			spanInput:  spanInput.decodedSpanShared,
 		}
 	}
 	return nil
