@@ -192,8 +192,8 @@ func (s *span) identifySpan(b *xoputil.JBuilder) {
 		b.AddInt64(s.request.idNum)
 	}
 	if s.logger.tagOption&SpanSequenceTagOption != 0 {
-		b.AddSafeKey("span.ctx")
-		b.AddSafeString(s.request.sequenceCode)
+		b.AddSafeKey("span.seq")
+		b.AddSafeString(s.sequenceCode)
 	}
 }
 

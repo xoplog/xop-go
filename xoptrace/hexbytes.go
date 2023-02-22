@@ -82,6 +82,27 @@ func NewHexBytes8FromSlice(b []byte) HexBytes8 {
 	return x
 }
 
+func NewHexBytes1FromString(s string) HexBytes1 {
+	var x HexBytes1
+	setBytesFromString(x.b[:], s)
+	hex.Encode(x.h[:], x.b[:])
+	return x
+}
+
+func NewHexBytes16FromString(s string) HexBytes16 {
+	var x HexBytes16
+	setBytesFromString(x.b[:], s)
+	hex.Encode(x.h[:], x.b[:])
+	return x
+}
+
+func NewHexBytes8FromString(s string) HexBytes8 {
+	var x HexBytes8
+	setBytesFromString(x.b[:], s)
+	hex.Encode(x.h[:], x.b[:])
+	return x
+}
+
 var (
 	zeroHexBytes1b  = [1]byte{}
 	zeroHexBytes16b = [16]byte{}
