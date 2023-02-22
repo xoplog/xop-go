@@ -38,6 +38,14 @@ func NewZZZFromSlice(b []byte) ZZZ {
 }
 
 // MACRO HexBytes
+func NewZZZFromString(s string) ZZZ {
+	var x ZZZ
+	setBytesFromString(x.b[:], s)
+	hex.Encode(x.h[:], x.b[:])
+	return x
+}
+
+// MACRO HexBytes
 var zeroZZZb = [zzz]byte{}
 
 // MACRO HexBytes

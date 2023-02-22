@@ -120,7 +120,8 @@ func TestParameters(t *testing.T) {
 			name: "unbuffered/no-attributes",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(true),
-				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+				// XXX xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+				xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
 				xopjson.WithAttributesObject(false),
 			},
 			checkConfig: checkConfig{
@@ -132,7 +133,8 @@ func TestParameters(t *testing.T) {
 			name: "unsynced",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(false),
-				xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+				xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
+				// XXX xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 			},
 			settings: func(settings *xop.LogSettings) {
 				settings.SynchronousFlush(false)
@@ -156,6 +158,7 @@ func TestParameters(t *testing.T) {
 					joptions := []xopjson.Option{
 						xopjson.WithDuration("dur", xopjson.AsNanos),
 						xopjson.WithSpanStarts(true),
+						xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
 						xopjson.WithAttributesObject(true),
 					}
 					joptions = append(joptions, tc.joptions...)
