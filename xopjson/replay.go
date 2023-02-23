@@ -6,12 +6,32 @@ import (
 	"strings"
 
 	"github.com/xoplog/xop-go/internal/util/version"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/pkg/errors"
 )
+
+var knownKeys = []string{
+	"ts",
+	"attributes",
+	"span.id",
+	"trace.id",
+	"span.seq",
+	"lvl",
+	"stack",
+	"msg",
+	"fmt",
+	"impl",
+	"parent.id",
+	"trace.state",
+	"trace.baggage",
+	"ns",
+	"source",
+}
 
 type decodeAll struct {
 	decodeCommon
@@ -28,6 +48,7 @@ type decodeCommon struct {
 	SpanID       string                 `json:"span.id"`
 	TraceID      string                 `json:"trace.id"` // optional for spans and lines, required for traces
 	SequenceCode string                 `json:"span.seq"` // optional
+	unparsed     string                 `json:"-"`
 }
 
 type decodedLine struct {
@@ -78,12 +99,10 @@ type decodeRequestExclusive struct {
 	Source        string `json:"source"`
 }
 
-type baseReplay struct {
-	logger    xopbase.Logger
-	spansSeen map[string]struct{}
-	request   xopbase.Request
-	spanMap   map[string]*decodedSpan
-	traceID   xoptrace.HexBytes16
+type decodeAttributeDefinition struct {
+	xopat.Make
+	AttributeType xopproto.AttributeType `json:"vtype"`
+	SpanID        string                 `json:"span.id"`
 }
 
 func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logger) error {
@@ -92,6 +111,15 @@ func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logg
 		return ReplayFromStrings(ctx, data, output)
 	}
 	return errors.Errorf("format not supported")
+}
+
+type baseReplay struct {
+	logger    xopbase.Logger
+	spansSeen map[string]struct{}
+	request   xopbase.Request
+	spanMap   map[string]*decodedSpan
+	traceID   xoptrace.HexBytes16
+	aDefs     map[string]decodeAttributeDefinition
 }
 
 func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) error {
@@ -113,6 +141,8 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		if err != nil {
 			return errors.Wrapf(err, "decode to super: %s", inputText)
 		}
+
+		super.unparsed = inputText
 
 		switch super.Type {
 		case "", "line":
@@ -146,6 +176,18 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			}
 			x.spanMap[super.SpanID] = dc // this may overwrite previous versions
 			spans = append(spans, dc)
+		case "defineKey":
+			var aDef decodeAttributeDefinition
+			err := json.Unmarshal([]byte(inputText), &aDef)
+			if err != nil {
+				return errors.Wrap(err, "decode attribute defintion")
+			}
+			if aDef.SpanID != "" {
+				// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+			}
+		default:
+			return errors.Errorf("unknown line type (%s)", super.Type)
 		}
 	}
 	// Attach child spans to parent spans so that they can be processed in order
@@ -220,8 +262,18 @@ type spanReplayData struct {
 }
 
 func (x spanReplayData) Replay(ctx context.Context) error {
-	for _, attribute := range x.spanInput.Attributes {
+	attributes := x.spanInput.Attributes
+	if attributes == nil {
+		err := json.Unmarshal([]byte(x.spanInput.unparsed), &attributes)
+		if err != nil {
+			return errors.Errorf("cannot unmarshal to generic for span %s", x.spanInput.SpanID)
+		}
+		for _, k := range knownKeys {
+			delete(attributes, k)
+		}
 	}
+	//for k, v := range attributes {
+	//}
 	for _, subSpanID := range x.spanInput.subSpans {
 		spanInput, ok := x.spanMap[subSpanID]
 		if !ok {

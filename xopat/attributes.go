@@ -76,15 +76,15 @@ var DefaultNamespaceOverride string
 // The Namespace can embed a semver version: eg: "oltp-1.3.7".  If no version is
 // provided, 0.0.0 is assumed.
 type Make struct {
-	Key         string // the attribute name
-	Description string // the attribute description
-	Namespace   string // Versioned namespace for this attribute (otherwise DefaultNamespace is used) name-0.0.0 if no version provided
-	Indexed     bool   // hint: this attribute should be indexed
-	Prominence  int    // hint: how important is this attribute (lower is more important)
-	Multiple    bool   // keep all values if the attribute is given multiple times
-	Distinct    bool   // when keeping all values, only keep distinct values (not supported for interface{})
-	Ranged      bool   // hint: comparisons between values are meaningful (eg: time, integers)
-	Locked      bool   // only keep the first value
+	Key         string `json:"key"`      // the attribute name
+	Description string `json:"desc"`     // the attribute description
+	Namespace   string `json:"ns"`       // Versioned namespace for this attribute (otherwise DefaultNamespace is used) name-0.0.0 if no version provided
+	Indexed     bool   `json:"indexed"`  // hint: this attribute should be indexed
+	Prominence  int    `json:"prom"`     // hint: how important is this attribute (lower is more important)
+	Multiple    bool   `json:"mult"`     // keep all values if the attribute is given multiple times
+	Distinct    bool   `json:"distinct"` // when keeping all values, only keep distinct values (not supported for interface{})
+	Ranged      bool   `json:"ranged"`   // hint: comparisons between values are meaningful (eg: time, integers)
+	Locked      bool   `json:"locked"`   // only keep the first value
 }
 
 // Can't use MACRO for these since default values are needed

@@ -29,9 +29,10 @@ const (
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
-		writer:        w,
-		id:            uuid.New(),
-		timeFormatter: defaultTimeFormatter,
+		writer:          w,
+		id:              uuid.New(),
+		timeFormatter:   defaultTimeFormatter,
+		attributeOption: AttributesDefinedAlways,
 	}
 	prealloc := xoputil.NewPrealloc(log.preallocatedKeys[:])
 	for _, f := range opts {
@@ -64,6 +65,13 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 			isRequest: true,
 		},
 		sourceInfo: s,
+		errorFunc:  func(_ error) {},
+	}
+	switch logger.attributeOption {
+	case AttributesDefinedOnce:
+		request.attributesDefined = &logger.attributesTrackingLogger
+	case AttributesDefinedEachRequest:
+		request.attributesDefined = &request.attributesTrackingRequest
 	}
 	if logger.tagOption&TraceNumberTagOption != 0 {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
@@ -445,12 +453,6 @@ func (b *builder) Link(k string, v xoptrace.Trace) {
 }
 */
 
-func (b *builder) AddLink(v xoptrace.Trace) {
-	b.AppendBytes([]byte(`{"xop.link":"`))
-	b.AppendString(v.String())
-	b.AppendBytes([]byte(`"}`))
-}
-
 func (b *builder) ReclaimMemory() {
 	if len(b.B) > maxBufferToKeep {
 		return
@@ -458,7 +460,6 @@ func (b *builder) ReclaimMemory() {
 	b.span.request.logger.builderPool.Put(b)
 }
 
-func (b *builder) AsBytes() []byte            { return b.B }
 func (l *line) GetSpanID() xoptrace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
 func (l *line) GetLevel() xopnum.Level        { return l.level }
 func (l *line) GetTime() time.Time            { return l.timestamp }
@@ -603,44 +604,164 @@ func (b *builder) AddDuration(v time.Duration) {
 }
 
 func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataAny(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataBool(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataEnum(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 	s.logger.writer.DefineEnum(k, v)
 }
 
 func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataFloat64(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataInt64(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataLink(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataString(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+	var err error
+	switch s.logger.attributeOption {
+	case AttributesDefinedAlways:
+		err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+	case AttributesDefinedOnce:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, nil)
+		}
+	case AttributesDefinedEachRequest:
+		if _, ok := s.request.attributesDefined.LoadOrStore(k.Key(), struct{}{}); !ok {
+			err = s.logger.writer.DefineAttribute(&k.Attribute, &s.request.bundle.Trace)
+		}
+	}
+	if err != nil {
+		s.request.errorFunc(err)
+	}
 	s.attributes.MetadataTime(k, v)
-	s.logger.writer.DefineAttribute(&k.Attribute)
 }
 
 // end

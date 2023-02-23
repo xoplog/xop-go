@@ -12,9 +12,9 @@ import (
 type BytesWriter interface {
 	Request(request Request) BytesRequest
 	Buffered() bool
-	Close()                                      // no point in returning an error
-	DefineAttribute(*xopat.Attribute)            // duplicate calls should be ignored
-	DefineEnum(*xopat.EnumAttribute, xopat.Enum) // duplicate calls should be ignored
+	Close()                                                  // no point in returning an error
+	DefineAttribute(*xopat.Attribute, *xoptrace.Trace) error // duplicate calls may be ignored, trace is optional
+	DefineEnum(*xopat.EnumAttribute, xopat.Enum)             // duplicate calls may be ignored
 }
 
 type BytesRequest interface {

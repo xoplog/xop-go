@@ -37,6 +37,8 @@
 
 # Just do it (build ready)
 
+- add marshal functions to HexBytes and Trace: JSON & sql
+
 - pass a pre-made encoder to model.Encode()
 
 - switch over to using the new atomic types rather than pointers to int32/int64...
