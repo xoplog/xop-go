@@ -45,31 +45,35 @@ type Option func(*Logger, *xoputil.Prealloc)
 type TimeFormatter func(b []byte, t time.Time) []byte
 
 type Logger struct {
-	requestCount     int64 // only incremented with tagOption == TraceSequenceNumberTagOption
-	writer           xopbytes.BytesWriter
-	fastKeys         bool
-	durationFormat   DurationOption
-	spanStarts       bool
-	spanChangesOnly  bool
-	id               uuid.UUID
-	tagOption        TagOption
-	attributesObject bool
-	builderPool      sync.Pool // filled with *builder
-	linePool         sync.Pool // filled with *line
-	preallocatedKeys [100]byte
-	durationKey      []byte
-	stackLineRewrite func(string) string
-	timeFormatter    TimeFormatter
-	activeRequests   sync.WaitGroup
+	requestCount             int64 // only incremented with tagOption == TraceSequenceNumberTagOption
+	writer                   xopbytes.BytesWriter
+	fastKeys                 bool
+	durationFormat           DurationOption
+	spanStarts               bool
+	spanChangesOnly          bool
+	id                       uuid.UUID
+	tagOption                TagOption
+	attributesObject         bool
+	builderPool              sync.Pool // filled with *builder
+	linePool                 sync.Pool // filled with *line
+	preallocatedKeys         [100]byte
+	durationKey              []byte
+	stackLineRewrite         func(string) string
+	timeFormatter            TimeFormatter
+	activeRequests           sync.WaitGroup
+	attributeOption          AttributeOption
+	attributesTrackingLogger sync.Map
 }
 
 type request struct {
 	idNum      int64
 	errorCount int32
 	span
-	errorFunc  func(error)
-	alertCount int32
-	sourceInfo xopbase.SourceInfo
+	errorFunc                 func(error)
+	alertCount                int32
+	sourceInfo                xopbase.SourceInfo
+	attributesTrackingRequest sync.Map
+	attributesDefined         *sync.Map
 }
 
 type span struct {
@@ -193,6 +197,29 @@ func WithSpanChangesOnly(b bool) Option {
 func WithUncheckedKeys(b bool) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.fastKeys = b
+	}
+}
+
+type AttributeOption int
+
+const (
+	AttributesDefinedAlways AttributeOption = iota
+	AttributesDefinedOnce
+	AttributesDefinedEachRequest
+)
+
+// WithAttributeDefinitions specifies how attribute definitions
+// should be handled.  With AttributesDefinedAlways, every time
+// an attribute is used, IOWriter.DefineAttribute will be called.
+// With AttributesDefinedOnce, IOWriter.DefineAttribute will only
+// be called once per attribute.  With AttributesDefinedEachRequest,
+// IOWriter.DefineAttribute will be called once per attribute used
+// per Request.
+//
+// The default is AttributesDefinedAlways
+func WithAttributeDefinitions(ao AttributeOption) Option {
+	return func(l *Logger, _ *xoputil.Prealloc) {
+		l.attributeOption = ao
 	}
 }
 

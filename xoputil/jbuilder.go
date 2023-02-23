@@ -3,6 +3,8 @@ package xoputil
 import (
 	"io"
 	"strconv"
+
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 type JBuilder struct {
@@ -74,8 +76,14 @@ func (b *JBuilder) AddFloat64(f float64) {
 	b.B = strconv.AppendFloat(b.B, f, 'f', -1, 64)
 }
 
+// AddInt64 may change in the future to obey flags to encode
+// large ints as strings
 func (b *JBuilder) AddInt64(i int64) {
 	b.B = strconv.AppendInt(b.B, i, 10)
+}
+
+func (b *JBuilder) AddInt32(i int32) {
+	b.B = strconv.AppendInt(b.B, int64(i), 10)
 }
 
 func (b *JBuilder) AddBool(v bool) {
@@ -109,3 +117,12 @@ func BuildKey(v string) []byte {
 	b.B = append(b.B, ':')
 	return b.B
 }
+
+// AddLink adds a key value pair.  The key is "xop.link"
+func (b *JBuilder) AddLink(v xoptrace.Trace) {
+	b.AppendBytes([]byte(`{"xop.link":"`))
+	b.AppendString(v.String())
+	b.AppendBytes([]byte(`"}`))
+}
+
+func (b *JBuilder) AsBytes() []byte { return b.B }

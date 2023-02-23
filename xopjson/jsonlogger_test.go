@@ -160,6 +160,7 @@ func TestParameters(t *testing.T) {
 						xopjson.WithSpanStarts(true),
 						xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
 						xopjson.WithAttributesObject(true),
+						xopjson.WithAttributeDefinitions(xopjson.AttributesDefinedEachRequest),
 					}
 					joptions = append(joptions, tc.joptions...)
 
