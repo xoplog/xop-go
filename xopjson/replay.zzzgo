@@ -1,5 +1,3 @@
-// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
-
 package xopjson
 
 import (
@@ -301,139 +299,21 @@ func (x spanReplayData) Replay(ctx context.Context) error {
 		}
 
 		switch aDef.AttributeType {
-		case xopproto.AttributeType_Any:
-			registeredAttribute, err := x.attributeRegistry.ConstructAnyAttribute(aDef.Make)
+		// MACRO SimpleAttributeReconstructionPB
+		case xopproto.AttributeType_ZZZ:
+			registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make)
 			if err != nil {
 				return err
 			}
 			if aDef.Multiple {
 				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataAny(k, v)
+					err := x.replayMetadataZZZ(k, v)
 					if err != nil {
 						return err
 					}
 				}
 			}
-			err = x.replayMetadataAny(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_Bool:
-			registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataBool(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataBool(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_Enum:
-			registeredAttribute, err := x.attributeRegistry.ConstructEnumAttribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataEnum(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataEnum(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_Float64:
-			registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataFloat64(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataFloat64(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_Int64:
-			registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataInt64(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataInt64(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_Link:
-			registeredAttribute, err := x.attributeRegistry.ConstructLinkAttribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataLink(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataLink(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_String:
-			registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataString(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataString(k, v)
-			if err != nil {
-				return err
-			}
-		case xopproto.AttributeType_Time:
-			registeredAttribute, err := x.attributeRegistry.ConstructTimeAttribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataTime(k, v)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			err = x.replayMetadataTime(k, v)
+			err = x.replayMetadataZZZ(k, v)
 			if err != nil {
 				return err
 			}

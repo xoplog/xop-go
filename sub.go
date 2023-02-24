@@ -27,7 +27,7 @@ type Detaching struct {
 // RedactAnyFunc is used to redact models as they're being logged.
 // It is RedactAnyFunc's responsibility to call
 //
-// 	baseLine.Any(k, xopbase.ModelArg{
+//	baseLine.Any(k, xopbase.ModelArg{
 //		Model: v,
 //	})
 //

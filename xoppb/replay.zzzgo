@@ -209,7 +209,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		Locked: def.Locked,
 	}
 	switch xopat.AttributeType(def.Type).SpanAttributeType() {
-	// MACRO SimpleAttributeReconstruction
+	// MACRO SimpleAttributeReconstructionPB
 	case xopat.AttributeTypeZZZ:
 		registeredAttribute, err := x.registry.ConstructZZZAttribute(m)
 		if err != nil {
