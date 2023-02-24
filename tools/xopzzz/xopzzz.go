@@ -73,7 +73,17 @@ var macros = map[string]map[string]string{
 		"Int64":    "int64",
 		"Duration": "time.Duration",
 	},
-	"SimpleAttributeReconstruction": {
+	"SimpleAttributeReconstructionPB": {
+		"Bool":    "",
+		"Float64": "v.FloatValue",
+		"String":  "v.StringValue",
+		"Link":    "",
+		"Any":     "",
+		"Time":    "time.Unix(0,v.IntValue)",
+		"Enum":    "",
+		"Int64":   "v.IntValue",
+	},
+	"SimpleAttributeReconstructionJSON": {
 		"Bool":    "",
 		"Float64": "v.FloatValue",
 		"String":  "v.StringValue",

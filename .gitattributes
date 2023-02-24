@@ -12,6 +12,7 @@ xopat/attributes.go linguist-generated
 xopbase/base.go linguist-generated
 xopjson/attributes.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
+xopjson/replay.go linguist-generated
 xopotel/otel.go linguist-generated
 xoppb/pb.go linguist-generated
 xoppb/replay.go linguist-generated
