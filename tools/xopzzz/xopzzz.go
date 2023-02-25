@@ -84,7 +84,7 @@ var macros = map[string]map[string]string{
 		"Int64":   "v.IntValue",
 	},
 	"SimpleAttributeReconstructionJSON": {
-		"Bool":    "",
+		"Bool":    "bool",
 		"Float64": "v.FloatValue",
 		"String":  "v.StringValue",
 		"Link":    "",
