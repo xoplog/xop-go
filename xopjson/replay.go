@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
@@ -45,12 +46,12 @@ type decodeAll struct {
 
 type decodeCommon struct {
 	// lines, spans, and requests
-	Timestamp    xoptestutil.TS         `json:"ts"`
-	Attributes   map[string]interface{} `json:"attributes"`
-	SpanID       string                 `json:"span.id"`
-	TraceID      string                 `json:"trace.id"` // optional for spans and lines, required for traces
-	SequenceCode string                 `json:"span.seq"` // optional
-	unparsed     string                 `json:"-"`
+	Timestamp    xoptestutil.TS             `json:"ts"`
+	Attributes   map[string]json.RawMessage `json:"attributes"`
+	SpanID       string                     `json:"span.id"`
+	TraceID      string                     `json:"trace.id"` // optional for spans and lines, required for traces
+	SequenceCode string                     `json:"span.seq"` // optional
+	unparsed     string                     `json:"-"`
 }
 
 type decodedLine struct {
@@ -306,136 +307,184 @@ func (x spanReplayData) Replay(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataAny(k, v)
-					if err != nil {
-						return err
-					}
+				var va []xopbase.ModelArg
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []xopbase.ModelArg")
 				}
-			}
-			err = x.replayMetadataAny(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataAny(ra, e)
+				}
+			} else {
+				var e xopbase.ModelArg
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata xopbase.ModelArg")
+				}
+				x.span.MetadataAny(ra, e)
 			}
 		case xopproto.AttributeType_Bool:
 			registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataBool(k, v)
-					if err != nil {
-						return err
-					}
+				var va []bool
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []bool")
 				}
-			}
-			err = x.replayMetadataBool(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataBool(ra, e)
+				}
+			} else {
+				var e bool
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata bool")
+				}
+				x.span.MetadataBool(ra, e)
 			}
 		case xopproto.AttributeType_Enum:
 			registeredAttribute, err := x.attributeRegistry.ConstructEnumAttribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := &registeredAttribute.EnumAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataEnum(k, v)
-					if err != nil {
-						return err
-					}
+				var va []xopat.Enum
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []xopat.Enum")
 				}
-			}
-			err = x.replayMetadataEnum(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataEnum(ra, e)
+				}
+			} else {
+				var e xopat.Enum
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata xopat.Enum")
+				}
+				x.span.MetadataEnum(ra, e)
 			}
 		case xopproto.AttributeType_Float64:
 			registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataFloat64(k, v)
-					if err != nil {
-						return err
-					}
+				var va []float64
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []float64")
 				}
-			}
-			err = x.replayMetadataFloat64(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataFloat64(ra, e)
+				}
+			} else {
+				var e float64
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata float64")
+				}
+				x.span.MetadataFloat64(ra, e)
 			}
 		case xopproto.AttributeType_Int64:
 			registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataInt64(k, v)
-					if err != nil {
-						return err
-					}
+				var va []int64
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []int64")
 				}
-			}
-			err = x.replayMetadataInt64(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataInt64(ra, e)
+				}
+			} else {
+				var e int64
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata int64")
+				}
+				x.span.MetadataInt64(ra, e)
 			}
 		case xopproto.AttributeType_Link:
 			registeredAttribute, err := x.attributeRegistry.ConstructLinkAttribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataLink(k, v)
-					if err != nil {
-						return err
-					}
+				var va []xoptrace.Trace
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []xoptrace.Trace")
 				}
-			}
-			err = x.replayMetadataLink(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataLink(ra, e)
+				}
+			} else {
+				var e xoptrace.Trace
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata xoptrace.Trace")
+				}
+				x.span.MetadataLink(ra, e)
 			}
 		case xopproto.AttributeType_String:
 			registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataString(k, v)
-					if err != nil {
-						return err
-					}
+				var va []string
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []string")
 				}
-			}
-			err = x.replayMetadataString(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataString(ra, e)
+				}
+			} else {
+				var e string
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata string")
+				}
+				x.span.MetadataString(ra, e)
 			}
 		case xopproto.AttributeType_Time:
 			registeredAttribute, err := x.attributeRegistry.ConstructTimeAttribute(aDef.Make)
 			if err != nil {
 				return err
 			}
+			ra := registeredAttribute
 			if aDef.Multiple {
-				for _, i := range v.([]interface{}) {
-					err := x.replayMetadataTime(k, v)
-					if err != nil {
-						return err
-					}
+				var va []time.Time
+				err := json.Unmarshal(v, &va)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata []time.Time")
 				}
-			}
-			err = x.replayMetadataTime(k, v)
-			if err != nil {
-				return err
+				for _, e := range va {
+					x.span.MetadataTime(ra, e)
+				}
+			} else {
+				var e time.Time
+				err := json.Unmarshal(v, &e)
+				if err != nil {
+					return errors.Wrap(err, "could not unmarshal metadata time.Time")
+				}
+				x.span.MetadataTime(ra, e)
 			}
 
 		default:
