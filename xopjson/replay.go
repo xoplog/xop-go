@@ -11,6 +11,7 @@ import (
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -60,10 +61,10 @@ type decodedLine struct {
 }
 
 type decodeLineExclusive struct {
-	Level  int      `json:"lvl"`
-	Stack  []string `json:"stack"`
-	Msg    string   `json:"msg"`
-	Format string   `json:"fmt"`
+	Level  xopnum.Level `json:"lvl"`
+	Stack  []string     `json:"stack"`
+	Msg    string       `json:"msg"`
+	Format string       `json:"fmt"`
 }
 
 type decodedSpanShared struct {
@@ -118,7 +119,8 @@ func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logg
 
 type baseReplay struct {
 	logger                        xopbase.Logger
-	spansSeen                     map[string]struct{}
+	spans                         map[string]xopbase.Span
+	lines                         []decodedLine
 	request                       xopbase.Request
 	requestID                     string
 	spanMap                       map[string]*decodedSpan
@@ -130,12 +132,11 @@ type baseReplay struct {
 }
 
 func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) error {
-	var lines []decodedLine
 	var requests []*decodedRequest
 	var spans []*decodedSpan
 	x := baseReplay{
 		logger:                        logger,
-		spansSeen:                     make(map[string]struct{}),
+		spans:                         make(map[string]xopbase.Span),
 		spanMap:                       make(map[string]*decodedSpan),
 		attributeRegistry:             xopat.NewRegistry(false),
 		attributeDefinitions:          make(map[string]*decodeAttributeDefinition),
@@ -156,7 +157,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 
 		switch super.Type {
 		case "", "line":
-			lines = append(lines, decodedLine{
+			x.lines = append(x.lines, decodedLine{
 				decodeCommon:        &super.decodeCommon,
 				decodeLineExclusive: &super.decodeLineExclusive,
 			})
@@ -219,7 +220,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 	for i := len(requests) - 1; i >= 0; i-- {
 		// example: {"type":"request","span.ver":0,"trace.id":"29ee2638726b8ef34fa2f51fa2c7f82e","span.id":"9a6bc944044578c6","span.name":"TestParameters/unbuffered/no-attributes/one-span","ts":"2023-02-20T14:01:28.343114-06:00","source":"xopjson.test 0.0.0","ns":"xopjson.test 0.0.0"}
 		requestInput := requests[i]
-		if _, ok := x.spansSeen[requestInput.SpanID]; ok {
+		if _, ok := x.spans[requestInput.SpanID]; ok {
 			continue
 		}
 		var bundle xoptrace.Bundle
@@ -258,7 +259,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			bundle,
 			requestInput.Name,
 			sourceInfo)
-		x.spansSeen[requestInput.SpanID] = struct{}{}
+		x.spans[requestInput.SpanID] = x.request
 		err = spanReplayData{
 			baseReplay:  x,
 			span:        x.request,
@@ -269,7 +270,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			return err
 		}
 	}
-	return nil
+	return x.ReplayLines()
 }
 
 type spanReplayData struct {
@@ -509,6 +510,7 @@ func (x spanReplayData) Replay(ctx context.Context) error {
 			x.spanInput.Name,
 			x.spanInput.SequenceCode,
 		)
+		x.spans[subSpanID] = span
 		err := spanReplayData{
 			baseReplay:  x.baseReplay,
 			span:        span,
@@ -520,4 +522,54 @@ func (x spanReplayData) Replay(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+type lineAttribute struct {
+	Type     string      `json:"t"`
+	Encoding string      `json:"encoding,omitempty"`
+	TypeName string      `json:"modelType,omitempty"`
+	Value    interface{} `json:"v"`
+}
+
+func (x baseReplay) ReplayLines() error {
+	for _, lineInput := range x.lines {
+		span, ok := x.spans[lineInput.SpanID]
+		if !ok {
+			return errors.Errorf("unknown span for line %s", lineInput.unparsed)
+		}
+		line := span.NoPrefill().Line(
+			x.lineInput.Level,
+			x.lineInput.Timestamp.Time,
+			nil, // XXX TODO
+		)
+		for k, enc := range x.lineInput.Attributes {
+			var la lineAttribute
+			err := json.Unmarshal(enc, &la)
+			if err != nil {
+				errors.Wrap(err, "could not decode line") // XXX
+			}
+			switch la.Type {
+			case "model":
+				var ma xopbase.ModelArg
+				switch la.Encoding {
+				case "", "JSON":
+					ma.Model = la.Value
+					ma.Encoding = xopproto.Encoding_JSON
+				default:
+					ma.Encoded = []byte(la.Value)
+					var ok bool
+					ma.Encoding, ok = xoproto.Encoding_value[la.Encoding]
+					if !ok {
+						return errors.Errorf("invalid encoding (%s) when decoding attribute", la.Encoding)
+					}
+				}
+				ma.TypeName = la.TypeName
+				line.Any(k, ma)
+			case "bool":
+				line.Any(k, la.Value.(bool))
+			case "Int", "Int8", "Int32", "Int64":
+			default:
+			}
+		}
+	}
 }
