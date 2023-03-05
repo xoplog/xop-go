@@ -8,6 +8,7 @@ import (
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -116,6 +117,7 @@ func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logg
 type baseReplay struct {
 	logger                        xopbase.Logger
 	spans                         map[string]xopbase.Span
+	lines                         []decodedLine
 	request                       xopbase.Request
 	requestID                     string
 	spanMap                       map[string]*decodedSpan
@@ -127,7 +129,6 @@ type baseReplay struct {
 }
 
 func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) error {
-	var lines []decodedLine
 	var requests []*decodedRequest
 	var spans []*decodedSpan
 	x := baseReplay{
@@ -153,7 +154,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 
 		switch super.Type {
 		case "", "line":
-			lines = append(lines, decodedLine{
+			x.lines = append(x.lines, decodedLine{
 				decodeCommon:        &super.decodeCommon,
 				decodeLineExclusive: &super.decodeLineExclusive,
 			})
@@ -364,8 +365,15 @@ func (x spanReplayData) Replay(ctx context.Context) error {
 	return nil
 }
 
+type lineAttribute struct {
+	Type     string      `json:"t"`
+	Encoding string      `json:"encoding,omitempty"`
+	TypeName string      `json:"modelType,omitempty"`
+	Value    interface{} `json:"v"`
+}
+
 func (x baseReplay) ReplayLines() error {
-	for _, lineInput := range lines {
+	for _, lineInput := range x.lines {
 		span, ok := x.spans[lineInput.SpanID]
 		if !ok {
 			return errors.Errorf("unknown span for line %s", lineInput.unparsed)
@@ -375,7 +383,34 @@ func (x baseReplay) ReplayLines() error {
 			x.lineInput.Timestamp.Time,
 			nil, // XXX TODO
 		)
-		for _, v := range x.lineInput.Attributes {
+		for k, enc := range x.lineInput.Attributes {
+			var la lineAttribute
+			err := json.Unmarshal(enc, &la)
+			if err != nil {
+				errors.Wrap(err, "could not decode line") // XXX
+			}
+			switch la.Type {
+			case "model":
+				var ma xopbase.ModelArg
+				switch la.Encoding {
+				case "", "JSON":
+					ma.Model = la.Value
+					ma.Encoding = xopproto.Encoding_JSON
+				default:
+					ma.Encoded = []byte(la.Value)
+					var ok bool
+					ma.Encoding, ok = xoproto.Encoding_value[la.Encoding]
+					if !ok {
+						return errors.Errorf("invalid encoding (%s) when decoding attribute", la.Encoding)
+					}
+				}
+				ma.TypeName = la.TypeName
+				line.Any(k, ma)
+			case "bool":
+				line.Any(k, la.Value.(bool))
+			case "Int", "Int8", "Int32", "Int64":
+			default:
+			}
 		}
 	}
 }
