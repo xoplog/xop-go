@@ -5,6 +5,7 @@ package xopjson
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +36,10 @@ var knownKeys = []string{
 	"trace.baggage",
 	"ns",
 	"source",
+	"dur",
+	"type",
+	"span.name",
+	"span.ver",
 }
 
 type decodeAll struct {
@@ -191,7 +196,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			var aDef decodeAttributeDefinition
 			err := json.Unmarshal([]byte(inputText), &aDef)
 			if err != nil {
-				return errors.Wrap(err, "decode attribute defintion")
+				return errors.Wrapf(err, "decode attribute defintion (%s)", inputText)
 			}
 			if aDef.SpanID != "" {
 				if x.perRequestAttributeDefintions[aDef.SpanID] == nil {
@@ -280,7 +285,12 @@ type spanReplayData struct {
 	parentTrace xoptrace.Trace
 }
 
-func (x spanReplayData) Replay(ctx context.Context) error {
+func (x spanReplayData) Replay(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "span '%s'", x.spanInput.unparsed)
+		}
+	}()
 	attributes := x.spanInput.Attributes
 	if attributes == nil {
 		err := json.Unmarshal([]byte(x.spanInput.unparsed), &attributes)
@@ -526,50 +536,182 @@ func (x spanReplayData) Replay(ctx context.Context) error {
 
 type lineAttribute struct {
 	Type     string      `json:"t"`
-	Encoding string      `json:"encoding,omitempty"`
-	TypeName string      `json:"modelType,omitempty"`
 	Value    interface{} `json:"v"`
+	Encoding string      `json:"encoding,omitempty"`  // for models
+	TypeName string      `json:"modelType,omitempty"` // for models
+	IntValue int64       `json:"i,omitempty"`         // for enums
 }
 
 func (x baseReplay) ReplayLines() error {
 	for _, lineInput := range x.lines {
-		span, ok := x.spans[lineInput.SpanID]
-		if !ok {
-			return errors.Errorf("unknown span for line %s", lineInput.unparsed)
-		}
-		line := span.NoPrefill().Line(
-			x.lineInput.Level,
-			x.lineInput.Timestamp.Time,
-			nil, // XXX TODO
-		)
-		for k, enc := range x.lineInput.Attributes {
-			var la lineAttribute
-			err := json.Unmarshal(enc, &la)
-			if err != nil {
-				errors.Wrap(err, "could not decode line") // XXX
-			}
-			switch la.Type {
-			case "model":
-				var ma xopbase.ModelArg
-				switch la.Encoding {
-				case "", "JSON":
-					ma.Model = la.Value
-					ma.Encoding = xopproto.Encoding_JSON
-				default:
-					ma.Encoded = []byte(la.Value)
-					var ok bool
-					ma.Encoding, ok = xoproto.Encoding_value[la.Encoding]
-					if !ok {
-						return errors.Errorf("invalid encoding (%s) when decoding attribute", la.Encoding)
-					}
-				}
-				ma.TypeName = la.TypeName
-				line.Any(k, ma)
-			case "bool":
-				line.Any(k, la.Value.(bool))
-			case "Int", "Int8", "Int32", "Int64":
-			default:
-			}
+		err := x.ReplayLine(lineInput)
+		if err != nil {
+			return err
 		}
 	}
 }
+
+func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "line '%s'", lineInput.unparsed)
+		}
+	}()
+	span, ok := x.spans[lineInput.SpanID]
+	if !ok {
+		return errors.Errorf("unknown span for line %s", lineInput.unparsed)
+	}
+	line := span.NoPrefill().Line(
+		lineInput.Level,
+		lineInput.Timestamp.Time,
+		nil, // XXX TODO
+	)
+	for k, enc := range lineInput.Attributes {
+		var la lineAttribute
+		err := json.Unmarshal(enc, &la)
+		if err != nil {
+			errors.Wrap(err, "could not decode line") // XXX
+		}
+		dataType, ok := stringToDataType[la.Type]
+		if !ok {
+			return errors.Errorf("unknown data type (%s) in line attribute", la.Type)
+		}
+		switch dataType {
+		case xopbase.EnumDataType:
+			s, ok := la.Value.(string)
+			if !ok {
+				return errors.Errorf("invalid enum string (%T) when decoding attribute", la.Value)
+			}
+			m := xopat.Make{
+				Key: k,
+			}
+			ea, err := x.attributeRegistry.ConstructEnumAttribute(m)
+			if err != nil {
+				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", k)
+			}
+			enum := ea.Add64(la.IntValue, s)
+			line.Enum(&ea.EnumAttribute, enum)
+		case xopbase.AnyDataType:
+			var ma xopbase.ModelArg
+			switch la.Encoding {
+			case "", "JSON":
+				ma.Model = la.Value
+				ma.Encoding = xopproto.Encoding_JSON
+			default:
+				vs, ok := la.Value.(string)
+				if !ok {
+					return errors.Errorf("invalid model arg (%T) when decoding attribute", la.Value)
+				}
+				ma.Encoded = []byte(vs)
+				if en, ok := xopproto.Encoding_value[la.Encoding]; ok {
+					ma.Encoding = xopproto.Encoding(en)
+				} else {
+					return errors.Errorf("invalid encoding (%s) when decoding attribute", la.Encoding)
+				}
+			}
+			ma.TypeName = la.TypeName
+			line.Any(k, ma)
+		case xopbase.StringDataType, xopbase.StringerDataType:
+			s, ok := la.Value.(string)
+			if !ok {
+				return errors.Errorf("invalid bool (%T) when decoding attribute", la.Value)
+			}
+			line.String(k, s, dataType)
+		case xopbase.BoolDataType:
+			b, ok := la.Value.(bool)
+			if !ok {
+				return errors.Errorf("invalid bool (%T) when decoding attribute", la.Value)
+			}
+			line.Bool(k, b)
+		case xopbase.DurationDataType:
+			if s, ok := la.Value.(string); ok {
+				d, err := time.ParseDuration(s)
+				if err != nil {
+					return errors.Wrap(err, "parse duration when decoding attribute")
+				}
+				line.Duration(k, d)
+			} else {
+				return errors.Wrapf(err, "invalid duration (%T) in attribute", la.Value)
+			}
+		case xopbase.TimeDataType:
+			if s, ok := la.Value.(string); ok {
+				d, err := time.Parse(time.RFC3339Nano, s)
+				if err != nil {
+					return errors.Wrap(err, "parse time when decoding attribute")
+				}
+				line.Time(k, d)
+			} else {
+				return errors.Wrapf(err, "invalid duration (%T) in attribute", la.Value)
+			}
+		case xopbase.Float32DataType, xopbase.Float64DataType:
+			if f, ok := la.Value.(float64); ok {
+				line.Float64(k, f, dataType)
+			}
+		case xopbase.IntDataType, xopbase.Int8DataType, xopbase.Int16DataType, xopbase.Int32DataType, xopbase.Int64DataType:
+			var i int64
+			switch t := la.Value.(type) {
+			case float64:
+				i = int64(t)
+			case string:
+				var err error
+				i, err = strconv.ParseInt(t, 10, 64)
+				if err != nil {
+					return errors.Wrap(err, "invalid int encoded as string in attribute")
+				}
+			default:
+				return errors.Wrapf(err, "invalid int (%T) in attribute", la.Value)
+			}
+			line.Int64(k, i, dataType)
+		case xopbase.UintDataType, xopbase.Uint8DataType, xopbase.Uint16DataType, xopbase.Uint32DataType, xopbase.Uint64DataType, xopbase.UintptrDataType:
+			var i uint64
+			switch t := la.Value.(type) {
+			case float64:
+				i = uint64(t)
+			case string:
+				var err error
+				i, err = strconv.ParseUint(t, 10, 64)
+				if err != nil {
+					return errors.Wrap(err, "invalid uint encoded as string in attribute")
+				}
+			default:
+				return errors.Wrapf(err, "invalid uint (%T) in attribute", la.Value)
+			}
+			line.Uint64(k, i, dataType)
+		default:
+			return errors.Errorf("unexpected data type (%s) in line attribute", la.Type)
+		}
+	}
+	return nil
+}
+
+// XXX shorten and generate reverse
+var stringToDataType = map[string]xopbase.DataType{
+	"i":        xopbase.IntDataType,
+	"i8":       xopbase.Int8DataType,
+	"i16":      xopbase.Int16DataType,
+	"i32":      xopbase.Int32DataType,
+	"i64":      xopbase.Int64DataType,
+	"u":        xopbase.UintDataType,
+	"u8":       xopbase.Uint8DataType,
+	"u16":      xopbase.Uint16DataType,
+	"u32":      xopbase.Uint32DataType,
+	"u64":      xopbase.Uint64DataType,
+	"uintptr":  xopbase.UintptrDataType,
+	"f32":      xopbase.Float32DataType,
+	"f64":      xopbase.Float64DataType,
+	"any":      xopbase.AnyDataType,
+	"bool":     xopbase.BoolDataType,
+	"dur":      xopbase.DurationDataType,
+	"time":     xopbase.TimeDataType,
+	"s":        xopbase.StringDataType,
+	"stringer": xopbase.StringerDataType,
+	"enum":     xopbase.EnumDataType,
+}
+
+var dataTypeToString = func() map[xopbase.DataType]string {
+	m := make(map[xopbase.DataType]string)
+	for k, v := range stringToDataType {
+		m[v] = k
+	}
+	return m
+}()

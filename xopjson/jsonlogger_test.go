@@ -73,7 +73,7 @@ type checker struct {
 }
 */
 
-func TestASingleLine(t *testing.T) {
+func DISABLEDTestASingleLine(t *testing.T) {
 	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),

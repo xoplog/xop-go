@@ -115,7 +115,8 @@ func (s *span) addRequestStartData(rq *builder) {
 	}
 	rq.AddSafeKey("span.name")
 	rq.AddString(s.name)
-	rq.Time("ts", s.startTime)
+	rq.AddSafeKey("ts")
+	rq.AddTime(s.startTime)
 	rq.AddSafeKey("source")
 	rq.AppendByte('"')
 	rq.AddStringBody(s.request.sourceInfo.Source)
@@ -174,7 +175,8 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 
 func (s *span) spanStartData(rq *builder) {
 	rq.stringKV("span.name", s.name)
-	rq.Time("ts", s.startTime)
+	rq.AddSafeKey("ts")
+	rq.AddTime(s.startTime)
 	rq.stringKV("span.parent_span", s.bundle.Parent.SpanID().String())
 }
 
@@ -330,9 +332,10 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 			prefillMsgPreEncoded: p.preEncodedMsg,
 		}
 	}
-	l.AppendByte('{') // }
-	l.Int64("lvl", int64(level), 0)
-	l.Time("ts", t)
+	l.AppendBytes([]byte(`{"lvl":`)) // }
+	l.AddSafeString(level.String())
+	l.AppendBytes([]byte(`,"ts":`))
+	l.AddTime(t)
 	if len(pc) > 0 {
 		frames := runtime.CallersFrames(pc)
 		l.AppendBytes([]byte(`,"stack":[`))
@@ -507,7 +510,7 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.AppendBytes([]byte(`,"modelType":`))
 	b.AddString(v.TypeName)
 	// {
-	b.AppendBytes([]byte(`,"t":"model"}`))
+	b.AppendBytes([]byte(`,"t":"any"}`))
 }
 
 func (b *builder) AddAny(v interface{}) {
@@ -562,11 +565,11 @@ func (b *builder) Bool(k string, v bool) {
 
 func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.startAttributes()
-	b.AppendBytes([]byte(`{"v":`))
 	b.AddKey(k)
+	b.AppendBytes([]byte(`{"v":`))
 	b.AddInt64(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(t.String()) // XXX
+	b.AddSafeString(dataTypeToString[t])
 	b.AppendByte('}')
 }
 
@@ -576,7 +579,7 @@ func (b *builder) Uint64(k string, v uint64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`{"v":`))
 	b.AddUint64(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(t.String()) // XXX
+	b.AddSafeString(dataTypeToString[t])
 	b.AppendByte('}')
 }
 
@@ -586,8 +589,14 @@ func (b *builder) stringKV(k string, v string) {
 	b.AddString(v)
 }
 
-func (b *builder) String(k string, v string, _ xopbase.DataType) {
-	b.stringKV(k, v)
+func (b *builder) String(k string, v string, t xopbase.DataType) {
+	b.startAttributes()
+	b.AddKey(k)
+	b.AppendBytes([]byte(`{"v":`))
+	b.AddString(v)
+	b.AppendBytes([]byte(`,"t":`))
+	b.AddSafeString(dataTypeToString[t])
+	b.AppendByte('}')
 }
 
 func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
@@ -596,7 +605,7 @@ func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`{"v":`))
 	b.AddFloat64(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(t.String()) // XXX
+	b.AddSafeString(dataTypeToString[t])
 	b.AppendByte('}')
 }
 
@@ -604,12 +613,12 @@ func (b *builder) Duration(k string, v time.Duration) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AppendBytes([]byte(`{"v":`))
-	b.AddDuration(v)
-	b.AppendBytes([]byte(`,"t":"duration"}`))
+	b.AddSafeString(v.String())
+	b.AppendBytes([]byte(`,"t":"dur"}`))
 }
 
 func (b *builder) AddDuration(v time.Duration) {
-	switch b.span.logger.durationFormat {
+	switch b.span.logger.durationFormat { // XXX
 	case AsNanos:
 		b.AddInt64(int64(v / time.Nanosecond))
 	case AsMicros:

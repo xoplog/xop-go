@@ -148,7 +148,7 @@ for spans must be pre-registered but for lines, any old string will do.
 
 | format | example |
 | --- | ---- |
-| xopjson | `"key(JSON-escaping)":true` |
+| xopjson | `"key(JSON-escaping)":{"v":true,"t":"Bool"}` |
 | xopjs | `"key(JSON-escaping)":true` |
 | xoptest (text) | `key=true` |
 | xoptest (model) | `line.Data["key"] = true` and `line.DataType["key"] = xopbase.BoolDataType` |
@@ -165,8 +165,8 @@ If integers will stored in strings, there is no way to tell that they're integer
 
 | format | example |
 | --- | ---- |
-| xopjson (signed) | `"key(JSON-escaping)":"I:83823282923" |
-| xopjson (unsigned) | `"key(JSON-escaping)":"U:83823282923"} |
+| xopjson (signed) | `"key(JSON-escaping)":{"v":83823282923,"t":"Int32"}|
+| xopjson (unsigned) | `"key(JSON-escaping)":{"v":83823282923,"t":"Uint64"}|
 | xopjs | `"key(JSON-escaping)":83823282923} |
 | xoptest (text) | `key=83823282923` |
 | xoptest (model) | `line.Data["key"] = 83823282923` and `line.DataType["key"] = xopbase.Int32DataType` |
@@ -179,7 +179,7 @@ If integers will stored in strings, there is no way to tell that they're integer
 
 | format | example |
 | --- | ---- |
-| xopjson | `"key(JSON-escaping)":328.4 |
+| xopjson | `"key(JSON-escaping)":{"v":328.4,"t":"Float32"}|
 | xopjs | `"key(JSON-escaping)":328.4 |
 | xoptest (text) | `key=328.4` |
 | xoptest (model) | `line.Data["key"] = 328.4` and `line.DataType["key"] = xopbase.Float64DataType` |
@@ -192,7 +192,7 @@ If integers will stored in strings, there is no way to tell that they're integer
 
 | format | example |
 | --- | ---- |
-| xopjson | `"key(JSON-escaping)":"T:2023-01-14T23:17:14.414054-08:00"` |
+| xopjson | `"key(JSON-escaping)":{"v":"2023-01-14T23:17:14.414054-08:00","t":"Time"}` |
 | xopjs | `"key(JSON-escaping)":"2023-01-14T23:17:14.414054-08:00"` |
 | xoptest (text) | `key=2023-01-14T23:17:14.414054-08:00` |
 | xoptest (model) | `line.Data["key"] = time.MustParse("2023-01-14T23:17:14.414054-08:00") and `line.DataType["key"] = xopbase.TimeDataType` |
@@ -218,7 +218,7 @@ If integers will stored in strings, there is no way to tell that they're integer
 
 | format | example |
 | --- | ---- |
-| xopjson | `"key(JSON-escaping)":{"type":"thing","value":{object here}}` |
+| xopjson | `"key(JSON-escaping)":{"v":{object here},"t":"model","type":"ObjectType"}` |
 | xopjs | `"key(JSON-escaping)":{object here}` |
 | xoptest (text) | `key={object here}` |
 | xoptest (model) | `line.Data["key"] = deepcopy.Copy(object)` and `line.DataType["key"] = deepcopy.Copy(object)` |
