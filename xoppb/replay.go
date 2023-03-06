@@ -320,7 +320,7 @@ func (x replayLine) Replay(ctx context.Context) error {
 			}
 			ea, err := x.registry.ConstructEnumAttribute(m)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", attribute.Key)
 			}
 			enum := ea.Add64(attribute.Value.IntValue, attribute.Value.StringValue)
 			line.Enum(&ea.EnumAttribute, enum)
