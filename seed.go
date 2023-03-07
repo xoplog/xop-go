@@ -48,6 +48,22 @@ func (span *Span) Seed(mods ...SeedModifier) Seed {
 	return n
 }
 
+// SubSeed provides a copy of the current span's seed, but the
+// spanID is randomized and the Parent set to the now prior
+// Trace
+func (span *Span) SubSeed(mods ...SeedModifier) Seed {
+	n := Seed{
+		spanSeed: span.seed.copy(false),
+		settings: span.log.settings.Copy(),
+	}
+	n.traceBundle.Parent = n.traceBundle.Trace
+	if !span.seed.spanSet {
+		n.traceBundle.Trace.SpanID().SetRandom()
+	}
+	n = n.applyMods(mods)
+	return n
+}
+
 // SeedReactiveCallback is used to modify seeds as they are just sprouting.
 type SeedReactiveCallback func(ctx context.Context, seed Seed, nameOrDescription string, isChildSpan bool) []SeedModifier
 

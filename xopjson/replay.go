@@ -5,6 +5,7 @@ package xopjson
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -265,6 +266,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			requestInput.Name,
 			sourceInfo)
 		x.spans[requestInput.SpanID] = x.request
+		fmt.Println("XXX add request", requestInput.SpanID)
 		err = spanReplayData{
 			baseReplay:  x,
 			span:        x.request,
@@ -521,6 +523,7 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 			x.spanInput.SequenceCode,
 		)
 		x.spans[subSpanID] = span
+		fmt.Println("XXX add span", subSpanID)
 		err := spanReplayData{
 			baseReplay:  x.baseReplay,
 			span:        span,
@@ -549,6 +552,7 @@ func (x baseReplay) ReplayLines() error {
 			return err
 		}
 	}
+	return nil
 }
 
 func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
