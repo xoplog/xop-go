@@ -39,6 +39,7 @@ var knownKeys = []string{
 	"type",
 	"span.name",
 	"span.ver",
+	"span.parent_span",
 }
 
 type decodeAll struct {
@@ -51,6 +52,7 @@ type decodeAll struct {
 
 type decodeCommon struct {
 	// lines, spans, and requests
+	Type         string                     `json:"type"`
 	Timestamp    xoptestutil.TS             `json:"ts"`
 	Attributes   map[string]json.RawMessage `json:"attributes"`
 	SpanID       string                     `json:"span.id"`
@@ -65,10 +67,14 @@ type decodedLine struct {
 }
 
 type decodeLineExclusive struct {
-	Level  xopnum.Level `json:"lvl"`
-	Stack  []string     `json:"stack"`
-	Msg    string       `json:"msg"`
-	Format string       `json:"fmt"`
+	Level     xopnum.Level `json:"lvl"`
+	Stack     []string     `json:"stack"`
+	Msg       string       `json:"msg"`
+	Format    string       `json:"fmt"`
+	ModelType string       `json:"modelType"` // model only
+	Encoding  string       `json:"encoding"`  // model only
+	Encoded   interface{}  `json:"encoded"`   // model only
+	Link      string       `json:"link"`      // link only
 }
 
 type decodedSpanShared struct {
@@ -86,9 +92,8 @@ type decodeSpanExclusive struct {
 }
 
 type decodeSpanShared struct {
-	Type        string `json:"type"`
 	Name        string `json:"name"`
-	Duration    int64  `json:"dur"`
+	Duration    *int64 `json:"dur"`
 	SpanVersion int    `json:"span.ver"`
 	subSpans    []string
 }
@@ -96,6 +101,7 @@ type decodeSpanShared struct {
 type decodedRequest struct {
 	decodedSpanShared
 	*decodeRequestExclusive
+	request xopbase.Request
 }
 
 type decodeRequestExclusive struct {
@@ -160,7 +166,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		super.unparsed = inputText
 
 		switch super.Type {
-		case "", "line":
+		case "", "line", "model", "link":
 			x.lines = append(x.lines, decodedLine{
 				decodeCommon:        &super.decodeCommon,
 				decodeLineExclusive: &super.decodeLineExclusive,
@@ -206,17 +212,17 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 				x.attributeDefinitions[aDef.Key] = &aDef
 			}
 		default:
-			return errors.Errorf("unknown line type (%s)", super.Type)
+			return errors.Errorf("unknown line type (%s) for input (%s)", super.Type, inputText)
 		}
 	}
 	// Attach child spans to parent spans so that they can be processed in order
 	for _, span := range spans {
 		if span.ParentSpanID == "" {
-			return errors.Errorf("span (%s) is missing a span.parent_span", span.SpanID)
+			return errors.Errorf("span (%s) is missing a span.parent_span", span.unparsed)
 		}
 		parent, ok := x.spanMap[span.ParentSpanID]
 		if !ok {
-			return errors.Errorf("parent span (%s) of span (%s) does not exist", span.ParentSpanID, span.SpanID)
+			return errors.Errorf("parent span (%s) of span (%s) does not exist", span.ParentSpanID, span.unparsed)
 		}
 		parent.subSpans = append(parent.subSpans, span.SpanID)
 	}
@@ -234,8 +240,10 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		bundle.Trace.Flags().SetBytes([]byte{1})
 		if requestInput.ParentID != "" {
 			if !bundle.Parent.SetString(requestInput.ParentID) {
-				return errors.Errorf("invalid parent id (%s) in request (%s)", requestInput.ParentID, bundle.Trace)
+				return errors.Errorf("invalid parent id (%s) in request (%s)", requestInput.ParentID, requestInput.unparsed)
 			}
+		} else {
+			bundle.Parent.Flags().SetBytes([]byte{1})
 		}
 		if requestInput.Baggage != "" {
 			bundle.Baggage.SetString(requestInput.Baggage)
@@ -247,11 +255,11 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		var sourceInfo xopbase.SourceInfo
 		sourceInfo.Source, sourceInfo.SourceVersion, err = version.SplitVersionWithError(requestInput.Source)
 		if err != nil {
-			return errors.Errorf("invalid source (%s) in request (%s)", requestInput.Source, bundle.Trace)
+			return errors.Errorf("invalid source (%s) in request (%s)", requestInput.Source, requestInput.unparsed)
 		}
 		sourceInfo.Namespace, sourceInfo.NamespaceVersion, err = version.SplitVersionWithError(requestInput.Namespace)
 		if err != nil {
-			return errors.Errorf("invalid namespace (%s) in request (%s)", requestInput.Namespace, bundle.Trace)
+			return errors.Errorf("invalid namespace (%s) in request (%s)", requestInput.Namespace, requestInput.unparsed)
 		}
 
 		if len(x.perRequestAttributeDefintions) != 0 {
@@ -263,6 +271,7 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			bundle,
 			requestInput.Name,
 			sourceInfo)
+		requestInput.request = x.request
 		x.spans[requestInput.SpanID] = x.request
 		fmt.Println("XXX add request", requestInput.SpanID)
 		err = spanReplayData{
@@ -270,12 +279,26 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			span:        x.request,
 			spanInput:   requestInput.decodedSpanShared,
 			parentTrace: bundle.Trace,
+			skipDone:    true,
 		}.Replay(ctx)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "in span (%s)", requestInput.decodedSpanShared.unparsed)
 		}
 	}
-	return x.ReplayLines()
+	err := x.ReplayLines()
+	if err != nil {
+		return err
+	}
+	for i := len(requests) - 1; i >= 0; i-- {
+		requestInput := requests[i]
+		if requestInput.request != nil {
+			if requestInput.Duration != nil {
+				requestInput.request.Done(requestInput.Timestamp.Time.Add(time.Duration(*requestInput.Duration)), false)
+				requestInput.request = nil
+			}
+		}
+	}
+	return nil
 }
 
 type spanReplayData struct {
@@ -283,6 +306,7 @@ type spanReplayData struct {
 	span        xopbase.Span
 	spanInput   decodedSpanShared
 	parentTrace xoptrace.Trace
+	skipDone    bool
 }
 
 func (x spanReplayData) Replay(ctx context.Context) (err error) {
@@ -302,54 +326,21 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 		}
 	}
 	for k, v := range attributes {
-		var aDef *decodeAttributeDefinition
-		if m, ok := x.perRequestAttributeDefintions[x.requestID]; ok {
-			aDef = m[k]
-		} else {
-			aDef = x.attributeDefinitions[k]
-		}
-		if aDef == nil {
-			return errors.Errorf("No attribute definition in span (%s) for key (%s)", x.spanInput.SpanID, k)
-		}
-
-		switch aDef.AttributeType {
-		// MACRO BaseAttribute
-		case xopproto.AttributeType_ZZZ:
-			registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make)
-			if err != nil {
-				return err
-			}
-			// CONDITIONAL ONLY:Enum
-			ra := &registeredAttribute.EnumAttribute
-			// ELSE CONDITIONAL
-			ra := registeredAttribute
-			// END CONDITIONAL
-			if aDef.Multiple {
-				var va []zzz
-				err := json.Unmarshal(v, &va)
-				if err != nil {
-					return errors.Wrap(err, "could not unmarshal metadata []zzz")
-				}
-				for _, e := range va {
-					x.span.MetadataZZZ(ra, e)
-				}
-			} else {
-				var e zzz
-				err := json.Unmarshal(v, &e)
-				if err != nil {
-					return errors.Wrap(err, "could not unmarshal metadata zzz")
-				}
-				x.span.MetadataZZZ(ra, e)
-			}
-
-		default:
-			return errors.Errorf("unexpected attribute type (%s)", aDef.AttributeType)
+		err := replaySpanAttribute{
+			spanReplayData: x,
+		}.Replay(k, v)
+		if err != nil {
+			return errors.Wrapf(err, "in span attribute (%s: %s)", k, string(v))
 		}
 	}
+	fmt.Println("XXX span", x.spanInput.SpanID, "has subspans", x.spanInput.subSpans)
 	for _, subSpanID := range x.spanInput.subSpans {
+		if _, ok := x.spans[subSpanID]; ok {
+			continue
+		}
 		spanInput, ok := x.spanMap[subSpanID]
 		if !ok {
-			return errors.Errorf("internal error")
+			return errors.Errorf("internal error, could not find span %s", subSpanID)
 		}
 		var bundle xoptrace.Bundle
 		bundle.Trace.TraceID().Set(x.traceID)
@@ -359,13 +350,13 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 		// {"type":"span","span.name":"a fork one span","ts":"2023-02-21T20:14:35.987376-05:00","span.parent_span":"3a215dd6311084d5","span.id":"3a215dd6311084d5","span.seq":".A","span.ver":1,"dur":135000,"http.route":"/some/thing"}
 		span := x.span.Span(
 			ctx,
-			x.spanInput.Timestamp.Time,
+			spanInput.Timestamp.Time,
 			bundle,
-			x.spanInput.Name,
-			x.spanInput.SequenceCode,
+			spanInput.Name,
+			spanInput.SequenceCode,
 		)
 		x.spans[subSpanID] = span
-		fmt.Println("XXX add span", subSpanID)
+		fmt.Println("XXX add span", subSpanID, "with seq", spanInput.SequenceCode, "from input", spanInput.unparsed)
 		err := spanReplayData{
 			baseReplay:  x.baseReplay,
 			span:        span,
@@ -373,8 +364,84 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 			parentTrace: bundle.Trace,
 		}.Replay(ctx)
 		if err != nil {
+			return errors.Wrapf(err, "in subspan (%s)", spanInput.decodedSpanShared.unparsed)
+		}
+	}
+	if !x.skipDone && x.spanInput.Duration != nil {
+		x.span.Done(x.spanInput.Timestamp.Time.Add(time.Duration(*x.spanInput.Duration)), false)
+	}
+	return nil
+}
+
+type replaySpanAttribute struct {
+	spanReplayData
+}
+
+func (x replaySpanAttribute) Replay(k string, v []byte) error {
+	var aDef *decodeAttributeDefinition
+	if m, ok := x.perRequestAttributeDefintions[x.requestID]; ok {
+		aDef = m[k]
+	} else {
+		aDef = x.attributeDefinitions[k]
+	}
+	if aDef == nil {
+		return errors.Errorf("No attribute definition in span (%s) for key (%s)", x.spanInput.SpanID, k)
+	}
+
+	switch aDef.AttributeType {
+	// MACRO BaseAttribute
+	// CONDITIONAL ONLY:Int64
+	case xopproto.AttributeType_Int8,
+		xopproto.AttributeType_Int16,
+		xopproto.AttributeType_Int32,
+		xopproto.AttributeType_Int64,
+		xopproto.AttributeType_Int:
+	// CONDITIONAL ONLY:Uint64
+	case xopproto.AttributeType_Uint8,
+		xopproto.AttributeType_Uint16,
+		xopproto.AttributeType_Uint32,
+		xopproto.AttributeType_Uint64,
+		xopproto.AttributeType_Uint,
+		xopproto.AttributeType_Uintptr:
+	// CONDITIONAL ONLY:String
+	case xopproto.AttributeType_String,
+		xopproto.AttributeType_Duration,
+		xopproto.AttributeType_Stringer:
+	// CONDITIONAL ONLY:Float64
+	case xopproto.AttributeType_Float64,
+		xopproto.AttributeType_Float32:
+	// CONDITIONAL SKIP:Int64,String,Uint64,Float64
+	case xopproto.AttributeType_ZZZ:
+		// END CONDITIONAL
+		registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make)
+		if err != nil {
 			return err
 		}
+		// CONDITIONAL ONLY:Enum
+		ra := &registeredAttribute.EnumAttribute
+		// ELSE CONDITIONAL
+		ra := registeredAttribute
+		// END CONDITIONAL
+		if aDef.Multiple {
+			var va []zzz
+			err := json.Unmarshal(v, &va)
+			if err != nil {
+				return errors.Wrap(err, "could not unmarshal metadata []zzz")
+			}
+			for _, e := range va {
+				x.span.MetadataZZZ(ra, e)
+			}
+		} else {
+			var e zzz
+			err := json.Unmarshal(v, &e)
+			if err != nil {
+				return errors.Wrap(err, "could not unmarshal metadata zzz")
+			}
+			x.span.MetadataZZZ(ra, e)
+		}
+
+	default:
+		return errors.Errorf("unexpected attribute type (%s)", aDef.AttributeType)
 	}
 	return nil
 }
@@ -388,6 +455,7 @@ type lineAttribute struct {
 }
 
 func (x baseReplay) ReplayLines() error {
+	fmt.Println("XXX count of lines", len(x.lines))
 	for _, lineInput := range x.lines {
 		err := x.ReplayLine(lineInput)
 		if err != nil {
@@ -400,137 +468,192 @@ func (x baseReplay) ReplayLines() error {
 func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 	defer func() {
 		if err != nil {
-			err = errors.Wrapf(err, "line '%s'", lineInput.unparsed)
+			err = errors.Wrapf(err, "in line (%s)", lineInput.unparsed)
 		}
 	}()
 	span, ok := x.spans[lineInput.SpanID]
 	if !ok {
-		return errors.Errorf("unknown span for line %s", lineInput.unparsed)
+		return errors.Errorf("unknown span (%s)", lineInput.SpanID)
 	}
 	line := span.NoPrefill().Line(
 		lineInput.Level,
 		lineInput.Timestamp.Time,
 		nil, // XXX TODO
 	)
+
+	fmt.Println("XXX line has", len(lineInput.Attributes), "attributes", "unparsed", lineInput.unparsed)
 	for k, enc := range lineInput.Attributes {
-		var la lineAttribute
-		err := json.Unmarshal(enc, &la)
+		err := replayLineAttribute{
+			baseReplay: x,
+		}.Replay(line, lineInput, k, enc)
 		if err != nil {
-			errors.Wrap(err, "could not decode line") // XXX
+			return errors.Wrapf(err, "in attribute (%s: %s)", k, string(enc))
 		}
-		dataType, ok := stringToDataType[la.Type]
-		if !ok {
-			return errors.Errorf("unknown data type (%s) in line attribute", la.Type)
-		}
-		switch dataType {
-		case xopbase.EnumDataType:
-			s, ok := la.Value.(string)
-			if !ok {
-				return errors.Errorf("invalid enum string (%T) when decoding attribute", la.Value)
-			}
-			m := xopat.Make{
-				Key: k,
-			}
-			ea, err := x.attributeRegistry.ConstructEnumAttribute(m)
-			if err != nil {
-				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", k)
-			}
-			enum := ea.Add64(la.IntValue, s)
-			line.Enum(&ea.EnumAttribute, enum)
-		case xopbase.AnyDataType:
-			var ma xopbase.ModelArg
-			switch la.Encoding {
-			case "", "JSON":
-				ma.Model = la.Value
-				ma.Encoding = xopproto.Encoding_JSON
-			default:
-				vs, ok := la.Value.(string)
-				if !ok {
-					return errors.Errorf("invalid model arg (%T) when decoding attribute", la.Value)
-				}
-				ma.Encoded = []byte(vs)
-				if en, ok := xopproto.Encoding_value[la.Encoding]; ok {
-					ma.Encoding = xopproto.Encoding(en)
-				} else {
-					return errors.Errorf("invalid encoding (%s) when decoding attribute", la.Encoding)
-				}
-			}
-			ma.TypeName = la.TypeName
-			line.Any(k, ma)
-		case xopbase.StringDataType, xopbase.StringerDataType:
-			s, ok := la.Value.(string)
-			if !ok {
-				return errors.Errorf("invalid bool (%T) when decoding attribute", la.Value)
-			}
-			line.String(k, s, dataType)
-		case xopbase.BoolDataType:
-			b, ok := la.Value.(bool)
-			if !ok {
-				return errors.Errorf("invalid bool (%T) when decoding attribute", la.Value)
-			}
-			line.Bool(k, b)
-		case xopbase.DurationDataType:
-			if s, ok := la.Value.(string); ok {
-				d, err := time.ParseDuration(s)
-				if err != nil {
-					return errors.Wrap(err, "parse duration when decoding attribute")
-				}
-				line.Duration(k, d)
-			} else {
-				return errors.Wrapf(err, "invalid duration (%T) in attribute", la.Value)
-			}
-		case xopbase.TimeDataType:
-			if s, ok := la.Value.(string); ok {
-				d, err := time.Parse(time.RFC3339Nano, s)
-				if err != nil {
-					return errors.Wrap(err, "parse time when decoding attribute")
-				}
-				line.Time(k, d)
-			} else {
-				return errors.Wrapf(err, "invalid duration (%T) in attribute", la.Value)
-			}
-		case xopbase.Float32DataType, xopbase.Float64DataType:
-			if f, ok := la.Value.(float64); ok {
-				line.Float64(k, f, dataType)
-			}
-		case xopbase.IntDataType, xopbase.Int8DataType, xopbase.Int16DataType, xopbase.Int32DataType, xopbase.Int64DataType:
-			var i int64
-			switch t := la.Value.(type) {
-			case float64:
-				i = int64(t)
-			case string:
-				var err error
-				i, err = strconv.ParseInt(t, 10, 64)
-				if err != nil {
-					return errors.Wrap(err, "invalid int encoded as string in attribute")
-				}
-			default:
-				return errors.Wrapf(err, "invalid int (%T) in attribute", la.Value)
-			}
-			line.Int64(k, i, dataType)
-		case xopbase.UintDataType, xopbase.Uint8DataType, xopbase.Uint16DataType, xopbase.Uint32DataType, xopbase.Uint64DataType, xopbase.UintptrDataType:
-			var i uint64
-			switch t := la.Value.(type) {
-			case float64:
-				i = uint64(t)
-			case string:
-				var err error
-				i, err = strconv.ParseUint(t, 10, 64)
-				if err != nil {
-					return errors.Wrap(err, "invalid uint encoded as string in attribute")
-				}
-			default:
-				return errors.Wrapf(err, "invalid uint (%T) in attribute", la.Value)
-			}
-			line.Uint64(k, i, dataType)
+
+	}
+	switch lineInput.Type {
+	case "", "line":
+		switch lineInput.Format {
+		case "tmpl":
+			line.Template(lineInput.Msg)
+		case "":
+			line.Msg(lineInput.Msg)
 		default:
-			return errors.Errorf("unexpected data type (%s) in line attribute", la.Type)
+			return errors.Errorf("unexpected line fmt: %s", lineInput.Format)
 		}
+	case "link":
+		if link, ok := xoptrace.TraceFromString(lineInput.Link); ok {
+			line.Link(lineInput.Msg, link)
+		} else {
+			return errors.Errorf("invalid link in line: '%s'", lineInput.Link)
+		}
+	case "model":
+		var ma xopbase.ModelArg
+		switch lineInput.Encoding {
+		case "", "JSON":
+			ma.Model = lineInput.Encoded
+			ma.Encoding = xopproto.Encoding_JSON
+		default:
+			vs, ok := lineInput.Encoded.(string)
+			if !ok {
+				return errors.Errorf("invalid model arg (%T) when decoding attribute", lineInput.Encoded)
+			}
+			ma.Encoded = []byte(vs)
+			if en, ok := xopproto.Encoding_value[lineInput.Encoding]; ok {
+				ma.Encoding = xopproto.Encoding(en)
+			} else {
+				return errors.Errorf("invalid encoding (%s) when decoding attribute", lineInput.Encoding)
+			}
+		}
+		ma.TypeName = lineInput.ModelType
+		line.Model(lineInput.Msg, ma)
+	default:
+		return errors.Errorf("unexpected type for line: %s", lineInput.Type)
 	}
 	return nil
 }
 
-// XXX shorten and generate reverse
+type replayLineAttribute struct {
+	baseReplay
+}
+
+func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k string, enc []byte) error {
+	var la lineAttribute
+	err := json.Unmarshal(enc, &la)
+	if err != nil {
+		errors.Wrap(err, "could not decode")
+	}
+	dataType, ok := stringToDataType[la.Type]
+	if !ok {
+		return errors.Errorf("unknown data type (%s)", la.Type)
+	}
+	switch dataType {
+	case xopbase.EnumDataType:
+		s, ok := la.Value.(string)
+		if !ok {
+			return errors.Errorf("invalid enum string (%T)", la.Value)
+		}
+		m := xopat.Make{
+			Key: k,
+		}
+		ea, err := x.attributeRegistry.ConstructEnumAttribute(m)
+		if err != nil {
+			return errors.Wrap(err, "build enum attribute")
+		}
+		enum := ea.Add64(la.IntValue, s)
+		line.Enum(&ea.EnumAttribute, enum)
+	case xopbase.AnyDataType:
+		var ma xopbase.ModelArg
+		switch la.Encoding {
+		case "", "JSON":
+			ma.Model = la.Value
+			ma.Encoding = xopproto.Encoding_JSON
+		default:
+			vs, ok := la.Value.(string)
+			if !ok {
+				return errors.Errorf("invalid model arg (%T)", la.Value)
+			}
+			ma.Encoded = []byte(vs)
+			if en, ok := xopproto.Encoding_value[la.Encoding]; ok {
+				ma.Encoding = xopproto.Encoding(en)
+			} else {
+				return errors.Errorf("invalid encoding (%s)", la.Encoding)
+			}
+		}
+		ma.TypeName = la.TypeName
+		line.Any(k, ma)
+	case xopbase.StringDataType, xopbase.StringerDataType:
+		s, ok := la.Value.(string)
+		if !ok {
+			return errors.Errorf("invalid bool (%T)", la.Value)
+		}
+		line.String(k, s, dataType)
+	case xopbase.BoolDataType:
+		b, ok := la.Value.(bool)
+		if !ok {
+			return errors.Errorf("invalid bool (%T)", la.Value)
+		}
+		line.Bool(k, b)
+	case xopbase.DurationDataType:
+		if s, ok := la.Value.(string); ok {
+			d, err := time.ParseDuration(s)
+			if err != nil {
+				return errors.Wrap(err, "parse duration")
+			}
+			line.Duration(k, d)
+		} else {
+			return errors.Wrapf(err, "invalid duration (%T)", la.Value)
+		}
+	case xopbase.TimeDataType:
+		if s, ok := la.Value.(string); ok {
+			d, err := time.Parse(time.RFC3339Nano, s)
+			if err != nil {
+				return errors.Wrap(err, "parse time")
+			}
+			line.Time(k, d)
+		} else {
+			return errors.Wrapf(err, "invalid duration (%T)", la.Value)
+		}
+	case xopbase.Float32DataType, xopbase.Float64DataType:
+		if f, ok := la.Value.(float64); ok {
+			line.Float64(k, f, dataType)
+		}
+	case xopbase.IntDataType, xopbase.Int8DataType, xopbase.Int16DataType, xopbase.Int32DataType, xopbase.Int64DataType:
+		var i int64
+		switch t := la.Value.(type) {
+		case float64:
+			i = int64(t)
+		case string:
+			var err error
+			i, err = strconv.ParseInt(t, 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "invalid int encoded as string")
+			}
+		default:
+			return errors.Wrapf(err, "invalid int (%T) in attribute", la.Value)
+		}
+		line.Int64(k, i, dataType)
+	case xopbase.UintDataType, xopbase.Uint8DataType, xopbase.Uint16DataType, xopbase.Uint32DataType, xopbase.Uint64DataType, xopbase.UintptrDataType:
+		var i uint64
+		switch t := la.Value.(type) {
+		case float64:
+			i = uint64(t)
+		case string:
+			var err error
+			i, err = strconv.ParseUint(t, 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "invalid uint encoded as string")
+			}
+		default:
+			return errors.Wrapf(err, "invalid uint (%T)", la.Value)
+		}
+		line.Uint64(k, i, dataType)
+	default:
+		return errors.Errorf("unexpected data type (%s)", la.Type)
+	}
+	return nil
+}
+
 var stringToDataType = map[string]xopbase.DataType{
 	"i":        xopbase.IntDataType,
 	"i8":       xopbase.Int8DataType,

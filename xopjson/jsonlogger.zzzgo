@@ -411,7 +411,7 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 		l.AppendBytes([]byte(`,"encoding":`))
 		l.AddSafeString(v.Encoding.String())
 	}
-	l.AppendBytes([]byte(`,"modelType":`))
+	l.AppendBytes([]byte(`,"type":"model","modelType":"`))
 	l.AddString(v.TypeName)
 	l.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {

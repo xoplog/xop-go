@@ -145,7 +145,7 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 	assert.Equal(t, want.Bundle.Baggage.String(), got.Bundle.Baggage.String(), "bundle baggage")
 	assert.Equal(t, want.Bundle.State.String(), got.Bundle.State.String(), "bundle state")
 	assert.Equal(t, want.Short, got.Short, "short span id for test output")
-	assert.Truef(t, want.StartTime.Equal(got.StartTime), "start time %s vs %s", want.StartTime.Format(time.RFC3339), got.StartTime.Format(time.RFC3339))
+	assert.Truef(t, want.StartTime.Equal(got.StartTime), "start time %s vs %s", want.StartTime.Format(time.RFC3339Nano), got.StartTime.Format(time.RFC3339Nano))
 	assert.Equal(t, want.EndTime, got.EndTime, "end time")
 	assert.Equal(t, want.SequenceCode, got.SequenceCode, "sequence code")
 	assert.Equal(t, want.SourceInfo, got.SourceInfo, "source info")
