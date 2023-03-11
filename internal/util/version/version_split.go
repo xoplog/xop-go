@@ -7,7 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-var namespaceVersionRE = regexp.MustCompile(`^(.+)[- ]v?(\d+\.\d+\.\d+(?:-\S+))$`)
+var namespaceVersionRE = regexp.MustCompile(`^(.+)[- ]v?(\d+\.\d+\.\d+(?:-\S+)?)$`)
 
 func SplitVersionWithError(namespace string) (string, *semver.Version, error) {
 	var version string

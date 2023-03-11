@@ -117,6 +117,19 @@ func TestParameters(t *testing.T) {
 		extraFlushes int
 	}{
 		{
+			name: "unbuffered/attributes",
+			joptions: []xopjson.Option{
+				xopjson.WithSpanStarts(true),
+				// XXX xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+				xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
+				xopjson.WithAttributesObject(true),
+			},
+			checkConfig: checkConfig{
+				minVersions:         2,
+				hasAttributesObject: false,
+			},
+		},
+		{
 			name: "unbuffered/no-attributes",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(true),

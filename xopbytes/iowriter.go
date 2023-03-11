@@ -56,13 +56,13 @@ func (iow IOWriter) DefineAttribute(k *xopat.Attribute, requestTrace *xoptrace.T
 	b.AddInt32(int32(k.Prominence()))
 	if k.Multiple() {
 		if k.Distinct() {
-			b.AppendBytes([]byte(`,"mult":true,"distinct":true,"vtype":"`))
+			b.AppendBytes([]byte(`,"mult":true,"distinct":true,"vtype":`))
 		} else {
-			b.AppendBytes([]byte(`,"mult":true,"vtype":"`))
+			b.AppendBytes([]byte(`,"mult":true,"vtype":`))
 		}
 	} else {
 		if k.Locked() {
-			b.AppendBytes([]byte(`,"locked":true","vtype":`))
+			b.AppendBytes([]byte(`,"locked":true,"vtype":`))
 		} else {
 			b.AppendBytes([]byte(`,"vtype":`))
 		}
