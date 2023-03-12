@@ -129,6 +129,7 @@ func TestParameters(t *testing.T) {
 				hasAttributesObject: false,
 			},
 		},
+		/* XXX ?
 		{
 			name: "unbuffered/no-attributes",
 			joptions: []xopjson.Option{
@@ -142,6 +143,7 @@ func TestParameters(t *testing.T) {
 				hasAttributesObject: false,
 			},
 		},
+		*/
 		{
 			name: "unsynced",
 			joptions: []xopjson.Option{

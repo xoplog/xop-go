@@ -1,0 +1,28 @@
+package xopbase
+
+import (
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xoptrace"
+)
+
+// SkipLine is a utility type that implements Line.  It discards
+// all data.
+var SkipLine = skipLine{}
+
+type skipLine struct{}
+
+var _ Line = skipLine{}
+
+func (_ skipLine) AnyImmutable(string, interface{})          {}
+func (_ skipLine) Enum(k *xopat.EnumAttribute, v xopat.Enum) {}
+
+func (_ skipLine) Msg(string)                  {}
+func (_ skipLine) Link(string, xoptrace.Trace) {}
+func (_ skipLine) Model(string, ModelArg)      {}
+func (_ skipLine) Template(string)             {}
+
+// MACRO BaseDataWithoutType
+func (_ skipLine) ZZZ(string, zzz) {}
+
+// MACRO BaseDataWithType
+func (_ skipLine) ZZZ(string, zzz, DataType) {}

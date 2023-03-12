@@ -116,7 +116,7 @@ func (s *span) addRequestStartData(rq *builder) {
 	rq.AddSafeKey("span.name")
 	rq.AddString(s.name)
 	rq.AddSafeKey("ts")
-	rq.AddTime(s.startTime)
+	rq.AttributeTime(s.startTime)
 	rq.AddSafeKey("source")
 	rq.AppendByte('"')
 	rq.AddStringBody(s.request.sourceInfo.Source)
@@ -176,7 +176,7 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 func (s *span) spanStartData(rq *builder) {
 	rq.stringKV("span.name", s.name)
 	rq.AddSafeKey("ts")
-	rq.AddTime(s.startTime)
+	rq.AttributeTime(s.startTime)
 	rq.stringKV("span.parent_span", s.bundle.Parent.SpanID().String())
 }
 
@@ -229,7 +229,7 @@ func (s *span) flushAttributes() {
 	s.serializationCount++
 	if s.request.logger.durationKey != nil {
 		rq.AppendBytes(s.request.logger.durationKey)
-		rq.AddDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
+		rq.AttributeDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
 	}
 	s.attributes.Append(&rq.JBuilder, s.logger.spanChangesOnly)
 	// {
@@ -335,7 +335,7 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	l.AppendBytes([]byte(`{"lvl":`)) // }
 	l.AddSafeString(level.String())
 	l.AppendBytes([]byte(`,"ts":`))
-	l.AddTime(t)
+	l.AttributeTime(t)
 	if len(pc) > 0 {
 		frames := runtime.CallersFrames(pc)
 		l.AppendBytes([]byte(`,"stack":[`))
@@ -406,6 +406,7 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 		l.AppendByte( /*{*/ '}')
 	}
 	v.Encode()
+	l.AddSafeKey("encoded")
 	if v.Encoding == xopproto.Encoding_JSON {
 		l.AppendBytes(v.Encoded)
 	} else {
@@ -413,7 +414,7 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 		l.AppendBytes([]byte(`,"encoding":`))
 		l.AddSafeString(v.Encoding.String())
 	}
-	l.AppendBytes([]byte(`,"type":"model","modelType":"`))
+	l.AppendBytes([]byte(`,"type":"model","modelType":`))
 	l.AddString(v.TypeName)
 	l.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {
@@ -498,8 +499,21 @@ func (b *builder) startAttributes() {
 func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.startAttributes()
 	b.AddKey(k)
-	v.Encode()
 	b.AppendBytes([]byte(`{"v":`)) // }
+	b.anyCommon(v)
+	// {
+	b.AppendBytes([]byte(`,"t":"any"}`))
+}
+
+func (b *builder) AttributeAny(v xopbase.ModelArg) {
+	b.AppendBytes([]byte(`{"v":`)) // }
+	b.anyCommon(v)
+	// {
+	b.AppendByte('}')
+}
+
+func (b *builder) anyCommon(v xopbase.ModelArg) {
+	v.Encode()
 	if v.Encoding == xopproto.Encoding_JSON {
 		b.AppendBytes(v.Encoded)
 	} else {
@@ -509,49 +523,36 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 	}
 	b.AppendBytes([]byte(`,"modelType":`))
 	b.AddString(v.TypeName)
-	// {
-	b.AppendBytes([]byte(`,"t":"any"}`))
-}
-
-func (b *builder) AddAny(v interface{}) {
-	before := len(b.B)
-	err := b.encoder.Encode(v)
-	if err != nil {
-		b.B = b.B[:before]
-		b.span.request.errorFunc(err)
-		b.stringKV("encode", err.Error())
-	} else {
-		// remove \n added by json.Encoder.Encode.  So helpful!
-		if b.B[len(b.B)-1] == '\n' {
-			b.B = b.B[:len(b.B)-1]
-		}
-	}
 }
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.startAttributes()
 	b.Comma()
-	b.AppendString(k.JSONKey().String())
-	b.AppendBytes([]byte(`:{"v":`))
+	b.AppendBytes(k.JSONKey().Bytes())
+	b.AppendBytes([]byte(`{"v":`))
 	b.AddString(v.String())
 	b.AppendBytes([]byte(`,"i":`))
 	b.AddInt64(v.Int64())
 	b.AppendBytes([]byte(`,"t":"enum"}`))
 }
 
-func (b *builder) AddEnum(v xopat.Enum) {
+func (b *builder) AttributeEnum(v xopat.Enum) {
+	b.AppendBytes([]byte(`{"s":`))
 	b.AddString(v.String())
+	b.AppendBytes([]byte(`,"i":`))
+	b.AddInt64(v.Int64())
+	b.AppendByte('}')
 }
 
 func (b *builder) Time(k string, t time.Time) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AppendBytes([]byte(`{"v":`))
-	b.AddTime(t)
+	b.AttributeTime(t)
 	b.AppendBytes([]byte(`,"t":"time"}`))
 }
 
-func (b *builder) AddTime(t time.Time) {
+func (b *builder) AttributeTime(t time.Time) {
 	b.B = b.span.logger.timeFormatter(b.B, t)
 }
 
@@ -563,6 +564,10 @@ func (b *builder) Bool(k string, v bool) {
 	b.AppendBytes([]byte(`,"t":"bool"}`))
 }
 
+func (b *builder) AttributeBool(v bool) {
+	b.AddBool(v)
+}
+
 func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.startAttributes()
 	b.AddKey(k)
@@ -571,6 +576,10 @@ func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`,"t":`))
 	b.AddSafeString(dataTypeToString[t])
 	b.AppendByte('}')
+}
+
+func (b *builder) AttributeInt64(v int64) {
+	b.AddInt64(v)
 }
 
 func (b *builder) Uint64(k string, v uint64, t xopbase.DataType) {
@@ -599,6 +608,10 @@ func (b *builder) String(k string, v string, t xopbase.DataType) {
 	b.AppendByte('}')
 }
 
+func (b *builder) AttributeString(v string) {
+	b.AddString(v)
+}
+
 func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.startAttributes()
 	b.AddKey(k)
@@ -609,6 +622,10 @@ func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.AppendByte('}')
 }
 
+func (b *builder) AttributeFloat64(f float64) {
+	b.AddFloat64(f)
+}
+
 func (b *builder) Duration(k string, v time.Duration) {
 	b.startAttributes()
 	b.AddKey(k)
@@ -617,7 +634,7 @@ func (b *builder) Duration(k string, v time.Duration) {
 	b.AppendBytes([]byte(`,"t":"dur"}`))
 }
 
-func (b *builder) AddDuration(v time.Duration) {
+func (b *builder) AttributeDuration(v time.Duration) {
 	switch b.span.logger.durationFormat { // XXX
 	case AsNanos:
 		b.AddInt64(int64(v / time.Nanosecond))
@@ -632,6 +649,10 @@ func (b *builder) AddDuration(v time.Duration) {
 	default:
 		b.AddSafeString(v.String())
 	}
+}
+
+func (b *builder) AttributeLink(v xoptrace.Trace) {
+	b.AddSafeString(v.String())
 }
 
 func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {

@@ -3,8 +3,6 @@ package xoputil
 import (
 	"io"
 	"strconv"
-
-	"github.com/xoplog/xop-go/xoptrace"
 )
 
 type JBuilder struct {
@@ -116,13 +114,6 @@ func BuildKey(v string) []byte {
 	b.AddString(v)
 	b.B = append(b.B, ':')
 	return b.B
-}
-
-// AddLink adds a key value pair.  The key is "xop.link"
-func (b *JBuilder) AddLink(v xoptrace.Trace) {
-	b.AppendBytes([]byte(`{"xop.link":"`))
-	b.AppendString(v.String())
-	b.AppendBytes([]byte(`"}`))
 }
 
 func (b *JBuilder) AsBytes() []byte { return b.B }

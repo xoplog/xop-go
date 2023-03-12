@@ -11,7 +11,6 @@ import (
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
-	"github.com/xoplog/xop-go/xoputil"
 )
 
 type Log struct {
@@ -552,7 +551,7 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 	}
 	ll.skip = skip
 	if ll.skip {
-		ll.line = xoputil.SkipLine
+		ll.line = xopbase.SkipLine
 	} else {
 		ll.line = log.prefilled.Line(level, time.Now(), ll.pc)
 	}

@@ -178,7 +178,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 			encoder: a.encoder,
 		}
 		a.encodeTarget = &b.B
-		b.AddAny(v)
+		b.AttributeAny(v)
 		s.KeyValue = b.B
 		return
 	}
@@ -187,7 +187,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddAny(v)
+	m.Builder.AttributeAny(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -228,14 +228,14 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 				B: s.KeyValue,
 			},
 		}
-		b.AddBool(v)
+		b.AttributeBool(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.BoolDataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddBool(v)
+	m.Builder.AttributeBool(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -276,14 +276,14 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 				B: s.KeyValue,
 			},
 		}
-		b.AddEnum(v)
+		b.AttributeEnum(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.EnumDataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddEnum(v)
+	m.Builder.AttributeEnum(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -324,14 +324,14 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 				B: s.KeyValue,
 			},
 		}
-		b.AddFloat64(v)
+		b.AttributeFloat64(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.Float64DataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddFloat64(v)
+	m.Builder.AttributeFloat64(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -372,14 +372,14 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 				B: s.KeyValue,
 			},
 		}
-		b.AddInt64(v)
+		b.AttributeInt64(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.Int64DataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddInt64(v)
+	m.Builder.AttributeInt64(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -420,14 +420,14 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 				B: s.KeyValue,
 			},
 		}
-		b.AddLink(v)
+		b.AttributeLink(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.LinkDataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddLink(v)
+	m.Builder.AttributeLink(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -468,14 +468,14 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 				B: s.KeyValue,
 			},
 		}
-		b.AddString(v)
+		b.AttributeString(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.StringDataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddString(v)
+	m.Builder.AttributeString(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {
@@ -516,14 +516,14 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 				B: s.KeyValue,
 			},
 		}
-		b.AddTime(v)
+		b.AttributeTime(v)
 		s.KeyValue = b.B
 		return
 	}
 	m := a.addMulti(k.Key(), k.JSONKey())
 	m.Type = xopbase.TimeDataType
 	lenBefore := len(m.Builder.B)
-	m.Builder.AddTime(v)
+	m.Builder.AttributeTime(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
 		if m.Distinct == nil {

@@ -17,7 +17,6 @@ import (
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
-	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
@@ -174,7 +173,7 @@ func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 
 func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) xopbase.Line {
 	if !prefilled.span.logger.doLogging || !prefilled.span.span.IsRecording() {
-		return xoputil.SkipLine
+		return xopbase.SkipLine
 	}
 	// PERFORMANCE: get line from a pool
 	line := &line{}

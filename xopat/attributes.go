@@ -31,7 +31,7 @@ type Attribute struct {
 	namespace    string
 	version      string
 	properties   Make
-	jsonKey      string
+	jsonKey      JSONKey
 	exampleValue interface{}
 	reflectType  reflect.Type
 	typeName     string
@@ -135,6 +135,7 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 	if err != nil {
 		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
 	}
+	jsonKey = append(jsonKey, ':')
 
 	namespace, sver, err := version.SplitVersionWithError(namespace)
 	if err != nil {
@@ -149,24 +150,32 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 		reflectType:  reflect.TypeOf(exampleValue),
 		typeName:     fmt.Sprintf("%T", exampleValue),
 		subType:      subType,
-		jsonKey:      string(jsonKey) + ":",
-		defSize:      int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
-		semver:       sver,
-		number:       atomic.AddInt32(&attributeCount, 1),
+		jsonKey: JSONKey{
+			b: jsonKey,
+			s: string(jsonKey),
+		},
+		defSize: int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
+		semver:  sver,
+		number:  atomic.AddInt32(&attributeCount, 1),
 	}
 	registry.registeredNames[s.Key] = &ra
 	registry.allAttributes = append(registry.allAttributes, &ra)
 	return ra, nil
 }
 
-type JSONKey string
+// JSONKey includes the ':'
+type JSONKey struct {
+	b []byte
+	s string
+}
 
-func (jk JSONKey) String() string { return string(jk) }
+func (jk JSONKey) String() string { return jk.s }
+func (jk JSONKey) Bytes() []byte  { return jk.b }
 
 // JSONKey returns a JSON-quoted string that can be used as the key to the
 // name of the attribute.  It is a string because []byte is mutable.  JSONKey
 // includes a colon at the end since it's uses is as a key.
-func (r Attribute) JSONKey() JSONKey { return JSONKey(r.jsonKey) }
+func (r Attribute) JSONKey() JSONKey { return r.jsonKey }
 
 // ReflectType can be nil if the example value was nil
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
