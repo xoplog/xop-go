@@ -135,7 +135,7 @@ func verifyMetadataEnum(t *testing.T, k string, want interface{}, got interface{
 func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 	t.Logf("validating replay of span %s", want.Bundle.Trace)
 	assert.Equal(t, want.IsRequest, got.IsRequest, "is request?")
-	assert.Equal(t, want.RequestNum, got.RequestNum, "sequence number")
+	assert.Equal(t, want.RequestNum, got.RequestNum, "sequence number (RequestNum)")
 	if want.Parent != nil {
 		if assert.NotNil(t, got.Parent, "parent not nil") {
 			assert.Equal(t, want.Parent.Bundle.Trace.String(), got.Parent.Bundle.Trace.String(), "parent id")

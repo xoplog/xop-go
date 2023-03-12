@@ -3,7 +3,10 @@ package xoptrace
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"regexp"
+
+	"github.com/pkg/errors"
 )
 
 // TraceState represents W3C tracing headers.
@@ -65,6 +68,9 @@ func NewTrace() Trace {
 	trace.initialize()
 	return trace
 }
+
+var _ json.Marshaler = Trace{}
+var _ json.Unmarshaler = &Trace{}
 
 var traceRE = regexp.MustCompile(`^([a-fA-F0-9]{2})-([a-fA-F0-9]{32})-([a-fA-F0-9]{16})-([a-fA-F0-9]{2})$`)
 
@@ -207,4 +213,22 @@ func (t *Trace) rebuild() {
 	b = append(b, '-')
 	b = append(b, t.flags.h[:]...)
 	t.headerString = string(b)
+}
+
+func (t Trace) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.headerString)
+}
+
+func (t *Trace) UnmarshalJSON(b []byte) error {
+	if len(b) != 57 {
+		return errors.Errorf("unable to unmarshal to Trace, input (%s) wrong length", string(b))
+	}
+	if b[0] != '"' || b[56] != '"' {
+		return errors.Errorf("unable to unmarshal to Trace, input (%s) not quoted", string(b))
+	}
+	ok := t.SetString(string(b[1:56]))
+	if !ok {
+		return errors.Errorf("unable to unmarshal to Trace, invalid input (%s)", string(b[1:54]))
+	}
+	return nil
 }

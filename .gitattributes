@@ -10,6 +10,7 @@ sub.go linguist-generated
 internal/enumer_test.go linguist-generated
 xopat/attributes.go linguist-generated
 xopbase/base.go linguist-generated
+xopbase/skip.go linguist-generated
 xopjson/attributes.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
 xopjson/replay.go linguist-generated
@@ -19,6 +20,5 @@ xoppb/replay.go linguist-generated
 xoptest/replay.go linguist-generated
 xoptest/testlogger.go linguist-generated
 xoptrace/hexbytes.go linguist-generated
-xoputil/skip.go linguist-generated
 xoptest/xoptestutil/enums.go linguist-generated
 xoptest/xoptestutil/verify_replay.go linguist-generated

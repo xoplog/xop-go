@@ -17,6 +17,7 @@ import (
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/pkg/errors"
 )
@@ -26,13 +27,13 @@ var knownKeys = []string{
 	"attributes",
 	"span.id",
 	"trace.id",
+	"trace.parent",
 	"span.seq",
 	"lvl",
 	"stack",
 	"msg",
 	"fmt",
 	"impl",
-	"parent.id",
 	"trace.state",
 	"trace.baggage",
 	"ns",
@@ -108,7 +109,7 @@ type decodedRequest struct {
 
 type decodeRequestExclusive struct {
 	Implmentation string `json:"impl"`
-	ParentID      string `json:"parent.id"`
+	ParentID      string `json:"trace.parent"`
 	State         string `json:"trace.state"`
 	Baggage       string `json:"trace.baggage"`
 	Namespace     string `json:"ns"`
@@ -229,12 +230,24 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		parent.subSpans = append(parent.subSpans, span.SpanID)
 	}
 
+	last := make(map[string]int)
 	for i := len(requests) - 1; i >= 0; i-- {
-		// example: {"type":"request","span.ver":0,"trace.id":"29ee2638726b8ef34fa2f51fa2c7f82e","span.id":"9a6bc944044578c6","span.name":"TestParameters/unbuffered/no-attributes/one-span","ts":"2023-02-20T14:01:28.343114-06:00","source":"xopjson.test 0.0.0","ns":"xopjson.test 0.0.0"}
 		requestInput := requests[i]
-		if _, ok := x.spans[requestInput.SpanID]; ok {
+		if _, ok := last[requestInput.SpanID]; !ok {
+			last[requestInput.SpanID] = i
+		}
+	}
+
+	for i := range requests {
+		requestInput := requests[i]
+		if lastOccurence, ok := last[requestInput.SpanID]; ok {
+			delete(last, requestInput.SpanID)
+			requestInput = requests[lastOccurence]
+		} else {
 			continue
 		}
+
+		// example: {"type":"request","span.ver":0,"trace.id":"29ee2638726b8ef34fa2f51fa2c7f82e","span.id":"9a6bc944044578c6","span.name":"TestParameters/unbuffered/no-attributes/one-span","ts":"2023-02-20T14:01:28.343114-06:00","source":"xopjson.test 0.0.0","ns":"xopjson.test 0.0.0"}
 		var bundle xoptrace.Bundle
 		x.traceID = xoptrace.NewHexBytes16FromString(requestInput.TraceID)
 		bundle.Trace.TraceID().Set(x.traceID)
@@ -318,15 +331,18 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 		}
 	}()
 	attributes := x.spanInput.Attributes
-	if attributes == nil {
-		err := json.Unmarshal([]byte(x.spanInput.unparsed), &attributes)
-		if err != nil {
-			return errors.Errorf("cannot unmarshal to generic for span %s", x.spanInput.SpanID)
+	/*
+		// tentative support for when attribues are not a sub-object
+		if attributes == nil {
+			err := json.Unmarshal([]byte(x.spanInput.unparsed), &attributes)
+			if err != nil {
+				return errors.Errorf("cannot unmarshal to generic for span %s", x.spanInput.SpanID)
+			}
+			for _, k := range knownKeys {
+				delete(attributes, k)
+			}
 		}
-		for _, k := range knownKeys {
-			delete(attributes, k)
-		}
-	}
+	*/
 	for k, v := range attributes {
 		err := replaySpanAttribute{
 			spanReplayData: x,
@@ -444,7 +460,7 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 		}
 		ra := &registeredAttribute.EnumAttribute
 		if aDef.Multiple {
-			var va []xopat.Enum
+			var va []xoputil.DecodeEnum
 			err := json.Unmarshal(v, &va)
 			if err != nil {
 				return errors.Wrap(err, "could not unmarshal metadata []xopat.Enum")
@@ -453,7 +469,7 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 				x.span.MetadataEnum(ra, e)
 			}
 		} else {
-			var e xopat.Enum
+			var e xoputil.DecodeEnum
 			err := json.Unmarshal(v, &e)
 			if err != nil {
 				return errors.Wrap(err, "could not unmarshal metadata xopat.Enum")
@@ -536,6 +552,7 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 		}
 	case xopproto.AttributeType_String,
 		xopproto.AttributeType_Duration,
+		xopproto.AttributeType_Error,
 		xopproto.AttributeType_Stringer:
 		registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(aDef.Make)
 		if err != nil {
@@ -651,6 +668,8 @@ func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 			return errors.Errorf("invalid link in line: '%s'", lineInput.Link)
 		}
 	case "model":
+		// We are constrained by the fact that we decode all types at once
+		// and thus cannot use a json.RawMessage for the encoded type.
 		var ma xopbase.ModelArg
 		switch lineInput.Encoding {
 		case "", "JSON":
@@ -725,7 +744,7 @@ func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k 
 		}
 		ma.TypeName = la.TypeName
 		line.Any(k, ma)
-	case xopbase.StringDataType, xopbase.StringerDataType:
+	case xopbase.StringDataType, xopbase.StringerDataType, xopbase.ErrorDataType:
 		s, ok := la.Value.(string)
 		if !ok {
 			return errors.Errorf("invalid bool (%T)", la.Value)
@@ -818,6 +837,7 @@ var stringToDataType = map[string]xopbase.DataType{
 	"s":        xopbase.StringDataType,
 	"stringer": xopbase.StringerDataType,
 	"enum":     xopbase.EnumDataType,
+	"error":    xopbase.ErrorDataType,
 }
 
 var dataTypeToString = func() map[xopbase.DataType]string {
