@@ -29,7 +29,6 @@ var macros = map[string]map[string]string{
 	"ZZZAttribute": {
 		"Bool":     "bool",
 		"Float64":  "float64",
-		"Float32":  "float32",
 		"Int64":    "int64",
 		"Int32":    "int32",
 		"Int16":    "int16",
@@ -57,7 +56,6 @@ var macros = map[string]map[string]string{
 	"BaseAttributeExample": {
 		"Bool":    "true",
 		"Float64": "float64(0.0)",
-		"Float32": "float32(0.0)",
 		"String":  "\"\"",
 		"Link":    "xoptrace.Trace{}",
 		"Any":     "interface{}",

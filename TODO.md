@@ -9,8 +9,6 @@
 
 - Change logging API
 
-  - add `.Model(string, any)` as an alternative to `.Msg()` 
-  - change `.Link(string, any)` to be an alternative to `.Msg()`
   - note that `.Table()` will also be an alternative to `.Msg()`
 
 - (Re)define/document output formats
@@ -36,6 +34,10 @@
 - Rebuild server to ingest the new xopproto
 
 # Just do it (build ready)
+
+- rebuild attribute defintions to use generics `type Int32Attribute Attribute[int64][int32]`?
+
+- remove example values from attribute defintions (also removes TypeName)
 
 - add marshal functions to HexBytes and Trace: JSON & sql
 

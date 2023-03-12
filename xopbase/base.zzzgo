@@ -111,10 +111,16 @@ type Span interface {
 	// to Span can be made in parallel.
 	Span(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
-	// MACRO BaseAttribute
+	// MACRO BaseAttribute SKIP:Int64
 	// MetadataZZZ adds a key/value pair to describe the span.  Calls to
 	// MetadataZZZ are can be concurrent with other calls to set Metadata.
 	MetadataZZZ(*xopat.ZZZAttribute, zzz)
+
+	// MetadataInt64 adds a key/value pair to describe the span.  Calls to
+	// MetadataInt64 are can be concurrent with other calls to set Metadata.
+	// MetadataInt64 is used for Int64, Int, Int8, Int16, Int32, and time.Duration
+	// metadata recording.
+	MetadataInt64(*xopat.Int64Attribute, int64)
 
 	// Boring true indicates that a span (or request) is boring.  The
 	// suggested meaning for this is that a boring request that is buffered

@@ -258,21 +258,6 @@ func (r *Registry) ConstructBoolAttribute(s Make, t AttributeType) (_ *BoolAttri
 	return &BoolAttribute{Attribute: s.attribute(r, true, &err, t)}, err
 }
 
-func (s Make) Float32Attribute() *Float32Attribute {
-	return &Float32Attribute{Attribute: s.attribute(defaultRegistry, float32(0.0), nil, AttributeTypeFloat32)}
-}
-
-func (s Make) TryFloat32Attribute() (*Float32Attribute, error) {
-	return defaultRegistry.ConstructFloat32Attribute(s, AttributeTypeFloat32)
-}
-
-func (r *Registry) ConstructFloat32Attribute(s Make, t AttributeType) (_ *Float32Attribute, err error) {
-	if t.SpanAttributeType() != AttributeTypeFloat32.SpanAttributeType() {
-		return nil, errors.Errorf("cannot override %s to be Float32", t)
-	}
-	return &Float32Attribute{Attribute: s.attribute(r, float32(0.0), &err, t)}, err
-}
-
 func (s Make) Float64Attribute() *Float64Attribute {
 	return &Float64Attribute{Attribute: s.attribute(defaultRegistry, float64(0.0), nil, AttributeTypeFloat64)}
 }
@@ -431,7 +416,6 @@ const (
 	AttributeTypeBool     = AttributeType(xopproto.AttributeType_Bool)
 	AttributeTypeDuration = AttributeType(xopproto.AttributeType_Duration)
 	AttributeTypeEnum     = AttributeType(xopproto.AttributeType_Enum)
-	AttributeTypeFloat32  = AttributeType(xopproto.AttributeType_Float32)
 	AttributeTypeFloat64  = AttributeType(xopproto.AttributeType_Float64)
 	AttributeTypeInt      = AttributeType(xopproto.AttributeType_Int)
 	AttributeTypeInt16    = AttributeType(xopproto.AttributeType_Int16)
@@ -475,10 +459,6 @@ type AnyAttribute struct{ Attribute }
 // BoolAttribute represents an attribute key that can be used
 // with bool values.
 type BoolAttribute struct{ Attribute }
-
-// Float32Attribute represents an attribute key that can be used
-// with float32 values.
-type Float32Attribute struct{ Attribute }
 
 // Float64Attribute represents an attribute key that can be used
 // with float64 values.

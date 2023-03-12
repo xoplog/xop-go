@@ -51,7 +51,7 @@ func (iow IOWriter) DefineAttribute(k *xopat.Attribute, requestTrace *xoptrace.T
 	if k.Indexed() {
 		b.AppendBytes([]byte(`","indexed":true,"prom":`))
 	} else {
-		b.AppendBytes([]byte(`","indexed":false,"prom":`))
+		b.AppendBytes([]byte(`","prom":`))
 	}
 	b.AddInt32(int32(k.Prominence()))
 	if k.Multiple() {

@@ -9,9 +9,6 @@ func (t AttributeType) SpanAttributeType() AttributeType {
 		AttributeTypeInt32,
 		AttributeTypeDuration:
 		return AttributeTypeInt64
-	case
-		AttributeTypeFloat32:
-		return AttributeTypeFloat64
 	default:
 		return t
 	}

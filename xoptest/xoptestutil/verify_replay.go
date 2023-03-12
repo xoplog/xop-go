@@ -196,7 +196,7 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 		assert.Equalf(t, wantAI.Distinct(), gotAI.Distinct(), "Distinct for %s", k)
 		assert.Equalf(t, wantAI.Prominence(), gotAI.Prominence(), "Prominence for %s", k)
 		assert.Equalf(t, wantAI.SemverString(), gotAI.SemverString(), "SemverString for %s", k)
-		assert.Equalf(t, wantAI.TypeName(), gotAI.TypeName(), "TypeName for %s", k)
+		// We don't verify TypeName because it comes from the example value
 		assert.Equalf(t, wantAI.SubType(), gotAI.SubType(), "SubType for %s", k)
 		assert.Equalf(t, wantAI.ProtoType().String(), gotAI.ProtoType().String(), "ProtoType for %s", k)
 	}

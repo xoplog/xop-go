@@ -125,9 +125,6 @@ type Span interface {
 	// MetadataFloat64 adds a key/value pair to describe the span.  Calls to
 	// MetadataFloat64 are can be concurrent with other calls to set Metadata.
 	MetadataFloat64(*xopat.Float64Attribute, float64)
-	// MetadataInt64 adds a key/value pair to describe the span.  Calls to
-	// MetadataInt64 are can be concurrent with other calls to set Metadata.
-	MetadataInt64(*xopat.Int64Attribute, int64)
 	// MetadataLink adds a key/value pair to describe the span.  Calls to
 	// MetadataLink are can be concurrent with other calls to set Metadata.
 	MetadataLink(*xopat.LinkAttribute, xoptrace.Trace)
@@ -137,6 +134,12 @@ type Span interface {
 	// MetadataTime adds a key/value pair to describe the span.  Calls to
 	// MetadataTime are can be concurrent with other calls to set Metadata.
 	MetadataTime(*xopat.TimeAttribute, time.Time)
+
+	// MetadataInt64 adds a key/value pair to describe the span.  Calls to
+	// MetadataInt64 are can be concurrent with other calls to set Metadata.
+	// MetadataInt64 is used for Int64, Int, Int8, Int16, Int32, and time.Duration
+	// metadata recording.
+	MetadataInt64(*xopat.Int64Attribute, int64)
 
 	// Boring true indicates that a span (or request) is boring.  The
 	// suggested meaning for this is that a boring request that is buffered
