@@ -171,6 +171,26 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 			}
 		}
 	}
+	for k, wantAI := range want.MetadataAttribute {
+		gotAI, ok := got.MetadataAttribute[k]
+		if !assert.Truef(t, ok, "missing metadata attribute %s", k) {
+			continue
+		}
+		assert.Equalf(t, wantAI.JSONKey().String(), gotAI.JSONKey().String(), "JSONKey.String for %s", k)
+		assert.Equalf(t, wantAI.Key(), gotAI.Key(), "Key for %s", k)
+		assert.Equalf(t, wantAI.Description(), gotAI.Description(), "Description for %s", k)
+		assert.Equalf(t, wantAI.Namespace(), gotAI.Namespace(), "Namespace for %s", k)
+		assert.Equalf(t, wantAI.Indexed(), gotAI.Indexed(), "Indexed for %s", k)
+		assert.Equalf(t, wantAI.Multiple(), gotAI.Multiple(), "Multiple for %s", k)
+		assert.Equalf(t, wantAI.Ranged(), gotAI.Ranged(), "Ranged for %s", k)
+		assert.Equalf(t, wantAI.Locked(), gotAI.Locked(), "Locked for %s", k)
+		assert.Equalf(t, wantAI.Distinct(), gotAI.Distinct(), "Distinct for %s", k)
+		assert.Equalf(t, wantAI.Prominence(), gotAI.Prominence(), "Prominence for %s", k)
+		assert.Equalf(t, wantAI.SemverString(), gotAI.SemverString(), "SemverString for %s", k)
+		assert.Equalf(t, wantAI.TypeName(), gotAI.TypeName(), "TypeName for %s", k)
+		assert.Equalf(t, wantAI.SubType(), gotAI.SubType(), "SubType for %s", k)
+		assert.Equalf(t, wantAI.ProtoType().String(), gotAI.ProtoType().String(), "ProtoType for %s", k)
+	}
 	for k := range got.MetadataType {
 		_, ok := want.MetadataType[k]
 		assert.Truef(t, ok, "extraneous metadata key '%s'", k)

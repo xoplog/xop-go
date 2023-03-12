@@ -37,7 +37,7 @@ var macros = map[string]map[string]string{
 		"Int":      "int",
 		"Link":     "xoptrace.Trace",
 		"String":   "string",
-		"Any":      "interface{}", // XXX change to xopbase.ModelArg
+		"Any":      "xopbase.ModelArg",
 		"Time":     "time.Time",
 		"Duration": "time.Duration",
 		"Enum":     "xopat.Enum",

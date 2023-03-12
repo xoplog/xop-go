@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
 )
 
 // EnumAttributes are logged as strings or as integers depending
@@ -178,10 +180,13 @@ func (s Make) TryEmbeddedEnumAttribute(exampleValue interface{}) (_ *EmbeddedEnu
 }
 
 // ConstructEnumAttribute actually returns an EmbeddedEnumAttribute
-func (r *Registry) ConstructEnumAttribute(s Make) (_ *EmbeddedEnumAttribute, err error) {
+func (r *Registry) ConstructEnumAttribute(s Make, t AttributeType) (_ *EmbeddedEnumAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeEnum.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Enum", t)
+	}
 	ie := &EmbeddedEnumAttribute{
 		EnumAttribute: EnumAttribute{
-			Attribute: s.attribute(r, nil, &err, AttributeTypeEnum),
+			Attribute: s.attribute(r, nil, &err, t),
 		},
 	}
 	if err != nil {

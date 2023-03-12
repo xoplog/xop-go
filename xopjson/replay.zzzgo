@@ -285,7 +285,6 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			sourceInfo)
 		requestInput.request = x.request
 		x.spans[requestInput.SpanID] = x.request
-		fmt.Println("XXX add request", requestInput.SpanID)
 		err = spanReplayData{
 			baseReplay:  x,
 			span:        x.request,
@@ -348,7 +347,6 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 			return errors.Wrapf(err, "in span attribute (%s: %s)", k, string(v))
 		}
 	}
-	fmt.Println("XXX span", x.spanInput.SpanID, "has subspans", x.spanInput.subSpans)
 	for _, subSpanID := range x.spanInput.subSpans {
 		if _, ok := x.spans[subSpanID]; ok {
 			continue
@@ -371,7 +369,6 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 			spanInput.SequenceCode,
 		)
 		x.spans[subSpanID] = span
-		fmt.Println("XXX add span", subSpanID, "with seq", spanInput.SequenceCode, "from input", spanInput.unparsed)
 		err := spanReplayData{
 			baseReplay:  x.baseReplay,
 			span:        span,
@@ -404,32 +401,9 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 	}
 
 	switch aDef.AttributeType {
-	// MACRO BaseAttribute
-	// CONDITIONAL ONLY:Int64
-	case xopproto.AttributeType_Int8,
-		xopproto.AttributeType_Int16,
-		xopproto.AttributeType_Int32,
-		xopproto.AttributeType_Int64,
-		xopproto.AttributeType_Int:
-	// CONDITIONAL ONLY:Uint64
-	case xopproto.AttributeType_Uint8,
-		xopproto.AttributeType_Uint16,
-		xopproto.AttributeType_Uint32,
-		xopproto.AttributeType_Uint64,
-		xopproto.AttributeType_Uint,
-		xopproto.AttributeType_Uintptr:
-	// CONDITIONAL ONLY:String
-	case xopproto.AttributeType_String,
-		xopproto.AttributeType_Duration,
-		xopproto.AttributeType_Error,
-		xopproto.AttributeType_Stringer:
-	// CONDITIONAL ONLY:Float64
-	case xopproto.AttributeType_Float64,
-		xopproto.AttributeType_Float32:
-	// CONDITIONAL SKIP:Int64,String,Uint64,Float64
+	// MACRO ZZZAttribute SKIP:Float32
 	case xopproto.AttributeType_ZZZ:
-		// END CONDITIONAL
-		registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make)
+		registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
 		}
@@ -438,6 +412,13 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 		// ELSE CONDITIONAL
 		ra := registeredAttribute
 		// END CONDITIONAL
+		addMetadata := func(v zzz) {
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Duration
+			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
+			// ELSE CONDITIONAL
+			x.span.MetadataZZZ(ra, v)
+			// END CONDITIONAL
+		}
 		if aDef.Multiple {
 			// CONDITIONAL ONLY:Enum
 			var va []xoputil.DecodeEnum
@@ -449,7 +430,7 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 				return errors.Wrap(err, "could not unmarshal metadata []zzz")
 			}
 			for _, e := range va {
-				x.span.MetadataZZZ(ra, e)
+				addMetadata(e)
 			}
 		} else {
 			// CONDITIONAL ONLY:Enum
@@ -461,7 +442,7 @@ func (x replaySpanAttribute) Replay(k string, v []byte) error {
 			if err != nil {
 				return errors.Wrap(err, "could not unmarshal metadata zzz")
 			}
-			x.span.MetadataZZZ(ra, e)
+			addMetadata(e)
 		}
 
 	default:
@@ -479,7 +460,6 @@ type lineAttribute struct {
 }
 
 func (x baseReplay) ReplayLines() error {
-	fmt.Println("XXX count of lines", len(x.lines))
 	for _, lineInput := range x.lines {
 		err := x.ReplayLine(lineInput)
 		if err != nil {
@@ -505,7 +485,6 @@ func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 		nil, // XXX TODO
 	)
 
-	fmt.Println("XXX line has", len(lineInput.Attributes), "attributes", "unparsed", lineInput.unparsed)
 	for k, enc := range lineInput.Attributes {
 		err := replayLineAttribute{
 			baseReplay: x,
@@ -582,7 +561,7 @@ func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k 
 		m := xopat.Make{
 			Key: k,
 		}
-		ea, err := x.attributeRegistry.ConstructEnumAttribute(m)
+		ea, err := x.attributeRegistry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
 		if err != nil {
 			return errors.Wrap(err, "build enum attribute")
 		}

@@ -90,6 +90,7 @@ type Span struct {
 	Short              string // Tx.y where x is a sequence of requests and y is a sequence of spans within the request
 	Metadata           map[string]interface{}
 	MetadataType       map[string]xopbase.DataType
+	MetadataAttribute  map[string]xopat.AttributeInterface
 	metadataSeen       map[string]interface{}
 	StartTime          time.Time
 	Name               string
@@ -178,16 +179,17 @@ func (log *TestLogger) Request(ctx context.Context, ts time.Time, bundle xoptrac
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	s := &Span{
-		testLogger:   log,
-		IsRequest:    true,
-		Bundle:       bundle,
-		StartTime:    ts,
-		Name:         name,
-		Metadata:     make(map[string]interface{}),
-		MetadataType: make(map[string]xopbase.DataType),
-		metadataSeen: make(map[string]interface{}),
-		Ctx:          ctx,
-		SourceInfo:   &sourceInfo,
+		testLogger:        log,
+		IsRequest:         true,
+		Bundle:            bundle,
+		StartTime:         ts,
+		Name:              name,
+		Metadata:          make(map[string]interface{}),
+		MetadataType:      make(map[string]xopbase.DataType),
+		MetadataAttribute: make(map[string]xopat.AttributeInterface),
+		metadataSeen:      make(map[string]interface{}),
+		Ctx:               ctx,
+		SourceInfo:        &sourceInfo,
 	}
 	s.setShortRequest()
 	log.Requests = append(log.Requests, s)
@@ -281,16 +283,17 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 	span.lock.Lock()
 	defer span.lock.Unlock()
 	n := &Span{
-		testLogger:   span.testLogger,
-		Bundle:       bundle,
-		StartTime:    ts,
-		Name:         name,
-		Metadata:     make(map[string]interface{}),
-		MetadataType: make(map[string]xopbase.DataType),
-		metadataSeen: make(map[string]interface{}),
-		SequenceCode: spanSequenceCode,
-		Ctx:          ctx,
-		Parent:       span,
+		testLogger:        span.testLogger,
+		Bundle:            bundle,
+		StartTime:         ts,
+		Name:              name,
+		Metadata:          make(map[string]interface{}),
+		MetadataType:      make(map[string]xopbase.DataType),
+		MetadataAttribute: make(map[string]xopat.AttributeInterface),
+		metadataSeen:      make(map[string]interface{}),
+		SequenceCode:      spanSequenceCode,
+		Ctx:               ctx,
+		Parent:            span,
 	}
 	n.setShortSpan()
 	span.Spans = append(span.Spans, n)
@@ -388,15 +391,6 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	line.Message = p.Msg
 	return line
 }
-
-/* XXX
-// Link is a required method for xopbase.ObjectParts
-func (b *Builder) Link(k string, v xoptrace.Trace) {
-	b.Data[k] = v
-	b.DataType[k] = xopbase.LinkDataType
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v.String()))
-}
-*/
 
 // Link is a required method for xopbase.Line
 func (line *Line) Link(m string, v xoptrace.Trace) {
@@ -573,6 +567,7 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataBool is a required method for xopbase.Span
@@ -622,6 +617,7 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataEnum is a required method for xopbase.Span
@@ -671,6 +667,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataFloat64 is a required method for xopbase.Span
@@ -720,6 +717,7 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataInt64 is a required method for xopbase.Span
@@ -769,6 +767,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataLink is a required method for xopbase.Span
@@ -818,6 +817,7 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataString is a required method for xopbase.Span
@@ -867,6 +867,7 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }
 
 // MetadataTime is a required method for xopbase.Span
@@ -916,4 +917,5 @@ func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		}
 		s.Metadata[k.Key()] = v
 	}
+	s.MetadataAttribute[k.Key()] = k
 }

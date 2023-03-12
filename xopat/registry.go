@@ -20,4 +20,3 @@ func NewRegistry(errOnDuplicate bool) *Registry {
 		errOnDuplicate:  errOnDuplicate,
 	}
 }
-

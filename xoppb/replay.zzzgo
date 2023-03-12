@@ -1,9 +1,7 @@
 package xoppb
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -205,18 +203,24 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		Prominence:  int(def.Prominence),
 		Multiple:    def.Multiple,
 		Distinct:    def.Distinct,
-		// XXX Ranged      :
-		Locked: def.Locked,
+		Ranged:      def.Ranged,
+		Locked:      def.Locked,
 	}
 	switch xopat.AttributeType(def.Type).SpanAttributeType() {
 	// MACRO SimpleAttributeReconstructionPB
 	case xopat.AttributeTypeZZZ:
-		registeredAttribute, err := x.registry.ConstructZZZAttribute(m)
+		registeredAttribute, err := x.registry.ConstructZZZAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
 		for _, v := range attribute.Values {
-			// CONDITIONAL ONLY:Float64,String,Time,Int64
+			// CONDITIONAL ONLY:Float64,Float32
+			x.span.MetadataFloat64(registeredAttribute, zzz)
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Duration
+			x.span.MetadataInt64(registeredAttribute, zzz)
+			// CONDITIONAL ONLY:String
+			x.span.MetadataString(registeredAttribute, zzz)
+			// CONDITIONAL ONLY:Time
 			x.span.MetadataZZZ(registeredAttribute, zzz)
 			// CONDITIONAL ONLY:Bool
 			var b bool
@@ -266,7 +270,7 @@ func (x replayLine) Replay(ctx context.Context) error {
 			m := xopat.Make{
 				Key: attribute.Key,
 			}
-			ea, err := x.registry.ConstructEnumAttribute(m)
+			ea, err := x.registry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
 			if err != nil {
 				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", attribute.Key)
 			}
