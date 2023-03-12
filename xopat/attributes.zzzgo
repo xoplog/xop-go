@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/pkg/errors"
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopproto"
 
@@ -91,8 +92,11 @@ func (s Make) AnyAttribute(exampleValue interface{}) *AnyAttribute {
 func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err error) {
 	return &AnyAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeAny)}, err
 }
-func (r *Registry) ConstructAnyAttribute(s Make) (_ *AnyAttribute, err error) {
-	return &AnyAttribute{Attribute: s.attribute(r, 0, &err, AttributeTypeAny)}, err
+func (r *Registry) ConstructAnyAttribute(s Make, t AttributeType) (_ *AnyAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeAny.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Any", t)
+	}
+	return &AnyAttribute{Attribute: s.attribute(r, 0, &err, t)}, err
 }
 
 func (s Make) attribute(registry *Registry, exampleValue interface{}, ep *error, subType AttributeType) Attribute {
@@ -179,7 +183,7 @@ func (r Attribute) Description() string               { return r.properties.Desc
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
 func (r Attribute) Multiple() bool                    { return r.properties.Multiple }
-func (r Attribute) Ranged() bool                      { return r.properties.Ranged } // XXX add to proto
+func (r Attribute) Ranged() bool                      { return r.properties.Ranged }
 func (r Attribute) Locked() bool                      { return r.properties.Locked }
 func (r Attribute) Distinct() bool                    { return r.properties.Distinct }
 func (r Attribute) Prominence() int                   { return r.properties.Prominence }
@@ -238,10 +242,13 @@ func (s Make) ZZZAttribute() *ZZZAttribute {
 	return &ZZZAttribute{Attribute: s.attribute(defaultRegistry, zzz, nil, AttributeTypeZZZ)}
 }
 func (s Make) TryZZZAttribute() (*ZZZAttribute, error) {
-	return defaultRegistry.ConstructZZZAttribute(s)
+	return defaultRegistry.ConstructZZZAttribute(s, AttributeTypeZZZ)
 }
-func (r *Registry) ConstructZZZAttribute(s Make) (_ *ZZZAttribute, err error) {
-	return &ZZZAttribute{Attribute: s.attribute(r, zzz, &err, AttributeTypeZZZ)}, err
+func (r *Registry) ConstructZZZAttribute(s Make, t AttributeType) (_ *ZZZAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeZZZ.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be ZZZ", t)
+	}
+	return &ZZZAttribute{Attribute: s.attribute(r, zzz, &err, t)}, err
 }
 
 // MACRO IntsPlus SKIP:Int64
@@ -249,10 +256,13 @@ func (s Make) ZZZAttribute() *ZZZAttribute {
 	return &ZZZAttribute{Int64Attribute{Attribute: s.attribute(defaultRegistry, zzz(0), nil, AttributeTypeZZZ)}}
 }
 func (s Make) TryZZZAttribute() (*ZZZAttribute, error) {
-	return defaultRegistry.ConstructZZZAttribute(s)
+	return defaultRegistry.ConstructZZZAttribute(s, AttributeTypeZZZ)
 }
-func (r *Registry) ConstructZZZAttribute(s Make) (_ *ZZZAttribute, err error) {
-	return &ZZZAttribute{Int64Attribute{Attribute: s.attribute(r, zzz(0), &err, AttributeTypeZZZ)}}, err
+func (r *Registry) ConstructZZZAttribute(s Make, t AttributeType) (_ *ZZZAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeZZZ.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be ZZZ", t)
+	}
+	return &ZZZAttribute{Int64Attribute{Attribute: s.attribute(r, zzz(0), &err, t)}}, err
 }
 
 type AttributeType int

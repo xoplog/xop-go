@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -97,8 +98,11 @@ func (s Make) TryAnyAttribute(exampleValue interface{}) (_ *AnyAttribute, err er
 	return &AnyAttribute{Attribute: s.attribute(defaultRegistry, exampleValue, &err, AttributeTypeAny)}, err
 }
 
-func (r *Registry) ConstructAnyAttribute(s Make) (_ *AnyAttribute, err error) {
-	return &AnyAttribute{Attribute: s.attribute(r, 0, &err, AttributeTypeAny)}, err
+func (r *Registry) ConstructAnyAttribute(s Make, t AttributeType) (_ *AnyAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeAny.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Any", t)
+	}
+	return &AnyAttribute{Attribute: s.attribute(r, 0, &err, t)}, err
 }
 
 func (s Make) attribute(registry *Registry, exampleValue interface{}, ep *error, subType AttributeType) Attribute {
@@ -185,7 +189,7 @@ func (r Attribute) Description() string               { return r.properties.Desc
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
 func (r Attribute) Multiple() bool                    { return r.properties.Multiple }
-func (r Attribute) Ranged() bool                      { return r.properties.Ranged } // XXX add to proto
+func (r Attribute) Ranged() bool                      { return r.properties.Ranged }
 func (r Attribute) Locked() bool                      { return r.properties.Locked }
 func (r Attribute) Distinct() bool                    { return r.properties.Distinct }
 func (r Attribute) Prominence() int                   { return r.properties.Prominence }
@@ -244,11 +248,14 @@ func (s Make) BoolAttribute() *BoolAttribute {
 }
 
 func (s Make) TryBoolAttribute() (*BoolAttribute, error) {
-	return defaultRegistry.ConstructBoolAttribute(s)
+	return defaultRegistry.ConstructBoolAttribute(s, AttributeTypeBool)
 }
 
-func (r *Registry) ConstructBoolAttribute(s Make) (_ *BoolAttribute, err error) {
-	return &BoolAttribute{Attribute: s.attribute(r, true, &err, AttributeTypeBool)}, err
+func (r *Registry) ConstructBoolAttribute(s Make, t AttributeType) (_ *BoolAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeBool.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Bool", t)
+	}
+	return &BoolAttribute{Attribute: s.attribute(r, true, &err, t)}, err
 }
 
 func (s Make) Float32Attribute() *Float32Attribute {
@@ -256,11 +263,14 @@ func (s Make) Float32Attribute() *Float32Attribute {
 }
 
 func (s Make) TryFloat32Attribute() (*Float32Attribute, error) {
-	return defaultRegistry.ConstructFloat32Attribute(s)
+	return defaultRegistry.ConstructFloat32Attribute(s, AttributeTypeFloat32)
 }
 
-func (r *Registry) ConstructFloat32Attribute(s Make) (_ *Float32Attribute, err error) {
-	return &Float32Attribute{Attribute: s.attribute(r, float32(0.0), &err, AttributeTypeFloat32)}, err
+func (r *Registry) ConstructFloat32Attribute(s Make, t AttributeType) (_ *Float32Attribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeFloat32.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Float32", t)
+	}
+	return &Float32Attribute{Attribute: s.attribute(r, float32(0.0), &err, t)}, err
 }
 
 func (s Make) Float64Attribute() *Float64Attribute {
@@ -268,11 +278,14 @@ func (s Make) Float64Attribute() *Float64Attribute {
 }
 
 func (s Make) TryFloat64Attribute() (*Float64Attribute, error) {
-	return defaultRegistry.ConstructFloat64Attribute(s)
+	return defaultRegistry.ConstructFloat64Attribute(s, AttributeTypeFloat64)
 }
 
-func (r *Registry) ConstructFloat64Attribute(s Make) (_ *Float64Attribute, err error) {
-	return &Float64Attribute{Attribute: s.attribute(r, float64(0.0), &err, AttributeTypeFloat64)}, err
+func (r *Registry) ConstructFloat64Attribute(s Make, t AttributeType) (_ *Float64Attribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeFloat64.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Float64", t)
+	}
+	return &Float64Attribute{Attribute: s.attribute(r, float64(0.0), &err, t)}, err
 }
 
 func (s Make) Int64Attribute() *Int64Attribute {
@@ -280,11 +293,14 @@ func (s Make) Int64Attribute() *Int64Attribute {
 }
 
 func (s Make) TryInt64Attribute() (*Int64Attribute, error) {
-	return defaultRegistry.ConstructInt64Attribute(s)
+	return defaultRegistry.ConstructInt64Attribute(s, AttributeTypeInt64)
 }
 
-func (r *Registry) ConstructInt64Attribute(s Make) (_ *Int64Attribute, err error) {
-	return &Int64Attribute{Attribute: s.attribute(r, int64(0), &err, AttributeTypeInt64)}, err
+func (r *Registry) ConstructInt64Attribute(s Make, t AttributeType) (_ *Int64Attribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeInt64.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Int64", t)
+	}
+	return &Int64Attribute{Attribute: s.attribute(r, int64(0), &err, t)}, err
 }
 
 func (s Make) LinkAttribute() *LinkAttribute {
@@ -292,11 +308,14 @@ func (s Make) LinkAttribute() *LinkAttribute {
 }
 
 func (s Make) TryLinkAttribute() (*LinkAttribute, error) {
-	return defaultRegistry.ConstructLinkAttribute(s)
+	return defaultRegistry.ConstructLinkAttribute(s, AttributeTypeLink)
 }
 
-func (r *Registry) ConstructLinkAttribute(s Make) (_ *LinkAttribute, err error) {
-	return &LinkAttribute{Attribute: s.attribute(r, xoptrace.Trace{}, &err, AttributeTypeLink)}, err
+func (r *Registry) ConstructLinkAttribute(s Make, t AttributeType) (_ *LinkAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeLink.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Link", t)
+	}
+	return &LinkAttribute{Attribute: s.attribute(r, xoptrace.Trace{}, &err, t)}, err
 }
 
 func (s Make) StringAttribute() *StringAttribute {
@@ -304,11 +323,14 @@ func (s Make) StringAttribute() *StringAttribute {
 }
 
 func (s Make) TryStringAttribute() (*StringAttribute, error) {
-	return defaultRegistry.ConstructStringAttribute(s)
+	return defaultRegistry.ConstructStringAttribute(s, AttributeTypeString)
 }
 
-func (r *Registry) ConstructStringAttribute(s Make) (_ *StringAttribute, err error) {
-	return &StringAttribute{Attribute: s.attribute(r, "", &err, AttributeTypeString)}, err
+func (r *Registry) ConstructStringAttribute(s Make, t AttributeType) (_ *StringAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeString.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be String", t)
+	}
+	return &StringAttribute{Attribute: s.attribute(r, "", &err, t)}, err
 }
 
 func (s Make) TimeAttribute() *TimeAttribute {
@@ -316,11 +338,14 @@ func (s Make) TimeAttribute() *TimeAttribute {
 }
 
 func (s Make) TryTimeAttribute() (*TimeAttribute, error) {
-	return defaultRegistry.ConstructTimeAttribute(s)
+	return defaultRegistry.ConstructTimeAttribute(s, AttributeTypeTime)
 }
 
-func (r *Registry) ConstructTimeAttribute(s Make) (_ *TimeAttribute, err error) {
-	return &TimeAttribute{Attribute: s.attribute(r, time.Time{}, &err, AttributeTypeTime)}, err
+func (r *Registry) ConstructTimeAttribute(s Make, t AttributeType) (_ *TimeAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeTime.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Time", t)
+	}
+	return &TimeAttribute{Attribute: s.attribute(r, time.Time{}, &err, t)}, err
 }
 
 func (s Make) DurationAttribute() *DurationAttribute {
@@ -328,11 +353,14 @@ func (s Make) DurationAttribute() *DurationAttribute {
 }
 
 func (s Make) TryDurationAttribute() (*DurationAttribute, error) {
-	return defaultRegistry.ConstructDurationAttribute(s)
+	return defaultRegistry.ConstructDurationAttribute(s, AttributeTypeDuration)
 }
 
-func (r *Registry) ConstructDurationAttribute(s Make) (_ *DurationAttribute, err error) {
-	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(r, time.Duration(0), &err, AttributeTypeDuration)}}, err
+func (r *Registry) ConstructDurationAttribute(s Make, t AttributeType) (_ *DurationAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeDuration.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Duration", t)
+	}
+	return &DurationAttribute{Int64Attribute{Attribute: s.attribute(r, time.Duration(0), &err, t)}}, err
 }
 
 func (s Make) IntAttribute() *IntAttribute {
@@ -340,11 +368,14 @@ func (s Make) IntAttribute() *IntAttribute {
 }
 
 func (s Make) TryIntAttribute() (*IntAttribute, error) {
-	return defaultRegistry.ConstructIntAttribute(s)
+	return defaultRegistry.ConstructIntAttribute(s, AttributeTypeInt)
 }
 
-func (r *Registry) ConstructIntAttribute(s Make) (_ *IntAttribute, err error) {
-	return &IntAttribute{Int64Attribute{Attribute: s.attribute(r, int(0), &err, AttributeTypeInt)}}, err
+func (r *Registry) ConstructIntAttribute(s Make, t AttributeType) (_ *IntAttribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeInt.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Int", t)
+	}
+	return &IntAttribute{Int64Attribute{Attribute: s.attribute(r, int(0), &err, t)}}, err
 }
 
 func (s Make) Int16Attribute() *Int16Attribute {
@@ -352,11 +383,14 @@ func (s Make) Int16Attribute() *Int16Attribute {
 }
 
 func (s Make) TryInt16Attribute() (*Int16Attribute, error) {
-	return defaultRegistry.ConstructInt16Attribute(s)
+	return defaultRegistry.ConstructInt16Attribute(s, AttributeTypeInt16)
 }
 
-func (r *Registry) ConstructInt16Attribute(s Make) (_ *Int16Attribute, err error) {
-	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(r, int16(0), &err, AttributeTypeInt16)}}, err
+func (r *Registry) ConstructInt16Attribute(s Make, t AttributeType) (_ *Int16Attribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeInt16.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Int16", t)
+	}
+	return &Int16Attribute{Int64Attribute{Attribute: s.attribute(r, int16(0), &err, t)}}, err
 }
 
 func (s Make) Int32Attribute() *Int32Attribute {
@@ -364,11 +398,14 @@ func (s Make) Int32Attribute() *Int32Attribute {
 }
 
 func (s Make) TryInt32Attribute() (*Int32Attribute, error) {
-	return defaultRegistry.ConstructInt32Attribute(s)
+	return defaultRegistry.ConstructInt32Attribute(s, AttributeTypeInt32)
 }
 
-func (r *Registry) ConstructInt32Attribute(s Make) (_ *Int32Attribute, err error) {
-	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(r, int32(0), &err, AttributeTypeInt32)}}, err
+func (r *Registry) ConstructInt32Attribute(s Make, t AttributeType) (_ *Int32Attribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeInt32.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Int32", t)
+	}
+	return &Int32Attribute{Int64Attribute{Attribute: s.attribute(r, int32(0), &err, t)}}, err
 }
 
 func (s Make) Int8Attribute() *Int8Attribute {
@@ -376,11 +413,14 @@ func (s Make) Int8Attribute() *Int8Attribute {
 }
 
 func (s Make) TryInt8Attribute() (*Int8Attribute, error) {
-	return defaultRegistry.ConstructInt8Attribute(s)
+	return defaultRegistry.ConstructInt8Attribute(s, AttributeTypeInt8)
 }
 
-func (r *Registry) ConstructInt8Attribute(s Make) (_ *Int8Attribute, err error) {
-	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(r, int8(0), &err, AttributeTypeInt8)}}, err
+func (r *Registry) ConstructInt8Attribute(s Make, t AttributeType) (_ *Int8Attribute, err error) {
+	if t.SpanAttributeType() != AttributeTypeInt8.SpanAttributeType() {
+		return nil, errors.Errorf("cannot override %s to be Int8", t)
+	}
+	return &Int8Attribute{Int64Attribute{Attribute: s.attribute(r, int8(0), &err, t)}}, err
 }
 
 type AttributeType int
@@ -429,7 +469,7 @@ type Int32Attribute struct{ Int64Attribute }
 type Int8Attribute struct{ Int64Attribute }
 
 // AnyAttribute represents an attribute key that can be used
-// with interface{} values.
+// with xopbase.ModelArg values.
 type AnyAttribute struct{ Attribute }
 
 // BoolAttribute represents an attribute key that can be used

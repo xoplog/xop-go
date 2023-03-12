@@ -68,6 +68,9 @@ func (iow IOWriter) DefineAttribute(k *xopat.Attribute, requestTrace *xoptrace.T
 		}
 	}
 	b.AddSafeString(k.ProtoType().String())
+	if k.Ranged() {
+		b.AppendBytes([]byte(`,"ranged":true`))
+	}
 	if requestTrace != nil {
 		b.AppendBytes([]byte(`,"span.id":"`))
 		b.AppendString(requestTrace.SpanID().String())

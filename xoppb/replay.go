@@ -205,12 +205,12 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		Prominence:  int(def.Prominence),
 		Multiple:    def.Multiple,
 		Distinct:    def.Distinct,
-		// XXX Ranged      :
-		Locked: def.Locked,
+		Ranged:      def.Ranged,
+		Locked:      def.Locked,
 	}
 	switch xopat.AttributeType(def.Type).SpanAttributeType() {
 	case xopat.AttributeTypeAny:
-		registeredAttribute, err := x.registry.ConstructAnyAttribute(m)
+		registeredAttribute, err := x.registry.ConstructAnyAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeBool:
-		registeredAttribute, err := x.registry.ConstructBoolAttribute(m)
+		registeredAttribute, err := x.registry.ConstructBoolAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -236,7 +236,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeEnum:
-		registeredAttribute, err := x.registry.ConstructEnumAttribute(m)
+		registeredAttribute, err := x.registry.ConstructEnumAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -246,7 +246,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeFloat64:
-		registeredAttribute, err := x.registry.ConstructFloat64Attribute(m)
+		registeredAttribute, err := x.registry.ConstructFloat64Attribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -255,7 +255,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeInt64:
-		registeredAttribute, err := x.registry.ConstructInt64Attribute(m)
+		registeredAttribute, err := x.registry.ConstructInt64Attribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -264,7 +264,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeLink:
-		registeredAttribute, err := x.registry.ConstructLinkAttribute(m)
+		registeredAttribute, err := x.registry.ConstructLinkAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeString:
-		registeredAttribute, err := x.registry.ConstructStringAttribute(m)
+		registeredAttribute, err := x.registry.ConstructStringAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -286,7 +286,7 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		return nil
 	case xopat.AttributeTypeTime:
-		registeredAttribute, err := x.registry.ConstructTimeAttribute(m)
+		registeredAttribute, err := x.registry.ConstructTimeAttribute(m, xopat.AttributeType(def.Type))
 		if err != nil {
 			return err
 		}
@@ -318,7 +318,7 @@ func (x replayLine) Replay(ctx context.Context) error {
 			m := xopat.Make{
 				Key: attribute.Key,
 			}
-			ea, err := x.registry.ConstructEnumAttribute(m)
+			ea, err := x.registry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
 			if err != nil {
 				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", attribute.Key)
 			}

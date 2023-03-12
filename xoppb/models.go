@@ -17,11 +17,6 @@ var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-//var _ xopbytes.Buffer = &builder{}  XXX
-//var _ xopbytes.Line = &line{}  XXX
-//var _ xopbytes.Span = &span{}  XXX
-//var _ xopbytes.Request = &request{}  XXX
-
 type Writer interface {
 	SizeLimit() int32
 	Request(traceID xoptrace.HexBytes16, request *xopproto.Request)

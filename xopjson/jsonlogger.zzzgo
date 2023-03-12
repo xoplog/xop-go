@@ -52,7 +52,6 @@ func (logger *Logger) Buffered() bool       { return logger.writer.Buffered() }
 func (logger *Logger) ReferencesKept() bool { return false }
 
 func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.Bundle, name string, s xopbase.SourceInfo) xopbase.Request {
-	// XXX SourceInfo
 	request := &request{
 		span: span{
 			logger:    logger,
@@ -446,14 +445,6 @@ func (l *line) Link(k string, v xoptrace.Trace) {
 	l.done()
 }
 
-/* XXX
-func (b *builder) Link(k string, v xoptrace.Trace) {
-	b.startAttributes()
-	b.AddKey(k)
-	b.AddLink(v)
-}
-*/
-
 func (b *builder) ReclaimMemory() {
 	if len(b.B) > maxBufferToKeep {
 		return
@@ -486,6 +477,8 @@ func (l *line) Template(m string) {
 		l.span.request.errorFunc(err)
 	}
 }
+
+func (b *builder) AsBytes() []byte { return b.B }
 
 func (b *builder) startAttributes() {
 	if b.attributesWanted && !b.attributesStarted {

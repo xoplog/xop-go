@@ -115,5 +115,3 @@ func BuildKey(v string) []byte {
 	b.B = append(b.B, ':')
 	return b.B
 }
-
-func (b *JBuilder) AsBytes() []byte { return b.B }
