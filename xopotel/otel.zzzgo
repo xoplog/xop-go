@@ -87,7 +87,17 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 					xop.WithSpan(span.SpanContext().SpanID()),
 				}
 			}
-			ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithNewRoot())
+			si := seed.SourceInfo()
+			ctx, span := tracer.Start(ctx, nameOrDescription, 
+				oteltrace.WithNewRoot(), 
+				// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
+				oteltrace.WithInstrumentationAttributes(
+					xopVersion.String("0.0.1"), 
+					xopOTELVersion.String("0.0.1"),
+					xopSource.String(si.Source + " " + si.SourceVersion.String()),
+					xopNamespace.String(si.Namespace + " " + si.SourceNamespace.String()),
+				),
+			)
 			bundle := seed.Bundle()
 			if bundle.Parent.IsZero() {
 				bundle.State.SetString(span.SpanContext().TraceState().String())
@@ -273,31 +283,40 @@ func (line *line) Template(template string) {
 }
 
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	builder.attributes = append(builder.attributes, attribute.Stringer(k.Key(), v))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.Key(), v.String(), "enum", strconv.FormatInt(v.Int64(), 10))
 }
 
 func (builder *builder) Any(k string, v xopbase.ModelArg) {
-	switch typed := v.Model.(type) {
-	//MACRO OTELAttributes
-	case zzz:
-		builder.attributes = append(builder.attributes, attribute.ZZZ(k, typed))
-
-	default:
-		enc, err := json.Marshal(v)
-		if err != nil {
-			builder.attributes = append(builder.attributes, attribute.String(k+"-error", err.Error()))
-		} else {
-			builder.attributes = append(builder.attributes, attribute.String(k, string(enc)))
-		}
-	}
+	v.Encode()
+	builder.attributes = append(builder.attributes, attributes.StringSlice(k, string(v.Encoded), "any", v.Encoding))
 }
 
 func (builder *builder) Time(k string, v time.Time) {
-	builder.attributes = append(builder.attributes, attribute.String(k, v.Format(time.RFC3339Nano)))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, v.Format(time.RFC3339Nano), "time"))
 }
 
 func (builder *builder) Duration(k string, v time.Duration) {
-	builder.attributes = append(builder.attributes, attribute.Stringer(k, v))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, v.String(), "dur"))
+}
+
+func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, strconv.FormatUint(v, 10), xopbase.DataTypeToString(dt)))
+}
+
+func (builder *builder) Int64(k string, v int64, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, strconv.FormatInt(v, 10), xopbase.DataTypeToString(dt)))
+}
+
+func (builder *builder) Float64(k string, v float64, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString(dt)))
+}
+
+func (builder *builder) String(k string, v string, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, v, xopbase.DataTypeToString(dt)))
+}
+
+func (builder *builder) Bool(k string, v bool) {
+	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
 }
 
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
@@ -314,23 +333,6 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	))
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
 	tmpSpan.End()
-}
-
-func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
-	if dt == xopbase.Uint64DataType {
-		builder.attributes = append(builder.attributes, attribute.String(k, strconv.FormatUint(v, 10)))
-	} else {
-		builder.attributes = append(builder.attributes, attribute.Int64(k, int64(v)))
-	}
-}
-
-func (builder *builder) Bool(k string, v bool) {
-	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
-}
-
-// MACRO BaseData ONLY:String,Int64,Float64
-func (builder *builder) ZZZ(k string, v zzz, _ xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.ZZZ(k, v))
 }
 
 // MACRO BaseAttribute SKIP:Link

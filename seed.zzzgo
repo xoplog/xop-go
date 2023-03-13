@@ -244,6 +244,10 @@ func (seed Seed) Bundle() xoptrace.Bundle {
 	return seed.traceBundle
 }
 
+func (seed Seed) SourceInfo() xopbase.SourceInfo {
+	return seed.sourceInfo
+}
+
 func (seed Seed) react(isRequest bool, description string) Seed {
 	if isRequest {
 		if !seed.traceSet {
