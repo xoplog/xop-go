@@ -567,7 +567,7 @@ func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`{"v":`))
 	b.AddInt64(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(dataTypeToString[t])
+	b.AddSafeString(xopbase.DataTypeToString[t])
 	b.AppendByte('}')
 }
 
@@ -581,7 +581,7 @@ func (b *builder) Uint64(k string, v uint64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`{"v":`))
 	b.AddUint64(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(dataTypeToString[t])
+	b.AddSafeString(xopbase.DataTypeToString[t])
 	b.AppendByte('}')
 }
 
@@ -597,7 +597,7 @@ func (b *builder) String(k string, v string, t xopbase.DataType) {
 	b.AppendBytes([]byte(`{"v":`))
 	b.AddString(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(dataTypeToString[t])
+	b.AddSafeString(xopbase.DataTypeToString[t])
 	b.AppendByte('}')
 }
 
@@ -611,7 +611,7 @@ func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`{"v":`))
 	b.AddFloat64(v)
 	b.AppendBytes([]byte(`,"t":`))
-	b.AddSafeString(dataTypeToString[t])
+	b.AddSafeString(xopbase.DataTypeToString[t])
 	b.AppendByte('}')
 }
 

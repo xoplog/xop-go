@@ -49,6 +49,8 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 				xop.WithReactiveReplaced(
 					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
 						var newSpan oteltrace.Span
+						// XXX add WithTimestamp
+						// XXX add WithAttributes
 						if isChildSpan {
 							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 						} else {
@@ -82,20 +84,24 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool) []xop.SeedModifier {
 			if isChildSpan {
 				ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
+				// XXX add WithTimestamp
+				// XXX add WithAttributes
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
 				}
 			}
 			si := seed.SourceInfo()
-			ctx, span := tracer.Start(ctx, nameOrDescription, 
-				oteltrace.WithNewRoot(), 
+			ctx, span := tracer.Start(ctx, nameOrDescription,
+				oteltrace.WithNewRoot(),
 				// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
+				// XXX add WithTimestamp
+				// XXX add WithAttributes
 				oteltrace.WithInstrumentationAttributes(
-					xopVersion.String("0.0.1"), 
+					xopVersion.String("0.0.1"),
 					xopOTELVersion.String("0.0.1"),
-					xopSource.String(si.Source + " " + si.SourceVersion.String()),
-					xopNamespace.String(si.Namespace + " " + si.SourceNamespace.String()),
+					xopSource.String(si.Source+" "+si.SourceVersion.String()),
+					xopNamespace.String(si.Namespace+" "+si.NamespaceVersion.String()),
 				),
 			)
 			bundle := seed.Bundle()
@@ -217,32 +223,49 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 	line.attributes = append(line.attributes,
 		logMessageKey.String(line.prefillMsg+k),
 		typeKey.String("link"),
-		attribute.StringSlice("xop.link", []string{"link", v.TraceID().String(), v.SpanID().String()}),
+		xopLinkData.String(v.String()),
 	)
-	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k, oteltrace.WithLinks(
-		oteltrace.Link{
-			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-				TraceID:    v.TraceID().Array(),
-				SpanID:     v.SpanID().Array(),
-				TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
-				TraceState: emptyTraceState, // TODO: is this right?
-				Remote:     true,            // information not available
+	line.done()
+	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k,
+		oteltrace.WithLinks(
+			oteltrace.Link{
+				SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+					TraceID:    v.TraceID().Array(),
+					SpanID:     v.SpanID().Array(),
+					TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
+					TraceState: emptyTraceState, // TODO: is this right?
+					Remote:     true,            // information not available
+				}),
 			}),
-		},
-	))
+		oteltrace.WithAttributes(
+			spanIsLinkEventKey.Bool(true),
+		),
+	)
 	tmpSpan.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
 	tmpSpan.SetAttributes(typeKey.String("link-event"))
 	tmpSpan.End()
 }
 
-func (line *line) Model(msg string, modelArg xopbase.ModelArg) {}
+func (line *line) Model(msg string, v xopbase.ModelArg) {
+	v.Encode()
+	line.attributes = append(line.attributes,
+		logMessageKey.String(line.prefillMsg+msg),
+		typeKey.String("model"),
+		xopModelType.String(v.TypeName),
+		xopEncoding.String(v.Encoding.String()),
+		xopModel.String(string(v.Encoded)),
+	)
+	line.done()
+}
+
 func (line *line) Msg(msg string) {
 	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), typeKey.String("line"))
-	if line.linkKey == "" {
-		line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
-		return
-		// PERFORMANCE: return line to pool
-	}
+	line.done()
+	// PERFORMANCE: return line to pool
+}
+
+func (line *line) done() {
+	line.span.span.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -279,40 +302,46 @@ func (line *line) Template(template string) {
 		}
 		return "''"
 	})
-	line.Msg(msg)
+	line.attributes = append(line.attributes,
+		logMessageKey.String(line.prefillMsg+msg),
+		typeKey.String("line"),
+		xopLineFormat.String("tmpl"),
+		xopTemplate.String(template),
+	)
+	line.done()
 }
 
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k.Key(), v.String(), "enum", strconv.FormatInt(v.Int64(), 10))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.Key(), []string{v.String(), "enum", strconv.FormatInt(v.Int64(), 10)}))
 }
 
 func (builder *builder) Any(k string, v xopbase.ModelArg) {
 	v.Encode()
-	builder.attributes = append(builder.attributes, attributes.StringSlice(k, string(v.Encoded), "any", v.Encoding))
+	builder.attributes = append(builder.attributes, attributes.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String()}))
 }
 
 func (builder *builder) Time(k string, v time.Time) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, v.Format(time.RFC3339Nano), "time"))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v.Format(time.RFC3339Nano), "time"}))
 }
 
 func (builder *builder) Duration(k string, v time.Duration) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, v.String(), "dur"))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v.String(), "dur"}))
 }
 
 func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, strconv.FormatUint(v, 10), xopbase.DataTypeToString(dt)))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatUint(v, 10), xopbase.DataTypeToString(dt)}))
 }
 
 func (builder *builder) Int64(k string, v int64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, strconv.FormatInt(v, 10), xopbase.DataTypeToString(dt)))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatInt(v, 10), xopbase.DataTypeToString(dt)}))
 }
 
 func (builder *builder) Float64(k string, v float64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString(dt)))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString(dt)}))
 }
 
 func (builder *builder) String(k string, v string, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, v, xopbase.DataTypeToString(dt)))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v, xopbase.DataTypeToString(dt)}))
 }
 
 func (builder *builder) Bool(k string, v bool) {
@@ -320,24 +349,30 @@ func (builder *builder) Bool(k string, v bool) {
 }
 
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
-	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(), oteltrace.WithLinks(
-		oteltrace.Link{
-			SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-				TraceID:    v.TraceID().Array(),
-				SpanID:     v.SpanID().Array(),
-				TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
-				TraceState: emptyTraceState, // TODO: is this right?
-				Remote:     true,            // information not available
-			}),
-		},
-	))
-	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
-	tmpSpan.End()
 }
 
-// MACRO BaseAttribute SKIP:Link
+// MACRO BaseAttribute
 func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	key := k.Key()
+	//CONDITIONAL ONLY:Link
+	value := v.String()
+	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
+		oteltrace.WithLinks(
+			oteltrace.Link{
+				SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+					TraceID:    v.TraceID().Array(),
+					SpanID:     v.SpanID().Array(),
+					TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
+					TraceState: emptyTraceState, // TODO: is this right?
+					Remote:     true,            // information not available
+				}),
+			}),
+		oteltrace.WithAttributes(
+			spanIsLinkAttributeKey.Bool(True),
+		),
+	)
+	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
+	tmpSpan.End()
 	//CONDITIONAL ONLY:Enum
 	value := v.String()
 	//CONDITIONAL ONLY:Time

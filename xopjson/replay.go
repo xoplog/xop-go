@@ -845,7 +845,7 @@ func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k 
 	if err != nil {
 		errors.Wrap(err, "could not decode")
 	}
-	dataType, ok := stringToDataType[la.Type]
+	dataType, ok := xopbase.StringToDataType[la.Type]
 	if !ok {
 		return errors.Errorf("unknown data type (%s)", la.Type)
 	}
@@ -955,35 +955,3 @@ func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k 
 	}
 	return nil
 }
-
-var stringToDataType = map[string]xopbase.DataType{
-	"i":        xopbase.IntDataType,
-	"i8":       xopbase.Int8DataType,
-	"i16":      xopbase.Int16DataType,
-	"i32":      xopbase.Int32DataType,
-	"i64":      xopbase.Int64DataType,
-	"u":        xopbase.UintDataType,
-	"u8":       xopbase.Uint8DataType,
-	"u16":      xopbase.Uint16DataType,
-	"u32":      xopbase.Uint32DataType,
-	"u64":      xopbase.Uint64DataType,
-	"uintptr":  xopbase.UintptrDataType,
-	"f32":      xopbase.Float32DataType,
-	"f64":      xopbase.Float64DataType,
-	"any":      xopbase.AnyDataType,
-	"bool":     xopbase.BoolDataType,
-	"dur":      xopbase.DurationDataType,
-	"time":     xopbase.TimeDataType,
-	"s":        xopbase.StringDataType,
-	"stringer": xopbase.StringerDataType,
-	"enum":     xopbase.EnumDataType,
-	"error":    xopbase.ErrorDataType,
-}
-
-var dataTypeToString = func() map[xopbase.DataType]string {
-	m := make(map[xopbase.DataType]string)
-	for k, v := range stringToDataType {
-		m[v] = k
-	}
-	return m
-}()
