@@ -35,6 +35,8 @@
 
 # Just do it (build ready)
 
+- add buildinfo from runtime/debug to SourceInfo
+
 - rebuild attribute defintions to use generics `type Int32Attribute Attribute[int64][int32]`?
 
 - remove example values from attribute defintions (also removes TypeName)
