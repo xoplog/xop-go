@@ -88,7 +88,7 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 			if isChildSpan {
 				ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 				// XXX add WithTimestamp
-				// XXX add WithAttributes
+				// XXX add WithAttributes -- from seed
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
@@ -99,8 +99,8 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 				oteltrace.WithNewRoot(),
 				// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
 				// XXX add WithTimestamp
-				// XXX add WithAttributes
-				oteltrace.WithInstrumentationAttributes(
+				// XXX add WithAttributes -- from seed
+				oteltrace.WithAttributes(
 					xopVersion.String("0.0.1"),
 					xopOTELVersion.String("0.0.1"),
 					xopSource.String(si.Source+" "+si.SourceVersion.String()),
@@ -320,7 +320,7 @@ func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 func (builder *builder) Any(k string, v xopbase.ModelArg) {
 	v.Encode()
-	builder.attributes = append(builder.attributes, attributes.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String()}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String()}))
 }
 
 func (builder *builder) Time(k string, v time.Time) {
@@ -332,26 +332,23 @@ func (builder *builder) Duration(k string, v time.Duration) {
 }
 
 func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatUint(v, 10), xopbase.DataTypeToString(dt)}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatUint(v, 10), xopbase.DataTypeToString[dt]}))
 }
 
 func (builder *builder) Int64(k string, v int64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatInt(v, 10), xopbase.DataTypeToString(dt)}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatInt(v, 10), xopbase.DataTypeToString[dt]}))
 }
 
 func (builder *builder) Float64(k string, v float64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString(dt)}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString[dt]}))
 }
 
 func (builder *builder) String(k string, v string, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v, xopbase.DataTypeToString(dt)}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v, xopbase.DataTypeToString[dt]}))
 }
 
 func (builder *builder) Bool(k string, v bool) {
 	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
-}
-
-func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 }
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
@@ -605,7 +602,7 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 				}),
 			}),
 		oteltrace.WithAttributes(
-			spanIsLinkAttributeKey.Bool(True),
+			spanIsLinkAttributeKey.Bool(true),
 		),
 	)
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
@@ -622,7 +619,7 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Link(key, value))
+		span.span.SetAttributes(attribute.String(key, value))
 		return
 	}
 	span.lock.Lock()
@@ -633,24 +630,24 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 		}
 		seenRaw, ok := span.metadataSeen[key]
 		if !ok {
-			seen := make(map[xoptrace.Trace]struct{})
+			seen := make(map[string]struct{})
 			span.metadataSeen[key] = seen
 			seen[value] = struct{}{}
 		} else {
-			seen := seenRaw.(map[xoptrace.Trace]struct{})
+			seen := seenRaw.(map[string]struct{})
 			if _, ok := seen[value]; ok {
 				return
 			}
 			seen[value] = struct{}{}
 		}
 	}
-	if span.priorLinkSlices == nil {
-		span.priorLinkSlices = make(map[string][]xoptrace.Trace)
+	if span.priorStringSlices == nil {
+		span.priorStringSlices = make(map[string][]string)
 	}
-	s := span.priorLinkSlices[key]
+	s := span.priorStringSlices[key]
 	s = append(s, value)
-	span.priorLinkSlices[key] = s
-	span.span.SetAttributes(attribute.LinkSlice(key, s))
+	span.priorStringSlices[key] = s
+	span.span.SetAttributes(attribute.StringSlice(key, s))
 }
 
 func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
