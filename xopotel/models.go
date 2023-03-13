@@ -72,5 +72,11 @@ var xopVersion = attribute.Key("xop.version")
 var xopOTELVersion = attribute.Key("xop.otel-version")
 var xopSource = attribute.Key("xop.source")
 var xopNamespace = attribute.Key("xop.namespace")
+var xopLinkData = attribute.Key("xop.link")
+var xopModelType = attribute.Key("xop.modelType")
+var xopEncoding = attribute.Key("xop.encoding")
+var xopModel = attribute.Key("xop.model")
+var xopLineFormat = attribute.Key("xop.format")
+var xopTemplate = attribute.Key("xop.template")
 
 var emptyTraceState oteltrace.TraceState
