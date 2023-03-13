@@ -68,5 +68,9 @@ var logSpanSequence = attribute.Key("xop.xopSpanSequence")
 var typeKey = attribute.Key("xop.type")
 var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
 var spanIsLinkEventKey = attribute.Key("xop.span.is-link-event")
+var xopVersion = attribute.Key("xop.version")
+var xopOTELVersion = attribute.Key("xop.otel-version")
+var xopSource = attribute.Key("xop.source")
+var xopNamespace = attribute.Key("xop.namespace")
 
 var emptyTraceState oteltrace.TraceState
