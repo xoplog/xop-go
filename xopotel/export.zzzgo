@@ -22,8 +22,8 @@ func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
 }
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
-	// XXX
-	return nil
+	id2Index := makeIndex(spans)
+	subSpans := makeSubspans(i2Index, spans)
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {
@@ -43,20 +43,10 @@ func NewUnhacker(exporter sdktrace.SpanExporter) sdktrace.SpanExporter {
 }
 
 func (u *unhack) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
-	subLinks := make([][]oteltrace.Link, len(spans))
-	id2Index := make(map[oteltrace.SpanID]int)
+	id2Index := makeIndex(spans)
+	subLinks := make([][]sdktrace.Link, len(spans))
 	for i, span := range spans {
-		spanContext := span.SpanContext()
-		if spanContext.HasSpanID() {
-			id2Index[spanContext.SpanID()] = i
-		}
-	}
-	for i, span := range spans {
-		parent := span.Parent()
-		if !parent.HasSpanID() {
-			continue
-		}
-		parentIndex, ok := id2Index[parent.SpanID()]
+		parentIndex, ok := lookupParent(id2Index, span)
 		if !ok {
 			continue
 		}
@@ -97,11 +87,46 @@ func (u *unhack) Shutdown(ctx context.Context) error {
 
 type wrappedReadOnlySpan struct {
 	sdktrace.ReadOnlySpan
-	links []stktrace.Link
+	links []sdktrace.Link
 }
 
 var _ sdktrace.ReadOnlySpan = wrappedReadOnlySpan{}
 
-func (w wrappedReadOnlySpan) Links() {
+func (w wrappedReadOnlySpan) Links() []sdktrace.Link {
 	return w.links
+}
+
+func makeIndex(spans []sdktrace.ReadOnlySpan) map[oteltrace.SpanID]int {
+	id2Index := make(map[oteltrace.SpanID]int)
+	for i, span := range spans {
+		spanContext := span.SpanContext()
+		if spanContext.HasSpanID() {
+			id2Index[spanContext.SpanID()] = i
+		}
+	}
+	return id2Index
+}
+
+func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan) (int, bool) {
+	parent := span.Parent()
+	if !parent.HasSpanID() {
+		return 0, false
+	}
+	parentIndex, ok := id2Index[parent.SpanID()]
+	if !ok {
+		return 0, false
+	}
+	return parentIndex, true
+}
+
+func makeSubspans(i2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) [][]oteltrace.SpanID {
+	ss := make([][]oteltrace.SpanID, len(spans))
+	for i, span := range spans {
+		parentIndex, ok := lookupParent(id2Index, span)
+		if !ok {
+			continue
+		}
+		ss[parentIndex] = append(ss[parentIndex], i)
+	}
+	return ss
 }
