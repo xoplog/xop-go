@@ -5,6 +5,7 @@ import (
 
 	"github.com/muir/list"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -23,7 +24,23 @@ func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	id2Index := makeIndex(spans)
-	subSpans := makeSubspans(i2Index, spans)
+	subSpans, todo := makeSubspans(i2Index, spans)
+	baseSpans := make([]xopbase.Span, len(spans))
+	for _, i := range todo {
+		span := spans[i]
+		parentIndex, ok := lookupParent(id2Index, span)
+		attributeMap := mapAttributes(span)
+		switch span.SpanKind() {
+		case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
+			if ok {
+				parent := baseSapns[parentIndex]
+				var bundle xoptrace.Bundle
+				baseSpan := parent.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.Get(logSpanSequence), ""))
+				baseSpans[i] = baseSpan
+			}
+		default:
+		}
+	}
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {
@@ -43,6 +60,7 @@ func NewUnhacker(exporter sdktrace.SpanExporter) sdktrace.SpanExporter {
 }
 
 func (u *unhack) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
+	// TODO: fix up SpanKind if spanKind is one of the attributes
 	id2Index := makeIndex(spans)
 	subLinks := make([][]sdktrace.Link, len(spans))
 	for i, span := range spans {
@@ -119,14 +137,15 @@ func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan)
 	return parentIndex, true
 }
 
-func makeSubspans(i2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) [][]oteltrace.SpanID {
+func makeSubspans(i2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) ([][]oteltrace.SpanID, []int) {
 	ss := make([][]oteltrace.SpanID, len(spans))
+	noParent := make([]int, 0, len(spans))
 	for i, span := range spans {
 		parentIndex, ok := lookupParent(id2Index, span)
 		if !ok {
-			continue
+			noParent = append(noParent, i)
 		}
 		ss[parentIndex] = append(ss[parentIndex], i)
 	}
-	return ss
+	return ss, noParent
 }
