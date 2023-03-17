@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/muir/list"
+	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -24,23 +25,71 @@ func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	id2Index := makeIndex(spans)
-	subSpans, todo := makeSubspans(i2Index, spans)
+	subSpans, todo := makeSubspans(id2Index, spans)
+	_ = subSpans // XXX
 	baseSpans := make([]xopbase.Span, len(spans))
 	for _, i := range todo {
 		span := spans[i]
-		parentIndex, ok := lookupParent(id2Index, span)
 		attributeMap := mapAttributes(span)
-		switch span.SpanKind() {
+		var bundle xoptrace.Bundle
+		spanContext := span.SpanContext()
+		if spanContext.HasTraceID() {
+			bundle.Trace.TraceID().SetArray(spanContext.TraceID())
+		}
+		if spanContext.HasSpanID() {
+			bundle.Trace.SpanID().SetArray(spanContext.SpanID())
+		}
+		if spanContext.IsSampled() {
+			bundle.Trace.Flags().SetArray([1]byte{1})
+		}
+		if spanContext.TraceState().Len() != 0 {
+			bundle.State.SetString(spanContext.TraceState().String())
+		}
+		parentIndex, ok := lookupParent(id2Index, span)
+		if ok {
+			parentContext := spans[parentIndex].SpanContext()
+			xopParent := baseSpans[parentIndex]
+			if parentContext.HasTraceID() {
+				bundle.Parent.TraceID().SetArray(parentContext.TraceID())
+				if !bundle.Trace.TraceID().IsSet() {
+					bundle.Trace.TraceID().Set(bundle.Parent.GetTraceID())
+				}
+			}
+			if parentContext.HasSpanID() {
+				bundle.Parent.SpanID().SetArray(parentContext.SpanID())
+			}
+			if parentContext.IsSampled() {
+				bundle.Parent.Flags().SetArray([1]byte{1})
+			}
+			bundle.Parent.Version().SetArray([1]byte{1})
+		}
+		bundle.Trace.Version().SetArray([1]byte{1})
+		spanKind := span.SpanKind()
+		if spanKind == oteltrace.SpanKindUnspecified {
+			spanKind = oteltrace.SpanKind(defaulted(attributeMap.GetInt(otelSpanKind), int(oteltrace.SpanKindUnspecified)))
+		}
+		switch spanKind {
 		case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 			if ok {
-				parent := baseSapns[parentIndex]
-				var bundle xoptrace.Bundle
-				baseSpan := parent.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.Get(logSpanSequence), ""))
+				baseSpan := xopParent.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.GetString(logSpanSequence), ""))
 				baseSpans[i] = baseSpan
+			} else {
+				// This is a difficult sitatuion. We have an internal/unspecified span
+				// that does not have a parent present. There is no right answer for what
+				// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
+				// this span as a request, but mark it as promoted.
+				request := e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+				request.MetadataBool(xopPromotedMetadata, true)
+				baseSpans[i] = request
 			}
 		default:
+			request := e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			baseSpans[i] = request
 		}
+		baseSpans[i].MetadataEnum(otelconst.SpanKind, otelconst.SpanKindEnum(spanKind))
+
 	}
+	return nil
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {
@@ -137,7 +186,7 @@ func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan)
 	return parentIndex, true
 }
 
-func makeSubspans(i2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) ([][]oteltrace.SpanID, []int) {
+func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) ([][]oteltrace.SpanID, []int) {
 	ss := make([][]oteltrace.SpanID, len(spans))
 	noParent := make([]int, 0, len(spans))
 	for i, span := range spans {
@@ -148,4 +197,13 @@ func makeSubspans(i2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpa
 		ss[parentIndex] = append(ss[parentIndex], i)
 	}
 	return ss, noParent
+}
+
+func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap AttributeMap) {
+	var si xopbase.SourceInfo
+	source := defaulted(attributeMap.GetString(xopSource), "OTEL")
+	namespace := defaulted(attributeMap.GetString(xopNamespace), "OTEL")
+	si.Source, si.SourceVersion = version.SplitVersion(source)
+	si.Namespace, si.NamespaceVersion = version.SplitVersion(namespace)
+	return si
 }

@@ -78,5 +78,8 @@ var xopEncoding = attribute.Key("xop.encoding")
 var xopModel = attribute.Key("xop.model")
 var xopLineFormat = attribute.Key("xop.format")
 var xopTemplate = attribute.Key("xop.template")
+var otelSpanKind = attribute.Key("span.kind")
+
+var xopPromotedMetadata = xopat.Make{Key: "xop.span-is-promoted", Namespace: "xopotel"}.BoolAttribute()
 
 var emptyTraceState oteltrace.TraceState
