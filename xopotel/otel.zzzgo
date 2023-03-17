@@ -51,6 +51,8 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 						var newSpan oteltrace.Span
 						// XXX add WithTimestamp
 						// XXX add WithAttributes
+						// XXX add TraceState
+						// XXX add Bundle
 						if isChildSpan {
 							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 						} else {
@@ -86,6 +88,8 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 				ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 				// XXX add WithTimestamp
 				// XXX add WithAttributes -- from seed
+				// XXX add TraceState
+				// XXX add Bundle
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),

@@ -8,6 +8,7 @@ import (
 // the Open Telementry authors.
 
 var SpanKind = xopat.Make{Key: "span.kind", Namespace: "OTEL", Indexed: true, Prominence: 30,
+	Locked: true,
 	Description: "https://opentelemetry.io/docs/reference/specification/trace/api/#spankind" +
 		" Use one of SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer, SpanKindInternal"}.
 	EnumAttribute(SpanKindServer)
@@ -15,12 +16,17 @@ var SpanKind = xopat.Make{Key: "span.kind", Namespace: "OTEL", Indexed: true, Pr
 //go:generate enumer -type=SpanKindEnum -linecomment -json -sql
 type SpanKindEnum int
 
+// These values are identical to the OTEL values.
+// see https://pkg.go.dev/go.opentelemetry.io/otel/trace#SpanKind
+// They can be cast to oteltrace.SpanKind
+
 const (
-	SpanKindServer   SpanKindEnum = iota // SERVER
-	SpanKindClient                       // CLIENT
-	SpanKindProducer                     // PRODUCER
-	SpanKindConsumer                     // CONSUMER
-	SpanKindInternal                     // INTERNAL
+	SpanKindUnspecified SpanKindEnum = iota // UNSPECIFIED
+	SpanKindInternal                        // INTERNAL
+	SpanKindServer                          // SERVER
+	SpanKindClient                          // CLIENT
+	SpanKindProducer                        // PRODUCER
+	SpanKindConsumer                        // CONSUMER
 )
 
 func (i SpanKindEnum) Int64() int64 { return int64(i) }

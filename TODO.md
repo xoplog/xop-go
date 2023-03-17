@@ -227,6 +227,9 @@
 
 # Ideas to ponder
 
+- would it be okay to have a dependency on OTEL?  It would help for TraceState and it
+  would also be nice to directly reference SpanKind()
+
 - only deliver span metadata at Flush() time?  That could get rid of code to handle
   multiple and distinct in the various bottom loggers
 
