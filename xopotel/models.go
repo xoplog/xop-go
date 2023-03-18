@@ -14,6 +14,7 @@ import (
 )
 
 const attributeDefintionPrefix = "xop.defineKey."
+const xopSynthesizedForOTEL = "xopotel-shim type"
 
 type logger struct {
 	tracer     oteltrace.Tracer

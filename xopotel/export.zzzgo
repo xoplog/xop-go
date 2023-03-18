@@ -2,12 +2,20 @@ package xopotel
 
 import (
 	"context"
+	"encoding/json"
+	"strconv"
+	"strings"
+	"time"
 
-	"github.com/muir/list"
 	"github.com/xoplog/xop-go/internal/util/version"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
+	"github.com/muir/list"
+	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -24,33 +32,37 @@ func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
 }
 
 type spanReplay struct {
-	id2index  map[oteltrace.SpanID]int
-	spans     []sdktrace.ReadOnlySpan
-	subSpans  [][]oteltrace.SpanID
-	baseSpans []xopbase.Span
+	id2index map[oteltrace.SpanID]int
+	spans    []sdktrace.ReadOnlySpan
+	subSpans [][]oteltrace.SpanID
+	data     []*datum
+}
+
+type datum struct {
+	baseSpan             xopbase.Span
+	requestIndex         int
+	attributeDefinitions map[string]*decodeAttributeDefinition
 }
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	id2Index := makeIndex(spans)
 	subSpans, todo := makeSubspans(id2Index, spans)
-	_ = subSpans // XXX
-	baseSpans := make([]xopbase.Span, len(spans))
 	x := spanReplay{
-		id2Index:  id2Index,
-		spans:     spans,
-		baseSpans: baseSpans,
-		subSpans:  subSpans,
+		id2Index: id2Index,
+		spans:    spans,
+		subSpans: subSpans,
+		data:     make([]*datum, len(spans)),
 	}
 	for _, i := range todo {
-		baseSpan, err := x.Replay(ctx, spans[i])
+		x.data[i] = &datum{}
+		err := x.Replay(ctx, spans[i], x.data[i], i)
 		if err != nil {
 			return err
 		}
-		baseSpans[i] = baseSpan
 	}
 }
 
-func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan) error {
+func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) error {
 	attributeMap := mapAttributes(span)
 	var bundle xoptrace.Bundle
 	spanContext := span.SpanContext()
@@ -69,7 +81,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan) erro
 	parentIndex, ok := lookupParent(x.id2Index, span)
 	if ok {
 		parentContext := spans[parentIndex].SpanContext()
-		xopParent := x.baseSpans[parentIndex]
+		xopParent := x.data[parentIndex]
 		if parentContext.HasTraceID() {
 			bundle.Parent.TraceID().SetArray(parentContext.TraceID())
 			if bundle.Trace.TraceID().IsZero() {
@@ -93,61 +105,199 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan) erro
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 		if ok {
-			baseSpan = xopParent.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.GetString(logSpanSequence), ""))
+			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.GetString(logSpanSequence), ""))
+			data.requestIndex = xopParent.requestIndex
 		} else {
 			// This is a difficult sitatuion. We have an internal/unspecified span
 			// that does not have a parent present. There is no right answer for what
 			// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
 			// this span as a request, but mark it as promoted.
-			baseSpan = e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
-			request.MetadataBool(xopPromotedMetadata, true)
+			data.baseSpan = e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			data.baseSpan.MetadataBool(xopPromotedMetadata, true)
+			data.requestIndex = myIndex
+			data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 		}
 	default:
-		baseSpan = e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+		data.baseSpan = e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+		data.requestIndex = myIndex
+		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 	}
 	y := baseSpanReplay{
-		spanReplay x
-		span span
-		base baseSpan
+		spanReplay: x,
+		span:       span,
+		base:       baseSpan,
+		datam:      data,
 	}
 	for _, attribute := range span.Attributes() {
-	err := y.AddAttribute(ctx, attribute)
-	if err != nil { return nil, err }
+		err := y.AddAttribute(ctx, attribute)
+		if err != nil {
+			return nil, err
+		}
+	}
 	err := y.AddEvents(ctx)
-	if err != nil { return nil, err }
-	return baseSpan, nil
+	if err != nil {
+		return nil, err
+	}
+	return baseSpan, attributeDefIndex, nil
 }
 
 type baseSpanReplay struct {
 	spanReplay
-	span sdktrace.ReadOnlySpan
-	base xopbase.Span
+	span  sdktrace.ReadOnlySpan
+	base  xopbase.Span
+	datam *datum
 }
 
-func (x baseSpanReplay) AddAttribute(ctx context.Context, a attribute.KeyValue ) error {
-	if strings.HasPrefix(a.Key, attributeDefintionPrefix) {
-		if a.Value.Type() != attribute.STRING {
-			return errors.Errorf("expected span attribute %s to be type string, but is %s", a.Key, a.Value.Type())
+type decodeAttributeDefinition struct {
+	xopat.Make
+	AttributeType xopproto.AttributeType `json:"vtype"`
+}
+
+func (x baseSpanReplay) AddAttribute(ctx context.Context, a attribute.KeyValue) (err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Wrapf(err, "add span attribute %s with type %s", a.Key, a.Value.Type())
 		}
-		x.rawAttributeDefintion[strings.TrimPrefix(a.Key, attributeDefintionPrefix)] = a.Value.AsString()
+	}()
+	if strings.HasPrefix(a.Key, attributeDefintionPrefix) {
+		key := strings.TrimPrefix(a.Key, attributeDefintionPrefix)
+		if _, ok := x.data[x.data.requestIndex].attributeDefintions[key]; ok {
+			return nil
+		}
+		if a.Value.Type() != attribute.STRING {
+			return errors.Errorf("expected type to be string")
+		}
+		var aDef decodeAttributeDefinition
+		aDef, err := json.Unmarshal([]byte(a.Value.AsString()), &aDef)
+		if err != nil {
+			return errors.Wrapf(err, "could not unmarshal attribute defintion")
+		}
+		x.data[x.data.requestIndex].attributeDefintions[key] = &aDef
 		return nil
 	}
-	if 
 
+	if aDef, ok := x.data[x.data.requestIndex].attributeDefintions[key]; ok {
+		return x.AddXopAttribute(ctx, a, aDef)
+	}
+
+	mkMake := func(key string, multiple bool) xopat.Make {
+		return xopat.Make{
+			Description: xopSynthesizedForOTEL,
+			Key:         key,
+			Multiple:    multiple,
+		}
+	}
 	switch a.Value.Type() {
-	case attribute.BOOL:
-	case attribute.INT64:
-	case attribute.FLOAT64:
-	case attribute.STRING:
-	case attribute.BOOLSLICE:
-	case attribute.INT64SLICE:
-	case attribute.FLOAT64SLICE:
-	case attribute.STRINGSLICE:
+	// MACRO OTELTypes
+	case attribute.ZZZ:
+		registeredAttribute, err := x.attributeRegistry.ConstructzzzAttribute(mkMake(a.Key, false), xopat.AttributeTypezzz)
+		if err != nil {
+			return err
+		}
+		x.datum.baseSpan.Metadatazzz(registeredAttribute, a.Value.Aszzz())
+	case attribute.ZZZSLICE:
+		registeredAttribute, err := x.attributeRegistry.ConstructzzzAttribute(mkMake(a.Key, true), xopat.AttributeTypezzz)
+		if err != nil {
+			return err
+		}
+		for _, v := range a.Value.AszzzSlice() {
+			x.datum.baseSpan.Metadatazzz(registeredAttribute, v)
+		}
+
 	case attribute.INVALID:
 		fallthrough
-	default
+	default:
 		return errors.Errorf("span attribute key (%s) has value type (%s) that is not expected", a.Key, a.Value.Type())
 	}
+}
+
+func (x baseSpanReplay) AddXopAttribute(ctx context.Context, a attribute.KeyValue, aDef *decodeAttributeDefinition) error {
+	switch aDef.AttributeType {
+	// MACRO ZZZAttribute SKIP:Float32
+	case xopproto.AttributeType_ZZZ:
+		registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return err
+		}
+		// CONDITIONAL ONLY:Enum,Time,String,Any,Link
+		expectedSingleType, expectedMultiType := attribute.STRING, attribute.STRINGSLICE
+		// CONDITIONAL ONLY:Int64
+		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
+		// CONDITIONAL ONLY:Bool
+		expectedSingleType, expectedMultiType := attribute.BOOL, attribute.BOOLSLICE
+		// CONDITIONAL ONLY:Float64
+		expectedSingleType, expectedMultiType := attribute.FLOAT64, attribute.FLOAT64SLICE
+		// END CONDITIONAL
+		expectedType := expectedSingleType
+		if k.Multiple() {
+			expectedType = expectedMultiType
+		}
+		if a.Value.Type() != expectedType {
+			return errors.Errorf("expected type %s", expectedMultiType)
+		}
+		// CONDITIONAL ONLY:String,Int64,Float64,Bool
+		decoder := func(v zzz) (zzz, error) { return v, nil }
+		// CONDITIONAL ONLY:Time
+		decoder := func(v string) (time.Time, error) { return time.Parse(time.RFC3339Nano, v) }
+		// CONDITIONAL ONLY:Enum
+		decoder := func(v string) (xopat.Enum, error) {
+			i := strings.LastIndexByte(v, '/')
+			if i == -1 {
+				return errors.Errorf("invalid enum %s", v)
+			}
+			if i == len(v)-1 {
+				return errors.Errorf("invalid enum %s", v)
+			}
+			vi, err := strconv.ParseInt(v[i+1:], 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "invalid enum")
+			}
+			enum := registeredAttribute.Add64(vi, v[:i])
+			return enum, nil
+		}
+		// CONDITIONAL ONLY:Any
+		decoder := func(v string) (xopbase.ModelArg, error) {
+			var ma xopbase.ModelArg
+			return ma, ma.UnmarshalJSON([]byte(v))
+		}
+		// CONDITIONAL ONLY:Link
+		decoder := func(v string) (xoptrace.Trace, error) {
+			t, ok := xoptrace.TraceFromString(v)
+			if !ok {
+				return xoptrace.Trace{}, errors.Errorf("invalid trace string %s", v)
+			}
+		}
+		// END CONDITIONAL
+		if k.Multiple() {
+			// CONDITIONAL ONLY:Enum,Time,Any,Link
+			values := a.Value.AsStringSlice()
+			// ELSE CONDITIONAL
+			values := a.Value.AsZZZSlice()
+			// END CONDITIONAL
+			for _, value := range values {
+				decoded, err := decoder(value)
+				if err != nil {
+					return err
+				}
+				x.datum.baseSpan.MetadataZZZ(registeredAttribute, decoded)
+			}
+		} else {
+			// CONDITIONAL ONLY:Enum,Time,Any,Link
+			value := a.Value.AsString()
+			// ELSE CONDITIONAL
+			value := a.Value.AsZZZ()
+			// END CONDITIONAL
+			decoded, err := decoder(value)
+			if err != nil {
+				return err
+			}
+			x.datum.baseSpan.MetadataZZZ(registeredAttribute, decoded)
+		}
+
+	default:
+		return errors.Errorf("unexpected attribute type %s", aDef.AttributeType)
+	}
+	return nil
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {

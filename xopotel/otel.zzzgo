@@ -369,8 +369,10 @@ func (builder *builder) Bool(k string, v bool) {
 func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	//CONDITIONAL ONLY:Link
 	value := v.String()
@@ -391,14 +393,14 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	)
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
 	tmpSpan.End()
-	//CONDITIONAL ONLY:Enum
-	value := v.String()
+	//CONDITIONAL ONLY:Enum,Link
+	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	//CONDITIONAL ONLY:Time
 	value := v.Format(time.RFC3339Nano)
 	//CONDITIONAL ONLY:Duration
 	value := int64(v)
 	//CONDITIONAL ONLY:Any
-	enc, err := json.Marshal(v)
+	enc, err := v.MarshalJSON()
 	var value string
 	if err != nil {
 		value = fmt.Sprintf("[zopotel] could not marshal %T value: %s", v, err)
@@ -423,7 +425,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		//CONDITIONAL ONLY:Enum,Time,String,Any,Link
 		span.span.SetAttributes(attribute.String(key, value))
 		//ELSE CONDITIONAL
-		span.span.SetAttributes(attribute.ZZZ(key, value))
+		span.span.SetAttributes(attribute.ZZZ(key, values))
 		//END CONDITIONAL
 		return
 	}

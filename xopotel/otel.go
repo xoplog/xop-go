@@ -4,7 +4,6 @@ package xopotel
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"runtime"
@@ -371,10 +370,12 @@ func (builder *builder) Bool(k string, v bool) {
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
-	enc, err := json.Marshal(v)
+	enc, err := v.MarshalJSON()
 	var value string
 	if err != nil {
 		value = fmt.Sprintf("[zopotel] could not marshal %T value: %s", v, err)
@@ -427,8 +428,10 @@ func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v
 	if !k.Multiple() {
@@ -443,7 +446,7 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Bool(key, value))
+		span.span.SetAttributes(attribute.Bool(key, values))
 		return
 	}
 	span.lock.Lock()
@@ -477,8 +480,10 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v.String()
 	if !k.Multiple() {
@@ -527,8 +532,10 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v
 	if !k.Multiple() {
@@ -543,7 +550,7 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Float64(key, value))
+		span.span.SetAttributes(attribute.Float64(key, values))
 		return
 	}
 	span.lock.Lock()
@@ -577,8 +584,10 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v
 	if !k.Multiple() {
@@ -593,7 +602,7 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Int64(key, value))
+		span.span.SetAttributes(attribute.Int64(key, values))
 		return
 	}
 	span.lock.Lock()
@@ -627,8 +636,10 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v.String()
 	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
@@ -648,6 +659,7 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	)
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
 	tmpSpan.End()
+	value := v.String()
 	if !k.Multiple() {
 		if k.Locked() {
 			span.lock.Lock()
@@ -694,8 +706,10 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v
 	if !k.Multiple() {
@@ -744,8 +758,10 @@ func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
-		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-		span.request.attributesDefined[key] = struct{}{}
+		if k.Description() != xopSynthesizedForOTEL {
+			span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.attributesDefined[key] = struct{}{}
+		}
 	}
 	value := v.Format(time.RFC3339Nano)
 	if !k.Multiple() {
