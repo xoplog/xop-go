@@ -185,6 +185,12 @@ var macros = map[string]map[string]string{
 		"BoolSlice":    "[]bool",
 		"Stringer":     "fmt.Stringer",
 	},
+	"OTELTypes": {
+		"STRING":  "String",
+		"INT64":   "Int64",
+		"FLOAT64": "Float64",
+		"BOOL":    "Bool",
+	},
 }
 
 var allLines []string
