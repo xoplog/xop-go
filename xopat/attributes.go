@@ -29,19 +29,21 @@ var attributeCount int32 = 1
 //
 //	func (span *Span) String(k *xopconst.StringAttribute, v string) *Span
 type Attribute struct {
-	namespace    string
-	version      string
-	properties   Make
-	jsonKey      JSONKey
-	exampleValue interface{}
-	reflectType  reflect.Type
-	typeName     string
-	subType      AttributeType
-	names        sync.Map // key:int64 values:string used for enums
-	values       sync.Map // name:enumValue used for enums
-	defSize      int32
-	semver       *semver.Version
-	number       int32
+	namespace     string
+	version       string
+	properties    Make
+	jsonKey       JSONKey
+	exampleValue  interface{}
+	reflectType   reflect.Type
+	typeName      string
+	subType       AttributeType
+	names         sync.Map // key:int64 values:string used for enums
+	values        sync.Map // name:enumValue used for enums
+	defSize       int32
+	semver        *semver.Version
+	number        int32
+	jsonDef       []byte
+	jsonDefString string
 }
 
 // DefaultNamespace sets the namespace for attribute names
@@ -162,6 +164,8 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 		semver:  sver,
 		number:  atomic.AddInt32(&attributeCount, 1),
 	}
+	ra.jsonDef = jsonAttributeDefinition(&ra)
+	ra.jsonDefString = string(ra.jsonDef)
 	registry.registeredNames[s.Key] = &ra
 	registry.allAttributes = append(registry.allAttributes, &ra)
 	return ra, nil
@@ -202,6 +206,10 @@ func (r Attribute) DefinitionSize() int32             { return r.defSize }
 func (r Attribute) Semver() *semver.Version           { return r.semver }
 func (r Attribute) SemverString() string              { return r.version }
 func (r *Attribute) Ptr() *Attribute                  { return r }
+func (r Attribute) DefinitionJSONBytes() []byte       { return r.jsonDef } // DefinitionJSON returns a pre-built JSON encoding of the attribute definition.  Do not modify.
+func (r Attribute) DefinitionJSONString() string      { return r.jsonDefString }
+
+var _ AttributeInterface = &Attribute{}
 
 type AttributeInterface interface {
 	JSONKey() JSONKey
@@ -226,6 +234,8 @@ type AttributeInterface interface {
 	Ptr() *Attribute
 	EnumName(v int64) string
 	GetEnum(n string) (Enum, bool)
+	DefinitionJSONBytes() []byte // DefinitionJSON returns a pre-built JSON encoding of the attribute definition.  Do not modify.
+	DefinitionJSONString() string
 }
 
 // EnumName only provides non-empty answers when SubType() == AttributeTypeEnum

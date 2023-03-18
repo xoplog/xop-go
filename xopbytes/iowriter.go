@@ -6,7 +6,6 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xoptrace"
-	"github.com/xoplog/xop-go/xoputil"
 )
 
 var _ BytesWriter = IOWriter{}
@@ -28,62 +27,21 @@ func (iow IOWriter) ReclaimMemory()                              {}
 func (iow IOWriter) Request(_ Request) BytesRequest              { return iow }
 func (iow IOWriter) DefineEnum(*xopat.EnumAttribute, xopat.Enum) {}
 
-var defineAttributeStarter = []byte(`{"type":"defineKey","key":"`) // }
-
+// DefineAttribute writes a JSON defintion for the attribute to the writer.
+// The requestTrace is optional. If not nil, the span.id is added to the definition.
 func (iow IOWriter) DefineAttribute(k *xopat.Attribute, requestTrace *xoptrace.Trace) error {
-	rawBuilder := iow.builderPool.Get()
-	var b *xoputil.JBuilder
-	if rawBuilder == nil {
-		b = &xoputil.JBuilder{}
-		b.B = make([]byte, len(defineAttributeStarter), len(defineAttributeStarter)+100)
-		copy(b.B, defineAttributeStarter)
-	} else {
-		b = rawBuilder.(*xoputil.JBuilder)
-		b.B = b.B[:len(defineAttributeStarter)]
-	}
-	b.AddStringBody(k.Key())
-	b.AppendBytes([]byte(`","desc":"`))
-	b.AddStringBody(k.Description())
-	b.AppendBytes([]byte(`","ns":"`))
-	b.AddStringBody(k.Namespace())
-	b.AppendByte(' ')
-	b.AddStringBody(k.SemverString())
-	if k.Indexed() {
-		b.AppendBytes([]byte(`","indexed":true,"prom":`))
-	} else {
-		b.AppendBytes([]byte(`","prom":`))
-	}
-	b.AddInt32(int32(k.Prominence()))
-	if k.Multiple() {
-		if k.Distinct() {
-			b.AppendBytes([]byte(`,"mult":true,"distinct":true,"vtype":`))
-		} else {
-			b.AppendBytes([]byte(`,"mult":true,"vtype":`))
-		}
-	} else {
-		if k.Locked() {
-			b.AppendBytes([]byte(`,"locked":true,"vtype":`))
-		} else {
-			b.AppendBytes([]byte(`,"vtype":`))
-		}
-	}
-	b.AddSafeString(k.ProtoType().String())
-	if k.Ranged() {
-		b.AppendBytes([]byte(`,"ranged":true`))
-	}
 	if requestTrace != nil {
-		b.AppendBytes([]byte(`,"span.id":"`))
-		b.AppendString(requestTrace.SpanID().String())
-		b.AppendByte('"')
-	}
-	// {
-	b.AppendBytes([]byte("}\n"))
-	_, err := iow.Write(b.B)
-	if err != nil {
+		jdef := k.DefinitionJSONBytes()
+		b := make([]byte, len(jdef)-1, len(jdef)+len(`,"span.id":""{`)+16)
+		copy(b, jdef[0:len(jdef)-1])
+		b = append(b, []byte(`,"span.id":"`)...)
+		b = append(b, requestTrace.SpanID().HexBytes()...)
+		b = append(b, []byte(`"}`)...)
+		_, err := iow.Write(b)
 		return err
 	}
-	iow.builderPool.Put(b)
-	return nil
+	_, err := iow.Write(k.DefinitionJSONBytes())
+	return err
 }
 
 func (iow IOWriter) AttributeReferenced(_ *xopat.Attribute) error { return nil }
