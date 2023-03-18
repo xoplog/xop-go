@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-const _SpanKindEnumName = "SERVERCLIENTPRODUCERCONSUMERINTERNAL"
+const _SpanKindEnumName = "UNSPECIFIEDINTERNALSERVERCLIENTPRODUCERCONSUMER"
 
-var _SpanKindEnumIndex = [...]uint8{0, 6, 12, 20, 28, 36}
+var _SpanKindEnumIndex = [...]uint8{0, 11, 19, 25, 31, 39, 47}
 
-const _SpanKindEnumLowerName = "serverclientproducerconsumerinternal"
+const _SpanKindEnumLowerName = "unspecifiedinternalserverclientproducerconsumer"
 
 func (i SpanKindEnum) String() string {
 	if i < 0 || i >= SpanKindEnum(len(_SpanKindEnumIndex)-1) {
@@ -26,34 +26,38 @@ func (i SpanKindEnum) String() string {
 // Re-run the stringer command to generate them again.
 func _SpanKindEnumNoOp() {
 	var x [1]struct{}
-	_ = x[SpanKindServer-(0)]
-	_ = x[SpanKindClient-(1)]
-	_ = x[SpanKindProducer-(2)]
-	_ = x[SpanKindConsumer-(3)]
-	_ = x[SpanKindInternal-(4)]
+	_ = x[SpanKindUnspecified-(0)]
+	_ = x[SpanKindInternal-(1)]
+	_ = x[SpanKindServer-(2)]
+	_ = x[SpanKindClient-(3)]
+	_ = x[SpanKindProducer-(4)]
+	_ = x[SpanKindConsumer-(5)]
 }
 
-var _SpanKindEnumValues = []SpanKindEnum{SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer, SpanKindInternal}
+var _SpanKindEnumValues = []SpanKindEnum{SpanKindUnspecified, SpanKindInternal, SpanKindServer, SpanKindClient, SpanKindProducer, SpanKindConsumer}
 
 var _SpanKindEnumNameToValueMap = map[string]SpanKindEnum{
-	_SpanKindEnumName[0:6]:        SpanKindServer,
-	_SpanKindEnumLowerName[0:6]:   SpanKindServer,
-	_SpanKindEnumName[6:12]:       SpanKindClient,
-	_SpanKindEnumLowerName[6:12]:  SpanKindClient,
-	_SpanKindEnumName[12:20]:      SpanKindProducer,
-	_SpanKindEnumLowerName[12:20]: SpanKindProducer,
-	_SpanKindEnumName[20:28]:      SpanKindConsumer,
-	_SpanKindEnumLowerName[20:28]: SpanKindConsumer,
-	_SpanKindEnumName[28:36]:      SpanKindInternal,
-	_SpanKindEnumLowerName[28:36]: SpanKindInternal,
+	_SpanKindEnumName[0:11]:       SpanKindUnspecified,
+	_SpanKindEnumLowerName[0:11]:  SpanKindUnspecified,
+	_SpanKindEnumName[11:19]:      SpanKindInternal,
+	_SpanKindEnumLowerName[11:19]: SpanKindInternal,
+	_SpanKindEnumName[19:25]:      SpanKindServer,
+	_SpanKindEnumLowerName[19:25]: SpanKindServer,
+	_SpanKindEnumName[25:31]:      SpanKindClient,
+	_SpanKindEnumLowerName[25:31]: SpanKindClient,
+	_SpanKindEnumName[31:39]:      SpanKindProducer,
+	_SpanKindEnumLowerName[31:39]: SpanKindProducer,
+	_SpanKindEnumName[39:47]:      SpanKindConsumer,
+	_SpanKindEnumLowerName[39:47]: SpanKindConsumer,
 }
 
 var _SpanKindEnumNames = []string{
-	_SpanKindEnumName[0:6],
-	_SpanKindEnumName[6:12],
-	_SpanKindEnumName[12:20],
-	_SpanKindEnumName[20:28],
-	_SpanKindEnumName[28:36],
+	_SpanKindEnumName[0:11],
+	_SpanKindEnumName[11:19],
+	_SpanKindEnumName[19:25],
+	_SpanKindEnumName[25:31],
+	_SpanKindEnumName[31:39],
+	_SpanKindEnumName[39:47],
 }
 
 // SpanKindEnumString retrieves an enum value from the enum constants string name.

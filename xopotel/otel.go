@@ -54,6 +54,8 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 						var newSpan oteltrace.Span
 						// XXX add WithTimestamp
 						// XXX add WithAttributes
+						// XXX add TraceState
+						// XXX add Bundle
 						if isChildSpan {
 							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 						} else {
@@ -89,6 +91,8 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 				ctx, span := tracer.Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
 				// XXX add WithTimestamp
 				// XXX add WithAttributes -- from seed
+				// XXX add TraceState
+				// XXX add Bundle
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
@@ -128,9 +132,19 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bundle, description string, _ xopbase.SourceInfo) xopbase.Request {
-	// XXX sourceInfo
-	return logger.span(ctx, ts, description, "")
+func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
+	// we ignore the Bundle because we've already recorded that information
+	// in the OTEL span that we've already created.
+	s := logger.span(ctx, ts, description, "")
+	s.span.SetAttributes(
+		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion),
+		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion),
+	)
+	s.request = &request{
+		span:              s,
+		attributesDefined: make(map[string]struct{}),
+	}
+	return s.request
 }
 
 func (span *span) Flush()                         {}
@@ -150,17 +164,19 @@ func (span *span) Done(endTime time.Time, final bool) {
 }
 
 func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
-	return span.logger.span(ctx, ts, description, spanSequenceCode)
+	s := span.logger.span(ctx, ts, description, spanSequenceCode)
+	s.request = span.request
+	if spanSequence != "" {
+		s.span.SetAttributes(logSpanSequence.String(spanSequence))
+	}
+	return s
 }
 
-func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) xopbase.Request {
-	otelspan := oteltrace.SpanFromContext(ctx)
-	if spanSequence != "" {
-		otelspan.SetAttributes(logSpanSequence.String(spanSequence))
-	}
+func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) *span {
+	otelSpan := oteltrace.SpanFromContext(ctx)
 	return &span{
 		logger: logger,
-		span:   otelspan,
+		span:   otelSpan,
 		ctx:    ctx,
 	}
 }
@@ -354,6 +370,10 @@ func (builder *builder) Bool(k string, v bool) {
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	enc, err := json.Marshal(v)
 	var value string
 	if err != nil {
@@ -406,6 +426,10 @@ func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 
 func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v
 	if !k.Multiple() {
 		if k.Locked() {
@@ -452,6 +476,10 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 
 func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v.String()
 	if !k.Multiple() {
 		if k.Locked() {
@@ -498,6 +526,10 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v
 	if !k.Multiple() {
 		if k.Locked() {
@@ -544,6 +576,10 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 
 func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v
 	if !k.Multiple() {
 		if k.Locked() {
@@ -590,6 +626,10 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v.String()
 	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
 		oteltrace.WithLinks(
@@ -653,6 +693,10 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 
 func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v
 	if !k.Multiple() {
 		if k.Locked() {
@@ -699,6 +743,10 @@ func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 
 func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	value := v.Format(time.RFC3339Nano)
 	if !k.Multiple() {
 		if k.Locked() {

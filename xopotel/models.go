@@ -13,6 +13,8 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
+const attributeDefintionPrefix = "xop.defineKey."
+
 type logger struct {
 	tracer     oteltrace.Tracer
 	id         string
@@ -20,9 +22,15 @@ type logger struct {
 	ignoreDone oteltrace.Span
 }
 
+type request struct {
+	*span
+	attributesDefined map[string]struct{}
+}
+
 type span struct {
 	span               oteltrace.Span
 	logger             *logger
+	request            *request
 	ctx                context.Context
 	lock               sync.Mutex
 	priorBoolSlices    map[string][]bool

@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/muir/list"
+	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -33,42 +34,63 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 	baseSpans := make([]xopbase.Span, len(spans))
 	for _, i := range todo {
 		span := spans[i]
+		attributeMap := mapAttributes(span)
+		var bundle xoptrace.Bundle
+		spanContext := span.SpanContext()
+		if spanContext.HasTraceID() {
+			bundle.Trace.TraceID().SetArray(spanContext.TraceID())
+		}
+		if spanContext.HasSpanID() {
+			bundle.Trace.SpanID().SetArray(spanContext.SpanID())
+		}
+		if spanContext.IsSampled() {
+			bundle.Trace.Flags().SetArray([1]byte{1})
+		}
+		if spanContext.TraceState().Len() != 0 {
+			bundle.State.SetString(spanContext.TraceState().String())
+		}
 		parentIndex, ok := lookupParent(id2Index, span)
-		// attributeMap := mapAttributes(span)
-		switch span.SpanKind() {
-		case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
-			if ok {
-				parentContext := spans[parentIndex].SpanContext()
-				xopParent := baseSpans[parentIndex]
-				var bundle xoptrace.Bundle
-				if parentContext.HasTraceID() {
-					bundle.Parent.TraceID().SetArray(parentContext.TraceID())
-				}
-				if parentContext.HasSpanID() {
-					bundle.Parent.SpanID().SetArray(parentContext.SpanID())
-				}
-				if parentContext.IsSampled() {
-					bundle.Parent.Flags().SetArray([1]byte{1})
-				}
-				bundle.Parent.Version().SetArray([1]byte{1})
-				spanContext := span.SpanContext()
-				if spanContext.HasTraceID() {
-					bundle.Trace.TraceID().SetArray(spanContext.TraceID())
-				} else {
+		if ok {
+			parentContext := spans[parentIndex].SpanContext()
+			xopParent := baseSpans[parentIndex]
+			if parentContext.HasTraceID() {
+				bundle.Parent.TraceID().SetArray(parentContext.TraceID())
+				if bundle.Trace.TraceID().IsZero() {
 					bundle.Trace.TraceID().Set(bundle.Parent.GetTraceID())
 				}
-				if spanContext.HasSpanID() {
-					bundle.Trace.SpanID().SetArray(spanContext.SpanID())
-				}
-				if spanContext.IsSampled() {
-					bundle.Trace.Flags().SetArray([1]byte{1})
-				}
-				bundle.Trace.Version().SetArray([1]byte{1})
-				baseSpan := xopParent.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.Get(logSpanSequence), ""))
+			}
+			if parentContext.HasSpanID() {
+				bundle.Parent.SpanID().SetArray(parentContext.SpanID())
+			}
+			if parentContext.IsSampled() {
+				bundle.Parent.Flags().SetArray([1]byte{1})
+			}
+			bundle.Parent.Version().SetArray([1]byte{1})
+		}
+		bundle.Trace.Version().SetArray([1]byte{1})
+		spanKind := span.SpanKind()
+		if spanKind == oteltrace.SpanKindUnspecified {
+			spanKind = oteltrace.SpanKind(defaulted(attributeMap.GetInt(otelSpanKind), int(oteltrace.SpanKindUnspecified)))
+		}
+		switch spanKind {
+		case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
+			if ok {
+				baseSpan := xopParent.Span(ctx, span.StartTime(), bundle, span.Name(), defaulted(attributeMap.GetString(logSpanSequence), ""))
 				baseSpans[i] = baseSpan
+			} else {
+				// This is a difficult sitatuion. We have an internal/unspecified span
+				// that does not have a parent present. There is no right answer for what
+				// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
+				// this span as a request, but mark it as promoted.
+				request := e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+				request.MetadataBool(xopPromotedMetadata, true)
+				baseSpans[i] = request
 			}
 		default:
+			request := e.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			baseSpans[i] = request
 		}
+		baseSpans[i].MetadataEnum(otelconst.SpanKind, otelconst.SpanKindEnum(spanKind))
 	}
 	return nil
 }
@@ -178,4 +200,25 @@ func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySp
 		ss[parentIndex] = append(ss[parentIndex], i)
 	}
 	return ss, noParent
+}
+
+func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap AttributeMap) {
+	var si xopbase.SourceInfo
+	var source string
+	// XXX grab namespace from scope instead
+	if s := attributeMap.GetString(xopSource); s != "" {
+		source = s
+	} else if n := span.InstrumentationScope().Name; n != "" {
+		if v := span.InstrumentationScope().Version; v != "" {
+			source = n + " " + v
+		} else {
+			source = n
+		}
+	} else {
+		source = "OTEL"
+	}
+	namespace := defaulted(attributeMap.GetString(xopNamespace), source)
+	si.Source, si.SourceVersion = version.SplitVersion(source)
+	si.Namespace, si.NamespaceVersion = version.SplitVersion(namespace)
+	return si
 }

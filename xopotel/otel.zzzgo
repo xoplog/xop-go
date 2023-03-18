@@ -129,9 +129,19 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bundle, description string, _ xopbase.SourceInfo) xopbase.Request {
-	// XXX sourceInfo
-	return logger.span(ctx, ts, description, "")
+func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
+	// we ignore the Bundle because we've already recorded that information
+	// in the OTEL span that we've already created.
+	s := logger.span(ctx, ts, description, "")
+	s.span.SetAttributes(
+		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion),
+		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion),
+	)
+	s.request = &request{
+		span:              s,
+		attributesDefined: make(map[string]struct{}),
+	}
+	return s.request
 }
 
 func (span *span) Flush()                         {}
@@ -151,17 +161,19 @@ func (span *span) Done(endTime time.Time, final bool) {
 }
 
 func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
-	return span.logger.span(ctx, ts, description, spanSequenceCode)
+	s := span.logger.span(ctx, ts, description, spanSequenceCode)
+	s.request = span.request
+	if spanSequence != "" {
+		s.span.SetAttributes(logSpanSequence.String(spanSequence))
+	}
+	return s
 }
 
-func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) xopbase.Request {
-	otelspan := oteltrace.SpanFromContext(ctx)
-	if spanSequence != "" {
-		otelspan.SetAttributes(logSpanSequence.String(spanSequence))
-	}
+func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) *span {
+	otelSpan := oteltrace.SpanFromContext(ctx)
 	return &span{
 		logger: logger,
-		span:   otelspan,
+		span:   otelSpan,
 		ctx:    ctx,
 	}
 }
@@ -356,6 +368,10 @@ func (builder *builder) Bool(k string, v bool) {
 // MACRO BaseAttribute
 func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	key := k.Key()
+	if _, ok := span.request.attributesDefined[key]; !ok {
+		span.span.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+		span.request.attributesDefined[key] = struct{}{}
+	}
 	//CONDITIONAL ONLY:Link
 	value := v.String()
 	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
