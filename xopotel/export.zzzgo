@@ -10,13 +10,16 @@ import (
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
+	"golang.org/x/net/trace"
 
 	"github.com/muir/list"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -32,7 +35,7 @@ func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
 }
 
 type spanReplay struct {
-	id2index map[oteltrace.SpanID]int
+	id2Index map[oteltrace.SpanID]int
 	spans    []sdktrace.ReadOnlySpan
 	subSpans [][]oteltrace.SpanID
 	data     []*datum
@@ -60,10 +63,11 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 			return err
 		}
 	}
+	return nil
 }
 
 func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) error {
-	attributeMap := mapAttributes(span)
+	attributeMap := mapAttributes(span.Attributes())
 	var bundle xoptrace.Bundle
 	spanContext := span.SpanContext()
 	if spanContext.HasTraceID() {
@@ -129,14 +133,16 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		datam:      data,
 	}
 	for _, attribute := range span.Attributes() {
-		err := y.AddAttribute(ctx, attribute)
+		err := y.AddSpanAttribute(ctx, attribute)
 		if err != nil {
 			return nil, err
 		}
 	}
-	err := y.AddEvents(ctx)
-	if err != nil {
-		return nil, err
+	for _, event := range span.Events() {
+		err := y.AddEvent(ctx, event)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return baseSpan, attributeDefIndex, nil
 }
@@ -153,7 +159,207 @@ type decodeAttributeDefinition struct {
 	AttributeType xopproto.AttributeType `json:"vtype"`
 }
 
-func (x baseSpanReplay) AddAttribute(ctx context.Context, a attribute.KeyValue) (err error) {
+func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) error {
+	level, err := xopnum.LevelString(event.Name)
+	var nameMessage string
+	if err != nil {
+		level = xopnum.InfoLevel
+		nameMessage = event.Name
+	}
+	line := x.base.NoPrefil().Line(
+		level,
+		event.Time,
+		nil, // XXX todo stack
+	)
+	lineType := lineTypeLine
+	var message string
+	var link trace.Trace
+	var modelArg xopbase.ModelArg
+	for _, a := range event.Attributes {
+		switch a.Key {
+		case logMessageKey:
+			if event.Value.Type() == attributes.STRING {
+				lineMessage = event.Value.AsString()
+			} else {
+				return errors.Errorf("invalid line message attribute type %s", event.Value.Type())
+			}
+		case typeKey:
+			if event.Value.Type() == attributes.STRING {
+				switch event.Value.AsString() {
+				case "link":
+					lineType = lineTypeLink
+				case "link-event":
+					lineType = lineTypeLinkEvent
+				case "model":
+					lineType = lineTypeModel
+				case "line":
+					// defaulted
+				default:
+					return errors.Errorf("invalid line type attribute value %s", event.Value.AsString())
+				}
+			} else {
+				return errors.Errorf("invalid line type attribute type %s", event.Value.Type())
+			}
+		case xopModelType:
+			if event.Value.Type() == attributes.STRING {
+				modelArg.TypeName = event.Value.AsString()
+			} else {
+				return errors.Errorf("invalid model type attribute type %s", event.Value.Type())
+			}
+		case xopEncoding:
+			if event.Value.Type() == attributes.STRING {
+				modelArg.Encoding = event.Value.AsString()
+			} else {
+				return errors.Errorf("invalid model encoding attribute type %s", event.Value.Type())
+			}
+		case xopModel:
+			if event.Value.Type() == attributes.STRING {
+				modelArg.Encoded = []byte(event.Value.AsString())
+			} else {
+				return errors.Errorf("invalid model encoding attribute type %s", event.Value.Type())
+			}
+		case xopLineFormat:
+			if event.Value.Type() == attributes.STRING {
+				switch event.Value.AsString() {
+				case "tmpl":
+					lineFormat = lineFormatTemplate
+				default:
+					return errors.Errorf("invalid line format attribute value %s", event.Value.AsString())
+				}
+			} else {
+				return errors.Errorf("invalid line format attribute type %s", event.Value.Type())
+			}
+		case xopTemplate:
+			if event.Value.Type() == attributes.STRING {
+				template := event.Value.AsString()
+			} else {
+				return errors.Errorf("invalid line template attribute type %s", event.Value.Type())
+			}
+		case xopLinkData:
+			if event.Value.Type() == attributes.STRING {
+				link, ok = xoptrace.TraceFromString(event.Value.AsString())
+				if !ok {
+					return errors.Errorf("invalid link data attribute value %s", event.Value.AsString())
+				}
+			} else {
+				return errors.Errorf("invalid link data attribute type %s", event.Value.Type())
+			}
+		case semconv.ExceptionStacktraceKey:
+			// XXX TODO
+		default:
+			if x.xopSpan {
+				err := x.AddEventAttribute(ctx, event, a)
+				if err != nil {
+					return errors.Wrapf(err, "add xop event attribute %s", a.Key)
+				}
+			} else {
+				err := x.AddEventAttribute(ctx, event, a)
+				if err != nil {
+					return errors.Wrapf(err, "add event attribute %s with type %s", a.Key, a.Value.Type())
+				}
+			}
+		}
+	}
+}
+
+func (x baseSpanReplay) AddEventAttribute(ctx context.Context, event stktrace.Event, a attribute.KeyValue) error {
+	switch a.Value.Type() {
+	// MACRO OTELTypes
+	case attribute.ZZZ:
+		line.zzz(a.Key, a.Value.Aszzz())
+	case attribute.ZZZSLICE:
+		var ma xopbase.ModelArg
+		ma.Model = a.Value.AszzzSlice()
+		ma.TypeName = toTypeSliceName["ZZZ"]
+		line.Any(a.Key, ma)
+
+	case attribute.INVALID:
+		fallthrough
+	default:
+		return errors.Errorf("invalid type")
+	}
+	return nil
+}
+
+func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event stktrace.Event, a attribute.KeyValue) error {
+	switch a.Value.Type() {
+	case attributes.STRINGSLICE:
+		if len(slice) < 2 {
+			return errors.Errrof("invalid xop attribute encoding slice is too short")
+		}
+		slice := event.Value.AsStringSlice()
+		switch slice[1] {
+		// MACRO DataTypeAbbreviations
+		case "ZZZ":
+			// CONDITIONAL ONLY:i,i8,i16,i32,i64
+			i, err := strconv.ParseInt(slice[0], 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+			}
+			line.zzz(a.Key, i, xopbase.StringToDataType("ZZZ"))
+			// CONDITIONAL ONLY:u,u8,u16,u32,u64,uintptr
+			i, err := strconv.ParseUint(slice[0], 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+			}
+			line.zzz(a.Key, i, xopbase.StringToDataType("ZZZ"))
+			// CONDITIONAL ONLY:s,stringer,error
+			line.zzz(a.Key, slice[0], xopbase.StringToDataType("ZZZ"))
+			// CONDITIONAL ONLY:dur
+			dur, err := time.ParseDuration(slice[0])
+			if err != nil {
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+			}
+			line.zzz(a.Key, dur)
+			// CONDITIONAL ONLY:f32,f64
+			f, err := strconv.ParseFloat(slice[0], 64)
+			if err != nil {
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+			}
+			line.zzz(a.Key, f)
+			// CONDITIONAL ONLY:time
+			ts, err := time.Parse(time.RFC3339Nano, slice[0])
+			if err != nil {
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+			}
+			line.zzz(a.Key, ts)
+			// CONDITIONAL ONLY:enum
+			if len(slice) != 3 {
+				return errrors.Errorf("key %s invalid enum encoding, slice too short", a.Key)
+			}
+			ea, err := x.registry.ConstructEnumAttribute(xopat.Make{
+				Key: a.Key,
+			}, xopat.AttributeTypeEnum)
+			if err != nil {
+				return errrors.Errorf("could not turn key %s into an enum", a.Key)
+			}
+			i, err := strconv.ParseInt(slice[2], 10, 64)
+			if err != nil {
+				return errrors.Wrapf(err, "could not turn key %s into an enum", a.Key)
+			}
+			ea.Add64(i, slice[1])
+			// CONDITIONAL ONLY:any
+			if len(slice) != 4 {
+				return errrors.Errorf("key %s invalid any encoding, slice too short", a.Key)
+			}
+			var ma xopbase.ModelArg
+			ma.Encoded = []byte(slice[0])
+			ma.Encoding = slice[2]
+			ma.TypeName = slice[3]
+			line.zzz(a.Key, ma)
+			// END CONDITIONAL
+
+		}
+
+	case attributes.BOOL:
+		line.Bool(a.Key, a.Value.AsBool())
+	default:
+		return errors.Errorf("unexpected event attribute type %s for xop-encoded line", a.Value.Type())
+	}
+	return nil
+}
+
+func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyValue) (err error) {
 	defer func() {
 		if err != nil {
 			err = errors.Wrapf(err, "add span attribute %s with type %s", a.Key, a.Value.Type())
@@ -177,7 +383,7 @@ func (x baseSpanReplay) AddAttribute(ctx context.Context, a attribute.KeyValue) 
 	}
 
 	if aDef, ok := x.data[x.data.requestIndex].attributeDefintions[key]; ok {
-		return x.AddXopAttribute(ctx, a, aDef)
+		return x.AddXopMetadataAttribute(ctx, a, aDef)
 	}
 
 	mkMake := func(key string, multiple bool) xopat.Make {
@@ -211,7 +417,7 @@ func (x baseSpanReplay) AddAttribute(ctx context.Context, a attribute.KeyValue) 
 	}
 }
 
-func (x baseSpanReplay) AddXopAttribute(ctx context.Context, a attribute.KeyValue, aDef *decodeAttributeDefinition) error {
+func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute.KeyValue, aDef *decodeAttributeDefinition) error {
 	switch aDef.AttributeType {
 	// MACRO ZZZAttribute SKIP:Float32
 	case xopproto.AttributeType_ZZZ:

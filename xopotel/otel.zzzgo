@@ -334,7 +334,7 @@ func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 func (builder *builder) Any(k string, v xopbase.ModelArg) {
 	v.Encode()
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String()}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String(), v.TypeName}))
 }
 
 func (builder *builder) Time(k string, v time.Time) {
