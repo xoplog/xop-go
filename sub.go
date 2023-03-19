@@ -20,6 +20,14 @@ type Sub struct {
 	log      *Log
 }
 
+// Detaching is a ephemeral type used in the chain
+//
+//	child := log.Sub().Detach().Fork()
+//	child := log.Sub().Detach().Step()
+//
+// to indicate that the new log/span has an independent lifetime
+// from it's parent so a call to Done() on the parent does not imply
+// the child is done.
 type Detaching struct {
 	sub *Sub
 }
@@ -117,7 +125,7 @@ func (log *Log) Sub() *Sub {
 	}
 }
 
-// Detach followed by Fork() or Step() create a sub-span/log that is detached from
+// Detach followed by Fork() or Step() creates a sub-span/log that is detached from
 // it's parent.  A Done() on the parent does not imply Done() on the detached
 // log.
 func (sub Sub) Detach() *Detaching {

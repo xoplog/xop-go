@@ -336,7 +336,7 @@ func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 func (builder *builder) Any(k string, v xopbase.ModelArg) {
 	v.Encode()
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String()}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String(), v.TypeName}))
 }
 
 func (builder *builder) Time(k string, v time.Time) {
@@ -485,7 +485,7 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			span.request.attributesDefined[key] = struct{}{}
 		}
 	}
-	value := v.String()
+	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	if !k.Multiple() {
 		if k.Locked() {
 			span.lock.Lock()
@@ -659,7 +659,7 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	)
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
 	tmpSpan.End()
-	value := v.String()
+	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	if !k.Multiple() {
 		if k.Locked() {
 			span.lock.Lock()
