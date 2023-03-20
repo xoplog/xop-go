@@ -56,9 +56,21 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 						// XXX add TraceState
 						// XXX add Bundle
 						if isChildSpan {
-							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindInternal))
+							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription,
+								oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
+								oteltrace.WithAttributes(
+									xopVersion.String(xopVersionValue),
+									xopOTELVersion.String(xopotelVersionValue),
+								),
+							)
 						} else {
-							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription, oteltrace.WithSpanKind(oteltrace.SpanKindServer))
+							ctx, newSpan = span.TracerProvider().Tracer("").Start(ctx, nameOrDescription,
+								oteltrace.WithSpanKind(oteltrace.SpanKindServer),
+								oteltrace.WithAttributes(
+									xopVersion.String(xopVersionValue),
+									xopOTELVersion.String(xopotelVersionValue),
+								),
+							)
 						}
 						return []xop.SeedModifier{
 							xop.WithContext(ctx),
@@ -104,8 +116,8 @@ func BaseLogger(ctx context.Context, tracer oteltrace.Tracer, doLogging bool) xo
 				// XXX add WithTimestamp
 				// XXX add WithAttributes -- from seed
 				oteltrace.WithAttributes(
-					xopVersion.String("0.0.1"),
-					xopOTELVersion.String("0.0.1"),
+					xopVersion.String(xopVersionValue),
+					xopOTELVersion.String(xopotelVersionValue),
 					xopSource.String(si.Source+" "+si.SourceVersion.String()),
 					xopNamespace.String(si.Namespace+" "+si.NamespaceVersion.String()),
 				),
