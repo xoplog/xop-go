@@ -5,6 +5,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -88,6 +89,9 @@ var xopModel = attribute.Key("xop.model")
 var xopLineFormat = attribute.Key("xop.format")
 var xopTemplate = attribute.Key("xop.template")
 var otelSpanKind = attribute.Key("span.kind")
+
+const xopVersionValue = "0.0.1"
+const xopotelVersionValue = "0.0.1"
 
 var xopPromotedMetadata = xopat.Make{Key: "xop.span-is-promoted", Namespace: "xopotel"}.BoolAttribute()
 
