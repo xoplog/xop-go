@@ -46,13 +46,14 @@ type datum struct {
 	requestIndex         int // index of request ancestor
 	attributeDefinitions map[string]*decodeAttributeDefinition
 	xopSpan              bool
+	registry             *xopat.Registry
 }
 
 type baseSpanReplay struct {
 	spanReplay
-	span  sdktrace.ReadOnlySpan
-	base  xopbase.Span
-	datum *datum
+	*datum
+	span sdktrace.ReadOnlySpan
+	base xopbase.Span
 }
 
 type decodeAttributeDefinition struct {
@@ -145,6 +146,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.xopSpan = xopParent.xopSpan
 			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), spanSeq)
 			data.requestIndex = xopParent.requestIndex
+			data.registry = xopParent.registry
 		} else {
 			// This is a difficult sitatuion. We have an internal/unspecified span
 			// that does not have a parent present. There is no right answer for what
@@ -155,12 +157,14 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.baseSpan.MetadataBool(xopPromotedMetadata, true)
 			data.requestIndex = myIndex
 			data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
+			data.registry = xopat.NewRegistry(false)
 		}
 	default:
 		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
 		data.requestIndex = myIndex
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 		data.xopSpan = attributeMap.GetString(xopVersion) != ""
+		data.registry = xopat.NewRegistry(false)
 	}
 	y := baseSpanReplay{
 		spanReplay: x,
@@ -294,15 +298,15 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 		case semconv.ExceptionStacktraceKey:
 			// XXX TODO
 		default:
-			if x.datum.xopSpan {
-				err := x.AddEventAttribute(ctx, event, a)
+			if x.xopSpan {
+				err := x.AddXopEventAttribute(ctx, event, a, line)
 				if err != nil {
-					return errors.Wrapf(err, "add xop event attribute %s", a.Key)
+					return errors.Wrapf(err, "add xop event attribute %s", string(a.Key))
 				}
 			} else {
-				err := x.AddEventAttribute(ctx, event, a)
+				err := x.AddEventAttribute(ctx, event, a, line)
 				if err != nil {
-					return errors.Wrapf(err, "add event attribute %s with type %s", a.Key, a.Value.Type())
+					return errors.Wrapf(err, "add event attribute %s with type %s", string(a.Key), a.Value.Type())
 				}
 			}
 		}
@@ -491,7 +495,8 @@ func defaulted[T comparable](a, b T) T {
 	return a
 }
 
-func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace.Event, a attribute.KeyValue) error {
+func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace.Event, a attribute.KeyValue, line xopbase.Line) error {
+	key := string(a.Key)
 	switch a.Value.Type() {
 	case attribute.STRINGSLICE:
 		slice := a.Value.AsStringSlice()
@@ -501,7 +506,7 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace
 		switch slice[1] {
 		case "any":
 			if len(slice) != 4 {
-				return errors.Errorf("key %s invalid any encoding, slice too short", a.Key)
+				return errors.Errorf("key %s invalid any encoding, slice too short", key)
 			}
 			var ma xopbase.ModelArg
 			ma.Encoded = []byte(slice[0])
@@ -511,160 +516,160 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace
 			}
 			ma.Encoding = xopproto.Encoding(e)
 			ma.TypeName = slice[3]
-			line.Any(a.Key, ma)
+			line.Any(key, ma)
 		case "bool":
 		case "dur":
 			dur, err := time.ParseDuration(slice[0])
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Duration(a.Key, dur)
+			line.Duration(key, dur)
 		case "enum":
 			if len(slice) != 3 {
-				return errors.Errorf("key %s invalid enum encoding, slice too short", a.Key)
+				return errors.Errorf("key %s invalid enum encoding, slice too short", key)
 			}
 			ea, err := x.registry.ConstructEnumAttribute(xopat.Make{
-				Key: a.Key,
+				Key: key,
 			}, xopat.AttributeTypeEnum)
 			if err != nil {
-				return errors.Errorf("could not turn key %s into an enum", a.Key)
+				return errors.Errorf("could not turn key %s into an enum", key)
 			}
 			i, err := strconv.ParseInt(slice[2], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "could not turn key %s into an enum", a.Key)
+				return errors.Wrapf(err, "could not turn key %s into an enum", key)
 			}
 			ea.Add64(i, slice[1])
 		case "error":
-			line.String(a.Key, slice[0], xopbase.StringToDataType("error"))
+			line.String(key, slice[0], xopbase.StringToDataType["error"])
 		case "f32":
 			f, err := strconv.ParseFloat(slice[0], 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Float64(a.Key, f)
+			line.Float64(key, f, xopbase.StringToDataType["f32"])
 		case "f64":
 			f, err := strconv.ParseFloat(slice[0], 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Float64(a.Key, f)
+			line.Float64(key, f, xopbase.StringToDataType["f64"])
 		case "i":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Int64(a.Key, i, xopbase.StringToDataType("i"))
+			line.Int64(key, i, xopbase.StringToDataType["i"])
 		case "i16":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Int64(a.Key, i, xopbase.StringToDataType("i16"))
+			line.Int64(key, i, xopbase.StringToDataType["i16"])
 		case "i32":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Int64(a.Key, i, xopbase.StringToDataType("i32"))
+			line.Int64(key, i, xopbase.StringToDataType["i32"])
 		case "i64":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Int64(a.Key, i, xopbase.StringToDataType("i64"))
+			line.Int64(key, i, xopbase.StringToDataType["i64"])
 		case "i8":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Int64(a.Key, i, xopbase.StringToDataType("i8"))
+			line.Int64(key, i, xopbase.StringToDataType["i8"])
 		case "s":
-			line.String(a.Key, slice[0], xopbase.StringToDataType("s"))
+			line.String(key, slice[0], xopbase.StringToDataType["s"])
 		case "stringer":
-			line.String(a.Key, slice[0], xopbase.StringToDataType("stringer"))
+			line.String(key, slice[0], xopbase.StringToDataType["stringer"])
 		case "time":
 			ts, err := time.Parse(time.RFC3339Nano, slice[0])
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Time(a.Key, ts)
+			line.Time(key, ts)
 		case "u":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Uint64(a.Key, i, xopbase.StringToDataType("u"))
+			line.Uint64(key, i, xopbase.StringToDataType["u"])
 		case "u16":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Uint64(a.Key, i, xopbase.StringToDataType("u16"))
+			line.Uint64(key, i, xopbase.StringToDataType["u16"])
 		case "u32":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Uint64(a.Key, i, xopbase.StringToDataType("u32"))
+			line.Uint64(key, i, xopbase.StringToDataType["u32"])
 		case "u64":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Uint64(a.Key, i, xopbase.StringToDataType("u64"))
+			line.Uint64(key, i, xopbase.StringToDataType["u64"])
 		case "u8":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Uint64(a.Key, i, xopbase.StringToDataType("u8"))
+			line.Uint64(key, i, xopbase.StringToDataType["u8"])
 		case "uintptr":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
 			}
-			line.Uint64(a.Key, i, xopbase.StringToDataType("uintptr"))
+			line.Uint64(key, i, xopbase.StringToDataType["uintptr"])
 
 		}
 
 	case attribute.BOOL:
-		line.Bool(a.Key, a.Value.AsBool())
+		line.Bool(key, a.Value.AsBool())
 	default:
 		return errors.Errorf("unexpected event attribute type %s for xop-encoded line", a.Value.Type())
 	}
 	return nil
 }
 
-func (x baseSpanReplay) AddEventAttribute(ctx context.Context, event sdktrace.Event, a attribute.KeyValue) error {
+func (x baseSpanReplay) AddEventAttribute(ctx context.Context, event sdktrace.Event, a attribute.KeyValue, line xopbase.Line) error {
 	switch a.Value.Type() {
 	case attribute.BOOL:
-		line.Bool(a.Key, a.Value.AsBool())
+		line.Bool(string(a.Key), a.Value.AsBool())
 	case attribute.BOOLSLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsBoolSlice()
 		ma.TypeName = toTypeSliceName["BOOL"]
-		line.Any(a.Key, ma)
+		line.Any(string(a.Key), ma)
 	case attribute.FLOAT64:
-		line.Float64(a.Key, a.Value.AsFloat64())
+		line.Float64(string(a.Key), a.Value.AsFloat64(), xopbase.Float64DataType)
 	case attribute.FLOAT64SLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsFloat64Slice()
 		ma.TypeName = toTypeSliceName["FLOAT64"]
-		line.Any(a.Key, ma)
+		line.Any(string(a.Key), ma)
 	case attribute.INT64:
-		line.Int64(a.Key, a.Value.AsInt64())
+		line.Int64(string(a.Key), a.Value.AsInt64(), xopbase.Int64DataType)
 	case attribute.INT64SLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsInt64Slice()
 		ma.TypeName = toTypeSliceName["INT64"]
-		line.Any(a.Key, ma)
+		line.Any(string(a.Key), ma)
 	case attribute.STRING:
-		line.String(a.Key, a.Value.AsString())
+		line.String(string(a.Key), a.Value.AsString(), xopbase.StringDataType)
 	case attribute.STRINGSLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsStringSlice()
 		ma.TypeName = toTypeSliceName["STRING"]
-		line.Any(a.Key, ma)
+		line.Any(string(a.Key), ma)
 
 	case attribute.INVALID:
 		fallthrough
@@ -674,14 +679,22 @@ func (x baseSpanReplay) AddEventAttribute(ctx context.Context, event sdktrace.Ev
 	return nil
 }
 
+var toTypeSliceName = map[string]string{
+	"BOOL":    "[]bool",
+	"STRING":  "[]string",
+	"INT64":   "[]int64",
+	"FLOAT64": "[]float64",
+}
+
 func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyValue) (err error) {
+	key := string(a.Key)
 	defer func() {
 		if err != nil {
-			err = errors.Wrapf(err, "add span attribute %s with type %s", a.Key, a.Value.Type())
+			err = errors.Wrapf(err, "add span attribute %s with type %s", key, a.Value.Type())
 		}
 	}()
-	if strings.HasPrefix(a.Key, attributeDefintionPrefix) {
-		key := strings.TrimPrefix(a.Key, attributeDefintionPrefix)
+	if strings.HasPrefix(key, attributeDefintionPrefix) {
+		key := strings.TrimPrefix(key, attributeDefintionPrefix)
 		if _, ok := x.data[x.data.requestIndex].attributeDefintions[key]; ok {
 			return nil
 		}
@@ -710,66 +723,66 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	}
 	switch a.Value.Type() {
 	case attribute.BOOL:
-		registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(mkMake(a.Key, false), xopat.AttributeTypeBool)
+		registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(mkMake(key, false), xopat.AttributeTypeBool)
 		if err != nil {
 			return err
 		}
-		x.datum.baseSpan.MetadataBool(registeredAttribute, a.Value.AsBool())
+		x.baseSpan.MetadataBool(registeredAttribute, a.Value.AsBool())
 	case attribute.BOOLSLICE:
-		registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(mkMake(a.Key, true), xopat.AttributeTypeBool)
+		registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(mkMake(key, true), xopat.AttributeTypeBool)
 		if err != nil {
 			return err
 		}
 		for _, v := range a.Value.AsBoolSlice() {
-			x.datum.baseSpan.MetadataBool(registeredAttribute, v)
+			x.baseSpan.MetadataBool(registeredAttribute, v)
 		}
 	case attribute.FLOAT64:
-		registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(mkMake(a.Key, false), xopat.AttributeTypeFloat64)
+		registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(mkMake(key, false), xopat.AttributeTypeFloat64)
 		if err != nil {
 			return err
 		}
-		x.datum.baseSpan.MetadataFloat64(registeredAttribute, a.Value.AsFloat64())
+		x.baseSpan.MetadataFloat64(registeredAttribute, a.Value.AsFloat64())
 	case attribute.FLOAT64SLICE:
-		registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(mkMake(a.Key, true), xopat.AttributeTypeFloat64)
+		registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(mkMake(key, true), xopat.AttributeTypeFloat64)
 		if err != nil {
 			return err
 		}
 		for _, v := range a.Value.AsFloat64Slice() {
-			x.datum.baseSpan.MetadataFloat64(registeredAttribute, v)
+			x.baseSpan.MetadataFloat64(registeredAttribute, v)
 		}
 	case attribute.INT64:
-		registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(mkMake(a.Key, false), xopat.AttributeTypeInt64)
+		registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(mkMake(key, false), xopat.AttributeTypeInt64)
 		if err != nil {
 			return err
 		}
-		x.datum.baseSpan.MetadataInt64(registeredAttribute, a.Value.AsInt64())
+		x.baseSpan.MetadataInt64(registeredAttribute, a.Value.AsInt64())
 	case attribute.INT64SLICE:
-		registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(mkMake(a.Key, true), xopat.AttributeTypeInt64)
+		registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(mkMake(key, true), xopat.AttributeTypeInt64)
 		if err != nil {
 			return err
 		}
 		for _, v := range a.Value.AsInt64Slice() {
-			x.datum.baseSpan.MetadataInt64(registeredAttribute, v)
+			x.baseSpan.MetadataInt64(registeredAttribute, v)
 		}
 	case attribute.STRING:
-		registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(mkMake(a.Key, false), xopat.AttributeTypeString)
+		registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(mkMake(key, false), xopat.AttributeTypeString)
 		if err != nil {
 			return err
 		}
-		x.datum.baseSpan.MetadataString(registeredAttribute, a.Value.AsString())
+		x.baseSpan.MetadataString(registeredAttribute, a.Value.AsString())
 	case attribute.STRINGSLICE:
-		registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(mkMake(a.Key, true), xopat.AttributeTypeString)
+		registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(mkMake(key, true), xopat.AttributeTypeString)
 		if err != nil {
 			return err
 		}
 		for _, v := range a.Value.AsStringSlice() {
-			x.datum.baseSpan.MetadataString(registeredAttribute, v)
+			x.baseSpan.MetadataString(registeredAttribute, v)
 		}
 
 	case attribute.INVALID:
 		fallthrough
 	default:
-		return errors.Errorf("span attribute key (%s) has value type (%s) that is not expected", a.Key, a.Value.Type())
+		return errors.Errorf("span attribute key (%s) has value type (%s) that is not expected", key, a.Value.Type())
 	}
 }
 
@@ -799,7 +812,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataAny(registeredAttribute, decoded)
+				x.baseSpan.MetadataAny(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
@@ -807,7 +820,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataAny(registeredAttribute, decoded)
+			x.baseSpan.MetadataAny(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Bool:
 		registeredAttribute, err := x.attributeRegistry.ConstructBoolAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -830,7 +843,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataBool(registeredAttribute, decoded)
+				x.baseSpan.MetadataBool(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsBool()
@@ -838,7 +851,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataBool(registeredAttribute, decoded)
+			x.baseSpan.MetadataBool(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Duration:
 		registeredAttribute, err := x.attributeRegistry.ConstructDurationAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -859,7 +872,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataDuration(registeredAttribute, decoded)
+				x.baseSpan.MetadataDuration(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsDuration()
@@ -867,7 +880,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataDuration(registeredAttribute, decoded)
+			x.baseSpan.MetadataDuration(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Enum:
 		registeredAttribute, err := x.attributeRegistry.ConstructEnumAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -904,7 +917,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataEnum(registeredAttribute, decoded)
+				x.baseSpan.MetadataEnum(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
@@ -912,7 +925,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataEnum(registeredAttribute, decoded)
+			x.baseSpan.MetadataEnum(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Float64:
 		registeredAttribute, err := x.attributeRegistry.ConstructFloat64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -935,7 +948,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataFloat64(registeredAttribute, decoded)
+				x.baseSpan.MetadataFloat64(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsFloat64()
@@ -943,7 +956,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataFloat64(registeredAttribute, decoded)
+			x.baseSpan.MetadataFloat64(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Int:
 		registeredAttribute, err := x.attributeRegistry.ConstructIntAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -964,7 +977,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataInt(registeredAttribute, decoded)
+				x.baseSpan.MetadataInt(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsInt()
@@ -972,7 +985,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataInt(registeredAttribute, decoded)
+			x.baseSpan.MetadataInt(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Int16:
 		registeredAttribute, err := x.attributeRegistry.ConstructInt16Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -993,7 +1006,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataInt16(registeredAttribute, decoded)
+				x.baseSpan.MetadataInt16(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsInt16()
@@ -1001,7 +1014,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataInt16(registeredAttribute, decoded)
+			x.baseSpan.MetadataInt16(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Int32:
 		registeredAttribute, err := x.attributeRegistry.ConstructInt32Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1022,7 +1035,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataInt32(registeredAttribute, decoded)
+				x.baseSpan.MetadataInt32(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsInt32()
@@ -1030,7 +1043,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataInt32(registeredAttribute, decoded)
+			x.baseSpan.MetadataInt32(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Int64:
 		registeredAttribute, err := x.attributeRegistry.ConstructInt64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1053,7 +1066,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataInt64(registeredAttribute, decoded)
+				x.baseSpan.MetadataInt64(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsInt64()
@@ -1061,7 +1074,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataInt64(registeredAttribute, decoded)
+			x.baseSpan.MetadataInt64(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Int8:
 		registeredAttribute, err := x.attributeRegistry.ConstructInt8Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1082,7 +1095,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataInt8(registeredAttribute, decoded)
+				x.baseSpan.MetadataInt8(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsInt8()
@@ -1090,7 +1103,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataInt8(registeredAttribute, decoded)
+			x.baseSpan.MetadataInt8(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Link:
 		registeredAttribute, err := x.attributeRegistry.ConstructLinkAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1118,7 +1131,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataLink(registeredAttribute, decoded)
+				x.baseSpan.MetadataLink(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
@@ -1126,7 +1139,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataLink(registeredAttribute, decoded)
+			x.baseSpan.MetadataLink(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_String:
 		registeredAttribute, err := x.attributeRegistry.ConstructStringAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1149,7 +1162,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataString(registeredAttribute, decoded)
+				x.baseSpan.MetadataString(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
@@ -1157,7 +1170,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataString(registeredAttribute, decoded)
+			x.baseSpan.MetadataString(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Time:
 		registeredAttribute, err := x.attributeRegistry.ConstructTimeAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1180,7 +1193,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
-				x.datum.baseSpan.MetadataTime(registeredAttribute, decoded)
+				x.baseSpan.MetadataTime(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
@@ -1188,7 +1201,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
-			x.datum.baseSpan.MetadataTime(registeredAttribute, decoded)
+			x.baseSpan.MetadataTime(registeredAttribute, decoded)
 		}
 
 	default:
