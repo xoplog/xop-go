@@ -611,24 +611,24 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 			err = errors.Wrapf(err, "add span attribute %s with type %s", key, a.Value.Type())
 		}
 	}()
-	if strings.HasPrefix(key, attributeDefintionPrefix) {
-		key := strings.TrimPrefix(key, attributeDefintionPrefix)
-		if _, ok := x.data[x.data.requestIndex].attributeDefintions[key]; ok {
+	if strings.HasPrefix(key, attributeDefinitionPrefix) {
+		key := strings.TrimPrefix(key, attributeDefinitionPrefix)
+		if _, ok := x.data[x.requestIndex].attributeDefinitions[key]; ok {
 			return nil
 		}
 		if a.Value.Type() != attribute.STRING {
 			return errors.Errorf("expected type to be string")
 		}
 		var aDef decodeAttributeDefinition
-		aDef, err := json.Unmarshal([]byte(a.Value.AsString()), &aDef)
+		err := json.Unmarshal([]byte(a.Value.AsString()), &aDef)
 		if err != nil {
 			return errors.Wrapf(err, "could not unmarshal attribute defintion")
 		}
-		x.data[x.data.requestIndex].attributeDefintions[key] = &aDef
+		x.data[x.requestIndex].attributeDefinitions[key] = &aDef
 		return nil
 	}
 
-	if aDef, ok := x.data[x.data.requestIndex].attributeDefintions[key]; ok {
+	if aDef, ok := x.data[x.requestIndex].attributeDefinitions[key]; ok {
 		return x.AddXopMetadataAttribute(ctx, a, aDef)
 	}
 
@@ -642,13 +642,13 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	switch a.Value.Type() {
 	// MACRO OTELTypes
 	case attribute.ZZZ:
-		registeredAttribute, err := x.attributeRegistry.ConstructzzzAttribute(mkMake(key, false), xopat.AttributeTypezzz)
+		registeredAttribute, err := x.registry.ConstructzzzAttribute(mkMake(key, false), xopat.AttributeTypezzz)
 		if err != nil {
 			return err
 		}
 		x.baseSpan.Metadatazzz(registeredAttribute, a.Value.Aszzz())
 	case attribute.ZZZSLICE:
-		registeredAttribute, err := x.attributeRegistry.ConstructzzzAttribute(mkMake(key, true), xopat.AttributeTypezzz)
+		registeredAttribute, err := x.registry.ConstructzzzAttribute(mkMake(key, true), xopat.AttributeTypezzz)
 		if err != nil {
 			return err
 		}
@@ -661,17 +661,18 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	default:
 		return errors.Errorf("span attribute key (%s) has value type (%s) that is not expected", key, a.Value.Type())
 	}
+	return nil
 }
 
 func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute.KeyValue, aDef *decodeAttributeDefinition) error {
 	switch aDef.AttributeType {
-	// MACRO ZZZAttribute SKIP:Float32
+	// MACRO BaseAttribute SKIP:Float32
 	case xopproto.AttributeType_ZZZ:
-		registeredAttribute, err := x.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		registeredAttribute, err := x.registry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
 		}
-		// CONDITIONAL ONLY:Enum,Time,String,Any,Link
+		// CONDITIONAL ONLY:Enum,Time,String,Any,Link,Duration
 		expectedSingleType, expectedMultiType := attribute.STRING, attribute.STRINGSLICE
 		// CONDITIONAL ONLY:Int64
 		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
@@ -681,7 +682,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		expectedSingleType, expectedMultiType := attribute.FLOAT64, attribute.FLOAT64SLICE
 		// END CONDITIONAL
 		expectedType := expectedSingleType
-		if k.Multiple() {
+		if registeredAttribute.Multiple() {
 			expectedType = expectedMultiType
 		}
 		if a.Value.Type() != expectedType {
@@ -689,20 +690,22 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		}
 		// CONDITIONAL ONLY:String,Int64,Float64,Bool
 		decoder := func(v zzz) (zzz, error) { return v, nil }
+		// CONDITIONAL ONLY:Duration
+		decoder := func(v string) (time.Duration, error) { return time.ParseDuration(v) }
 		// CONDITIONAL ONLY:Time
 		decoder := func(v string) (time.Time, error) { return time.Parse(time.RFC3339Nano, v) }
 		// CONDITIONAL ONLY:Enum
 		decoder := func(v string) (xopat.Enum, error) {
 			i := strings.LastIndexByte(v, '/')
 			if i == -1 {
-				return errors.Errorf("invalid enum %s", v)
+				return nil, errors.Errorf("invalid enum %s", v)
 			}
 			if i == len(v)-1 {
-				return errors.Errorf("invalid enum %s", v)
+				return nil, errors.Errorf("invalid enum %s", v)
 			}
 			vi, err := strconv.ParseInt(v[i+1:], 10, 64)
 			if err != nil {
-				return errors.Wrap(err, "invalid enum")
+				return nil, errors.Wrap(err, "invalid enum")
 			}
 			enum := registeredAttribute.Add64(vi, v[:i])
 			return enum, nil
@@ -718,10 +721,11 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if !ok {
 				return xoptrace.Trace{}, errors.Errorf("invalid trace string %s", v)
 			}
+			return t, nil
 		}
 		// END CONDITIONAL
-		if k.Multiple() {
-			// CONDITIONAL ONLY:Enum,Time,Any,Link
+		if registeredAttribute.Multiple() {
+			// CONDITIONAL ONLY:Enum,Time,Any,Link,Duration
 			values := a.Value.AsStringSlice()
 			// ELSE CONDITIONAL
 			values := a.Value.AsZZZSlice()
@@ -731,7 +735,11 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 				if err != nil {
 					return err
 				}
+				// CONDITIONAL ONLY:Enum
+				x.baseSpan.MetadataZZZ(&registeredAttribute.EnumAttribute, decoded)
+				// CONDITIONAL SKIP:Enum
 				x.baseSpan.MetadataZZZ(registeredAttribute, decoded)
+				// END CONDITIONAL
 			}
 		} else {
 			// CONDITIONAL ONLY:Enum,Time,Any,Link
@@ -743,7 +751,11 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
+			// CONDITIONAL ONLY:Enum
+			x.baseSpan.MetadataZZZ(&registeredAttribute.EnumAttribute, decoded)
+			// CONDITIONAL SKIP:Enum
 			x.baseSpan.MetadataZZZ(registeredAttribute, decoded)
+			// END CONDITIONAL
 		}
 
 	default:
