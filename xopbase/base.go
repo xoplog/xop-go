@@ -25,6 +25,22 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
+// CanReplay is an optional interface that loggers may implement.  A logger that
+// can a round trip its input and call another logger with no data loss is
+// considered a full-fidelity logger. This specific interface is not required
+// when it does not make sense: xoptest is considered full-fidelity even though
+// its replay is a different API.
+type CanReplay interface {
+	// Replay is how a Logger will feed it's output to another Logger.  The
+	// input param should be the collected output from the first Logger.  If
+	// it isn't in the right format, it should throw an error.  This
+	// capability can be used to transform from one format to another, it can
+	// also be used to during testing to make sure that a Logger can round-trip
+	// without data loss.  Loggers are not required to round-trip without
+	// data loss.
+	Replay(ctx context.Context, input []byte, logger Logger) error
+}
+
 // Logger is the bottom half of a logger -- the part that actually
 // outputs data somewhere.  There can be many Logger implementations.
 //
@@ -51,15 +67,6 @@ type Logger interface {
 	// it when Flush() is called. Even if Buffered() returns false,
 	// Flush() may still be invoked but it doesn't have to do anything.
 	Buffered() bool
-
-	// Replay is how a Logger will feed it's output to another Logger.  The
-	// input param should be the collected output from the first Logger.  If
-	// it isn't in the right format, or type, it should throw an error.  This
-	// capability can be used to transform from one format to another, it can
-	// also be used to during testing to make sure that a Logger can round-trip
-	// without data loss.  Loggers are not required to round-trip without
-	// data loss.
-	Replay(ctx context.Context, input any, logger Logger) error
 }
 
 // SourceInfo records both the running program (log source) and the logging

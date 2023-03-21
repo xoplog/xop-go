@@ -53,7 +53,6 @@ type baseSpanReplay struct {
 	spanReplay
 	*datum
 	span sdktrace.ReadOnlySpan
-	base xopbase.Span
 }
 
 type decodeAttributeDefinition struct {
@@ -138,7 +137,6 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	if spanKind == oteltrace.SpanKindUnspecified {
 		spanKind = oteltrace.SpanKind(defaulted(attributeMap.GetInt(otelSpanKind), int64(oteltrace.SpanKindUnspecified)))
 	}
-	var baseSpan xopbase.Span
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 		if hasParent {
@@ -169,7 +167,6 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	y := baseSpanReplay{
 		spanReplay: x,
 		span:       span,
-		base:       baseSpan,
 		datum:      data,
 	}
 	for _, attribute := range span.Attributes() {
@@ -210,7 +207,7 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 		level = xopnum.InfoLevel
 		nameMessage = event.Name
 	}
-	line := x.base.NoPrefill().Line(
+	line := x.baseSpan.NoPrefill().Line(
 		level,
 		event.Time,
 		nil, // XXX todo stack

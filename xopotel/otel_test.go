@@ -53,6 +53,52 @@ func TestASingleLine(t *testing.T) {
 	assert.NotEmpty(t, buffer.String())
 }
 
+func TestBaseLoggerReplay(t *testing.T) {
+	for _, mc := range xoptestutil.MessageCases {
+		mc := mc
+		if mc.SkipOTEL {
+			continue
+		}
+		t.Run(mc.Name, func(t *testing.T) {
+			var buffer xoputil.Buffer
+
+			rLog := xoptest.New(t)
+			exporter := xopotel.NewExporter(rLog)
+
+			tracerProvider := sdktrace.NewTracerProvider(
+				sdktrace.WithBatcher(exporter),
+			)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer func() {
+				err := tracerProvider.Shutdown(context.Background())
+				assert.NoError(t, err, "shutdown")
+			}()
+
+			tracer := tracerProvider.Tracer("")
+
+			tLog := xoptest.New(t)
+			seed := xop.NewSeed(
+				xop.WithBase(tLog),
+				xopotel.BaseLogger(ctx, tracer, true),
+			)
+			if len(mc.SeedMods) != 0 {
+				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+				seed = seed.Copy(mc.SeedMods...)
+			}
+			log := seed.Request(t.Name())
+			mc.Do(t, log, tLog)
+
+			cancel()
+			tracerProvider.ForceFlush(context.Background())
+			t.Log("logged:", buffer.String())
+			assert.NotEmpty(t, buffer.String())
+
+			t.Log("verify replay equals original")
+			xoptestutil.VerifyReplay(t, tLog, rLog)
+		})
+	}
+}
+
 func XXXTestSpanLog(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc

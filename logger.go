@@ -94,7 +94,7 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.StartRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName, log.span.seed.sourceInfo)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.startRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName, log.span.seed.sourceInfo)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
