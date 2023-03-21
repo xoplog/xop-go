@@ -65,7 +65,7 @@ func (span *Span) SubSeed(mods ...SeedModifier) Seed {
 }
 
 // SeedReactiveCallback is used to modify seeds as they are just sprouting.
-type SeedReactiveCallback func(ctx context.Context, seed Seed, nameOrDescription string, isChildSpan bool) []SeedModifier
+type SeedReactiveCallback func(ctx context.Context, seed Seed, nameOrDescription string, isChildSpan bool, now time.Time) []SeedModifier
 
 type seedReactiveCallbacks []SeedReactiveCallback
 
@@ -134,8 +134,9 @@ func (seed Seed) applyMods(mods []SeedModifier) Seed {
 // starting something new, like receiving an http request or
 // starting a cron job.
 func (seed Seed) Request(descriptionOrName string) *Log {
-	seed = seed.react(true, descriptionOrName)
-	return seed.request(descriptionOrName)
+	now := time.Now()
+	seed = seed.react(true, descriptionOrName, now)
+	return seed.request(descriptionOrName, now)
 }
 
 // SubSpan creates a new top-level span (a request) but
@@ -143,8 +144,9 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 // The traceID must already be set.  Use this with caution,
 // it is meant for handing off from spans created elsewhere.
 func (seed Seed) SubSpan(descriptionOrName string) *Log {
-	seed = seed.react(false, descriptionOrName)
-	return seed.request(descriptionOrName)
+	now := time.Now()
+	seed = seed.react(false, descriptionOrName, now)
+	return seed.request(descriptionOrName, now)
 }
 
 // WithReactive provides a callback that is used to modify seeds as they
@@ -250,7 +252,7 @@ func (seed Seed) SourceInfo() xopbase.SourceInfo {
 	return seed.sourceInfo
 }
 
-func (seed Seed) react(isRequest bool, description string) Seed {
+func (seed Seed) react(isRequest bool, description string, now time.Time) Seed {
 	if isRequest {
 		if !seed.traceSet {
 			seed.traceBundle.Trace.RebuildSetNonZero()
@@ -271,7 +273,7 @@ func (seed Seed) react(isRequest bool, description string) Seed {
 			continue
 		}
 		seed.currentReactiveIndex = i
-		seed = seed.applyMods(f(seed.ctx, seed, description, !isRequest))
+		seed = seed.applyMods(f(seed.ctx, seed, description, !isRequest, now))
 		if seed.reactive[i] == nil {
 			nilSeen = true
 		}

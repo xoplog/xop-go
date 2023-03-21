@@ -34,7 +34,7 @@ func verifyReplayLines(t *testing.T, want []*xoptest.Line, got []*xoptest.Line) 
 func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 	t.Log("verify line", want.Text)
 	assert.Equal(t, want.Level, got.Level, "level")
-	assert.Truef(t, want.Timestamp.Equal(got.Timestamp), "timestamp %s vs %s", want.Timestamp.Format(time.RFC3339), got.Timestamp.Format(time.RFC3339))
+	assert.Truef(t, want.Timestamp.Equal(got.Timestamp), "timestamp %s vs %s", want.Timestamp.Format(time.RFC3339Nano), got.Timestamp.Format(time.RFC3339Nano))
 	assert.Equal(t, want.Message, got.Message, "message")
 	assert.Equal(t, want.Tmpl, got.Tmpl, "template")
 	if want.AsLink != nil && assert.NotNil(t, got.AsLink, "link") {
