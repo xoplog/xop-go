@@ -200,7 +200,7 @@ func (r Attribute) DefinitionSize() int32             { return r.defSize }
 func (r Attribute) Semver() *semver.Version           { return r.semver }
 func (r Attribute) SemverString() string              { return r.version }
 func (r *Attribute) Ptr() *Attribute                  { return r }
-func (r Attribute) DefinitionJSONBytes() []byte       { return r.jsonDef } // DefinitionJSON returns a pre-built JSON encoding of the attribute definition.  Do not modify.
+func (r Attribute) DefinitionJSONBytes() []byte       { return r.jsonDef } // DefinitionJSON returns a pre-built JSON encoding of the attribute definition, ends with newline.  Do not modify.
 func (r Attribute) DefinitionJSONString() string      { return r.jsonDefString }
 
 var _ AttributeInterface = &Attribute{}

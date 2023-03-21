@@ -32,11 +32,11 @@ func (iow IOWriter) DefineEnum(*xopat.EnumAttribute, xopat.Enum) {}
 func (iow IOWriter) DefineAttribute(k *xopat.Attribute, requestTrace *xoptrace.Trace) error {
 	if requestTrace != nil {
 		jdef := k.DefinitionJSONBytes()
-		b := make([]byte, len(jdef)-1, len(jdef)+len(`,"span.id":""{`)+16)
-		copy(b, jdef[0:len(jdef)-1])
+		b := make([]byte, len(jdef)-2, len(jdef)+len(`,"span.id":""{`)+16)
+		copy(b, jdef[0:len(jdef)-2])
 		b = append(b, []byte(`,"span.id":"`)...)
 		b = append(b, requestTrace.SpanID().HexBytes()...)
-		b = append(b, []byte(`"}`)...)
+		b = append(b, '"', '}', '\n')
 		_, err := iow.Write(b)
 		return err
 	}
