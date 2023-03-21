@@ -68,7 +68,7 @@ type singleAllocRequest struct {
 	span   span
 }
 
-func (seed Seed) request(descriptionOrName string) *Log {
+func (seed Seed) request(descriptionOrName string, now time.Time) *Log {
 	alloc := singleAllocRequest{
 		Log: Log{
 			settings: seed.settings.Copy(),
@@ -94,7 +94,7 @@ func (seed Seed) request(descriptionOrName string) *Log {
 	alloc.Log.shared = &alloc.shared
 	log := &alloc.Log
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.startRequests(seed.ctx, time.Now(), log.span.seed.traceBundle, descriptionOrName, log.span.seed.sourceInfo)
+	combinedBaseRequest, flushers := log.span.seed.loggers.List.startRequests(seed.ctx, now, log.span.seed.traceBundle, descriptionOrName, log.span.seed.sourceInfo)
 	log.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
 	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
@@ -144,7 +144,8 @@ func (sub *Sub) Log() *Log {
 }
 
 func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
-	seed = seed.react(false, description)
+	now := time.Now()
+	seed = seed.react(false, description, now)
 
 	type singleAlloc struct {
 		Log  Log
@@ -172,7 +173,7 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 	alloc.Log.span = &alloc.span
 	log := &alloc.Log
 
-	log.span.base = old.span.base.Span(seed.ctx, time.Now(), seed.traceBundle, description, log.span.seed.spanSequenceCode)
+	log.span.base = old.span.base.Span(seed.ctx, now, seed.traceBundle, description, log.span.seed.spanSequenceCode)
 	if len(seed.loggers.Added) == 0 && len(seed.loggers.Removed) == 0 {
 		log.span.buffered = old.span.buffered
 		log.span.referencesKept = old.span.referencesKept
@@ -191,7 +192,7 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 			debugPrint("remove flusher", id)
 			delete(spanSet, id)
 		}
-		ts := time.Now()
+		ts := now
 		for _, added := range seed.loggers.Added {
 			id := added.ID()
 			if _, ok := spanSet[id]; ok {

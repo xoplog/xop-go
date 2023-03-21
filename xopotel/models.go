@@ -30,7 +30,7 @@ type request struct {
 }
 
 type span struct {
-	span               oteltrace.Span
+	otelSpan           oteltrace.Span
 	logger             *logger
 	request            *request
 	ctx                context.Context

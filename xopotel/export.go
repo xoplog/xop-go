@@ -129,9 +129,9 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		if parentContext.IsSampled() {
 			bundle.Parent.Flags().SetArray([1]byte{1})
 		}
-		bundle.Parent.Version().SetArray([1]byte{1})
 	}
-	bundle.Trace.Version().SetArray([1]byte{1})
+	bundle.Parent.Flags().SetBytes([]byte{1})
+	bundle.Trace.Flags().SetBytes([]byte{1})
 	spanKind := span.SpanKind()
 	attributeMap := mapAttributes(span.Attributes())
 	if spanKind == oteltrace.SpanKindUnspecified {
@@ -180,6 +180,9 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		if err != nil {
 			return err
 		}
+	}
+	if endTime := span.EndTime(); !endTime.IsZero() {
+		data.baseSpan.Done(endTime, true)
 	}
 	return nil
 }
