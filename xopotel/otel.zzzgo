@@ -145,8 +145,8 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bund
 	// in the OTEL span that we've already created.
 	s := logger.span(ctx, ts, description, "")
 	s.span.SetAttributes(
-		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion),
-		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion),
+		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
+		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
 	)
 	s.request = &request{
 		span:              s,
@@ -174,13 +174,13 @@ func (span *span) Done(endTime time.Time, final bool) {
 func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
 	s := span.logger.span(ctx, ts, description, spanSequenceCode)
 	s.request = span.request
-	if spanSequence != "" {
-		s.span.SetAttributes(logSpanSequence.String(spanSequence))
+	if spanSequenceCode != "" {
+		s.span.SetAttributes(logSpanSequence.String(spanSequenceCode))
 	}
 	return s
 }
 
-func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) *span {
+func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequenceCode string) *span {
 	otelSpan := oteltrace.SpanFromContext(ctx)
 	return &span{
 		logger: logger,
@@ -404,7 +404,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	)
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
 	tmpSpan.End()
-	//CONDITIONAL ONLY:Enum,Link
+	//CONDITIONAL ONLY:Enum
 	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	//CONDITIONAL ONLY:Time
 	value := v.Format(time.RFC3339Nano)
@@ -436,7 +436,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		//CONDITIONAL ONLY:Enum,Time,String,Any,Link
 		span.span.SetAttributes(attribute.String(key, value))
 		//ELSE CONDITIONAL
-		span.span.SetAttributes(attribute.ZZZ(key, values))
+		span.span.SetAttributes(attribute.ZZZ(key, value))
 		//END CONDITIONAL
 		return
 	}

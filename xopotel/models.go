@@ -14,7 +14,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-const attributeDefintionPrefix = "xop.defineKey."
+const attributeDefinitionPrefix = "xop.defineKey."
 const xopSynthesizedForOTEL = "xopotel-shim type"
 
 type logger struct {

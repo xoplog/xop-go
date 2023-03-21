@@ -148,8 +148,8 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bund
 	// in the OTEL span that we've already created.
 	s := logger.span(ctx, ts, description, "")
 	s.span.SetAttributes(
-		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion),
-		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion),
+		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
+		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
 	)
 	s.request = &request{
 		span:              s,
@@ -177,13 +177,13 @@ func (span *span) Done(endTime time.Time, final bool) {
 func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
 	s := span.logger.span(ctx, ts, description, spanSequenceCode)
 	s.request = span.request
-	if spanSequence != "" {
-		s.span.SetAttributes(logSpanSequence.String(spanSequence))
+	if spanSequenceCode != "" {
+		s.span.SetAttributes(logSpanSequence.String(spanSequenceCode))
 	}
 	return s
 }
 
-func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequence string) *span {
+func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequenceCode string) *span {
 	otelSpan := oteltrace.SpanFromContext(ctx)
 	return &span{
 		logger: logger,
@@ -458,7 +458,7 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Bool(key, values))
+		span.span.SetAttributes(attribute.Bool(key, value))
 		return
 	}
 	span.lock.Lock()
@@ -562,7 +562,7 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Float64(key, values))
+		span.span.SetAttributes(attribute.Float64(key, value))
 		return
 	}
 	span.lock.Lock()
@@ -614,7 +614,7 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.span.SetAttributes(attribute.Int64(key, values))
+		span.span.SetAttributes(attribute.Int64(key, value))
 		return
 	}
 	span.lock.Lock()
@@ -671,7 +671,6 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	)
 	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
 	tmpSpan.End()
-	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	if !k.Multiple() {
 		if k.Locked() {
 			span.lock.Lock()
