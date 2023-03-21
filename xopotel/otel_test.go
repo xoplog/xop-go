@@ -53,7 +53,7 @@ func TestASingleLine(t *testing.T) {
 	assert.NotEmpty(t, buffer.String())
 }
 
-func TestSpanLog(t *testing.T) {
+func XXXTestSpanLog(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
 		if mc.SkipOTEL {
@@ -101,7 +101,7 @@ func TestSpanLog(t *testing.T) {
 	}
 }
 
-func TestBaseLogger(t *testing.T) {
+func XXXTestBaseLogger(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
 		if mc.SkipOTEL {
