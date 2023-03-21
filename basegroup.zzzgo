@@ -1,13 +1,15 @@
 package xop
 
 import (
+	"context"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/xoplog/xop-go/trace"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoptrace"
 )
 
 type baseLoggers []xopbase.Logger
@@ -26,7 +28,29 @@ var _ xopbase.Line = lines{}
 var _ xopbase.Prefilled = prefilleds{}
 var _ xopbase.Prefilling = prefillings{}
 
-func (l baseLoggers) StartRequests(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) (xopbase.Request, map[string]xopbase.Request) {
+// CombineBaseLoggers is probably only useful for testing xop because Seed already
+// provides a better way to manage multiple base loggers.
+func CombineBaseLoggers(first xopbase.Logger, more ...xopbase.Logger) xopbase.Logger {
+	if len(more) == 0 {
+		return first
+	}
+	return baseLoggers(append([]xopbase.Logger{first}, more...))
+}
+
+func (l baseLoggers) Request(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) xopbase.Request {
+	r, _ := l.startRequests(ctx, ts, span, descriptionOrName, sourceInfo)
+	return r
+}
+
+func (l baseLoggers) ID() string {
+	ids := make([]string, len(l))
+	for i, logger := range l {
+		ids[i] = logger.ID()
+	}
+	return strings.Join(ids, "/")
+}
+
+func (l baseLoggers) startRequests(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
 		req := l[0].Request(ctx, ts, span, descriptionOrName, sourceInfo)
 		return req, map[string]xopbase.Request{l[0].ID(): req}
@@ -71,6 +95,12 @@ func (l baseLoggers) Buffered() bool {
 func (s baseRequests) SetErrorReporter(f func(error)) {
 	for _, request := range s.baseRequests {
 		request.SetErrorReporter(f)
+	}
+}
+
+func (s baseRequests) Boring(isBoring bool) {
+	for _, request := range s.baseRequests {
+		request.Boring(isBoring)
 	}
 }
 
@@ -204,7 +234,7 @@ func (l lines) ZZZ(k string, v zzz, dt xopbase.DataType) {
 	}
 }
 
-//MACRO BaseAttribute
+// MACRO BaseAttribute
 func (s baseSpans) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	for _, span := range s {
 		span.MetadataZZZ(k, v)
