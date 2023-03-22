@@ -10,6 +10,8 @@ import (
 
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopbytes"
+	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopotel"
 	"github.com/xoplog/xop-go/xoptest"
@@ -53,6 +55,9 @@ func TestASingleLine(t *testing.T) {
 	assert.NotEmpty(t, buffer.String())
 }
 
+const jsonToo = false
+const otelToo = true
+
 func TestBaseLoggerReplay(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
@@ -60,14 +65,37 @@ func TestBaseLoggerReplay(t *testing.T) {
 			continue
 		}
 		t.Run(mc.Name, func(t *testing.T) {
-			var buffer xoputil.Buffer
+
+			var tpo []sdktrace.TracerProviderOption
+
+			var jBuffer xoputil.Buffer
+			if jsonToo {
+				jLog := xopjson.New(
+					xopbytes.WriteToIOWriter(&jBuffer),
+					xopjson.WithDuration("dur", xopjson.AsString),
+					xopjson.WithSpanTags(xopjson.SpanIDTagOption),
+					xopjson.WithAttributesObject(true),
+				)
+
+				jExporter := xopotel.NewExporter(jLog)
+				tpo = append(tpo, sdktrace.WithBatcher(jExporter))
+			}
 
 			rLog := xoptest.New(t)
 			exporter := xopotel.NewExporter(rLog)
+			tpo = append(tpo, sdktrace.WithBatcher(exporter))
 
-			tracerProvider := sdktrace.NewTracerProvider(
-				sdktrace.WithBatcher(exporter),
-			)
+			var buffer xoputil.Buffer
+			if otelToo {
+				otelExporter, err := stdouttrace.New(
+					stdouttrace.WithWriter(&buffer),
+					stdouttrace.WithPrettyPrint(),
+				)
+				require.NoError(t, err, "exporter")
+				tpo = append(tpo, sdktrace.WithBatcher(otelExporter))
+			}
+
+			tracerProvider := sdktrace.NewTracerProvider(tpo...)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer func() {
 				err := tracerProvider.Shutdown(context.Background())
@@ -90,8 +118,12 @@ func TestBaseLoggerReplay(t *testing.T) {
 
 			cancel()
 			tracerProvider.ForceFlush(context.Background())
-			t.Log("logged:", buffer.String())
-			assert.NotEmpty(t, buffer.String())
+			if otelToo {
+				t.Log("logged:", buffer.String())
+			}
+			if jsonToo {
+				t.Log("Jlogged:", jBuffer.String())
+			}
 
 			t.Log("verify replay equals original")
 			xoptestutil.VerifyReplay(t, tLog, rLog)

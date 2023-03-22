@@ -18,6 +18,10 @@ type Seed struct {
 	settings LogSettings
 }
 
+func (s Seed) String() string {
+	return "SEED:" + s.spanSeed.String() + s.settings.String()
+}
+
 // Copy makes a deep copy of a seed and also randomizes
 // the SpanID.
 func (seed Seed) Copy(mods ...SeedModifier) Seed {
@@ -94,6 +98,33 @@ func (s spanSeed) copy(withHistory bool) spanSeed {
 	n.traceBundle = s.traceBundle.Copy()
 	n.reactive = s.reactive.Copy()
 	return n
+}
+
+// String is purely meant for debugging purposes and is not performant
+func (s spanSeed) String() string {
+	var str string
+	if !s.traceBundle.Parent.IsZero() {
+		str += " parent:" + s.traceBundle.Parent.String()
+	}
+	if s.traceSet {
+		str += " trace:" + s.traceBundle.Trace.TraceID().String()
+	}
+	if s.spanSet {
+		str += " span:" + s.traceBundle.Trace.SpanID().String()
+	}
+	if !s.traceBundle.Baggage.IsZero() {
+		str += " baggage:" + s.traceBundle.Baggage.String()
+	}
+	if !s.traceBundle.State.IsZero() {
+		str += " state:" + s.traceBundle.State.String()
+	}
+	if s.sourceInfo.Source != "" {
+		str += " source:" + s.sourceInfo.Source
+	}
+	if s.sourceInfo.Namespace != "" {
+		str += " namespace:" + s.sourceInfo.Namespace
+	}
+	return str
 }
 
 type SeedModifier func(*Seed)

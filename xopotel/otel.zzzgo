@@ -20,15 +20,23 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
+func xopTraceFromSpan(span oteltrace.Span) xoptrace.Trace {
+	var xoptrace xoptrace.Trace
+	sc := span.SpanContext()
+	xoptrace.TraceID().SetArray(sc.TraceID())
+	xoptrace.SpanID().SetArray(sc.SpanID())
+	xoptrace.Flags().SetArray([1]byte{byte(sc.TraceFlags())})
+	xoptrace.Version().SetArray([1]byte{1})
+	return xoptrace
+}
+
 // SpanLog allows xop to add logs to an existing OTEL span.  log.Done() will be
 // ignored for this span.
 func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
 	span := oteltrace.SpanFromContext(ctx)
-	var xoptrace xoptrace.Trace
-	xoptrace.TraceID().SetArray(span.SpanContext().TraceID())
-	xoptrace.SpanID().SetArray(span.SpanContext().SpanID())
-	xoptrace.Flags().SetArray([1]byte{byte(span.SpanContext().TraceFlags())})
-	xoptrace.Version().SetArray([1]byte{1})
+	xoptrace := xopTraceFromSpan(span)
+	fmt.Println("XXX SpanLog() trace", span.SpanContext().TraceID())
+	fmt.Println("XXX SpanLog() xoptrace", xoptrace)
 	log := xop.NewSeed(
 		xop.CombineSeedModifiers(extraModifiers...),
 		xop.WithContext(ctx),
@@ -43,10 +51,16 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 		// but on subsequent calls, we do so the outer reactive function
 		// just sets the future function.
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
+			span := oteltrace.SpanFromContext(ctx)
+			xoptrace := xopTraceFromSpan(span)
+			fmt.Println("XXX SpanLog() reactive, xoptrace", xoptrace, "seed", seed)
 			return []xop.SeedModifier{
 				xop.WithTrace(xoptrace),
 				xop.WithReactiveReplaced(
 					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
+						span := oteltrace.SpanFromContext(ctx)
+						xoptrace := xopTraceFromSpan(span)
+						fmt.Println("XXX SpanLog() double reactive", "seed", seed)
 						var newSpan oteltrace.Span
 						// XXX add WithAttributes
 						// XXX add TraceState
@@ -71,6 +85,7 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 							)
 						}
 						return []xop.SeedModifier{
+							xop.WithTrace(xoptrace),
 							xop.WithContext(ctx),
 							xop.WithSpan(newSpan.SpanContext().SpanID()),
 						}

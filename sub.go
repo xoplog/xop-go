@@ -87,6 +87,24 @@ type LogSettings struct {
 	redactError              RedactErrorFunc
 }
 
+// String is for debugging purposes. It is not complete or preformant.
+func (settings LogSettings) String() string {
+	var str string
+	if settings.prefillMsg != "" {
+		str += " prefill:" + settings.prefillMsg
+	}
+	if len(settings.prefillData) > 0 {
+		str += " prefillDataCount:" + strconv.Itoa(len(settings.prefillData))
+	}
+	if settings.minimumLogLevel != 0 {
+		str += " minLevel:" + settings.minimumLogLevel.String()
+	}
+	if settings.synchronousFlushWhenDone {
+		str += " flush-when-done"
+	}
+	return str
+}
+
 // DefaultSettings are the settings that are used if no setting changes
 // are made. Debug logs are excluded. Alert and Error level log lines
 // get stack traces.
