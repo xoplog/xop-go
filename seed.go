@@ -4,6 +4,7 @@ package xop
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -226,6 +227,7 @@ func WithSpan(spanID [8]byte) SeedModifier {
 
 func WithTrace(trace xoptrace.Trace) SeedModifier {
 	return func(s *Seed) {
+		fmt.Println("XXX WithTrace, set to", trace)
 		s.traceBundle.Trace = trace
 		s.traceSet = true
 		s.spanSet = true
@@ -283,10 +285,26 @@ func (seed Seed) SourceInfo() xopbase.SourceInfo {
 	return seed.sourceInfo
 }
 
+// There are two situations where react() is called. The first is when turning
+// a seed into a log with Request() or SubSpan(). In that situation, Copy() may
+// or may not have have also been called, but probably not.
+//
+// That's important because Copy() will set the span id to random unless spanSet is
+// true.
+//
+// The other place react() is called is in newChildLog() which is used
+// for Step() and Fork().  In those cases, SubSeed() will have been called and
+// it also sets the span id to random unless seedSet is true.
+//
+// We always clear spanSet because if it had been true, the seed has skipped
+// being randomized and so the next time through we want it randomized so that we
+// don't get two spans with the same id.
 func (seed Seed) react(isRequest bool, description string, now time.Time) Seed {
 	if isRequest {
 		if !seed.traceSet {
+			fmt.Println("XXX react() traceSet false, overriding trace from", seed.traceBundle.Trace)
 			seed.traceBundle.Trace.RebuildSetNonZero()
+			fmt.Println("XXX react() traceSet false, overriding trace to", seed.traceBundle.Trace)
 		}
 	}
 	seed.traceSet = false
