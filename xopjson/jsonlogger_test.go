@@ -59,20 +59,6 @@ type supersetObject struct {
 	Baggage       string `json:"trace.baggage"`
 }
 
-/* XXX
-type checker struct {
-	tlog             *xoptest.TestLogger
-	config           checkConfig
-	spansSeen        []bool
-	requestsSeen     []bool
-	messagesNotSeen  map[string][]int
-	spanIndex        map[string]int
-	requestIndex     map[string]int
-	accumulatedSpans map[string]map[string]interface{}
-	sequencing       map[string]int
-}
-*/
-
 func DISABLEDTestASingleLine(t *testing.T) {
 	var buffer xoputil.Buffer
 	jlog := xopjson.New(
@@ -494,5 +480,17 @@ func compareData(t *testing.T, aOrig map[string]interface{}, types map[string]xo
 		return
 	}
 	assert.Equalf(t, aRedone, bRedone, "%s vs %s", aDesc, bDesc)
+}
+
+type checker struct {
+	tlog             *xoptest.TestLogger
+	config           checkConfig
+	spansSeen        []bool
+	requestsSeen     []bool
+	messagesNotSeen  map[string][]int
+	spanIndex        map[string]int
+	requestIndex     map[string]int
+	accumulatedSpans map[string]map[string]interface{}
+	sequencing       map[string]int
 }
 */

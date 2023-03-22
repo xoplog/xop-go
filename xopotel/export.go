@@ -5,6 +5,7 @@ package xopotel
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -69,9 +70,14 @@ func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
 	return &spanExporter{base: base}
 }
 
-func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
+func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) (err error) {
+	defer func() {
+		fmt.Println("XXX export spans returns", err)
+	}()
 	id2Index := makeIndex(spans)
 	subSpans, todo := makeSubspans(id2Index, spans)
+	fmt.Println("XXX todo", todo)
+	fmt.Println("XXX subspans", subSpans)
 	x := spanReplay{
 		spanExporter: e,
 		id2Index:     id2Index,
@@ -426,6 +432,7 @@ func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan)
 	if !ok {
 		return 0, false
 	}
+	fmt.Println("  XXX parent of", span.SpanContext().SpanID(), "is", parent.SpanID(), "index", parentIndex)
 	return parentIndex, true
 }
 
@@ -433,9 +440,11 @@ func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySp
 	ss := make([][]int, len(spans))
 	noParent := make([]int, 0, len(spans))
 	for i, span := range spans {
+		fmt.Println("XXX lookup", i, span.SpanContext().SpanID())
 		parentIndex, ok := lookupParent(id2Index, span)
 		if !ok {
 			noParent = append(noParent, i)
+			continue
 		}
 		ss[parentIndex] = append(ss[parentIndex], i)
 	}
@@ -687,6 +696,17 @@ var toTypeSliceName = map[string]string{
 }
 
 func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyValue) (err error) {
+	switch a.Key {
+	case spanIsLinkAttributeKey,
+		spanIsLinkEventKey,
+		xopVersion,
+		xopOTELVersion,
+		xopSource,
+		xopNamespace,
+		otelSpanKind:
+		// special cases handled elsewhere
+		return nil
+	}
 	key := string(a.Key)
 	defer func() {
 		if err != nil {
