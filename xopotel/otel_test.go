@@ -58,7 +58,7 @@ func TestASingleLine(t *testing.T) {
 const jsonToo = false
 const otelToo = true
 
-func TestBaseLoggerReplay(t *testing.T) {
+func TestOTELBaseLoggerReplay(t *testing.T) {
 	for _, mc := range xoptestutil.MessageCases {
 		mc := mc
 		if mc.SkipOTEL {
@@ -95,6 +95,9 @@ func TestBaseLoggerReplay(t *testing.T) {
 				tpo = append(tpo, sdktrace.WithBatcher(otelExporter))
 			}
 
+			// XXX test both with and without this
+			tpo = append(tpo, xopotel.IDGenerator())
+
 			tracerProvider := sdktrace.NewTracerProvider(tpo...)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer func() {
@@ -102,12 +105,10 @@ func TestBaseLoggerReplay(t *testing.T) {
 				assert.NoError(t, err, "shutdown")
 			}()
 
-			tracer := tracerProvider.Tracer("")
-
 			tLog := xoptest.New(t)
 			seed := xop.NewSeed(
 				xop.WithBase(tLog),
-				xopotel.BaseLogger(ctx, tracer, true),
+				xopotel.BaseLogger(ctx, tracerProvider, true),
 			)
 			if len(mc.SeedMods) != 0 {
 				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
@@ -202,12 +203,10 @@ func XXXTestBaseLogger(t *testing.T) {
 				assert.NoError(t, err, "shutdown")
 			}()
 
-			tracer := tracerProvider.Tracer("")
-
 			tlog := xoptest.New(t)
 			seed := xop.NewSeed(
 				xop.WithBase(tlog),
-				xopotel.BaseLogger(ctx, tracer, true),
+				xopotel.BaseLogger(ctx, tracerProvider, true),
 			)
 			if len(mc.SeedMods) != 0 {
 				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))

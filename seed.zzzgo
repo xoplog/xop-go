@@ -210,9 +210,13 @@ func WithContext(ctx context.Context) SeedModifier {
 	}
 }
 
+// WithBundle overrides the span id, the trace id, and also the
+// trace state and baggage.
 func WithBundle(bundle xoptrace.Bundle) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle = bundle
+		s.traceSet = true
+		s.spanSet = true
 	}
 }
 
@@ -334,5 +338,6 @@ func (seed Seed) react(isRequest bool, description string, now time.Time) Seed {
 		}
 		seed.reactive = reactive
 	}
+	fmt.Println("XXX react done, trace now", seed.traceBundle.Trace)
 	return seed
 }
