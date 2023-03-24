@@ -139,7 +139,7 @@ func NewSpanID() HexBytes8             { return newHexBytes8() }
 func NewTraceID() HexBytes16           { return newHexBytes16() }
 
 func (t Trace) IsZero() bool {
-	return t.String() == "00-00000000000000000000000000000000-0000000000000000-00"
+	return t.traceID.IsZero() && t.spanID.IsZero()
 }
 
 func (t Trace) String() string {
