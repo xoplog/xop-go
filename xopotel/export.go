@@ -870,26 +870,29 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v string) (xopbase.ModelArg, error) {
+		setter := func(v string) error {
 			var ma xopbase.ModelArg
-			return ma, ma.UnmarshalJSON([]byte(v))
+			err := ma.UnmarshalJSON([]byte(v))
+			if err != nil {
+				return err
+			}
+			x.baseSpan.MetadataAny(registeredAttribute, ma)
+			return nil
 		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsStringSlice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataAny(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataAny(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Bool:
 		registeredAttribute, err := x.registry.ConstructBoolAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -904,23 +907,60 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v bool) (bool, error) { return v, nil }
+		setter := func(v bool) error {
+			x.baseSpan.MetadataBool(registeredAttribute, v)
+			return nil
+		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsBoolSlice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataBool(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsBool()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataBool(registeredAttribute, decoded)
+		}
+	case xopproto.AttributeType_Duration:
+		registeredAttribute, err := x.registry.ConstructDurationAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return err
+		}
+		expectedSingleType, expectedMultiType := attribute.STRING, attribute.STRINGSLICE
+		expectedType := expectedSingleType
+		if registeredAttribute.Multiple() {
+			expectedType = expectedMultiType
+		}
+		if a.Value.Type() != expectedType {
+			return errors.Errorf("expected type %s", expectedMultiType)
+		}
+		setter := func(v string) error {
+			d, err := time.ParseDuration(v)
+			if err != nil {
+				return err
+			}
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(d))
+			return nil
+		}
+		if registeredAttribute.Multiple() {
+			values := a.Value.AsStringSlice()
+			for _, value := range values {
+				err := setter(value)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			value := a.Value.AsString()
+			err := setter(value)
+			if err != nil {
+				return err
+			}
 		}
 	case xopproto.AttributeType_Enum:
 		registeredAttribute, err := x.registry.ConstructEnumAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -935,37 +975,36 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v string) (xopat.Enum, error) {
+		setter := func(v string) error {
 			i := strings.LastIndexByte(v, '/')
 			if i == -1 {
-				return nil, errors.Errorf("invalid enum %s", v)
+				return errors.Errorf("invalid enum %s", v)
 			}
 			if i == len(v)-1 {
-				return nil, errors.Errorf("invalid enum %s", v)
+				return errors.Errorf("invalid enum %s", v)
 			}
 			vi, err := strconv.ParseInt(v[i+1:], 10, 64)
 			if err != nil {
-				return nil, errors.Wrap(err, "invalid enum")
+				return errors.Wrap(err, "invalid enum")
 			}
 			enum := registeredAttribute.Add64(vi, v[:i])
-			return enum, nil
+			x.baseSpan.MetadataEnum(&registeredAttribute.EnumAttribute, enum)
+			return nil
 		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsStringSlice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataEnum(&registeredAttribute.EnumAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataEnum(&registeredAttribute.EnumAttribute, decoded)
 		}
 	case xopproto.AttributeType_Float64:
 		registeredAttribute, err := x.registry.ConstructFloat64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -980,23 +1019,120 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v float64) (float64, error) { return v, nil }
+		setter := func(v float64) error {
+			x.baseSpan.MetadataFloat64(registeredAttribute, v)
+			return nil
+		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsFloat64Slice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataFloat64(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsFloat64()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataFloat64(registeredAttribute, decoded)
+		}
+	case xopproto.AttributeType_Int:
+		registeredAttribute, err := x.registry.ConstructIntAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return err
+		}
+		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
+		expectedType := expectedSingleType
+		if registeredAttribute.Multiple() {
+			expectedType = expectedMultiType
+		}
+		if a.Value.Type() != expectedType {
+			return errors.Errorf("expected type %s", expectedMultiType)
+		}
+		setter := func(v int64) error {
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(v))
+			return nil
+		}
+		if registeredAttribute.Multiple() {
+			values := a.Value.AsInt64Slice()
+			for _, value := range values {
+				err := setter(value)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			value := a.Value.AsInt64()
+			err := setter(value)
+			if err != nil {
+				return err
+			}
+		}
+	case xopproto.AttributeType_Int16:
+		registeredAttribute, err := x.registry.ConstructInt16Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return err
+		}
+		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
+		expectedType := expectedSingleType
+		if registeredAttribute.Multiple() {
+			expectedType = expectedMultiType
+		}
+		if a.Value.Type() != expectedType {
+			return errors.Errorf("expected type %s", expectedMultiType)
+		}
+		setter := func(v int64) error {
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(v))
+			return nil
+		}
+		if registeredAttribute.Multiple() {
+			values := a.Value.AsInt64Slice()
+			for _, value := range values {
+				err := setter(value)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			value := a.Value.AsInt64()
+			err := setter(value)
+			if err != nil {
+				return err
+			}
+		}
+	case xopproto.AttributeType_Int32:
+		registeredAttribute, err := x.registry.ConstructInt32Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return err
+		}
+		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
+		expectedType := expectedSingleType
+		if registeredAttribute.Multiple() {
+			expectedType = expectedMultiType
+		}
+		if a.Value.Type() != expectedType {
+			return errors.Errorf("expected type %s", expectedMultiType)
+		}
+		setter := func(v int64) error {
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(v))
+			return nil
+		}
+		if registeredAttribute.Multiple() {
+			values := a.Value.AsInt64Slice()
+			for _, value := range values {
+				err := setter(value)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			value := a.Value.AsInt64()
+			err := setter(value)
+			if err != nil {
+				return err
+			}
 		}
 	case xopproto.AttributeType_Int64:
 		registeredAttribute, err := x.registry.ConstructInt64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1011,23 +1147,56 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v int64) (int64, error) { return v, nil }
+		setter := func(v int64) error {
+			x.baseSpan.MetadataInt64(registeredAttribute, v)
+			return nil
+		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsInt64Slice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataInt64(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsInt64()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataInt64(registeredAttribute, decoded)
+		}
+	case xopproto.AttributeType_Int8:
+		registeredAttribute, err := x.registry.ConstructInt8Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return err
+		}
+		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
+		expectedType := expectedSingleType
+		if registeredAttribute.Multiple() {
+			expectedType = expectedMultiType
+		}
+		if a.Value.Type() != expectedType {
+			return errors.Errorf("expected type %s", expectedMultiType)
+		}
+		setter := func(v int64) error {
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(v))
+			return nil
+		}
+		if registeredAttribute.Multiple() {
+			values := a.Value.AsInt64Slice()
+			for _, value := range values {
+				err := setter(value)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			value := a.Value.AsInt64()
+			err := setter(value)
+			if err != nil {
+				return err
+			}
 		}
 	case xopproto.AttributeType_Link:
 		registeredAttribute, err := x.registry.ConstructLinkAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1042,29 +1211,28 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v string) (xoptrace.Trace, error) {
+		setter := func(v string) error {
 			t, ok := xoptrace.TraceFromString(v)
 			if !ok {
-				return xoptrace.Trace{}, errors.Errorf("invalid trace string %s", v)
+				return errors.Errorf("invalid trace string %s", v)
 			}
-			return t, nil
+			x.baseSpan.MetadataLink(registeredAttribute, t)
+			return nil
 		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsStringSlice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataLink(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataLink(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_String:
 		registeredAttribute, err := x.registry.ConstructStringAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1079,23 +1247,24 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v string) (string, error) { return v, nil }
+		setter := func(v string) error {
+			x.baseSpan.MetadataString(registeredAttribute, v)
+			return nil
+		}
 		if registeredAttribute.Multiple() {
 			values := a.Value.AsStringSlice()
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				x.baseSpan.MetadataString(registeredAttribute, decoded)
 			}
 		} else {
 			value := a.Value.AsString()
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataString(registeredAttribute, decoded)
 		}
 	case xopproto.AttributeType_Time:
 		registeredAttribute, err := x.registry.ConstructTimeAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -1110,23 +1279,28 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		if a.Value.Type() != expectedType {
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
-		decoder := func(v string) (time.Time, error) { return time.Parse(time.RFC3339Nano, v) }
-		if registeredAttribute.Multiple() {
-			values := a.Value.AsStringSlice()
-			for _, value := range values {
-				decoded, err := decoder(value)
-				if err != nil {
-					return err
-				}
-				x.baseSpan.MetadataTime(registeredAttribute, decoded)
-			}
-		} else {
-			value := a.Value.AsString()
-			decoded, err := decoder(value)
+		setter := func(v string) error {
+			t, err := time.Parse(time.RFC3339Nano, v)
 			if err != nil {
 				return err
 			}
-			x.baseSpan.MetadataTime(registeredAttribute, decoded)
+			x.baseSpan.MetadataTime(registeredAttribute, t)
+			return nil
+		}
+		if registeredAttribute.Multiple() {
+			values := a.Value.AsStringSlice()
+			for _, value := range values {
+				err := setter(value)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			value := a.Value.AsString()
+			err := setter(value)
+			if err != nil {
+				return err
+			}
 		}
 
 	default:
