@@ -32,6 +32,9 @@ func (seed Seed) Copy(mods ...SeedModifier) Seed {
 	}
 	if !seed.spanSet {
 		n.traceBundle.Trace.SpanID().SetRandom()
+		fmt.Println("XXX Seed.Copy(), span set to", n.traceBundle.Trace.SpanID())
+	} else {
+		fmt.Println("XXX Seed.Copy(), span remains", n.traceBundle.Trace.SpanID())
 	}
 	n = n.applyMods(mods)
 	return n
@@ -46,6 +49,9 @@ func (span *Span) Seed(mods ...SeedModifier) Seed {
 	}
 	if !span.seed.spanSet {
 		n.traceBundle.Trace.SpanID().SetRandom()
+		fmt.Println("XXX Seed.Seed(), span set to", n.traceBundle.Trace.SpanID())
+	} else {
+		fmt.Println("XXX Seed.Seed(), span remains", n.traceBundle.Trace.SpanID())
 	}
 	n = n.applyMods(mods)
 	return n
@@ -62,6 +68,9 @@ func (span *Span) SubSeed(mods ...SeedModifier) Seed {
 	n.traceBundle.Parent = n.traceBundle.Trace
 	if !span.seed.spanSet {
 		n.traceBundle.Trace.SpanID().SetRandom()
+		fmt.Println("XXX Seed.SubSeed(), span set to", n.traceBundle.Trace.SpanID())
+	} else {
+		fmt.Println("XXX Seed.SubSeed(), span remains", n.traceBundle.Trace.SpanID())
 	}
 	n = n.applyMods(mods)
 	return n
@@ -217,12 +226,14 @@ func WithBundle(bundle xoptrace.Bundle) SeedModifier {
 		s.traceBundle = bundle
 		s.traceSet = true
 		s.spanSet = true
+		fmt.Println("XXX WithBundle, trace is", bundle.Trace, "parent is", bundle.Parent)
 	}
 }
 
 func WithSpan(spanID [8]byte) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle.Trace.SpanID().SetArray(spanID)
+		fmt.Println("XXX WithSpan, set to", s.traceBundle.Trace.SpanID())
 		s.spanSet = true
 	}
 }
