@@ -31,6 +31,7 @@ type logger struct {
 type request struct {
 	*span
 	attributesDefined map[string]struct{}
+	lineCount         int32
 }
 
 type span struct {
@@ -93,6 +94,7 @@ var xopModel = attribute.Key("xop.model")
 var xopLineFormat = attribute.Key("xop.format")
 var xopTemplate = attribute.Key("xop.template")
 var otelSpanKind = attribute.Key("span.kind")
+var xopLineNumber = attribute.Key("xop.lineNumber")
 
 const xopVersionValue = "0.0.1"
 const xopotelVersionValue = "0.0.1"

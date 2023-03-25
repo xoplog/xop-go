@@ -271,7 +271,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) 
 	line := &line{}
 	line.level = level
 	line.span = prefilled.span
-	line.attributes = line.prealloc[:0]
+	line.attributes = line.prealloc[:1] // reserving one spot at the beginnging
 	line.attributes = append(line.attributes, prefilled.span.spanPrefill...)
 	line.attributes = append(line.attributes, prefilled.attributes...)
 	line.prefillMsg = prefilled.prefillMsg
@@ -344,6 +344,7 @@ func (line *line) Msg(msg string) {
 }
 
 func (line *line) done() {
+	line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
 	line.span.otelSpan.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
 }
 

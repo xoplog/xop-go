@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +32,9 @@ var (
 )
 
 type spanExporter struct {
-	base xopbase.Logger
+	base           xopbase.Logger
+	orderedFinish  []orderedFinish
+	sequenceNumber int32
 }
 
 type spanReplay struct {
@@ -48,6 +51,18 @@ type datum struct {
 	attributeDefinitions map[string]*decodeAttributeDefinition
 	xopSpan              bool
 	registry             *xopat.Registry
+}
+
+func (x *spanExporter) addOrdered(seq int32, f func()) {
+	x.orderedFinish = append(x.orderedFinish, orderedFinish{
+		num: seq,
+		f:   f,
+	})
+}
+
+type orderedFinish struct {
+	num int32
+	f   func()
 }
 
 type baseSpanReplay struct {
@@ -103,6 +118,12 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 			return err
 		}
 		todo = append(todo, subSpans[i]...)
+	}
+	sort.Slice(e.orderedFinish, func(i, j int) bool {
+		return e.orderedFinish[i].num < e.orderedFinish[j].num
+	})
+	for _, o := range x.orderedFinish {
+		o.f()
 	}
 	return nil
 }
@@ -185,14 +206,20 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			return err
 		}
 	}
+	var maxNumber int32
 	for _, event := range span.Events() {
-		err := y.AddEvent(ctx, event)
+		lastNumber, err := y.AddEvent(ctx, event)
 		if err != nil {
 			return err
 		}
+		if lastNumber > maxNumber {
+			maxNumber = lastNumber
+		}
 	}
 	if endTime := span.EndTime(); !endTime.IsZero() {
-		data.baseSpan.Done(endTime, true)
+		x.addOrdered(maxNumber+1, func() {
+			data.baseSpan.Done(endTime, true)
+		})
 	}
 	return nil
 }
@@ -213,7 +240,7 @@ const (
 	lineFormatTemplate
 )
 
-func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) error {
+func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int32, error) {
 	level, err := xopnum.LevelString(event.Name)
 	var nameMessage string
 	if err != nil {
@@ -231,13 +258,21 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 	var template string
 	var link xoptrace.Trace
 	var modelArg xopbase.ModelArg
+	x.sequenceNumber++
+	lineNumber := x.sequenceNumber
 	for _, a := range event.Attributes {
 		switch a.Key {
+		case xopLineNumber:
+			if a.Value.Type() == attribute.INT64 {
+				lineNumber = int32(a.Value.AsInt64())
+			} else {
+				return 0, errors.Errorf("invalid line number attribute type %s", a.Value.Type())
+			}
 		case logMessageKey:
 			if a.Value.Type() == attribute.STRING {
 				message = a.Value.AsString()
 			} else {
-				return errors.Errorf("invalid line message attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid line message attribute type %s", a.Value.Type())
 			}
 		case typeKey:
 			if a.Value.Type() == attribute.STRING {
@@ -251,32 +286,32 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 				case "line":
 					// defaulted
 				default:
-					return errors.Errorf("invalid line type attribute value %s", a.Value.AsString())
+					return 0, errors.Errorf("invalid line type attribute value %s", a.Value.AsString())
 				}
 			} else {
-				return errors.Errorf("invalid line type attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid line type attribute type %s", a.Value.Type())
 			}
 		case xopModelType:
 			if a.Value.Type() == attribute.STRING {
 				modelArg.TypeName = a.Value.AsString()
 			} else {
-				return errors.Errorf("invalid model type attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid model type attribute type %s", a.Value.Type())
 			}
 		case xopEncoding:
 			if a.Value.Type() == attribute.STRING {
 				e, ok := xopproto.Encoding_value[a.Value.AsString()]
 				if !ok {
-					return errors.Errorf("invalid model encoding '%s'", a.Value.AsString())
+					return 0, errors.Errorf("invalid model encoding '%s'", a.Value.AsString())
 				}
 				modelArg.Encoding = xopproto.Encoding(e)
 			} else {
-				return errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
 			}
 		case xopModel:
 			if a.Value.Type() == attribute.STRING {
 				modelArg.Encoded = []byte(a.Value.AsString())
 			} else {
-				return errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
 			}
 		case xopLineFormat:
 			if a.Value.Type() == attribute.STRING {
@@ -284,26 +319,26 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 				case "tmpl":
 					lineFormat = lineFormatTemplate
 				default:
-					return errors.Errorf("invalid line format attribute value %s", a.Value.AsString())
+					return 0, errors.Errorf("invalid line format attribute value %s", a.Value.AsString())
 				}
 			} else {
-				return errors.Errorf("invalid line format attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid line format attribute type %s", a.Value.Type())
 			}
 		case xopTemplate:
 			if a.Value.Type() == attribute.STRING {
 				template = a.Value.AsString()
 			} else {
-				return errors.Errorf("invalid line template attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid line template attribute type %s", a.Value.Type())
 			}
 		case xopLinkData:
 			if a.Value.Type() == attribute.STRING {
 				var ok bool
 				link, ok = xoptrace.TraceFromString(a.Value.AsString())
 				if !ok {
-					return errors.Errorf("invalid link data attribute value %s", a.Value.AsString())
+					return 0, errors.Errorf("invalid link data attribute value %s", a.Value.AsString())
 				}
 			} else {
-				return errors.Errorf("invalid link data attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid link data attribute type %s", a.Value.Type())
 			}
 		case semconv.ExceptionStacktraceKey:
 			// XXX TODO
@@ -311,12 +346,12 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 			if x.xopSpan {
 				err := x.AddXopEventAttribute(ctx, event, a, line)
 				if err != nil {
-					return errors.Wrapf(err, "add xop event attribute %s", string(a.Key))
+					return 0, errors.Wrapf(err, "add xop event attribute %s", string(a.Key))
 				}
 			} else {
 				err := x.AddEventAttribute(ctx, event, a, line)
 				if err != nil {
-					return errors.Wrapf(err, "add event attribute %s with type %s", string(a.Key), a.Value.Type())
+					return 0, errors.Wrapf(err, "add event attribute %s with type %s", string(a.Key), a.Value.Type())
 				}
 			}
 		}
@@ -332,22 +367,30 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) erro
 	case lineTypeLine:
 		switch lineFormat {
 		case lineFormatDefault:
-			line.Msg(message)
+			x.addOrdered(lineNumber, func() {
+				line.Msg(message)
+			})
 		case lineFormatTemplate:
-			line.Template(template)
+			x.addOrdered(lineNumber, func() {
+				line.Template(template)
+			})
 		default:
-			return errors.Errorf("unexpected lineType %d", lineType)
+			return 0, errors.Errorf("unexpected lineType %d", lineType)
 		}
 	case lineTypeLink:
-		line.Link(message, link)
+		x.addOrdered(lineNumber, func() {
+			line.Link(message, link)
+		})
 	case lineTypeLinkEvent:
-		return errors.Errorf("unexpected lineType: link event")
+		return 0, errors.Errorf("unexpected lineType: link event")
 	case lineTypeModel:
-		line.Model(message, modelArg)
+		x.addOrdered(lineNumber, func() {
+			line.Model(message, modelArg)
+		})
 	default:
-		return errors.Errorf("unexpected lineType %d", lineType)
+		return 0, errors.Errorf("unexpected lineType %d", lineType)
 	}
-	return nil
+	return lineNumber, nil
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {
