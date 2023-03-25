@@ -96,7 +96,7 @@ type spanSeed struct {
 	flushDelay           time.Duration
 	reactive             seedReactiveCallbacks
 	ctx                  context.Context
-	currentReactiveIndex int
+	currentReactiveIndex int // plus one
 	traceSet             bool
 	spanSet              bool
 	sourceInfo           xopbase.SourceInfo
@@ -207,7 +207,7 @@ func WithReactive(f SeedReactiveCallback) SeedModifier {
 // To remove a reactive function, call WithReactiveReplaced with nil.
 func WithReactiveReplaced(f SeedReactiveCallback) SeedModifier {
 	return func(s *Seed) {
-		s.reactive[s.currentReactiveIndex] = f
+		s.reactive[s.currentReactiveIndex-1] = f
 	}
 }
 
@@ -220,30 +220,41 @@ func WithContext(ctx context.Context) SeedModifier {
 }
 
 // WithBundle overrides the span id, the trace id, and also the
-// trace state and baggage.
+// trace state and baggage. When used inside a reactive function,
+// the override is does not propagate.
 func WithBundle(bundle xoptrace.Bundle) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle = bundle
-		s.traceSet = true
-		s.spanSet = true
+		if s.currentReactiveIndex == 0 {
+			s.traceSet = true
+			s.spanSet = true
+		}
 		fmt.Println("XXX WithBundle, trace is", bundle.Trace, "parent is", bundle.Parent)
 	}
 }
 
+// WithSpan overrides the span in the seed. When used inside a reactive
+// function, the override does not propagate.
 func WithSpan(spanID [8]byte) SeedModifier {
 	return func(s *Seed) {
 		s.traceBundle.Trace.SpanID().SetArray(spanID)
 		fmt.Println("XXX WithSpan, set to", s.traceBundle.Trace.SpanID())
-		s.spanSet = true
+		if s.currentReactiveIndex == 0 {
+			s.spanSet = true
+		}
 	}
 }
 
+// WithSpan overrides the trance and span in the seed. When used inside a reactive
+// function, the override does not propagate.
 func WithTrace(trace xoptrace.Trace) SeedModifier {
 	return func(s *Seed) {
 		fmt.Println("XXX WithTrace, set to", trace)
 		s.traceBundle.Trace = trace
-		s.traceSet = true
-		s.spanSet = true
+		if s.currentReactiveIndex == 0 {
+			s.traceSet = true
+			s.spanSet = true
+		}
 	}
 }
 
@@ -334,12 +345,13 @@ func (seed Seed) react(isRequest bool, description string, now time.Time) Seed {
 			i++
 			continue
 		}
-		seed.currentReactiveIndex = i
+		seed.currentReactiveIndex = i + 1
 		seed = seed.applyMods(f(seed.ctx, seed, description, !isRequest, now))
 		if seed.reactive[i] == nil {
 			nilSeen = true
 		}
 	}
+	seed.currentReactiveIndex = 0
 	if nilSeen {
 		reactive := make(seedReactiveCallbacks, 0, len(seed.reactive))
 		for _, f := range seed.reactive {

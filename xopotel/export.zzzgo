@@ -734,7 +734,7 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 
 func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute.KeyValue, aDef *decodeAttributeDefinition) error {
 	switch aDef.AttributeType {
-	// MACRO BaseAttribute SKIP:Float32
+	// MACRO ZZZAttribute
 	case xopproto.AttributeType_ZZZ:
 		registeredAttribute, err := x.registry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
@@ -742,11 +742,11 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		}
 		// CONDITIONAL ONLY:Enum,Time,String,Any,Link,Duration
 		expectedSingleType, expectedMultiType := attribute.STRING, attribute.STRINGSLICE
-		// CONDITIONAL ONLY:Int64
+		// CONDITIONAL ONLY:Int64,Int,Int8,Int16,Int32
 		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
 		// CONDITIONAL ONLY:Bool
 		expectedSingleType, expectedMultiType := attribute.BOOL, attribute.BOOLSLICE
-		// CONDITIONAL ONLY:Float64
+		// CONDITIONAL ONLY:Float64,Float32
 		expectedSingleType, expectedMultiType := attribute.FLOAT64, attribute.FLOAT64SLICE
 		// END CONDITIONAL
 		expectedType := expectedSingleType
@@ -757,73 +757,96 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
 		// CONDITIONAL ONLY:String,Int64,Float64,Bool
-		decoder := func(v zzz) (zzz, error) { return v, nil }
+		setter := func(v zzz) error {
+			x.baseSpan.MetadataZZZ(registeredAttribute, v)
+			return nil
+		}
+		// CONDITIONAL ONLY:Int,Int8,Int16,Int32
+		setter := func(v int64) error {
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(v))
+			return nil
+		}
 		// CONDITIONAL ONLY:Duration
-		decoder := func(v string) (time.Duration, error) { return time.ParseDuration(v) }
+		setter := func(v string) error {
+			d, err := time.ParseDuration(v)
+			if err != nil {
+				return err
+			}
+			x.baseSpan.MetadataInt64(&registeredAttribute.Int64Attribute, int64(d))
+			return nil
+		}
 		// CONDITIONAL ONLY:Time
-		decoder := func(v string) (time.Time, error) { return time.Parse(time.RFC3339Nano, v) }
+		setter := func(v string) error {
+			t, err := time.Parse(time.RFC3339Nano, v)
+			if err != nil {
+				return err
+			}
+			x.baseSpan.MetadataZZZ(registeredAttribute, t)
+			return nil
+		}
 		// CONDITIONAL ONLY:Enum
-		decoder := func(v string) (xopat.Enum, error) {
+		setter := func(v string) error {
 			i := strings.LastIndexByte(v, '/')
 			if i == -1 {
-				return nil, errors.Errorf("invalid enum %s", v)
+				return errors.Errorf("invalid enum %s", v)
 			}
 			if i == len(v)-1 {
-				return nil, errors.Errorf("invalid enum %s", v)
+				return errors.Errorf("invalid enum %s", v)
 			}
 			vi, err := strconv.ParseInt(v[i+1:], 10, 64)
 			if err != nil {
-				return nil, errors.Wrap(err, "invalid enum")
+				return errors.Wrap(err, "invalid enum")
 			}
 			enum := registeredAttribute.Add64(vi, v[:i])
-			return enum, nil
+			x.baseSpan.MetadataEnum(&registeredAttribute.EnumAttribute, enum)
+			return nil
 		}
 		// CONDITIONAL ONLY:Any
-		decoder := func(v string) (xopbase.ModelArg, error) {
+		setter := func(v string) error {
 			var ma xopbase.ModelArg
-			return ma, ma.UnmarshalJSON([]byte(v))
+			err := ma.UnmarshalJSON([]byte(v))
+			if err != nil {
+				return err
+			}
+			x.baseSpan.MetadataAny(registeredAttribute, ma)
+			return nil
 		}
 		// CONDITIONAL ONLY:Link
-		decoder := func(v string) (xoptrace.Trace, error) {
+		setter := func(v string) error {
 			t, ok := xoptrace.TraceFromString(v)
 			if !ok {
-				return xoptrace.Trace{}, errors.Errorf("invalid trace string %s", v)
+				return errors.Errorf("invalid trace string %s", v)
 			}
-			return t, nil
+			x.baseSpan.MetadataLink(registeredAttribute, t)
+			return nil
 		}
 		// END CONDITIONAL
 		if registeredAttribute.Multiple() {
 			// CONDITIONAL ONLY:Enum,Time,Any,Link,Duration
 			values := a.Value.AsStringSlice()
-			// ELSE CONDITIONAL
+			// CONDITIONAL ONLY:Bool,Int64,String,Float64
 			values := a.Value.AsZZZSlice()
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32
+			values := a.Value.AsInt64Slice()
 			// END CONDITIONAL
 			for _, value := range values {
-				decoded, err := decoder(value)
+				err := setter(value)
 				if err != nil {
 					return err
 				}
-				// CONDITIONAL ONLY:Enum
-				x.baseSpan.MetadataZZZ(&registeredAttribute.EnumAttribute, decoded)
-				// CONDITIONAL SKIP:Enum
-				x.baseSpan.MetadataZZZ(registeredAttribute, decoded)
-				// END CONDITIONAL
 			}
 		} else {
-			// CONDITIONAL ONLY:Enum,Time,Any,Link
+			// CONDITIONAL ONLY:Enum,Time,Any,Link,Duration
 			value := a.Value.AsString()
-			// ELSE CONDITIONAL
+			// CONDITIONAL ONLY:Bool,Int64,String,Float64
 			value := a.Value.AsZZZ()
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32
+			value := a.Value.AsInt64()
 			// END CONDITIONAL
-			decoded, err := decoder(value)
+			err := setter(value)
 			if err != nil {
 				return err
 			}
-			// CONDITIONAL ONLY:Enum
-			x.baseSpan.MetadataZZZ(&registeredAttribute.EnumAttribute, decoded)
-			// CONDITIONAL SKIP:Enum
-			x.baseSpan.MetadataZZZ(registeredAttribute, decoded)
-			// END CONDITIONAL
 		}
 
 	default:
