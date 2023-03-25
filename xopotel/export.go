@@ -171,7 +171,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 		if hasParent {
-			spanSeq := defaulted(attributeMap.GetString(logSpanSequence), "")
+			spanSeq := defaulted(attributeMap.GetString(xopSpanSequence), "")
 			data.xopSpan = xopParent.xopSpan
 			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), spanSeq)
 			data.requestIndex = xopParent.requestIndex
@@ -750,6 +750,7 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 		xopOTELVersion,
 		xopSource,
 		xopNamespace,
+		xopSpanSequence,
 		otelSpanKind:
 		// special cases handled elsewhere
 		return nil
