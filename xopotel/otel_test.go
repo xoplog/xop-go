@@ -96,7 +96,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 			}
 
 			// XXX test both with and without this
-			tpo = append(tpo, xopotel.IDGenerator())
+			// tpo = append(tpo, xopotel.IDGenerator())
 
 			tracerProvider := sdktrace.NewTracerProvider(tpo...)
 			ctx, cancel := context.WithCancel(context.Background())

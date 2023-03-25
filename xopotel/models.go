@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopat"
@@ -59,8 +60,9 @@ type prefilled struct {
 
 type line struct {
 	builder
-	prealloc [15]attribute.KeyValue
-	level    xopnum.Level
+	prealloc  [15]attribute.KeyValue
+	level     xopnum.Level
+	timestamp time.Time
 }
 
 type builder struct {
@@ -79,7 +81,7 @@ var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
 var logMessageKey = attribute.Key("xop.message")
-var logSpanSequence = attribute.Key("xop.xopSpanSequence")
+var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
 var typeKey = attribute.Key("xop.type")
 var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
 var spanIsLinkEventKey = attribute.Key("xop.span.is-link-event")

@@ -226,7 +226,7 @@ func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 	s := span.logger.span(ctx, ts, description, spanSequenceCode)
 	s.request = span.request
 	if spanSequenceCode != "" {
-		s.otelSpan.SetAttributes(logSpanSequence.String(spanSequenceCode))
+		s.otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
 	}
 	return s
 }
@@ -263,7 +263,7 @@ func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 	}
 }
 
-func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) xopbase.Line {
+func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, pc []uintptr) xopbase.Line {
 	if !prefilled.span.logger.doLogging || !prefilled.span.otelSpan.IsRecording() {
 		return xopbase.SkipLine
 	}
@@ -277,6 +277,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, _ time.Time, pc []uintptr) 
 	line.prefillMsg = prefilled.prefillMsg
 	line.linkKey = prefilled.linkKey
 	line.linkValue = prefilled.linkValue
+	line.timestamp = ts
 	if len(pc) > 0 {
 		var b strings.Builder
 		frames := runtime.CallersFrames(pc)
@@ -320,7 +321,9 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 			spanIsLinkEventKey.Bool(true),
 		),
 	)
-	tmpSpan.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
+	tmpSpan.AddEvent(line.level.String(),
+		oteltrace.WithTimestamp(line.timestamp),
+		oteltrace.WithAttributes(line.attributes...))
 	tmpSpan.SetAttributes(typeKey.String("link-event"))
 	tmpSpan.End()
 }
@@ -345,7 +348,9 @@ func (line *line) Msg(msg string) {
 
 func (line *line) done() {
 	line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
-	line.span.otelSpan.AddEvent(line.level.String(), oteltrace.WithAttributes(line.attributes...))
+	line.span.otelSpan.AddEvent(line.level.String(),
+		oteltrace.WithTimestamp(line.timestamp),
+		oteltrace.WithAttributes(line.attributes...))
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
