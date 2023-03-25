@@ -559,20 +559,23 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 	return ll
 }
 
-// Template is an alternative to Msg() sends a log line.  Template
+// Template is an alternative to Msg() that sends a log line.  Template
 // is a string that uses "{name}" substitutions from the data already
 // sent with the line to format that data for human consumption.
-// Template is expected to be more expensive than Msg so it should
-// be used somewhat sparingly.  Data elements do not have to be
-// consumed by the template.
+//
+// Depending on the base logger in use, Template can be cheaper or
+// more expensive than Msgf. It's cheaper for base loggers that do not
+// expand the message string but more expensive for ones that do, like
+// xoptest.
+//
+// Unlike Msgf(), parameter to the message are preserved as data elements.
+// Data elements do not have to be consumed by the template.
 //
 // The names used for "{name}" substitutions are restricted: they may
 // not include any characters that would be escapsed in a JSON string.
 // No double quote.  No linefeed.  No backslash.  Etc.
 //
-// Prefilled text (PrefillText()) will be prepended to the template.  If
-// the prefilled text has {name} patterns in it, they'll be treated as if
-// they're part of the template.
+// Prefilled text (PrefillText()) will be prepended to the template.
 func (line *Line) Template(template string) {
 	line.line.Template(template)
 	line.log.span.linePool.Put(line)
