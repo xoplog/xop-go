@@ -779,8 +779,13 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	}
 
 	if aDef, ok := x.data[x.requestIndex].attributeDefinitions[key]; ok {
+		fmt.Println("XXX span attribute", key, "has an attribute defintion")
 		return x.AddXopMetadataAttribute(ctx, a, aDef)
 	}
+	if x.xopSpan {
+		return errors.Errorf("missing attribute defintion for key %s in xop span", key)
+	}
+	fmt.Println("XXX span attribute", key, "does not have a xop attribute definition")
 
 	mkMake := func(key string, multiple bool) xopat.Make {
 		return xopat.Make{
@@ -858,6 +863,7 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute.KeyValue, aDef *decodeAttributeDefinition) error {
 	switch aDef.AttributeType {
 	case xopproto.AttributeType_Any:
+		fmt.Println("XXX add Any metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructAnyAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -876,6 +882,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
+			fmt.Println("XXX call MetadataAny", a.Key, registeredAttribute.Key())
 			x.baseSpan.MetadataAny(registeredAttribute, ma)
 			return nil
 		}
@@ -895,6 +902,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Bool:
+		fmt.Println("XXX add Bool metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructBoolAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -908,6 +916,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
 		setter := func(v bool) error {
+			fmt.Println("XXX MetadataBool", a.Key, registeredAttribute.Key(), v)
 			x.baseSpan.MetadataBool(registeredAttribute, v)
 			return nil
 		}
@@ -927,6 +936,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Duration:
+		fmt.Println("XXX add Duration metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructDurationAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -963,6 +973,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Enum:
+		fmt.Println("XXX add Enum metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructEnumAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1007,6 +1018,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Float64:
+		fmt.Println("XXX add Float64 metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructFloat64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1020,6 +1032,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
 		setter := func(v float64) error {
+			fmt.Println("XXX MetadataFloat64", a.Key, registeredAttribute.Key(), v)
 			x.baseSpan.MetadataFloat64(registeredAttribute, v)
 			return nil
 		}
@@ -1039,6 +1052,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Int:
+		fmt.Println("XXX add Int metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructIntAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1071,6 +1085,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Int16:
+		fmt.Println("XXX add Int16 metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructInt16Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1103,6 +1118,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Int32:
+		fmt.Println("XXX add Int32 metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructInt32Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1135,6 +1151,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Int64:
+		fmt.Println("XXX add Int64 metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructInt64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1148,6 +1165,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
 		setter := func(v int64) error {
+			fmt.Println("XXX MetadataInt64", a.Key, registeredAttribute.Key(), v)
 			x.baseSpan.MetadataInt64(registeredAttribute, v)
 			return nil
 		}
@@ -1167,6 +1185,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Int8:
+		fmt.Println("XXX add Int8 metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructInt8Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1199,6 +1218,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Link:
+		fmt.Println("XXX add Link metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructLinkAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1235,6 +1255,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_String:
+		fmt.Println("XXX add String metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructStringAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1248,6 +1269,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			return errors.Errorf("expected type %s", expectedMultiType)
 		}
 		setter := func(v string) error {
+			fmt.Println("XXX MetadataString", a.Key, registeredAttribute.Key(), v)
 			x.baseSpan.MetadataString(registeredAttribute, v)
 			return nil
 		}
@@ -1267,6 +1289,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			}
 		}
 	case xopproto.AttributeType_Time:
+		fmt.Println("XXX add Time metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructTimeAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -1284,6 +1307,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
+			fmt.Println("XXX MetadataTime", a.Key, registeredAttribute.Key(), t)
 			x.baseSpan.MetadataTime(registeredAttribute, t)
 			return nil
 		}

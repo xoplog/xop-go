@@ -501,6 +501,7 @@ func (b *Builder) ZZZ(k string, v zzz, dt xopbase.DataType) { b.any(k, v, dt) }
 // MACRO BaseAttribute
 // MetadataZZZ is a required method for xopbase.Span
 func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	fmt.Println("XXX xoptest MetadataZZZ", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()

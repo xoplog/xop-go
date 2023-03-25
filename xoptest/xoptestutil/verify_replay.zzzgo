@@ -154,7 +154,7 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 		if _, ok := got.MetadataType[k]; !assert.Truef(t, ok, "missing metadata %s", k) {
 			continue
 		}
-		if assert.Equal(t, want.MetadataType[k].String(), got.MetadataType[k].String(), "metadata type") {
+		if assert.Equal(t, want.MetadataType[k].String(), got.MetadataType[k].String(), "metadata type derived from ZZZ in MetadataZZZ") {
 			if ws, ok := want.Metadata[k].(fmt.Stringer); ok {
 				gs := got.Metadata[k].(fmt.Stringer)
 				assert.Equalf(t, ws.String(), gs.String(), "metadata (as string) %s", k)
