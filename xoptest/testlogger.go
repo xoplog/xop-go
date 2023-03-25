@@ -520,6 +520,7 @@ func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v, 
 
 // MetadataAny is a required method for xopbase.Span
 func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
+	fmt.Println("XXX xoptest MetadataAny", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -572,6 +573,7 @@ func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 
 // MetadataBool is a required method for xopbase.Span
 func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+	fmt.Println("XXX xoptest MetadataBool", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -622,6 +624,7 @@ func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 
 // MetadataEnum is a required method for xopbase.Span
 func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	fmt.Println("XXX xoptest MetadataEnum", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -672,6 +675,7 @@ func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 // MetadataFloat64 is a required method for xopbase.Span
 func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
+	fmt.Println("XXX xoptest MetadataFloat64", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -722,6 +726,7 @@ func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 
 // MetadataInt64 is a required method for xopbase.Span
 func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+	fmt.Println("XXX xoptest MetadataInt64", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -772,6 +777,7 @@ func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 
 // MetadataLink is a required method for xopbase.Span
 func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	fmt.Println("XXX xoptest MetadataLink", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -822,6 +828,7 @@ func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 
 // MetadataString is a required method for xopbase.Span
 func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
+	fmt.Println("XXX xoptest MetadataString", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()
@@ -872,6 +879,7 @@ func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
 
 // MetadataTime is a required method for xopbase.Span
 func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+	fmt.Println("XXX xoptest MetadataTime", k.Key())
 	func() {
 		s.testLogger.lock.Lock()
 		defer s.testLogger.lock.Unlock()

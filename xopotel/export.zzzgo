@@ -697,8 +697,13 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	}
 
 	if aDef, ok := x.data[x.requestIndex].attributeDefinitions[key]; ok {
+		fmt.Println("XXX span attribute", key, "has an attribute defintion")
 		return x.AddXopMetadataAttribute(ctx, a, aDef)
 	}
+	if x.xopSpan {
+		return errors.Errorf("missing attribute defintion for key %s in xop span", key)
+	}
+	fmt.Println("XXX span attribute", key, "does not have a xop attribute definition")
 
 	mkMake := func(key string, multiple bool) xopat.Make {
 		return xopat.Make{
@@ -736,6 +741,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 	switch aDef.AttributeType {
 	// MACRO ZZZAttribute
 	case xopproto.AttributeType_ZZZ:
+		fmt.Println("XXX add ZZZ metadata", a.Key, aDef.AttributeType)
 		registeredAttribute, err := x.registry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return err
@@ -758,6 +764,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		}
 		// CONDITIONAL ONLY:String,Int64,Float64,Bool
 		setter := func(v zzz) error {
+			fmt.Println("XXX MetadataZZZ", a.Key, registeredAttribute.Key(), v)
 			x.baseSpan.MetadataZZZ(registeredAttribute, v)
 			return nil
 		}
@@ -781,6 +788,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
+			fmt.Println("XXX MetadataZZZ", a.Key, registeredAttribute.Key(), t)
 			x.baseSpan.MetadataZZZ(registeredAttribute, t)
 			return nil
 		}
@@ -808,6 +816,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 			if err != nil {
 				return err
 			}
+			fmt.Println("XXX call MetadataAny", a.Key, registeredAttribute.Key())
 			x.baseSpan.MetadataAny(registeredAttribute, ma)
 			return nil
 		}
