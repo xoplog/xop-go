@@ -438,7 +438,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
 		if k.Description() != xopSynthesizedForOTEL {
-			span.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
 			span.request.attributesDefined[key] = struct{}{}
 		}
 	}
