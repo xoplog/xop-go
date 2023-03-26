@@ -35,6 +35,12 @@
 
 # Just do it (build ready)
 
+- missing tests (in set of cases)
+
+  - incoming baggage is set
+  - coming tracestate is set
+  - incoming trace id is set, verify later in test
+
 - add buildinfo from runtime/debug to SourceInfo
 
 - rebuild attribute defintions to use generics `type Int32Attribute Attribute[int64][int32]`?

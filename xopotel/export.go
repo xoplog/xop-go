@@ -175,7 +175,9 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.xopSpan = xopParent.xopSpan
 			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), spanSeq)
 			data.requestIndex = xopParent.requestIndex
+			data.attributeDefinitions = xopParent.attributeDefinitions
 			data.registry = xopParent.registry
+			fmt.Println("XXX registry for", myIndex, "comes from", parentIndex)
 		} else {
 			// This is a difficult sitatuion. We have an internal/unspecified span
 			// that does not have a parent present. There is no right answer for what
@@ -187,6 +189,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.requestIndex = myIndex
 			data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 			data.registry = xopat.NewRegistry(false)
+			fmt.Println("XXX registry for", myIndex, "is new")
 		}
 	default:
 		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
@@ -194,6 +197,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 		data.xopSpan = attributeMap.GetString(xopVersion) != ""
 		data.registry = xopat.NewRegistry(false)
+		fmt.Println("XXX registry for", myIndex, "is new")
 	}
 	y := baseSpanReplay{
 		spanReplay: x,
@@ -774,6 +778,7 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 		if err != nil {
 			return errors.Wrapf(err, "could not unmarshal attribute defintion")
 		}
+		fmt.Println("XXX set attribute definition for", key, "in defintions at index", x.requestIndex)
 		x.data[x.requestIndex].attributeDefinitions[key] = &aDef
 		return nil
 	}
