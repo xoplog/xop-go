@@ -4,6 +4,7 @@ package xopotel
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,7 +117,23 @@ func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
 		traceID: bundle.Trace.GetTraceID(),
 		spanID:  bundle.Trace.GetSpanID(),
 	}
-	return context.WithValue(ctx, overrideContextKey, override)
+	ctx = context.WithValue(ctx, overrideContextKey, override)
+	fmt.Println("seed is", bundle.Trace, "pppppppppp parent is", bundle.Parent) // XXX
+	if !bundle.Parent.IsZero() || !bundle.State.IsZero() {
+		spanConfig := oteltrace.SpanContextConfig{
+			TraceID:    bundle.Parent.TraceID().Array(),
+			SpanID:     bundle.Parent.SpanID().Array(),
+			TraceFlags: oteltrace.TraceFlags(bundle.Parent.Flags().Array()[0]),
+		}
+		if !bundle.State.IsZero() {
+			state, err := oteltrace.ParseTraceState(bundle.State.String())
+			if err == nil {
+				spanConfig.TraceState = state
+			}
+		}
+		ctx = oteltrace.ContextWithSpanContext(ctx, oteltrace.NewSpanContext(spanConfig))
+	}
+	return ctx
 }
 
 func overrideFromContext(ctx context.Context) *idOverride {

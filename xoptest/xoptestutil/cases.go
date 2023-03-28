@@ -337,12 +337,23 @@ var MessageCases = []struct {
 		},
 	},
 	{
+		Name:         "manipulate-seed",
+		ExtraFlushes: 1,
+		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
+			l2 := log.Span().SubSeed().Request("L2")
+			l2.Info().Msg("in the new log")
+			MicroNap()
+			l2.Done()
+			log.Done()
+		},
+	},
+	{
 		Name:         "add-and-remove-loggers-with-a-seed",
 		ExtraFlushes: 2,
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
 			tlog2 := xoptest.New(t)
-			r2 := log.Span().Seed(xop.WithBase(tlog2)).Request("R2")
-			r3 := r2.Span().Seed(xop.WithoutBase(tlog2)).Request("R3")
+			r2 := log.Span().SubSeed(xop.WithBase(tlog2)).Request("R2")
+			r3 := r2.Span().SubSeed(xop.WithoutBase(tlog2)).Request("R3")
 			r2.Info().Msg("log to both test loggers")
 			r3.Info().Msg("log to just the original set")
 			MicroNap()

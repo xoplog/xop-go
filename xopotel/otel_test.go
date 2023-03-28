@@ -82,6 +82,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 			}
 
 			rLog := xoptest.New(t)
+			rLog.SetPrefix("REPLAY ")
 			exporter := xopotel.NewExporter(rLog)
 			tpo = append(tpo, sdktrace.WithBatcher(exporter))
 
@@ -159,7 +160,7 @@ func XXXTestSpanLog(t *testing.T) {
 
 			tlog := xoptest.New(t)
 			ctx, span := tracer.Start(ctx, mc.Name)
-			seed := xopotel.SpanLog(ctx, mc.Name).Span().Seed(xop.WithBase(tlog))
+			seed := xopotel.SpanLog(ctx, mc.Name).Span().SubSeed(xop.WithBase(tlog))
 			if len(mc.SeedMods) != 0 {
 				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
 				seed = seed.Copy(mc.SeedMods...)

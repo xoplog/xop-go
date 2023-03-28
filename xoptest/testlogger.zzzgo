@@ -64,6 +64,7 @@ type TestLogger struct {
 	traceCount int
 	traceMap   map[string]*traceInfo
 	id         string
+	linePrefix string
 }
 
 type traceInfo struct {
@@ -138,6 +139,14 @@ type Event struct {
 	Value     interface{}
 }
 
+func (log *TestLogger) SetPrefix(p string) {
+	log.linePrefix = p
+}
+
+func (log *TestLogger) output(s string) {
+	log.t.Log(log.linePrefix + s)
+}
+
 func (log *TestLogger) Log() *xop.Log {
 	return xop.NewSeed(xop.WithBase(log)).Request(log.t.Name())
 }
@@ -204,7 +213,7 @@ func (span *Span) setShortRequest() {
 		span.RequestNum = ti.requestCount
 		ti.spans[span.Bundle.Trace.SpanID().String()] = span
 		span.Short = fmt.Sprintf("T%d.%d", ti.traceNum, ti.requestCount)
-		span.testLogger.t.Log("Start request " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
+		span.testLogger.output("Start request " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 		return
 	}
 	span.testLogger.traceCount++
@@ -217,7 +226,7 @@ func (span *Span) setShortRequest() {
 		},
 	}
 	span.Short = fmt.Sprintf("T%d.%d", span.testLogger.traceCount, 1)
-	span.testLogger.t.Log("Start request " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
+	span.testLogger.output("Start request " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 }
 
 // must hold a lock to call setShortSpan
@@ -227,7 +236,7 @@ func (span *Span) setShortSpan() {
 	span.RequestNum = span.Parent.RequestNum
 	ti.spans[span.Bundle.Trace.SpanID().String()] = span
 	span.Short = fmt.Sprintf("T%d.%d%s", ti.traceNum, span.RequestNum, span.SequenceCode)
-	span.testLogger.t.Log("Start span " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
+	span.testLogger.output("Start span " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 }
 
 // Done is a required method for xopbase.Span
@@ -453,7 +462,7 @@ func (line *Line) Template(m string) {
 }
 
 func (line Line) send(text string) {
-	line.Span.testLogger.t.Log(text)
+	line.Span.testLogger.output(text)
 	line.Span.testLogger.lock.Lock()
 	defer line.Span.testLogger.lock.Unlock()
 	line.Span.lock.Lock()

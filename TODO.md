@@ -35,6 +35,8 @@
 
 # Just do it (build ready)
 
+- rename reactive to "hook"
+
 - missing tests (in set of cases)
 
   - incoming baggage is set
@@ -139,6 +141,7 @@
 
   - Console (emphasis on readable, but still retains full data)
   - an additional OTEL API that directly creates []sdktrace.ReadOnlySpan
+  - split xoptest into a combination of the new introspective base logger (introspect?) and the human-friendly xopconsole?
 
 - xopup
 
