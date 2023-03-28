@@ -15,14 +15,30 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 )
 
-// Seed is used to create a Log.
+// Seed is used to create a Log. Seed contains
+// the context of the log (trace parent, current trace, etc);
+// the set of base loggers to use;
+// and log settings (like minimum log level).
+//
+// Seed is used to bridge between parent logs and their
+// sub-spans. The functions that turn Seeds into Logs are:
+// Request(), which is used when the new Log is a "request"
+// which is a top-level indexed span; and
+// SubSpan(), which is used when the new Log is just a
+// component of a parent Request().
+//
+// Use Request() for incoming requests from other servers and
+// for jobs processed out of a queue.
+//
+// Seeds contain a xoptrace.Bundle. If the Trace is not net, then
+// Request() will choose random values for the TraceID and/or SpanID.
 type Seed struct {
 	spanSeed
 	settings LogSettings
 }
 
-func (s Seed) String() string {
-	return "SEED:" + s.spanSeed.String() + s.settings.String()
+func (seed Seed) String() string {
+	return "SEED:" + seed.spanSeed.String() + seed.settings.String()
 }
 
 // Copy makes a deep copy of a seed and also randomizes
@@ -37,23 +53,6 @@ func (seed Seed) Copy(mods ...SeedModifier) Seed {
 		fmt.Println("XXX Seed.Copy(), span set to", n.traceBundle.Trace.SpanID())
 	} else {
 		fmt.Println("XXX Seed.Copy(), span remains", n.traceBundle.Trace.SpanID())
-	}
-	n = n.applyMods(mods)
-	return n
-}
-
-// Seed provides a copy of the current span's seed, but the
-// spanID is randomized.
-func (span *Span) Seed(mods ...SeedModifier) Seed {
-	n := Seed{
-		spanSeed: span.seed.copy(false),
-		settings: span.log.settings.Copy(),
-	}
-	if !span.seed.spanSet {
-		n.traceBundle.Trace.SpanID().SetRandom()
-		fmt.Println("XXX Seed.Seed(), span set to", n.traceBundle.Trace.SpanID())
-	} else {
-		fmt.Println("XXX Seed.Seed(), span remains", n.traceBundle.Trace.SpanID())
 	}
 	n = n.applyMods(mods)
 	return n
