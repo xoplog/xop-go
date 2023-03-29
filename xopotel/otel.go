@@ -41,70 +41,75 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 	xoptrace := xopTraceFromSpan(span)
 	fmt.Println("XXX SpanLog(1) OTEL trace", span.SpanContext().TraceID())
 	fmt.Println("XXX SpanLog(1) xoptrace", xoptrace)
-	log := xop.NewSeed(
-		xop.CombineSeedModifiers(extraModifiers...),
-		xop.WithContext(ctx),
+	tracer := span.TracerProvider().Tracer("xoputil")
+	log := xop.NewSeed(makeSeedModifier(ctx, tracer,
 		xop.WithTrace(xoptrace),
 		xop.WithBase(&logger{
 			id:         "otel-" + uuid.New().String(),
 			doLogging:  true,
 			ignoreDone: span,
-			tracer:     span.TracerProvider().Tracer(""),
+			tracer:     tracer,
 		}),
-		// The first time through, we do not want to change the spanID,
-		// but on subsequent calls, we do so the outer reactive function
-		// just sets the future function.
-		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
-			span := oteltrace.SpanFromContext(ctx)
-			xoptrace := xopTraceFromSpan(span)
-			fmt.Println("XXX SpanLog(2) OTEL trace", span.SpanContext().TraceID())
-			fmt.Println("XXX SpanLog(2) reactive, xoptrace", xoptrace, "seed", seed)
-			return []xop.SeedModifier{
-				xop.WithTrace(xoptrace),
-				xop.WithReactiveReplaced(
-					func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
-						span := oteltrace.SpanFromContext(ctx)
-						xoptrace := xopTraceFromSpan(span)
-						fmt.Println("XXX SpanLog(3) OTEL trace", span.SpanContext().TraceID())
-						fmt.Println("XXX SpanLog(3) double reactive", "seed", seed)
-						var newSpan oteltrace.Span
-						// XXX add WithAttributes
-						// XXX add TraceState
-						// XXX add Bundle
-						if isChildSpan {
-							ctx, newSpan = span.TracerProvider().Tracer("").Start(overrideIntoContext(ctx, seed), nameOrDescription,
-								oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
-								oteltrace.WithAttributes(
-									xopVersion.String(xopVersionValue),
-									xopOTELVersion.String(xopotelVersionValue),
-								),
-								oteltrace.WithTimestamp(now),
-							)
-						} else {
-							ctx, newSpan = span.TracerProvider().Tracer("").Start(overrideIntoContext(ctx, seed), nameOrDescription,
-								oteltrace.WithSpanKind(oteltrace.SpanKindServer),
-								oteltrace.WithAttributes(
-									xopVersion.String(xopVersionValue),
-									xopOTELVersion.String(xopotelVersionValue),
-								),
-								oteltrace.WithTimestamp(now),
-							)
-						}
-						return []xop.SeedModifier{
-							xop.WithTrace(xoptrace),
-							xop.WithContext(ctx),
-							xop.WithSpan(newSpan.SpanContext().SpanID()),
-						}
-					}),
-			}
-		}),
-	).SubSpan(name)
+	)).SubSpan(name)
 	go func() {
 		<-ctx.Done()
 		log.Done()
 	}()
 	return log
 }
+
+/* XXX
+log := xop.NewSeed(
+	xop.CombineSeedModifiers(extraModifiers...),
+	xop.WithContext(ctx),
+	// The first time through, we do not want to change the spanID,
+	// but on subsequent calls, we do so the outer reactive function
+	// just sets the future function.
+	xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
+		span := oteltrace.SpanFromContext(ctx)
+		xoptrace := xopTraceFromSpan(span)
+		fmt.Println("XXX SpanLog(2) OTEL trace", span.SpanContext().TraceID())
+		fmt.Println("XXX SpanLog(2) reactive, xoptrace", xoptrace, "seed", seed)
+		return []xop.SeedModifier{
+			xop.WithTrace(xoptrace),
+			xop.WithReactiveReplaced(
+				func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
+					span := oteltrace.SpanFromContext(ctx)
+					xoptrace := xopTraceFromSpan(span)
+					fmt.Println("XXX SpanLog(3) OTEL trace", span.SpanContext().TraceID())
+					fmt.Println("XXX SpanLog(3) double reactive", "seed", seed)
+					var newSpan oteltrace.Span
+					// XXX add WithAttributes
+					// XXX add TraceState
+					// XXX add Bundle
+					if isChildSpan {
+						ctx, newSpan = span.TracerProvider().Tracer("").Start(overrideIntoContext(ctx, seed), nameOrDescription,
+							oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
+							oteltrace.WithAttributes(
+								xopVersion.String(xopVersionValue),
+								xopOTELVersion.String(xopotelVersionValue),
+							),
+							oteltrace.WithTimestamp(now),
+						)
+					} else {
+						ctx, newSpan = span.TracerProvider().Tracer("").Start(overrideIntoContext(ctx, seed), nameOrDescription,
+							oteltrace.WithSpanKind(oteltrace.SpanKindServer),
+							oteltrace.WithAttributes(
+								xopVersion.String(xopVersionValue),
+								xopOTELVersion.String(xopotelVersionValue),
+							),
+							oteltrace.WithTimestamp(now),
+						)
+					}
+					return []xop.SeedModifier{
+						xop.WithTrace(xoptrace),
+						xop.WithContext(ctx),
+						xop.WithSpan(newSpan.SpanContext().SpanID()),
+					}
+				}),
+		}
+	}),
+*/
 
 func (_ idGenerator) NewIDs(ctx context.Context) (oteltrace.TraceID, oteltrace.SpanID) {
 	override := overrideFromContext(ctx)
@@ -120,13 +125,17 @@ func (_ idGenerator) NewSpanID(ctx context.Context, _ oteltrace.TraceID) oteltra
 
 // BaseLogger provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
 // so that xop logs are output through the OTEL Tracer.
-func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider, doLogging bool) xop.SeedModifier {
+func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider) xop.SeedModifier {
 	// XXX add WIthInstrumentationAttributes
 	tracer := traceProvider.Tracer("xopoptel")
-	return xop.CombineSeedModifiers(
+	return makeSeedModifier(ctx, tracer)
+}
+
+func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifiers ...xop.SeedModifier) xop.SeedModifier {
+	modifiers := []xop.SeedModifier{
 		xop.WithBase(&logger{
 			id:        "otel-" + uuid.New().String(),
-			doLogging: doLogging,
+			doLogging: true,
 			tracer:    tracer,
 		}),
 		xop.WithContext(ctx),
@@ -190,7 +199,8 @@ func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider, doL
 				xop.WithBundle(bundle),
 			}
 		}),
-	)
+	}
+	return xop.CombineSeedModifiers(append(modifiers, extraModifiers...)...)
 }
 
 func (logger *logger) ID() string           { return logger.id }
