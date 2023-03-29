@@ -147,10 +147,9 @@ func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider, doL
 			fmt.Println("XXX BaseLogger(1) OTEL trace REQUEST CONTEXT", otelSpan.SpanContext().TraceID(), otelSpan.SpanContext().SpanID())
 			si := seed.SourceInfo()
 			parentCtx := ctx
-			ctx, span := tracer.Start(overrideIntoContext(ctx, seed), nameOrDescription,
-				oteltrace.WithNewRoot(),
-				// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
-				// XXX add WithAttributes -- from seed
+			// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
+			// XXX add WithAttributes -- from seed
+			opts := []oteltrace.SpanStartOption{
 				oteltrace.WithAttributes(
 					xopVersion.String(xopVersionValue),
 					xopOTELVersion.String(xopotelVersionValue),
@@ -159,9 +158,13 @@ func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider, doL
 				),
 				oteltrace.WithSpanKind(oteltrace.SpanKindServer),
 				oteltrace.WithTimestamp(now),
-			)
-			fmt.Println("XXX BaseLogger(1) OTEL trace REQUEST ", span.SpanContext().TraceID(), span.SpanContext().SpanID())
+			}
 			bundle := seed.Bundle()
+			if bundle.Parent.TraceID().IsZero() {
+				opts = append(opts, oteltrace.WithNewRoot())
+			}
+			ctx, span := tracer.Start(overrideIntoContext(ctx, seed), nameOrDescription, opts...)
+			fmt.Println("XXX BaseLogger(1) OTEL trace REQUEST ", span.SpanContext().TraceID(), span.SpanContext().SpanID())
 			if bundle.Parent.IsZero() {
 				fmt.Println("XXX bundle parent is zero")
 				parentSpan := oteltrace.SpanFromContext(parentCtx)
@@ -191,14 +194,17 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, _ xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	// we ignore the Bundle because we've already recorded that information
+func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
+	// we ignore most of the Bundle because we've already recorded that information
 	// in the OTEL span that we've already created.
 	s := logger.span(ctx, ts, description, "")
 	s.otelSpan.SetAttributes(
 		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
 		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
 	)
+	if !bundle.Baggage.IsZero() {
+		s.otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
+	}
 	s.request = &request{
 		span:              s,
 		attributesDefined: make(map[string]struct{}),

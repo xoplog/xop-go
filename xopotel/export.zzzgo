@@ -156,17 +156,34 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		if parentContext.IsSampled() {
 			bundle.Parent.Flags().SetArray([1]byte{1})
 		}
+	} else if span.Parent().HasTraceID() {
+		bundle.Parent.TraceID().SetArray(span.Parent().TraceID())
+		if span.Parent().HasSpanID() {
+			bundle.Parent.SpanID().SetArray(span.Parent().SpanID())
+		}
+		if span.Parent().IsSampled() {
+			bundle.Parent.Flags().SetArray([1]byte{1})
+		}
 	}
+
 	bundle.Parent.Flags().SetBytes([]byte{1})
 	bundle.Trace.Flags().SetBytes([]byte{1})
 	spanKind := span.SpanKind()
 	attributeMap := mapAttributes(span.Attributes())
+	if b := attributeMap.GetString(xopBaggage); b != "" {
+		bundle.Baggage.SetString(b)
+	}
 	if spanKind == oteltrace.SpanKindUnspecified {
 		spanKind = oteltrace.SpanKind(defaulted(attributeMap.GetInt(otelSpanKind), int64(oteltrace.SpanKindUnspecified)))
+	}
+	if attributeMap.GetBool(spanIsLinkEventKey) {
+		// span is extra just for link
+		return nil
 	}
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 		if hasParent {
+			fmt.Println("XXX create span", span.Name(), "with parent", bundle.Parent)
 			spanSeq := defaulted(attributeMap.GetString(xopSpanSequence), "")
 			data.xopSpan = xopParent.xopSpan
 			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), spanSeq)
@@ -188,6 +205,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			fmt.Println("XXX registry for", myIndex, "is new")
 		}
 	default:
+		fmt.Println("XXX create request", span.Name(), "with parent", bundle.Parent)
 		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
 		data.requestIndex = myIndex
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
@@ -522,12 +540,14 @@ func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap aMap) xopbase.Sour
 type aMap struct {
 	strings map[attribute.Key]string
 	ints    map[attribute.Key]int64
+	bools   map[attribute.Key]bool
 }
 
 func mapAttributes(list []attribute.KeyValue) aMap {
 	m := aMap{
 		strings: make(map[attribute.Key]string),
 		ints:    make(map[attribute.Key]int64),
+		bools:   make(map[attribute.Key]bool),
 	}
 	for _, a := range list {
 		switch a.Value.Type() {
@@ -535,6 +555,8 @@ func mapAttributes(list []attribute.KeyValue) aMap {
 			m.strings[a.Key] = a.Value.AsString()
 		case attribute.INT64:
 			m.ints[a.Key] = a.Value.AsInt64()
+		case attribute.BOOL:
+			m.bools[a.Key] = a.Value.AsBool()
 		}
 	}
 	return m
@@ -542,6 +564,7 @@ func mapAttributes(list []attribute.KeyValue) aMap {
 
 func (m aMap) GetString(k attribute.Key) string { return m.strings[k] }
 func (m aMap) GetInt(k attribute.Key) int64     { return m.ints[k] }
+func (m aMap) GetBool(k attribute.Key) bool     { return m.bools[k] }
 
 func defaulted[T comparable](a, b T) T {
 	var zero T
@@ -608,7 +631,8 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace
 			if err != nil {
 				return errors.Wrapf(err, "could not turn key %s into an enum", key)
 			}
-			ea.Add64(i, slice[1])
+			enum := ea.Add64(i, slice[0])
+			line.Enum(&ea.EnumAttribute, enum)
 			// CONDITIONAL ONLY:any
 			if len(slice) != 4 {
 				return errors.Errorf("key %s invalid any encoding, slice too short", key)
@@ -672,7 +696,9 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 		xopOTELVersion,
 		xopSource,
 		xopNamespace,
+		xopBaggage,
 		xopSpanSequence,
+		typeKey,
 		otelSpanKind:
 		// special cases handled elsewhere
 		return nil
