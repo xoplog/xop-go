@@ -135,7 +135,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 					if tc.baseLogger {
 						seed := xop.NewSeed(
 							xop.WithBase(tLog),
-							xopotel.BaseLogger(ctx, tracerProvider, true),
+							xopotel.BaseLogger(ctx, tracerProvider),
 						)
 						if len(mc.SeedMods) != 0 {
 							t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
@@ -248,7 +248,7 @@ func XXXTestBaseLogger(t *testing.T) {
 			tlog := xoptest.New(t)
 			seed := xop.NewSeed(
 				xop.WithBase(tlog),
-				xopotel.BaseLogger(ctx, tracerProvider, true),
+				xopotel.BaseLogger(ctx, tracerProvider),
 			)
 			if len(mc.SeedMods) != 0 {
 				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
