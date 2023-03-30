@@ -130,6 +130,12 @@ func verifyMetadataLink(t *testing.T, k string, want interface{}, got interface{
 	assert.Equalf(t, w.String(), g.String(), "metadata link %s", k)
 }
 
+func verifyMetadataTime(t *testing.T, k string, want interface{}, got interface{}) {
+	w := want.(time.Time)
+	g := got.(time.Time)
+	assert.True(t, w.Equal(g), "metadata time %s: %s vs %s", k, w, g)
+}
+
 func verifyMetadataEnum(t *testing.T, k string, want interface{}, got interface{}) {
 	w := want.(xopat.Enum)
 	g := got.(xopat.Enum)
@@ -179,6 +185,10 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataLink)
 			case xopbase.LinkDataType:
 				verifyMetadataLink(t, k, want.Metadata[k], got.Metadata[k])
+			case xopbase.TimeArrayDataType:
+				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataTime)
+			case xopbase.TimeDataType:
+				verifyMetadataTime(t, k, want.Metadata[k], got.Metadata[k])
 
 			default:
 				assert.Equalf(t, want.Metadata[k], got.Metadata[k], "metadata %s", typ)

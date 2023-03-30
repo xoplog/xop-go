@@ -128,6 +128,12 @@ func verifyMetadataLink(t *testing.T, k string, want interface{}, got interface{
 	assert.Equalf(t, w.String(), g.String(), "metadata link %s", k)
 }
 
+func verifyMetadataTime(t *testing.T, k string, want interface{}, got interface{}) {
+	w := want.(time.Time)
+	g := got.(time.Time)
+	assert.True(t, w.Equal(g), "metadata time %s: %s vs %s", k, w, g)
+}
+
 func verifyMetadataEnum(t *testing.T, k string, want interface{}, got interface{}) {
 	w := want.(xopat.Enum)
 	g := got.(xopat.Enum)
@@ -165,7 +171,7 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 				assert.Equalf(t, ws.String(), gs.String(), "metadata (as string) %s", k)
 			}
 			switch typ {
-			// MACRO BaseAttribute ONLY:Link,Any,Enum
+			// MACRO BaseAttribute ONLY:Link,Any,Enum,Time
 			case xopbase.ZZZArrayDataType:
 				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataZZZ)
 			case xopbase.ZZZDataType:
