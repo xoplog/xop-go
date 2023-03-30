@@ -208,6 +208,11 @@ type Prefilled interface {
 	// During replay, the stack frames may
 	// only include filenames and line numbers so base loggers cannot
 	// depend upon any other information being present in stack frames.
+	//
+	// During original log generation, the stack frame array can be
+	// reused for subsequent calls to Line() with different values. The
+	// value is only stable until the call returns so it must be used
+	// or copied, not retained.
 	Line(xopnum.Level, time.Time, []runtime.Frame) Line
 }
 

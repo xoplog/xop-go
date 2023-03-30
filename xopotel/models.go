@@ -98,6 +98,7 @@ var xopTemplate = attribute.Key("xop.template")
 var otelSpanKind = attribute.Key("span.kind")
 var xopLineNumber = attribute.Key("xop.lineNumber")
 var xopBaggage = attribute.Key("xop.baggage")
+var xopStackTrace = attribute.Key("xop.stackTrace")
 
 const xopVersionValue = "0.0.1"
 const xopotelVersionValue = "0.0.1"

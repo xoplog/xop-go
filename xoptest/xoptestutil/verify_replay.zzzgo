@@ -73,10 +73,15 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 			assert.Equal(t, wdata, gdata, "data")
 		}
 	}
-
 	for key := range got.Data {
 		_, ok := want.Data[key]
 		assert.Truef(t, ok, "data element '%s' in got, but not want", key)
+	}
+	if assert.Equal(t, len(want.Stack), len(got.Stack), "count of stack frames") {
+		for i, wantFrame := range want.Stack {
+			assert.Equalf(t, wantFrame.File, got.Stack[i].File, "stack frame %d filename", i)
+			assert.Equalf(t, wantFrame.Line, got.Stack[i].Line, "stack frame %d line number", i)
+		}
 	}
 }
 

@@ -18,7 +18,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-func TestASingleLine(t *testing.T) {
+func TestSingleLineOTEL(t *testing.T) {
 	var buffer xoputil.Buffer
 
 	exporter, err := stdouttrace.New(

@@ -61,7 +61,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 			if !ok {
 				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
 			}
-			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, nil /* XXX TODO */)
+			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, event.Line.Stack)
 			for k, v := range event.Line.Data {
 				dataType := event.Line.DataType[k]
 				switch dataType {

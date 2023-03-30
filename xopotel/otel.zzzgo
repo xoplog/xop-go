@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -231,14 +229,11 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 	line.linkValue = prefilled.linkValue
 	line.timestamp = ts
 	if len(frames) > 0 {
-		var b strings.Builder
-		for _, frame := range frames {
-			b.WriteString(frame.File)
-			b.WriteByte(':')
-			b.WriteString(strconv.Itoa(frame.Line))
-			b.WriteByte('\n')
+		fs := make([]string, len(frames))
+		for i, frame := range frames {
+			fs[i] = frame.File + ":" + strconv.Itoa(frame.Line)
 		}
-		line.attributes = append(line.attributes, semconv.ExceptionStacktraceKey.String(b.String()))
+		line.attributes = append(line.attributes, xopStackTrace.StringSlice(fs))
 	}
 	return line
 }
