@@ -169,7 +169,6 @@ var macros = map[string]map[string]string{
 	},
 	// Enumer is all of the generated enumers, used for generating a test
 	"Enumer": {
-		"DataType":     "xopbase",
 		"EventType":    "xoptest",
 		"Level":        "xopnum",
 		"SpanKindEnum": "xopconst",

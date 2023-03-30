@@ -4,7 +4,6 @@ package xopotel
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -119,7 +118,6 @@ func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
 		spanID:  bundle.Trace.GetSpanID(),
 	}
 	ctx = context.WithValue(ctx, overrideContextKey, override)
-	fmt.Println("seed is", bundle.Trace, "pppppppppp parent is", bundle.Parent) // XXX
 	if !bundle.Parent.IsZero() || !bundle.State.IsZero() {
 		spanConfig := oteltrace.SpanContextConfig{
 			TraceID:    bundle.Parent.TraceID().Array(),

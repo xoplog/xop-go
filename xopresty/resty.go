@@ -2,19 +2,20 @@
 package xopresty adds to the resty package to
 propagate xop context to through an HTTP request.
 
-The resty package does not provide a way to have a
-logger that knows which request it is logging about.
-The resty package does not provide a way to know when
-requests are complete.
+As of March 29th, 2023, the released resty package does not provide
+a way to have a logger that knows which request it is logging about.
+The resty package does not provide a way to know when requests are
+complete.
 
-There are open pull requests to solve both of these
-issues. In the meantime, this package depends upon
-https://github.com/muir/resty.
+Pull requests to fix these issues have been merged but not
+made part of a release.
+
+In the meantime, this package depends upon https://github.com/muir/resty.
 
 The agumented resty Client requires that a context that
 has the parent log span be provided:
 
-   client.R().SetContext(log.IntoContext(context.Background()))
+	client.R().SetContext(log.IntoContext(context.Background()))
 
 If there is no logger in the context, the request will fail.
 
@@ -152,9 +153,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			r.SetLogger(restyLogger{log: log})
 
 			if r.Body != nil {
-				log.Trace().
-					Any("body", r.Body).
-					Msg("request")
+				log.Trace().Model(r.Body, "request")
 			}
 
 			log.Span().EmbeddedEnum(xopconst.SpanTypeHTTPClientRequest)
@@ -204,7 +203,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 				}
 			}
 			if r.Result != nil {
-				log.Info().Any("response", resp.Result()).Msg("received")
+				log.Info().Model(resp.Result(), "response")
 			}
 			ti := r.TraceInfo()
 			if ti.TotalTime != 0 {

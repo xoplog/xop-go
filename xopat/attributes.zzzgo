@@ -283,6 +283,8 @@ const (
 	AttributeTypeZZZ = AttributeType(xopproto.AttributeType_ZZZ)
 )
 
+func (at AttributeType) String() string { return xopproto.AttributeType(at).String() }
+
 // MACRO IntsPlus SKIP:Int64
 // ZZZAttribute is a just an Int64Attribute that with
 // SubType() == AttributeTypeDuration.  A base logger may

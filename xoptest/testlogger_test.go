@@ -92,7 +92,7 @@ func TestReplayTextLogger(t *testing.T) {
 			log := tLog.Log()
 			if len(mc.SeedMods) != 0 {
 				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
-				log = log.Span().Seed(mc.SeedMods...).Request(t.Name())
+				log = log.Span().SubSeed(mc.SeedMods...).Request(t.Name())
 			}
 			t.Log("generate logs")
 			mc.Do(t, log, tLog)
