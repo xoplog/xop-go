@@ -66,11 +66,16 @@ func TestASingleLine(t *testing.T) {
 		xopjson.WithDuration("dur", xopjson.AsString),
 		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 		xopjson.WithAttributesObject(true),
-		xopjson.WithStackLineRewrite(func(s string) string {
-			return "FOO-" + s
-		}),
 	)
-	log := xop.NewSeed(xop.WithBase(jlog)).Request(t.Name())
+	log := xop.NewSeed(
+		xop.WithBase(jlog),
+		xop.WithSettings(
+			func(settings *xop.LogSettings) {
+				settings.StackFilenameRewrite(func(s string) string {
+					return "FOO-" + s
+				})
+			}),
+	).Request(t.Name())
 	log.Alert().String("foo", "bar").Int("blast", 99).Msg("a test line")
 	log.Done()
 	s := buffer.String()

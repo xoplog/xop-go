@@ -58,7 +58,6 @@ type Logger struct {
 	linePool                 sync.Pool // filled with *line
 	preallocatedKeys         [100]byte
 	durationKey              []byte
-	stackLineRewrite         func(string) string
 	timeFormatter            TimeFormatter
 	activeRequests           sync.WaitGroup
 	attributeOption          AttributeOption
@@ -252,12 +251,6 @@ func WithGoroutineID(b bool) Option {
 	}
 }
 */
-
-func WithStackLineRewrite(f func(string) string) Option {
-	return func(l *Logger, _ *xoputil.Prealloc) {
-		l.stackLineRewrite = f
-	}
-}
 
 // WithRoundedIntegersAsStrings changes the encoding of int64 values
 // tha are outside the range that can be exactly represented by

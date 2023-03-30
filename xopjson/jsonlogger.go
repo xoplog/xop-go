@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"runtime"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -306,7 +305,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return prefilled
 }
 
-func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p *prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame) xopbase.Line {
 	atomic.StoreInt64(&p.span.endTime, t.UnixNano())
 	if level >= xopnum.ErrorLevel {
 		if level >= xopnum.AlertLevel {
@@ -335,27 +334,15 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 	l.AddSafeString(level.String())
 	l.AppendBytes([]byte(`,"ts":`))
 	l.AttributeTime(t)
-	if len(pc) > 0 {
-		frames := runtime.CallersFrames(pc)
+	if len(frames) > 0 {
 		l.AppendBytes([]byte(`,"stack":[`))
-		for {
-			frame, more := frames.Next()
-			if strings.Contains(frame.File, "runtime/") {
-				break
-			}
+		for _, frame := range frames {
 			l.Comma()
 			l.AppendByte('"')
-			filename := frame.File
-			if l.span.request.logger.stackLineRewrite != nil {
-				filename = l.span.request.logger.stackLineRewrite(filename)
-			}
-			l.AddStringBody(filename)
+			l.AddStringBody(frame.File)
 			l.AppendByte(':')
 			l.AddInt64(int64(frame.Line))
 			l.AppendByte('"')
-			if !more {
-				break
-			}
 		}
 		l.AppendByte(']')
 	}

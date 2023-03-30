@@ -3,6 +3,7 @@ package xop
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -508,10 +509,11 @@ func (log *Log) notBoring() {
 // after Msg() probably won't panic, but will definitely open the
 // door to confusing inconsistent logs and race conditions.
 type Line struct {
-	log  *Log
-	line xopbase.Line
-	pc   []uintptr
-	skip bool
+	log   *Log
+	line  xopbase.Line
+	pc    []uintptr
+	stack []runtime.Frame
+	skip  bool
 }
 
 const stackFramesToExclude = 4
@@ -525,36 +527,51 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 	var ll *Line
 	if recycled != nil {
 		ll = recycled.(*Line)
-		if skip || log.settings.stackFramesWanted[level] == 0 {
-			if ll.pc != nil {
-				ll.pc = ll.pc[:0]
-			}
-		} else {
-			if ll.pc == nil {
-				ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
-					log.settings.stackFramesWanted[xopnum.AlertLevel])
-			} else {
-				ll.pc = ll.pc[:cap(ll.pc)]
-			}
-			n := runtime.Callers(stackFramesToExclude, ll.pc)
-			ll.pc = ll.pc[:n]
+		if ll.pc != nil {
+			ll.pc = ll.pc[:0]
+			ll.stack = ll.stack[:0]
 		}
 	} else {
 		ll = &Line{
 			log: log,
 		}
-		if !skip && log.settings.stackFramesWanted[level] != 0 {
-			ll.pc = make([]uintptr, log.settings.stackFramesWanted[level],
+	}
+	if !skip && log.settings.stackFramesWanted[level] != 0 {
+		// collect program counters
+		if ll.pc == nil || cap(ll.pc) < log.settings.stackFramesWanted[level] {
+			ll.pc = make([]uintptr,
+				log.settings.stackFramesWanted[level],
 				log.settings.stackFramesWanted[xopnum.AlertLevel])
-			n := runtime.Callers(stackFramesToExclude, ll.pc)
-			ll.pc = ll.pc[:n]
+		} else {
+			ll.pc = ll.pc[:cap(ll.pc)]
+		}
+		n := runtime.Callers(stackFramesToExclude, ll.pc)
+		ll.pc = ll.pc[:n]
+		// collect stack frames
+		if ll.stack == nil {
+			ll.stack = make([]runtime.Frame, 0, len(ll.pc))
+		}
+		frames := runtime.CallersFrames(ll.pc)
+		for {
+			frame, more := frames.Next()
+			if !strings.Contains(frame.File, "runtime/") {
+				break
+			}
+			frame.File = log.settings.stackFilenameRewrite(frame.File)
+			if frame.File == "" {
+				break
+			}
+			ll.stack = append(ll.stack, frame)
+			if !more {
+				break
+			}
 		}
 	}
 	ll.skip = skip
 	if ll.skip {
 		ll.line = xopbase.SkipLine
 	} else {
-		ll.line = log.prefilled.Line(level, time.Now(), ll.pc)
+		ll.line = log.prefilled.Line(level, time.Now(), ll.stack)
 	}
 	return ll
 }
