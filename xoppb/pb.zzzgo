@@ -216,7 +216,7 @@ func (p *prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	}
 }
 
-func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p *prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame) xopbase.Line {
 	xoputil.AtomicMaxInt64(&p.span.endTime, t.UnixNano())
 	if level >= xopnum.ErrorLevel {
 		if level >= xopnum.AlertLevel {
@@ -235,6 +235,15 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 		prefillMsg: p.prefillMsg,
 	}
 	l.builder.attributes = list.Copy(p.attributes)
+	if len(frames) > 0 {
+		l.protoLine.StackFrames = make([]*xopproto.StackFrame, len(frames))
+		for i, frame := range frames {
+			l.protoLine.StackFrames[i] = &xopproto.StackFrame{
+				File:       frame.File,
+				LineNumber: int32(frame.Line),
+			}
+		}
+	}
 	return l
 }
 

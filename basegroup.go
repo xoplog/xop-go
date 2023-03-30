@@ -4,6 +4,7 @@ package xop
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -180,10 +181,10 @@ func (p prefillings) PrefillComplete(m string) xopbase.Prefilled {
 	return prefilled
 }
 
-func (p prefilleds) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p prefilleds) Line(level xopnum.Level, t time.Time, frames []runtime.Frame) xopbase.Line {
 	lines := make(lines, len(p))
 	for i, prefilled := range p {
-		lines[i] = prefilled.Line(level, t, pc)
+		lines[i] = prefilled.Line(level, t, frames)
 	}
 	return lines
 }

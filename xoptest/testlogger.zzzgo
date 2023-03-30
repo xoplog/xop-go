@@ -354,7 +354,7 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 }
 
 // Line is a required method for xopbase.Prefilled
-func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.Line {
+func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame) xopbase.Line {
 	xoputil.AtomicMaxInt64(&p.Span.provisionalEndTime, t.UnixNano())
 	line := &Line{
 		Builder: Builder{
@@ -365,22 +365,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, pc []uintptr) xopbase.
 		},
 		Level:     level,
 		Timestamp: t,
-	}
-	if len(pc) > 0 {
-		// XXX move to logger.go
-		frames := runtime.CallersFrames(pc)
-		stack := make([]runtime.Frame, 0, len(pc))
-		for {
-			frame, more := frames.Next()
-			if !strings.Contains(frame.File, "runtime/") {
-				break
-			}
-			stack = append(stack, frame)
-			if !more {
-				break
-			}
-		}
-		line.Stack = stack
+		Stack:     frames,
 	}
 	for k, v := range p.Data {
 		line.Data[k] = v

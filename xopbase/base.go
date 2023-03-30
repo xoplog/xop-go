@@ -15,6 +15,7 @@ package xopbase
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -202,8 +203,12 @@ type Prefilling interface {
 type Prefilled interface {
 	// Line starts another line of log output.  Span implementations
 	// can expect multiple calls simultaneously and even during a call
-	// to SpanInfo() or Flush().  The []uintptr slice are stack frames.
-	Line(xopnum.Level, time.Time, []uintptr) Line
+	// to SpanInfo() or Flush().
+	//
+	// During replay, the stack frames may
+	// only include filenames and line numbers so base loggers cannot
+	// depend upon any other information being present in stack frames.
+	Line(xopnum.Level, time.Time, []runtime.Frame) Line
 }
 
 type Line interface {

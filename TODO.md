@@ -35,6 +35,8 @@
 
 # Just do it (build ready)
 
+- add stack filters / filename formatters
+
 - rename reactive to "hook"
 
 - missing tests (in set of cases)

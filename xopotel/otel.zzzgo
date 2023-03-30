@@ -215,7 +215,7 @@ func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 	}
 }
 
-func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, pc []uintptr) xopbase.Line {
+func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runtime.Frame) xopbase.Line {
 	if !prefilled.span.logger.doLogging || !prefilled.span.otelSpan.IsRecording() {
 		return xopbase.SkipLine
 	}
@@ -230,21 +230,13 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, pc []uintptr)
 	line.linkKey = prefilled.linkKey
 	line.linkValue = prefilled.linkValue
 	line.timestamp = ts
-	if len(pc) > 0 {
+	if len(frames) > 0 {
 		var b strings.Builder
-		frames := runtime.CallersFrames(pc)
-		for {
-			frame, more := frames.Next()
-			if strings.Contains(frame.File, "runtime/") {
-				break
-			}
+		for _, frame := range frames {
 			b.WriteString(frame.File)
 			b.WriteByte(':')
 			b.WriteString(strconv.Itoa(frame.Line))
 			b.WriteByte('\n')
-			if !more {
-				break
-			}
 		}
 		line.attributes = append(line.attributes, semconv.ExceptionStacktraceKey.String(b.String()))
 	}

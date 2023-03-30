@@ -85,6 +85,7 @@ type LogSettings struct {
 	redactAny                RedactAnyFunc
 	redactString             RedactStringFunc
 	redactError              RedactErrorFunc
+	stackFilenameRewrite     func(string) string
 }
 
 // String is for debugging purposes. It is not complete or preformant.
@@ -114,6 +115,7 @@ var DefaultSettings = func() LogSettings {
 	settings.stackFramesWanted[xopnum.ErrorLevel] = 10
 	settings.minimumLogLevel = xopnum.TraceLevel
 	settings.synchronousFlushWhenDone = true
+	settings.stackFilenameRewrite = func(s string) string { return s }
 	return settings
 }()
 
@@ -203,6 +205,23 @@ func (settings *LogSettings) StackFrames(level xopnum.Level, frameCount int) {
 			settings.stackFramesWanted[l] = frameCount
 		}
 	}
+}
+
+// StackFilenameRewrite is used to rewrite filenames in stack
+// traces. Generally this is used to eliminate path prefixes.
+// An empty return value indicates that the rest of the stack
+// trace should be discarded.
+func (sub *Sub) StackFilenameRewrite(f func(string) string) *Sub {
+	sub.settings.StackFilenameRewrite(f)
+	return sub
+}
+
+// StackFilenameRewrite is used to rewrite filenames in stack
+// traces. Generally this is used to eliminate path prefixes.
+// An empty return value indicates that the rest of the stack
+// trace should be discarded.
+func (settings *LogSettings) StackFilenameRewrite(f func(string) string) {
+	settings.stackFilenameRewrite = f
 }
 
 // SynchronousFlush sets the behavior for any Flush()
