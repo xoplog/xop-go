@@ -259,10 +259,15 @@ type replayLine struct {
 }
 
 func (x replayLine) Replay(ctx context.Context) error {
+	frames := make([]runtime.Frame, len(x.lineInput.StackFrames))
+	for i, frame := range x.lineInput.StackFrames {
+		frames[i].File = frame.File
+		frames[i].Line = int(frame.LineNumber)
+	}
 	line := x.span.NoPrefill().Line(
 		xopnum.Level(x.lineInput.LogLevel),
 		time.Unix(0, x.lineInput.Timestamp),
-		nil, // XXX todo
+		frames,
 	)
 	for _, attribute := range x.lineInput.Attributes {
 		switch attribute.Type {

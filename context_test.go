@@ -52,5 +52,10 @@ func TestCustomFromContext(t *testing.T) {
 	defer customLog.Done()
 	assert.NotEqual(t, Default, customLog, "logs are not equal")
 	assert.NotEqual(t, Default.Settings(), customLog.Settings(), "default settings")
-	assert.Equal(t, Default.Sub().PrefillText("banana").Log().Settings(), customLog.Settings(), "modified settings")
+	assert.Equal(t, noFilenameFunc(Default.Sub().PrefillText("banana").Log().Settings()), noFilenameFunc(customLog.Settings()), "modified settings")
+}
+
+func noFilenameFunc(settings LogSettings) LogSettings {
+	settings.StackFilenameRewrite(nil)
+	return settings
 }

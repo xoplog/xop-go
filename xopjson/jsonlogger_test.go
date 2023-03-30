@@ -59,7 +59,7 @@ type supersetObject struct {
 	Baggage       string `json:"trace.baggage"`
 }
 
-func TestASingleLine(t *testing.T) {
+func TestASingleLineJSON(t *testing.T) {
 	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
@@ -95,7 +95,7 @@ func TestASingleLine(t *testing.T) {
 	assert.Contains(t, lines[1], `"dur":"`)
 	assert.Contains(t, lines[1], `"span.ver":0`)
 	assert.Contains(t, lines[1], `"type":"request"`)
-	assert.Contains(t, lines[1], `"span.name":"TestASingleLine"`)
+	assert.Contains(t, lines[1], `"span.name":"TestASingleLineJSON"`)
 }
 
 func TestReplayJSON(t *testing.T) {

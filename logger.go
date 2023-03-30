@@ -554,7 +554,7 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 		frames := runtime.CallersFrames(ll.pc)
 		for {
 			frame, more := frames.Next()
-			if !strings.Contains(frame.File, "runtime/") {
+			if strings.Contains(frame.File, "/runtime/") {
 				break
 			}
 			frame.File = log.settings.stackFilenameRewrite(frame.File)

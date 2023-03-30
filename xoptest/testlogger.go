@@ -12,13 +12,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
+
+	"github.com/google/uuid"
+	"github.com/muir/list"
 )
 
 //go:generate enumer -type=EventType -linecomment -json -sql
@@ -369,7 +371,7 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 		},
 		Level:     level,
 		Timestamp: t,
-		Stack:     frames,
+		Stack:     list.Copy(frames),
 	}
 	for k, v := range p.Data {
 		line.Data[k] = v

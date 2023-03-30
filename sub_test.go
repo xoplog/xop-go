@@ -11,7 +11,7 @@ import (
 func TestLog_Settings(t *testing.T) {
 	defaultLog := Default
 	logSettings := defaultLog.Settings()
-	assert.Equal(t, DefaultSettings, logSettings)
+	assert.Equal(t, noFilenameFunc(DefaultSettings), noFilenameFunc(logSettings))
 }
 
 func TestSub_StackFrames(t *testing.T) {

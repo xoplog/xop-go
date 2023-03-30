@@ -5,6 +5,9 @@ package xopjson
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -766,6 +769,8 @@ func (x baseReplay) ReplayLines() error {
 	return nil
 }
 
+var lineRE = regexp.MustCompile(`^(.+):(\d+)$`)
+
 func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 	defer func() {
 		if err != nil {
@@ -776,10 +781,21 @@ func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 	if !ok {
 		return errors.Errorf("unknown span (%s)", lineInput.SpanID)
 	}
+	frames := make([]runtime.Frame, len(lineInput.Stack))
+	for i, s := range lineInput.Stack {
+		fmt.Println("XXX frame", s)
+		m := lineRE.FindStringSubmatch(s)
+		if m == nil {
+			return errors.Errorf("could not match stack line '%s'", s)
+		}
+		frames[i].File = m[1]
+		num, _ := strconv.ParseInt(m[2], 10, 64)
+		frames[i].Line = int(num)
+	}
 	line := span.NoPrefill().Line(
 		lineInput.Level,
 		lineInput.Timestamp.Time,
-		nil, // XXX TODO
+		frames,
 	)
 
 	for k, enc := range lineInput.Attributes {

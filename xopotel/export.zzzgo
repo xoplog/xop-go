@@ -3,7 +3,8 @@ package xopotel
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -248,6 +248,8 @@ const (
 	lineFormatTemplate
 )
 
+var lineRE = regexp.MustCompile(`^(.+):(\d+)$`)
+
 func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int32, error) {
 	level, err := xopnum.LevelString(event.Name)
 	var nameMessage string
@@ -255,19 +257,16 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 		level = xopnum.InfoLevel
 		nameMessage = event.Name
 	}
-	line := x.baseSpan.NoPrefill().Line(
-		level,
-		event.Time,
-		nil, // XXX todo stack
-	)
 	lineType := lineTypeLine
 	lineFormat := lineFormatDefault
 	var message string
 	var template string
 	var link xoptrace.Trace
 	var modelArg xopbase.ModelArg
+	var frames []runtime.Frame
 	x.sequenceNumber++
 	lineNumber := x.sequenceNumber
+	nonSpecial := make([]attribute.KeyValue, 0, len(event.Attributes))
 	for _, a := range event.Attributes {
 		switch a.Key {
 		case xopLineNumber:
@@ -348,19 +347,41 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 			} else {
 				return 0, errors.Errorf("invalid link data attribute type %s", a.Value.Type())
 			}
-		case semconv.ExceptionStacktraceKey:
-			// XXX TODO
-		default:
-			if x.xopSpan {
-				err := x.AddXopEventAttribute(ctx, event, a, line)
-				if err != nil {
-					return 0, errors.Wrapf(err, "add xop event attribute %s", string(a.Key))
+		case xopStackTrace:
+			if a.Value.Type() == attribute.STRINGSLICE {
+				raw := a.Value.AsStringSlice()
+				frames = make([]runtime.Frame, len(raw))
+				for i, s := range raw {
+					m := lineRE.FindStringSubmatch(s)
+					if m == nil {
+						return 0, errors.Errorf("could not match stack line '%s'", s)
+					}
+					frames[i].File = m[1]
+					num, _ := strconv.ParseInt(m[2], 10, 64)
+					frames[i].Line = int(num)
 				}
 			} else {
-				err := x.AddEventAttribute(ctx, event, a, line)
-				if err != nil {
-					return 0, errors.Wrapf(err, "add event attribute %s with type %s", string(a.Key), a.Value.Type())
-				}
+				return 0, errors.Errorf("invalid stack trace attribute type %s", a.Value.Type())
+			}
+		default:
+			nonSpecial = append(nonSpecial, a)
+		}
+	}
+	line := x.baseSpan.NoPrefill().Line(
+		level,
+		event.Time,
+		frames,
+	)
+	for _, a := range nonSpecial {
+		if x.xopSpan {
+			err := x.AddXopEventAttribute(ctx, event, a, line)
+			if err != nil {
+				return 0, errors.Wrapf(err, "add xop event attribute %s", string(a.Key))
+			}
+		} else {
+			err := x.AddEventAttribute(ctx, event, a, line)
+			if err != nil {
+				return 0, errors.Wrapf(err, "add event attribute %s with type %s", string(a.Key), a.Value.Type())
 			}
 		}
 	}
