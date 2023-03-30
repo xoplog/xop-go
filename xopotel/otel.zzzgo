@@ -27,17 +27,15 @@ func xopTraceFromSpan(span oteltrace.Span) xoptrace.Trace {
 	xoptrace.TraceID().SetArray(sc.TraceID())
 	xoptrace.SpanID().SetArray(sc.SpanID())
 	xoptrace.Flags().SetArray([1]byte{byte(sc.TraceFlags())})
-	xoptrace.Version().SetArray([1]byte{1})
+	// xoptrace.Version().SetArray([1]byte{0})
 	return xoptrace
 }
 
 // SpanLog allows xop to add logs to an existing OTEL span.  log.Done() will be
-// ignored for this span.
+// ignored for this span. SpanLog is not (yet) a full-fidelity base logger.
 func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
 	span := oteltrace.SpanFromContext(ctx)
 	xoptrace := xopTraceFromSpan(span)
-	fmt.Println("XXX SpanLog(1) OTEL trace", span.SpanContext().TraceID())
-	fmt.Println("XXX SpanLog(1) xoptrace", xoptrace)
 	tracer := span.TracerProvider().Tracer("xoputil")
 	log := xop.NewSeed(makeSeedModifier(ctx, tracer,
 		xop.WithTrace(xoptrace),
@@ -54,59 +52,6 @@ func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifie
 	}()
 	return log
 }
-
-/* XXX
-log := xop.NewSeed(
-	xop.CombineSeedModifiers(extraModifiers...),
-	xop.WithContext(ctx),
-	// The first time through, we do not want to change the spanID,
-	// but on subsequent calls, we do so the outer reactive function
-	// just sets the future function.
-	xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
-		span := oteltrace.SpanFromContext(ctx)
-		xoptrace := xopTraceFromSpan(span)
-		fmt.Println("XXX SpanLog(2) OTEL trace", span.SpanContext().TraceID())
-		fmt.Println("XXX SpanLog(2) reactive, xoptrace", xoptrace, "seed", seed)
-		return []xop.SeedModifier{
-			xop.WithTrace(xoptrace),
-			xop.WithReactiveReplaced(
-				func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
-					span := oteltrace.SpanFromContext(ctx)
-					xoptrace := xopTraceFromSpan(span)
-					fmt.Println("XXX SpanLog(3) OTEL trace", span.SpanContext().TraceID())
-					fmt.Println("XXX SpanLog(3) double reactive", "seed", seed)
-					var newSpan oteltrace.Span
-					// XXX add WithAttributes
-					// XXX add TraceState
-					// XXX add Bundle
-					if isChildSpan {
-						ctx, newSpan = span.TracerProvider().Tracer("").Start(overrideIntoContext(ctx, seed), nameOrDescription,
-							oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
-							oteltrace.WithAttributes(
-								xopVersion.String(xopVersionValue),
-								xopOTELVersion.String(xopotelVersionValue),
-							),
-							oteltrace.WithTimestamp(now),
-						)
-					} else {
-						ctx, newSpan = span.TracerProvider().Tracer("").Start(overrideIntoContext(ctx, seed), nameOrDescription,
-							oteltrace.WithSpanKind(oteltrace.SpanKindServer),
-							oteltrace.WithAttributes(
-								xopVersion.String(xopVersionValue),
-								xopOTELVersion.String(xopotelVersionValue),
-							),
-							oteltrace.WithTimestamp(now),
-						)
-					}
-					return []xop.SeedModifier{
-						xop.WithTrace(xoptrace),
-						xop.WithContext(ctx),
-						xop.WithSpan(newSpan.SpanContext().SpanID()),
-					}
-				}),
-		}
-	}),
-*/
 
 func (_ idGenerator) NewIDs(ctx context.Context) (oteltrace.TraceID, oteltrace.SpanID) {
 	override := overrideFromContext(ctx)
@@ -137,9 +82,7 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 		}),
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
-			otelSpan := oteltrace.SpanFromContext(ctx)
 			if isChildSpan {
-				fmt.Println("XXX BaseLogger(1) OTEL trace CHILD CONTEXT", otelSpan.SpanContext().TraceID(), otelSpan.SpanContext().SpanID())
 				// XXX add WithAttributes -- from seed
 				// XXX add TraceState
 				// XXX add Bundle
@@ -147,13 +90,11 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 					oteltrace.WithTimestamp(now),
 					oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
 				)
-				fmt.Println("XXX BaseLogger(1) OTEL trace CHILD", span.SpanContext().TraceID(), span.SpanContext().SpanID())
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
 				}
 			}
-			fmt.Println("XXX BaseLogger(1) OTEL trace REQUEST CONTEXT", otelSpan.SpanContext().TraceID(), otelSpan.SpanContext().SpanID())
 			si := seed.SourceInfo()
 			parentCtx := ctx
 			// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
@@ -173,22 +114,17 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 				opts = append(opts, oteltrace.WithNewRoot())
 			}
 			ctx, span := tracer.Start(overrideIntoContext(ctx, seed), nameOrDescription, opts...)
-			fmt.Println("XXX BaseLogger(1) OTEL trace REQUEST ", span.SpanContext().TraceID(), span.SpanContext().SpanID())
 			if bundle.Parent.IsZero() {
-				fmt.Println("XXX bundle parent is zero")
 				parentSpan := oteltrace.SpanFromContext(parentCtx)
 				if parentSpan.SpanContext().HasTraceID() {
 					bundle.Parent.Flags().SetArray([1]byte{byte(parentSpan.SpanContext().TraceFlags())})
 					bundle.Parent.TraceID().SetArray(parentSpan.SpanContext().TraceID())
 					bundle.Parent.SpanID().SetArray(parentSpan.SpanContext().SpanID())
-					fmt.Println("XXX set parent to", bundle.Parent)
 				}
 				bundle.State.SetString(span.SpanContext().TraceState().String())
 				bundle.Trace.Flags().SetArray([1]byte{byte(span.SpanContext().TraceFlags())})
 				bundle.Trace.TraceID().SetArray(span.SpanContext().TraceID())
 				bundle.Trace.SpanID().SetArray(span.SpanContext().SpanID())
-			} else {
-				fmt.Println("XXX bundle parent is not zero", bundle.Parent)
 			}
 			bundle.Trace.SpanID().SetArray(span.SpanContext().SpanID())
 			return []xop.SeedModifier{

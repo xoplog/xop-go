@@ -87,6 +87,15 @@ func ShortEquals(short string) SpanPredicate {
 	}
 }
 
+func NameEquals(name string) SpanPredicate {
+	return SpanPredicate{
+		f: func(span *Span) bool {
+			return span.Name == name
+		},
+		desc: "name equals " + name,
+	}
+}
+
 func (log *TestLogger) FindSpan(predicates ...SpanPredicate) *Span {
 Request:
 	for _, span := range log.Requests {

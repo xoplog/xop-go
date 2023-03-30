@@ -72,8 +72,8 @@ var cases = []struct {
 			log.Trace().Msg("sent response")
 		},
 		expectedText: []string{
-			"T1.1.1: request body={Name:Joe Count:38}",
-			"T1.1.1: received response=&{Score:3.8 Comment:good progress}",
+			`T1.1.1 MODEL:request {"Name":"Joe","Count":38}`,
+			`T1.1.1 MODEL:response {"Score":3.8,"Comment":"good progress"}`,
 		},
 	},
 }
@@ -116,7 +116,7 @@ func TestXopResty(t *testing.T) {
 
 			_, err := r.Get(ts.URL)
 
-			requestSpan := tLog.FindSpan(xoptest.ShortEquals("T1.1.1"))
+			requestSpan := tLog.FindSpan(xoptest.NameEquals("GET handler:GET"))
 
 			require.NotNil(t, requestSpan, "requestSpan")
 			assert.NotEmpty(t, requestSpan.EndTime, "client request span completed")
@@ -132,7 +132,7 @@ func TestXopResty(t *testing.T) {
 			assert.NoError(t, err, "Get")
 			assert.True(t, called, "handler called")
 
-			text := "T1.1.1: traceresponse http.remote_trace=" + farSideSpan.Bundle.Trace.String()
+			text := "T1.1.1 LINK:http.remote_trace " + farSideSpan.Bundle.Trace.String()
 			assert.Equalf(t, 1, tLog.CountLines(xoptest.TextContains(text)), "count lines with '%s'", text)
 
 			for _, text := range tc.expectedText {

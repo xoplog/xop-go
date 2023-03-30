@@ -437,6 +437,8 @@ const (
 	AttributeTypeTime     = AttributeType(xopproto.AttributeType_Time)
 )
 
+func (at AttributeType) String() string { return xopproto.AttributeType(at).String() }
+
 // DurationAttribute is a just an Int64Attribute that with
 // SubType() == AttributeTypeDuration.  A base logger may
 // look at SubType() to provide specialized behavior.
