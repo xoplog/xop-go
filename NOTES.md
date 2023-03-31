@@ -134,7 +134,7 @@ can have different required fields and associated value types.
 For example, the 'http' type can have: 'endpoint', 'path', 'method',
 'response-code' indexes and 'request-data', 'response-data' fields.
 
-Should this be enforced?  XXX how?
+Note: this is not enforced (yet)
 
 ## Span-level
 
