@@ -18,45 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	debugTlog  = true
-	debugTspan = true
-)
-
 type checkConfig struct {
 	minVersions         int
-	maxVersions         int
 	hasAttributesObject bool
-}
-
-type supersetObject struct {
-	// lines, spans, and requests
-
-	Timestamp  xoptestutil.TS         `json:"ts"`
-	Attributes map[string]interface{} `json:"attributes"`
-	SpanID     string                 `json:"span.id"`
-
-	// lines
-
-	Level  int      `json:"lvl"`
-	Stack  []string `json:"stack"`
-	Msg    string   `json:"msg"`
-	Format string   `json:"fmt"`
-
-	// requests & spans
-
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Duration    int64  `json:"dur"`
-	SpanVersion int    `json:"span.ver"`
-
-	// requests
-
-	Implmentation string `json:"impl"`
-	TraceID       string `json:"trace.id"`
-	ParentID      string `json:"parent.id"`
-	State         string `json:"trace.state"`
-	Baggage       string `json:"trace.baggage"`
 }
 
 func TestASingleLineJSON(t *testing.T) {
