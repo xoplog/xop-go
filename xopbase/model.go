@@ -18,17 +18,17 @@ type ModelArg struct {
 	// If specified, overrides what would be provided by reflect.TypeOf(obj).Name()
 	// Encoding and Encoded can be set for models that are already encoded. If they're
 	// set, then Model will be ignored.
-	Encoding xopproto.Encoding `json:"encoding"`
-	Encoded  []byte            `json:"v"`
-	TypeName string            `json:"modelType"` // XXX change to ModelType
-	Model    interface{}       `json:"-"`
+	Encoding  xopproto.Encoding `json:"encoding"`
+	Encoded   []byte            `json:"v"`
+	ModelType string            `json:"modelType"` // XXX change to ModelType
+	Model     interface{}       `json:"-"`
 	// TODO: extra fields for redacted models
 }
 
 // Calls to Encode are idempotent but not thread-safe
 func (m *ModelArg) Encode() {
-	if m.TypeName == "" && m.Model != nil {
-		m.TypeName = reflect.TypeOf(m.Model).String()
+	if m.ModelType == "" && m.Model != nil {
+		m.ModelType = reflect.TypeOf(m.Model).String()
 	}
 	if len(m.Encoded) != 0 {
 		return
@@ -94,7 +94,7 @@ var _ json.Unmarshaler = &ModelArg{}
 func (m ModelArg) MarshalJSON() ([]byte, error) {
 	m.Encode()
 	b := xoputil.JBuilder{
-		B:        make([]byte, 0, len(m.Encoded)+len(m.TypeName)+30),
+		B:        make([]byte, 0, len(m.Encoded)+len(m.ModelType)+30),
 		FastKeys: true,
 	}
 	b.AppendBytes([]byte(`{"v":`))
@@ -106,16 +106,16 @@ func (m ModelArg) MarshalJSON() ([]byte, error) {
 		b.AddSafeString(m.Encoding.String())
 	}
 	b.AppendBytes([]byte(`,"modelType":`))
-	b.AddString(m.TypeName)
+	b.AddString(m.ModelType)
 	b.AppendByte('}')
 	return b.B, nil
 }
 
 func (m *ModelArg) UnmarshalJSON(b []byte) error {
 	var decode struct {
-		Encoding xopproto.Encoding `json:"encoding"`
-		Encoded  json.RawMessage   `json:"v"`
-		TypeName string            `json:"modelType"`
+		Encoding  xopproto.Encoding `json:"encoding"`
+		Encoded   json.RawMessage   `json:"v"`
+		ModelType string            `json:"modelType"`
 	}
 	err := json.Unmarshal(b, &decode)
 	if err != nil {

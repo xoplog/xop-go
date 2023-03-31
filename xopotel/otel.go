@@ -275,7 +275,7 @@ func (line *line) Model(msg string, v xopbase.ModelArg) {
 	line.attributes = append(line.attributes,
 		logMessageKey.String(line.prefillMsg+msg),
 		typeKey.String("model"),
-		xopModelType.String(v.TypeName),
+		xopModelType.String(v.ModelType),
 		xopEncoding.String(v.Encoding.String()),
 		xopModel.String(string(v.Encoded)),
 	)
@@ -344,7 +344,7 @@ func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 func (builder *builder) Any(k string, v xopbase.ModelArg) {
 	v.Encode()
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String(), v.TypeName}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String(), v.ModelType}))
 }
 
 func (builder *builder) Time(k string, v time.Time) {

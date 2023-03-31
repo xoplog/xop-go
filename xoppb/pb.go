@@ -273,7 +273,7 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 	l.protoLine.Model = &xopproto.Model{}
 	v.Encode()
 	l.protoLine.Model.Encoded = v.Encoded
-	l.protoLine.Model.Type = v.TypeName
+	l.protoLine.Model.Type = v.ModelType
 	l.protoLine.Model.Encoding = v.Encoding
 	l.protoLine.LineKind = xopproto.LineKind_KindModel
 	l.protoLine.Message = k
@@ -301,7 +301,7 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 		Key:  k,
 		Type: xopproto.AttributeType_Any,
 		Value: &xopproto.AttributeValue{
-			StringValue: v.TypeName,
+			StringValue: v.ModelType,
 			BytesValue:  v.Encoded,
 			IntValue:    int64(v.Encoding),
 		},
@@ -415,7 +415,7 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	}
 	v.Encode()
 	setValue := func(value *xopproto.AttributeValue) {
-		value.StringValue = v.TypeName
+		value.StringValue = v.ModelType
 		value.BytesValue = v.Encoded
 		value.IntValue = int64(v.Encoding)
 	}
