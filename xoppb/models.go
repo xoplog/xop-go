@@ -25,28 +25,15 @@ type Writer interface {
 
 type Logger struct {
 	writer Writer
-	// fastKeys         bool
-	// durationFormat   DurationOption
-	// spanStarts       bool
-	// spanChangesOnly  bool
-	id uuid.UUID
-	// tagOption        TagOption
-	// requestCount     int64 // only incremented with tagOption == TraceSequenceNumberTagOption
-	// attributesObject bool
-	builderPool sync.Pool // filled with *builder
-	linePool    sync.Pool // filled with *line
-	// preallocatedKeys [100]byte
-	// durationKey      []byte
-	// stackLineRewrite func(string) string
-	// timeFormatter    TimeFormatter
-	// activeRequests   sync.WaitGroup
+	id     uuid.UUID
+	//builderPool sync.Pool // filled with *builder
+	//linePool    sync.Pool // filled with *line
 }
 
 type request struct {
 	span
 	errorCount           int32
 	errorFunc            func(error)
-	idNum                int64
 	alertCount           int32
 	sourceInfo           xopbase.SourceInfo
 	lines                []*xopproto.Line
@@ -77,7 +64,6 @@ type distinction struct {
 	mu         sync.Mutex
 	seenString map[string]struct{}
 	seenInt    map[int64]struct{}
-	seenUint   map[uint64]struct{}
 	seenFloat  map[float64]struct{}
 }
 
