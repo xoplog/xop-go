@@ -35,6 +35,16 @@ Expect the following changes at some point:
     - xopotel
     - xopresty
 
+- Additional base loggers are coming
+
+  A console logger is expected soon.
+
+- xoptest will split
+
+  xoptest will will morf into a introspection base logger and
+  logging to `*testing.T` will be accommodated with the new 
+  console logger.
+
 - Additional gateway base loggers will be written
 
   To make xop the best logging library for library writers, a full compliment

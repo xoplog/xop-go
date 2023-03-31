@@ -85,14 +85,6 @@ func (si SourceInfo) Size() int32 {
 	return int32(len(si.Source) + len(si.Namespace) + len(si.SourceVersion.String()) + len(si.NamespaceVersion.String()))
 }
 
-type RoundTripLogger interface {
-	Logger
-
-	// LosslessReplay is just like Replay but guarantees that no data
-	// is lost.
-	LosslessReplay(ctx context.Context, input any, logger Logger) error
-}
-
 type Request interface {
 	Span
 
