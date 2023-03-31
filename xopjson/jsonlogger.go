@@ -28,12 +28,17 @@ const (
 
 func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
-		writer:          w,
-		id:              uuid.New(),
-		timeFormatter:   defaultTimeFormatter,
-		attributeOption: AttributesDefinedAlways,
+		writer:           w,
+		id:               uuid.New(),
+		timeFormatter:    defaultTimeFormatter,
+		attributeOption:  AttributesDefinedAlways,
+		tagOption:        SpanSequenceTagOption | SpanIDTagOption,
+		spanStarts:       true,
+		attributesObject: true,
+		durationFormat:   AsNanos,
 	}
 	prealloc := xoputil.NewPrealloc(log.preallocatedKeys[:])
+	log.durationKey = prealloc.Pack(xoputil.BuildKey("dur"))
 	for _, f := range opts {
 		f(log, prealloc)
 	}

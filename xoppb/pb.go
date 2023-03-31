@@ -223,7 +223,7 @@ func (p *prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 	xoputil.AtomicMaxInt64(&p.span.endTime, t.UnixNano())
 	if level >= xopnum.ErrorLevel {
 		if level >= xopnum.AlertLevel {
-			_ = atomic.AddInt32(&p.span.request.alertCount, 1) // XXX move to logger and include in flush?
+			_ = atomic.AddInt32(&p.span.request.alertCount, 1) // TODO: move to logger and include in flush?
 		} else {
 			_ = atomic.AddInt32(&p.span.request.errorCount, 1)
 		}
@@ -287,16 +287,13 @@ func (l *line) Link(k string, v xoptrace.Trace) {
 	l.done()
 }
 
-func (b *builder) ReclaimMemory() {
-	// XXX
-}
+func (b *builder) ReclaimMemory() {}
 
 func (l *line) GetSpanID() xoptrace.HexBytes8 { return l.span.bundle.Trace.GetSpanID() }
 func (l *line) GetLevel() xopnum.Level        { return xopnum.Level(l.protoLine.LogLevel) }
 func (l *line) GetTime() time.Time            { return time.Unix(0, l.protoLine.Timestamp) }
 
-func (l *line) ReclaimMemory() {
-}
+func (l *line) ReclaimMemory() {}
 
 func (b *builder) Any(k string, v xopbase.ModelArg) {
 	v.Encode()

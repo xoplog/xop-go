@@ -126,6 +126,7 @@ const (
 	AsString                        // duration.String()
 )
 
+/* TODO: add back for xopjs
 // WithDuration specifies the format used for durations. If
 // set, durations will be recorded for spans and requests.  If not
 // set, durations explicitly recorded will be recoreded as nanosecond
@@ -136,6 +137,7 @@ func WithDuration(key string, durationFormat DurationOption) Option {
 		l.durationFormat = durationFormat
 	}
 }
+*/
 
 type TagOption int
 
@@ -147,6 +149,7 @@ const (
 	SpanSequenceTagOption           = 1 << iota // eg ".1.A"
 )
 
+/* TODO: add back for xopjs
 // WithSpanTags specifies how lines should reference the span that they're within.
 // The default is SpanSequenceTagOption if WithBufferedLines(true) is used
 // because in that sitatuion, there are other clues that can be used to
@@ -174,16 +177,19 @@ func WithSpanTags(tagOption TagOption) Option {
 		l.tagOption = tagOption
 	}
 }
+*/
 
 // WithSpanStarts controls logging of the start of spans and requests.
 // When false, span-level data is output only when when Done() is called.
-// Done() can be called more than once.
+// Done() can be called more than once. The default is that span starts
+// are logged.
 func WithSpanStarts(b bool) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
 		l.spanStarts = b
 	}
 }
 
+/* TODO add back for xopjs
 // WithSpanChangesOnly controls the data included when span-level and
 // request-level data is logged.  When true, only changed fields will
 // be output. When false, all data will be output at each call to Done().
@@ -192,6 +198,7 @@ func WithSpanChangesOnly(b bool) Option {
 		l.spanChangesOnly = b
 	}
 }
+*/
 
 func WithUncheckedKeys(b bool) Option {
 	return func(l *Logger, _ *xoputil.Prealloc) {
@@ -222,6 +229,7 @@ func WithAttributeDefinitions(ao AttributeOption) Option {
 	}
 }
 
+/* TODO: add back for xopjs
 // WithAttributesObject specifies if the user-defined
 // attributes on lines, spans, and requests should be
 // inside an "attributes" sub-object or part of the main
@@ -231,7 +239,9 @@ func WithAttributesObject(b bool) Option {
 		l.attributesObject = b
 	}
 }
+*/
 
+/* TODO: add back for xopjs
 // WithTimeFormatter specifies how time.Time should be
 // serialized to JSON.  The default is time.RFC3339Nano.
 //
@@ -243,6 +253,7 @@ func WithTimeFormatter(formatter TimeFormatter) Option {
 		l.timeFormatter = formatter
 	}
 }
+*/
 
 /*
 func WithGoroutineID(b bool) Option {

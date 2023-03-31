@@ -63,9 +63,7 @@ func TestASingleLineJSON(t *testing.T) {
 	var buffer xoputil.Buffer
 	jlog := xopjson.New(
 		xopbytes.WriteToIOWriter(&buffer),
-		xopjson.WithDuration("dur", xopjson.AsString),
-		xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-		xopjson.WithAttributesObject(true),
+		xopjson.WithSpanStarts(false),
 	)
 	log := xop.NewSeed(
 		xop.WithBase(jlog),
@@ -81,7 +79,12 @@ func TestASingleLineJSON(t *testing.T) {
 	s := buffer.String()
 	t.Log(s)
 	lines := strings.Split(buffer.String(), "\n")
-	require.Equal(t, 3, len(lines), "three lines")
+	if !assert.Equal(t, 3, len(lines), "line count") {
+		for i, line := range lines {
+			t.Logf("#%d: %s", i+1, line)
+		}
+		return
+	}
 	assert.Contains(t, lines[0], `"span.id":`)
 	assert.Contains(t, lines[0], `"attributes":{`)   // }
 	assert.Contains(t, lines[0], `"foo":{"v":"bar"`) // }
@@ -92,7 +95,7 @@ func TestASingleLineJSON(t *testing.T) {
 	assert.NotContains(t, lines[0], `"trace.id":`)
 	assert.NotContains(t, lines[1], `"stack":[`)
 	assert.Contains(t, lines[1], `"span.id":`)
-	assert.Contains(t, lines[1], `"dur":"`)
+	assert.Contains(t, lines[1], `"dur":`)
 	assert.Contains(t, lines[1], `"span.ver":0`)
 	assert.Contains(t, lines[1], `"type":"request"`)
 	assert.Contains(t, lines[1], `"span.name":"TestASingleLineJSON"`)
@@ -111,36 +114,16 @@ func TestReplayJSON(t *testing.T) {
 			name: "unbuffered/attributes",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(true),
-				// XXX xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-				xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
-				xopjson.WithAttributesObject(true),
 			},
 			checkConfig: checkConfig{
 				minVersions:         2,
 				hasAttributesObject: false,
 			},
 		},
-		/* XXX ?
-		{
-			name: "unbuffered/no-attributes",
-			joptions: []xopjson.Option{
-				xopjson.WithSpanStarts(true),
-				// XXX xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-				xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
-				xopjson.WithAttributesObject(false),
-			},
-			checkConfig: checkConfig{
-				minVersions:         2,
-				hasAttributesObject: false,
-			},
-		},
-		*/
 		{
 			name: "unsynced",
 			joptions: []xopjson.Option{
 				xopjson.WithSpanStarts(false),
-				xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
-				// XXX xopjson.WithSpanTags(xopjson.SpanIDTagOption),
 			},
 			settings: func(settings *xop.LogSettings) {
 				settings.SynchronousFlush(false)
@@ -162,10 +145,7 @@ func TestReplayJSON(t *testing.T) {
 				t.Run(mc.Name, func(t *testing.T) {
 					var buffer xoputil.Buffer
 					joptions := []xopjson.Option{
-						xopjson.WithDuration("dur", xopjson.AsNanos),
 						xopjson.WithSpanStarts(true),
-						xopjson.WithSpanTags(xopjson.SpanSequenceTagOption | xopjson.SpanIDTagOption),
-						xopjson.WithAttributesObject(true),
 						xopjson.WithAttributeDefinitions(xopjson.AttributesDefinedEachRequest),
 					}
 					joptions = append(joptions, tc.joptions...)
