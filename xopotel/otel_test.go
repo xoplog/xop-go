@@ -80,9 +80,6 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 					if jsonToo {
 						jLog := xopjson.New(
 							xopbytes.WriteToIOWriter(&jBuffer),
-							xopjson.WithDuration("dur", xopjson.AsString),
-							xopjson.WithSpanTags(xopjson.SpanIDTagOption),
-							xopjson.WithAttributesObject(true),
 						)
 
 						jExporter := xopotel.NewExporter(jLog)

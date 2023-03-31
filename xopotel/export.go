@@ -5,11 +5,13 @@ package xopotel
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/xoplog/xop-go/internal/util/version"
@@ -31,10 +33,13 @@ var (
 	_ sdktrace.SpanExporter = &unhack{}
 )
 
+var ErrShutdown = fmt.Errorf("Shutdown called")
+
 type spanExporter struct {
 	base           xopbase.Logger
 	orderedFinish  []orderedFinish
 	sequenceNumber int32
+	done           int32
 }
 
 type spanReplay struct {
@@ -113,6 +118,9 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 			return err
 		}
 		todo = append(todo, subSpans[i]...)
+		if atomic.LoadInt32(&e.done) == 1 {
+			return ErrShutdown
+		}
 	}
 	sort.Slice(e.orderedFinish, func(i, j int) bool {
 		return e.orderedFinish[i].num < e.orderedFinish[j].num
@@ -427,7 +435,7 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {
-	// XXX
+	atomic.StoreInt32(&e.done, 1)
 	return nil
 }
 

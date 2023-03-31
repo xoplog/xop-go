@@ -5,43 +5,26 @@ The format of the encoded JSON is a stream of mixed objects.
 
 Depending on options, the format of lines can vary significantly.
 
-Lines
+# Lines
 
-The JSON format of a line with WithAttributesInObject(false) is like:
-
-	{
-		"lvl": 9,
-		"ts": 49394393493,
-		"span.id": "34ec0b8ac9d65e91",
-		"stack": [
-			"some/file.go:382",
-			"some/other/file.go:102"
-		],
-		"prefilled": "prefilled attributes come first",
-		"user_attribute": "all in the main object",
-		"another_user_attribute": "line specific attributes come next",
-		"msg": "text given to the .Msg() method prepended with PrefillText"
-	}
-
-The JSON format of a line with WithAttributesInObject(false) is like:
+The JSON format of a line with WithAttributesInObject(false) is like (actual encoding w/o whitespace):
 
 	{
-		"lvl": 9,
-		"ts": 49394393493,
-		"span.id": "34ec0b8ac9d65e91",
+		"lvl": "alert",
+		"ts": "2023-03-30T21:27:36.901822-07:00",
 		"stack": [
-			"some/file.go:382",
-			"some/other/file.go:102"
+			"/Users/sharnoff/src/github.com/muir/xop-go/xopjson/jsonlogger_test.go:79",
+			"/usr/local/Cellar/go/1.20.1/libexec/src/testing/testing.go:1576"
 		],
+		"span.id":"e006cc70e2453480",
 		"attributes": {
-			"prefilled": "prefilled attributes are part of the attributes block",
-			"user_attribute": "all in the main object",
-			"another_user_attribute": "line specific attributes come next"
+			"foo": {"v":"bar","t":"s"},
+			"blast": {"v":99,"t":"i"}
 		},
-		"msg": "text given to the .Msg() method prepended with PrefillText"
+		"msg":"a test line"
 	}
 
-"lvl"`is the xopconst.Level number
+"lvl"`is the xopconst.Level logging level
 
 "ts" is a timestamp and it can be formatted various ways depending
 on the options used to create the xopjson.Logger.  The default
@@ -57,14 +40,19 @@ with .Template())
 
 Spans
 
-	{
-		"type": "span",
-		"name": "name provided by user creating span",
-		"trace_header": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00"
-		"span.id":
-		"dur": 82239222902,
-		"span.ver": 0,
-	}
+	        {
+			"type": "span",
+			"span.name": "a fork one span",
+			"ts": "2023-03-30T21:27:36.902446-07:00",
+			"span.parent_span": "70adac21637a869d",
+			"span.id": "193586833ecbd336",
+			"span.seq": ".A",
+			"span.ver":1,
+			"dur": 216000,
+			"attributes": {
+				"http.route":"/some/thing"
+			}
+		}
 
 Span.ver starts at zero.  The same span can be included in output more than once.  Each
 time the span is serialized, span.ver is incremented.  When a field is included in span
@@ -75,43 +63,31 @@ output, it replaces any previous value.  Only changed fields are guaranteed to b
 
 Requests
 
-	{
-		"type": "span",
-		"impl": "zop-go",
-		"name": "name provided by user creating span",
-		"request.id": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00",
-		"parent.id": "01-8a84c99x8230x29d8a84c99x8230x29d-8a84c99x8230x29d-00",
-		"trace.state": "vendor:key vendor2:key2",
-		"trace.baggage": "key:values,value key2:value1,value2"
-		"dur": 822392,
-	}
-
-Bufferes
-
-If WithBufferedLines is non-zero, then each buffer will being with a
-record like:
-
-	{
-		"zop": {
-			"type": "buffer_header",
-			"seq_no": 38
+	        {
+			"type": "request",
+			"trace.id": "045fbbb27fab63e80bdef127c35e9abe",
+			"span.id": "70adac21637a869d",
+			"span.name": "TestReplayJSON/unbuffered/attributes/one-span",
+			"ts": "2023-03-30T21:27:36.902242-07:00",
+			"source": "xopjson.test 0.0.0",
+			"ns": "xopjson.test 0.0.0",
+			"span.ver": 1,
+			"dur": 403000
 		}
-	}
 
-OversizeBuffers
+# Attribute Definitions
 
-If WithBufferedLines is non-zero and the an there is too much data
-too send because the buffer overflowed for one reason or another than
-overflow records will be written.  These look like:
+Attributes on spans and requests are defined before first use.
 
-	{
-		"xop": {
-			"type": "buffer_header",
-			"seq_no": 38,
-			"part": 2,
-			"parts_in_buffer": 3
+	        {
+			"type": "defineKey",
+			"key": "some-boolean-value",
+			"desc": "an example used in a test",
+			"ns": "test 0.0.0",
+			"prom": 0,
+			"locked": true,
+			"vtype": "Bool",
+			"span.id":"9291b0d415db0d3c"
 		}
-	}
-
 */
 package xopjson

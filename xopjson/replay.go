@@ -5,7 +5,6 @@ package xopjson
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -783,7 +782,6 @@ func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 	}
 	frames := make([]runtime.Frame, len(lineInput.Stack))
 	for i, s := range lineInput.Stack {
-		fmt.Println("XXX frame", s)
 		m := lineRE.FindStringSubmatch(s)
 		if m == nil {
 			return errors.Errorf("could not match stack line '%s'", s)
