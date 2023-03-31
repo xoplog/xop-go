@@ -20,7 +20,7 @@ type ModelArg struct {
 	// set, then Model will be ignored.
 	Encoding  xopproto.Encoding `json:"encoding"`
 	Encoded   []byte            `json:"v"`
-	ModelType string            `json:"modelType"` // XXX change to ModelType
+	ModelType string            `json:"modelType"`
 	Model     interface{}       `json:"-"`
 	// TODO: extra fields for redacted models
 }

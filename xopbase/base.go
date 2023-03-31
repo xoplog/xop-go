@@ -156,7 +156,7 @@ type Span interface {
 	// be marked as boring so that they're dropped at the indexing stage.
 	//
 	// Calls to Boring are single-threaded with respect to other calls to
-	// Boring.  XXX make true.
+	// Boring.  NOT YET IMPLEMENTED.
 	Boring(bool)
 
 	// ID must return the same string as the Logger it came from
