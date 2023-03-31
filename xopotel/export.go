@@ -312,7 +312,7 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 			}
 		case xopModelType:
 			if a.Value.Type() == attribute.STRING {
-				modelArg.TypeName = a.Value.AsString()
+				modelArg.ModelType = a.Value.AsString()
 			} else {
 				return 0, errors.Errorf("invalid model type attribute type %s", a.Value.Type())
 			}
@@ -615,7 +615,7 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace
 				return errors.Errorf("invalid model encoding '%s'", a.Value.AsString())
 			}
 			ma.Encoding = xopproto.Encoding(e)
-			ma.TypeName = slice[3]
+			ma.ModelType = slice[3]
 			line.Any(key, ma)
 		case "bool":
 		case "dur":
@@ -748,28 +748,28 @@ func (x baseSpanReplay) AddEventAttribute(ctx context.Context, event sdktrace.Ev
 	case attribute.BOOLSLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsBoolSlice()
-		ma.TypeName = toTypeSliceName["BOOL"]
+		ma.ModelType = toTypeSliceName["BOOL"]
 		line.Any(string(a.Key), ma)
 	case attribute.FLOAT64:
 		line.Float64(string(a.Key), a.Value.AsFloat64(), xopbase.Float64DataType)
 	case attribute.FLOAT64SLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsFloat64Slice()
-		ma.TypeName = toTypeSliceName["FLOAT64"]
+		ma.ModelType = toTypeSliceName["FLOAT64"]
 		line.Any(string(a.Key), ma)
 	case attribute.INT64:
 		line.Int64(string(a.Key), a.Value.AsInt64(), xopbase.Int64DataType)
 	case attribute.INT64SLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsInt64Slice()
-		ma.TypeName = toTypeSliceName["INT64"]
+		ma.ModelType = toTypeSliceName["INT64"]
 		line.Any(string(a.Key), ma)
 	case attribute.STRING:
 		line.String(string(a.Key), a.Value.AsString(), xopbase.StringDataType)
 	case attribute.STRINGSLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsStringSlice()
-		ma.TypeName = toTypeSliceName["STRING"]
+		ma.ModelType = toTypeSliceName["STRING"]
 		line.Any(string(a.Key), ma)
 
 	case attribute.INVALID:

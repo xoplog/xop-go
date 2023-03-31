@@ -44,7 +44,7 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 		want.AsModel.Encode()
 		got.AsModel.Encode()
 		assert.Equal(t, want.AsModel.Encoding, got.AsModel.Encoding, "encoding")
-		assert.Equal(t, want.AsModel.TypeName, got.AsModel.TypeName, "encoding")
+		assert.Equal(t, want.AsModel.ModelType, got.AsModel.ModelType, "model type")
 		assert.Equal(t, want.AsModel.Encoded, got.AsModel.Encoded, "encoded")
 	}
 	assert.Equal(t, want.Tmpl, got.Tmpl, "template")
@@ -64,7 +64,7 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 			wany.Encode()
 			gany.Encode()
 			assert.Equalf(t, wany.Encoding, gany.Encoding, "encoding %s", key)
-			assert.Equalf(t, wany.TypeName, gany.TypeName, "encoding %s", key)
+			assert.Equalf(t, wany.ModelType, gany.ModelType, "model type %s", key)
 			assert.Equalf(t, wany.Encoded, gany.Encoded, "encoded %s", key)
 		case xopbase.EnumDataType:
 			wenum := wdata.(xopat.Enum)
@@ -120,7 +120,7 @@ func verifyMetadataAny(t *testing.T, k string, want interface{}, got interface{}
 	w := want.(xopbase.ModelArg)
 	g := want.(xopbase.ModelArg)
 	assert.Equalf(t, w.Encoding.String(), g.Encoding.String(), "metadata any %s encoding", k)
-	assert.Equalf(t, w.TypeName, g.TypeName, "metadata any %s type name", k)
+	assert.Equalf(t, w.ModelType, g.ModelType, "metadata any %s model type", k)
 	assert.Equalf(t, string(w.Encoded), string(g.Encoded), "metadata any %s encoded", k)
 }
 

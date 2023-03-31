@@ -406,7 +406,7 @@ func (l *line) Model(k string, v xopbase.ModelArg) {
 		l.AddSafeString(v.Encoding.String())
 	}
 	l.AppendBytes([]byte(`,"type":"model","modelType":`))
-	l.AddString(v.TypeName)
+	l.AddString(v.ModelType)
 	l.AppendBytes([]byte(`,"msg":"`))
 	if len(l.prefillMsgPreEncoded) != 0 {
 		l.AppendBytes(l.prefillMsgPreEncoded)
@@ -507,7 +507,7 @@ func (b *builder) anyCommon(v xopbase.ModelArg) {
 		b.AddSafeString(v.Encoding.String())
 	}
 	b.AppendBytes([]byte(`,"modelType":`))
-	b.AddString(v.TypeName)
+	b.AddString(v.ModelType)
 }
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
@@ -620,7 +620,7 @@ func (b *builder) Duration(k string, v time.Duration) {
 }
 
 func (b *builder) AttributeDuration(v time.Duration) {
-	switch b.span.logger.durationFormat { // XXX
+	switch b.span.logger.durationFormat {
 	case AsNanos:
 		b.AddInt64(int64(v / time.Nanosecond))
 	case AsMicros:

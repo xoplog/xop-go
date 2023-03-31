@@ -29,18 +29,6 @@ On the reverse, set knownActive to 0 and then call Done(), etc.
 Try not to hold locks while calling things: make todo lists while
 holding the lock but then do the work w/o the lock.  
 
-## SpanModifiers and randomizing trace id / span id
-
-Generally speaking, we randomize span ids early.
-
-The usual sequence is 
-
-1. `Seed`
-2. `Request()` -> `log`
-2. `log.Sub().Fork().`
-
-XXX
-
 # Philosophy
 
 ## The problem with the existing model
@@ -51,7 +39,8 @@ a single server, lots of different spans, then how can you quickly reference the
 request-level span from one the sub-spans or one of the other requests that 
 is a child of the main request?  There is no standard way to distinguish a span
 that is simply a separate thread of execution or one that is a related
-request on a different server.
+request on a different server.  (Well, okay, Open Telemetry could be considered
+a standard, and it provides a way)
 
 The format of logs isn't easy to extend because there are is no meta-level or
 standard for what log fields mean.  The closest for this is the naming semantics

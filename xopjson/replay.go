@@ -841,7 +841,7 @@ func (x baseReplay) ReplayLine(lineInput decodedLine) (err error) {
 				return errors.Errorf("invalid encoding (%s) when decoding attribute", lineInput.Encoding)
 			}
 		}
-		ma.TypeName = lineInput.ModelType
+		ma.ModelType = lineInput.ModelType
 		line.Model(lineInput.Msg, ma)
 	default:
 		return errors.Errorf("unexpected type for line: %s", lineInput.Type)
@@ -896,7 +896,7 @@ func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k 
 				return errors.Errorf("invalid encoding (%s)", la.Encoding)
 			}
 		}
-		ma.TypeName = la.TypeName
+		ma.ModelType = la.TypeName
 		line.Any(k, ma)
 	case xopbase.StringDataType, xopbase.StringerDataType, xopbase.ErrorDataType:
 		s, ok := la.Value.(string)

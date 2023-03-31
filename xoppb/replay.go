@@ -217,9 +217,9 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 		}
 		for _, v := range attribute.Values {
 			x.span.MetadataAny(registeredAttribute, xopbase.ModelArg{
-				TypeName: v.StringValue,
-				Encoded:  v.BytesValue,
-				Encoding: xopproto.Encoding(v.IntValue),
+				ModelType: v.StringValue,
+				Encoded:   v.BytesValue,
+				Encoding:  xopproto.Encoding(v.IntValue),
 			})
 		}
 		return nil
@@ -342,9 +342,9 @@ func (x replayLine) Replay(ctx context.Context) error {
 			line.Uint64(attribute.Key, attribute.Value.UintValue, xopbase.DataType(attribute.Type))
 		case xopproto.AttributeType_Any:
 			line.Any(attribute.Key, xopbase.ModelArg{
-				TypeName: attribute.Value.StringValue,
-				Encoded:  attribute.Value.BytesValue,
-				Encoding: xopproto.Encoding(attribute.Value.IntValue),
+				ModelType: attribute.Value.StringValue,
+				Encoded:   attribute.Value.BytesValue,
+				Encoding:  xopproto.Encoding(attribute.Value.IntValue),
 			})
 		case xopproto.AttributeType_Bool:
 			var b bool
@@ -363,9 +363,9 @@ func (x replayLine) Replay(ctx context.Context) error {
 	switch {
 	case x.lineInput.Model != nil:
 		line.Model(x.lineInput.Message, xopbase.ModelArg{
-			TypeName: x.lineInput.Model.Type,
-			Encoded:  x.lineInput.Model.Encoded,
-			Encoding: x.lineInput.Model.Encoding,
+			ModelType: x.lineInput.Model.Type,
+			Encoded:   x.lineInput.Model.Encoded,
+			Encoding:  x.lineInput.Model.Encoding,
 		})
 	case x.lineInput.Link != "":
 		trace, ok := xoptrace.TraceFromString(x.lineInput.Link)
