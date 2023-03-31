@@ -71,6 +71,10 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 			genum := gdata.(xopat.Enum)
 			assert.Equalf(t, wenum.String(), genum.String(), "enum %s", key)
 			assert.Equalf(t, wenum.Int64(), genum.Int64(), "enum %s", key)
+		case xopbase.TimeDataType:
+			wtime := wdata.(time.Time)
+			gtime := gdata.(time.Time)
+			assert.Truef(t, wtime.Equal(gtime), "time equal %s vs %s", wtime, gtime)
 		default:
 			assert.Equal(t, wdata, gdata, "data")
 		}
