@@ -15,7 +15,10 @@ themselves known and discuss anything that comes up.
 Please open issues to start discussions around a subject.  Please feel free
 to open pull requests, especially to added base loggers or propagators.
 
-Expect the following changes at some point:
+Expect the following changes as development continues:
+
+- Log line keys (for key/value attributes) will become typed and 
+  pre-registered (cheap registrations, not complex)
 
 - API changes as additional features are added
 
@@ -25,12 +28,12 @@ Expect the following changes at some point:
 - Repo will split:
 
   So that users of xop are somewhat insulated from version changes,
-  the repo will split up.
+  the repo will split up into the following parts:
 
   - main xop top-level 
   - utility/support functions like xopat
   - xopbase (because it needs to be versioned separately)
-  - split out packages that have external dependencies
+  - split out packages that have external dependencies:
 
     - xopotel
     - xopresty
@@ -58,13 +61,16 @@ Expect the following changes at some point:
 - The full set of OpenTelemetry `semconv` (Semantic Conventions) to be imported
   into `xopconst` (or perhaps somewhere else).
 
+- Performance has been neglected for a while to focus on other things. Performance
+  will be a focus again.
+
 ## Historical context
 
 Observability code and technique is rapidly evolving.  The 
 [Open Telemetry](https://opentelemetry.io/)
-project is the focus of most of the energy now.  Until Open Telemetry 
+project is the focus of most of the energy now. Until Open Telemetry 
 releases a Go logger, there still isn't a well integrated logs and traces
-package.  
+package. 
 
 That is beginning to change.  There is now a 
 [Zap/OTEL integration](https://github.com/uptrace/opentelemetry-go-extra/tree/main/otelzap).
