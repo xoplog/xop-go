@@ -190,6 +190,8 @@ var macros = map[string]map[string]string{
 		"FLOAT64": "Float64",
 		"BOOL":    "Bool",
 	},
+	// Note: these map to base types, not exact types.  Exact types
+	// can be found in xopbase.StringToDataType
 	"DataTypeAbbreviations": {
 		"i":        "Int64",
 		"i8":       "Int64",
