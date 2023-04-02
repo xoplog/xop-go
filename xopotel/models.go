@@ -1,4 +1,3 @@
-// xopotel provides interconnection between OpenTelemetry and xop
 package xopotel
 
 import (
@@ -133,12 +132,6 @@ func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
 			}
 		}
 		spanContext := oteltrace.NewSpanContext(spanConfig)
-		if !bundle.State.IsZero() {
-			traceState, err := oteltrace.ParseTraceState(bundle.State.String())
-			if err == nil {
-				spanContext = spanContext.WithTraceState(traceState)
-			}
-		}
 		ctx = oteltrace.ContextWithSpanContext(ctx, spanContext)
 	}
 	return ctx
