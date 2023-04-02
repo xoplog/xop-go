@@ -53,8 +53,9 @@ const otelToo = true
 
 func TestOTELBaseLoggerReplay(t *testing.T) {
 	cases := []struct {
-		name  string
-		idGen bool
+		name        string
+		idGen       bool
+		useUnhacker bool
 	}{
 		{
 			name:  "baselogger-with-id",
@@ -63,6 +64,11 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 		{
 			name:  "baselogger-without-id",
 			idGen: false,
+		},
+		{
+			name:        "baselogger-with-unhacker-and-id",
+			idGen:       true,
+			useUnhacker: true,
 		},
 	}
 	for _, tc := range cases {
@@ -89,7 +95,12 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 					rLog := xoptest.New(t)
 					rLog.SetPrefix("REPLAY ")
 					exporter := xopotel.NewExporter(rLog)
-					tpo = append(tpo, sdktrace.WithBatcher(exporter))
+					if tc.useUnhacker {
+						unhacker := xopotel.NewUnhacker(exporter)
+						tpo = append(tpo, sdktrace.WithBatcher(unhacker))
+					} else {
+						tpo = append(tpo, sdktrace.WithBatcher(exporter))
+					}
 
 					var buffer xoputil.Buffer
 					if otelToo {
