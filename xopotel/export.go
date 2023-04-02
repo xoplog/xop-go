@@ -540,7 +540,6 @@ func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySp
 func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap aMap) xopbase.SourceInfo {
 	var si xopbase.SourceInfo
 	var source string
-	// XXX grab namespace from scope instead
 	if s := attributeMap.GetString(xopSource); s != "" {
 		source = s
 	} else if n := span.InstrumentationScope().Name; n != "" {

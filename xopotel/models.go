@@ -100,8 +100,9 @@ var xopLineNumber = attribute.Key("xop.lineNumber")
 var xopBaggage = attribute.Key("xop.baggage")
 var xopStackTrace = attribute.Key("xop.stackTrace")
 
-const xopVersionValue = "0.0.1"
-const xopotelVersionValue = "0.0.1"
+// TODO: find a better way to set this version string
+const xopVersionValue = "0.3.0"
+const xopotelVersionValue = xopVersionValue
 
 var xopPromotedMetadata = xopat.Make{Key: "xop.span-is-promoted", Namespace: "xopotel"}.BoolAttribute()
 
@@ -131,7 +132,14 @@ func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
 				spanConfig.TraceState = state
 			}
 		}
-		ctx = oteltrace.ContextWithSpanContext(ctx, oteltrace.NewSpanContext(spanConfig))
+		spanContext := oteltrace.NewSpanContext(spanConfig)
+		if !bundle.State.IsZero() {
+			traceState, err := oteltrace.ParseTraceState(bundle.State.String())
+			if err == nil {
+				spanContext = spanContext.WithTraceState(traceState)
+			}
+		}
+		ctx = oteltrace.ContextWithSpanContext(ctx, spanContext)
 	}
 	return ctx
 }

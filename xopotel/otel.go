@@ -68,9 +68,22 @@ func (_ idGenerator) NewSpanID(ctx context.Context, _ oteltrace.TraceID) oteltra
 
 // BaseLogger provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
 // so that xop logs are output through the OTEL Tracer.
+//
+// As of the writing of this comment, the Open Telemetry Go library does not support
+// logging so to use it for logging purposes, log lines are sent as span "Events".
+//
+// The recommended way to create a TracerProvider includes using WithBatcher to
+// control the flow of data to SpanExporters.  The default configuration for the Batcher
+// limits spans to 128 Events each. It imposes other limits too but the default event
+// limit is the one that is likely to be hit with even modest usage.
 func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider) xop.SeedModifier {
-	// XXX add WIthInstrumentationAttributes
-	tracer := traceProvider.Tracer("xopoptel")
+	tracer := traceProvider.Tracer("xopotel",
+		oteltrace.WithInstrumentationAttributes(
+			xopOTELVersion.String(xopotelVersionValue),
+			xopVersion.String(xopVersionValue),
+		),
+		oteltrace.WithInstrumentationVersion(xopotelVersionValue),
+	)
 	return makeSeedModifier(ctx, tracer)
 }
 
@@ -84,9 +97,6 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
 			if isChildSpan {
-				// XXX add WithAttributes -- from seed
-				// XXX add TraceState
-				// XXX add Bundle
 				ctx, span := tracer.Start(overrideIntoContext(ctx, seed), nameOrDescription,
 					oteltrace.WithTimestamp(now),
 					oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
@@ -98,8 +108,6 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 			}
 			si := seed.SourceInfo()
 			parentCtx := ctx
-			// TODO: use runtime/debug ReadBuildInfo to get the version of xoputil
-			// XXX add WithAttributes -- from seed
 			opts := []oteltrace.SpanStartOption{
 				oteltrace.WithAttributes(
 					xopVersion.String(xopVersionValue),
