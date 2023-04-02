@@ -294,6 +294,8 @@
 
 # Not build ready 
 
+- find a better way to discover own version.  debug.BuildInfo doesn't seem to work
+
 - benchmarking
 
   Aside from building basic benchmarking (separate item)...  
