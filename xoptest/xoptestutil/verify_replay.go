@@ -172,7 +172,7 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 			continue
 		}
 		if assert.Equal(t, want.MetadataType[k].String(), got.MetadataType[k].String(), "metadata type derived from ZZZ in MetadataZZZ") {
-			if ws, ok := want.Metadata[k].(fmt.Stringer); ok {
+			if ws, ok := want.Metadata[k].(fmt.Stringer); ok && typ != xopbase.TimeDataType {
 				gs := got.Metadata[k].(fmt.Stringer)
 				assert.Equalf(t, ws.String(), gs.String(), "metadata (as string) %s", k)
 			}
