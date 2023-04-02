@@ -401,15 +401,16 @@ var MessageCases = []struct {
 	{
 		Name: "lots-of-types",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.TestLogger) {
-			p := log.Sub().PrefillInt("int", 439).PrefillInt8("int8", 82).PrefillInt16("int16", 829).
-				PrefillInt32("int32", 4328).PrefillInt64("int64", -2382).
-				PrefillUint("uint", 439).PrefillUint8("uint8", 82).PrefillUint16("uint16", 829).
-				PrefillUint32("uint32", 4328).PrefillUint64("uint64", 2382).
-				PrefillString("foo", "bar").PrefillBool("on/off", true).
-				PrefillString("needsEscaping", NeedsEscaping).
-				PrefillFloat32("f32", 92.2).
-				PrefillFloat64("f64", 292.1).
-				PrefillAny("anyhow", map[string]interface{}{"x": "y", "z": 19}).
+			p := log.Sub().PrefillInt("pfint", 439).PrefillInt8("pfint8", 82).PrefillInt16("pfint16", 829).
+				PrefillInt32("pfint32", 4328).PrefillInt64("pfint64", -2382).
+				PrefillUint("pfuint", 439).PrefillUint8("pfuint8", 82).PrefillUint16("pfuint16", 829).
+				PrefillUint32("pfuint32", 4328).PrefillUint64("pfuint64", 2382).
+				PrefillUintptr("pfuintptr", 28).
+				PrefillString("pffoo", "bar").PrefillBool("pfon/off", true).
+				PrefillString("pfneedsEscaping", NeedsEscaping).
+				PrefillFloat32("pff32", 92.2).
+				PrefillFloat64("pff64", 292.1).
+				PrefillAny("pfanyhow", map[string]interface{}{"x": "y", "z": 19}).
 				PrefillEnum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				PrefillEmbeddedEnum(LockedEEnumTwo).
 				Log()
@@ -417,6 +418,7 @@ var MessageCases = []struct {
 				Int32("int32", 4328).Int64("int64", -2382).
 				Uint("uint", 439).Uint8("uint8", 82).Uint16("uint16", 829).
 				Uint32("uint32", 4328).Uint64("uint64", 2382).
+				Uintptr("uintptr", 38022).
 				String("foo", "bar").Bool("on/off", true).
 				String("needsEscaping2", NeedsEscaping).
 				Float32("f32", 92.2).
