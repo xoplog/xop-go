@@ -92,9 +92,10 @@ func SeedModifier(ctx context.Context, traceProvider oteltrace.TracerProvider) x
 func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifiers ...xop.SeedModifier) xop.SeedModifier {
 	modifiers := []xop.SeedModifier{
 		xop.WithBase(&logger{
-			id:        "otel-" + uuid.New().String(),
-			doLogging: true,
-			tracer:    tracer,
+			id:              "otel-" + uuid.New().String(),
+			doLogging:       true,
+			tracer:          tracer,
+			spanFromContext: true,
 		}),
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, ts time.Time) []xop.SeedModifier {
@@ -152,9 +153,10 @@ func BaseLogger(traceProvider oteltrace.TracerProvider) xopbase.Logger {
 		oteltrace.WithInstrumentationVersion(xopotelVersionValue),
 	)
 	return &logger{
-		id:        "otel-" + uuid.New().String(),
-		doLogging: true,
-		tracer:    tracer,
+		id:              "otel-" + uuid.New().String(),
+		doLogging:       true,
+		tracer:          tracer,
+		spanFromContext: false,
 	}
 }
 
@@ -184,7 +186,12 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 }
 
 func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	ctx, otelSpan := buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer)
+	var otelSpan oteltrace.Span
+	if logger.spanFromContext {
+		otelSpan = oteltrace.SpanFromContext(ctx)
+	} else {
+		ctx, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer)
+	}
 	r := &request{
 		span: &span{
 			logger:   logger,
@@ -221,7 +228,12 @@ func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, descri
 }
 
 func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
-	ctx, otelSpan := buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer)
+	var otelSpan oteltrace.Span
+	if parentSpan.logger.spanFromContext {
+		otelSpan = oteltrace.SpanFromContext(ctx)
+	} else {
+		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer)
+	}
 	s := &span{
 		logger:   parentSpan.logger,
 		otelSpan: otelSpan,

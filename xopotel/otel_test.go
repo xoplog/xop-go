@@ -71,6 +71,10 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 			idGen: true,
 		},
 		{
+			name:  "baselogger-without-id",
+			idGen: false,
+		},
+		{
 			name:        "baselogger-with-unhacker-and-id",
 			idGen:       true,
 			useUnhacker: true,
