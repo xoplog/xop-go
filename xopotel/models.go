@@ -21,10 +21,11 @@ const attributeDefinitionPrefix = "xop.defineKey."
 const xopSynthesizedForOTEL = "xopotel-shim type"
 
 type logger struct {
-	tracer     oteltrace.Tracer
-	id         string
-	doLogging  bool
-	ignoreDone oteltrace.Span
+	tracer          oteltrace.Tracer
+	id              string
+	doLogging       bool
+	ignoreDone      oteltrace.Span
+	spanFromContext bool
 }
 
 type request struct {
