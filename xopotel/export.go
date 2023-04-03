@@ -86,11 +86,11 @@ type wrappedReadOnlySpan struct {
 	links []sdktrace.Link
 }
 
-// NewExporter allows open telementry spans to be exported through
+// ExportToXOP allows open telementry spans to be exported through
 // a xopbase.Logger. If the open telementry spans were generated
 // originally using xoputil, then the exported data should almost
 // exactly match the original inputs.
-func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
+func ExportToXOP(base xopbase.Logger) sdktrace.SpanExporter {
 	return &spanExporter{base: base}
 }
 

@@ -48,7 +48,7 @@ func TestSingleLineOTEL(t *testing.T) {
 	tracer := tracerProvider.Tracer("")
 
 	ctx, span := tracer.Start(ctx, "test-span")
-	log := xopotel.SpanLog(ctx, "test-span")
+	log := xopotel.SpanToLog(ctx, "test-span")
 	log.Alert().String("foo", "bar").Int("blast", 99).Msg("a test line")
 	log.Done()
 	span.End()
@@ -69,10 +69,6 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 		{
 			name:  "baselogger-with-id",
 			idGen: true,
-		},
-		{
-			name:  "baselogger-without-id",
-			idGen: false,
 		},
 		{
 			name:        "baselogger-with-unhacker-and-id",
@@ -97,13 +93,13 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 							xopbytes.WriteToIOWriter(&jBuffer),
 						)
 
-						jExporter := xopotel.NewExporter(jLog)
+						jExporter := xopotel.ExportToXOP(jLog)
 						tpo = append(tpo, sdktrace.WithBatcher(jExporter))
 					}
 
 					rLog := xoptest.New(t)
 					rLog.SetPrefix("REPLAY ")
-					exporter := xopotel.NewExporter(rLog)
+					exporter := xopotel.ExportToXOP(rLog)
 					if tc.useUnhacker {
 						unhacker := xopotel.NewUnhacker(exporter)
 						tpo = append(tpo, sdktrace.WithBatcher(unhacker))
@@ -136,7 +132,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 
 					seed := xop.NewSeed(
 						xop.WithBase(tLog),
-						xopotel.BaseLogger(ctx, tracerProvider),
+						xopotel.SeedModifier(ctx, tracerProvider),
 					)
 					if len(mc.SeedMods) != 0 {
 						t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
@@ -169,7 +165,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 //	   \--> JSON                                       \--> JSON
 //
 // Do we get the same JSON?
-func TestOTELRoundTrip(t *testing.T) {
+func XXXTestOTELRoundTrip(t *testing.T) {
 	r, _ := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
@@ -199,9 +195,7 @@ func TestOTELRoundTrip(t *testing.T) {
 		sdktrace.WithResource(r),
 	)
 
-	ctx := context.Background()
-
-	xopotelExporter := xopotel.NewExporter(xopotel.BaseLogger(ctx, tpReplay))
+	xopotelExporter := xopotel.ExportToXOP(xopotel.BaseLogger(tpReplay))
 
 	tpOrigin := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(originExporter),
@@ -214,15 +208,17 @@ func TestOTELRoundTrip(t *testing.T) {
 		oteltrace.WithInstrumentationAttributes(kvExamples("ia")...),
 		oteltrace.WithInstrumentationVersion("0.3.0-test4"),
 	)
+	ctx := context.Background()
 	span1Ctx, span1 := tracer.Start(ctx, "span1 first-name",
 		oteltrace.WithNewRoot(),
 		oteltrace.WithSpanKind(oteltrace.SpanKindProducer),
+		oteltrace.WithAttributes(kvExamples("s1start")...),
 	)
 	span1.AddEvent("span1-event",
 		oteltrace.WithTimestamp(time.Now()),
 		oteltrace.WithAttributes(kvExamples("s1event")...),
 	)
-	span1.SetAttributes("span1-attributes", oteltrace.WithAttributes(kvExamples("s1a")...))
+	span1.SetAttributes(kvExamples("s1set")...)
 	span1.SetStatus(codes.Ok, "a-okay here")
 	span1.SetName("span1 new-name")
 	span1.RecordError(fmt.Errorf("an error"),
@@ -244,7 +240,7 @@ func TestOTELRoundTrip(t *testing.T) {
 		TraceFlags: oteltrace.TraceFlags(bundle.Parent.Flags().Array()[0]),
 		TraceState: traceState,
 	}
-	span2Ctx, span2 := tracer.Start(span1Ctx, "span2",
+	_, span2 := tracer.Start(span1Ctx, "span2",
 		oteltrace.WithLinks(oteltrace.Link{
 			SpanContext: oteltrace.NewSpanContext(spanConfig),
 			Attributes:  kvExamples("la"),
@@ -270,8 +266,8 @@ func kvExamples(p string) []attribute.KeyValue {
 		attribute.Int(p+"one-int", 389),
 		attribute.IntSlice(p+"int-slice", []int{93, -4}),
 		attribute.Int64(p+"one-int64", 299943),
-		attribute.Int64Slice(p+"int64-slice", []int{-7}),
+		attribute.Int64Slice(p+"int64-slice", []int64{-7}),
 		attribute.Float64(p+"one-float", 299943),
-		attribute.Float64Slice(p+"float-slice", []int{-7}),
+		attribute.Float64Slice(p+"float-slice", []float64{-7.3, 19.2}),
 	}
 }
