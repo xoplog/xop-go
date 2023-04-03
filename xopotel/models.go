@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
@@ -111,8 +110,7 @@ type overrideContextKeyType struct{}
 
 var overrideContextKey = overrideContextKeyType{}
 
-func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
-	bundle := seed.Bundle()
+func overrideIntoContext(ctx context.Context, bundle xoptrace.Bundle) context.Context {
 	override := &idOverride{
 		valid:   1,
 		traceID: bundle.Trace.GetTraceID(),
