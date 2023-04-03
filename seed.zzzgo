@@ -2,7 +2,6 @@ package xop
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -137,6 +136,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 		spanSeed: spanSeed{
 			config:      DefaultConfig,
 			traceBundle: xoptrace.NewBundle(),
+			ctx:         context.Background(),
 		},
 		settings: DefaultSettings,
 	}

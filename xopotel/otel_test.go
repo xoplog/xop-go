@@ -62,22 +62,29 @@ const otelToo = true
 
 func TestOTELBaseLoggerReplay(t *testing.T) {
 	cases := []struct {
-		name        string
-		idGen       bool
-		useUnhacker bool
+		name          string
+		idGen         bool
+		useUnhacker   bool
+		useBaseLogger bool
 	}{
 		{
-			name:  "baselogger-with-id",
+			name:  "seedModifier-with-id",
 			idGen: true,
 		},
 		{
-			name:  "baselogger-without-id",
+			name:  "seedModifier-without-id",
 			idGen: false,
 		},
 		{
-			name:        "baselogger-with-unhacker-and-id",
+			name:        "seedModifier-with-unhacker-and-id",
 			idGen:       true,
 			useUnhacker: true,
+		},
+		{
+			name:          "baselogger",
+			idGen:         true,
+			useUnhacker:   false,
+			useBaseLogger: true,
 		},
 	}
 	for _, tc := range cases {
@@ -134,10 +141,18 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 
 					tLog := xoptest.New(t)
 
-					seed := xop.NewSeed(
-						xop.WithBase(tLog),
-						xopotel.SeedModifier(ctx, tracerProvider),
-					)
+					var seed xop.Seed
+					if tc.useBaseLogger {
+						seed = xop.NewSeed(
+							xop.WithBase(tLog),
+							xop.WithBase(xopotel.BaseLogger(tracerProvider)),
+						)
+					} else {
+						seed = xop.NewSeed(
+							xop.WithBase(tLog),
+							xopotel.SeedModifier(ctx, tracerProvider),
+						)
+					}
 					if len(mc.SeedMods) != 0 {
 						t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
 						seed = seed.Copy(mc.SeedMods...)
