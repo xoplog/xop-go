@@ -177,7 +177,7 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 	}
 	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
 	if !bundle.Baggage.IsZero() {
-		otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
+		otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String())) 
 	}
 	return ctx, otelSpan
 }
@@ -210,11 +210,11 @@ func (span *span) Done(endTime time.Time, final bool) {
 	if !final {
 		return
 	}
-	if span.logger.ignoreDone == span.otelSpan {
+	if span.logger.ignoreDone == span.otelSpan { // XXX
 		// skip Done for spans passed in to SpanLog()
 		return
 	}
-	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
+	span.otelSpan.end(endTime) 
 }
 
 func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, tracer oteltrace.Tracer) (context.Context, oteltrace.Span) {
@@ -238,7 +238,7 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 		request:  parentSpan.request,
 	}
 	if spanSequenceCode != "" {
-		otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
+		otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode)) 
 	}
 	return s
 }
@@ -267,7 +267,7 @@ func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 }
 
 func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runtime.Frame) xopbase.Line {
-	if !prefilled.span.logger.doLogging || !prefilled.span.otelSpan.IsRecording() {
+	if !prefilled.span.logger.doLogging || !prefilled.span.otelSpan.IsRecording() 
 		return xopbase.SkipLine
 	}
 	// PERFORMANCE: get line from a pool
@@ -340,9 +340,7 @@ func (line *line) Msg(msg string) {
 
 func (line *line) done() {
 	line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
-	line.span.otelSpan.AddEvent(line.level.String(),
-		oteltrace.WithTimestamp(line.timestamp),
-		oteltrace.WithAttributes(line.attributes...))
+	line.span.otelSpan.addEvent(line.level.String(), line.timestamp, line.attributes)
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -430,7 +428,7 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
 		if k.Description() != xopSynthesizedForOTEL {
-			span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+			span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString())) 
 			span.request.attributesDefined[key] = struct{}{}
 		}
 	}
@@ -483,9 +481,9 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 			span.hasPrior[key] = struct{}{}
 		}
 		//CONDITIONAL ONLY:Enum,Time,String,Any,Link
-		span.otelSpan.SetAttributes(attribute.String(key, value))
+		span.otelSpan.SetAttributes(attribute.String(key, value)) 
 		//ELSE CONDITIONAL
-		span.otelSpan.SetAttributes(attribute.ZZZ(key, value))
+		span.otelSpan.SetAttributes(attribute.ZZZ(key, value)) 
 		//END CONDITIONAL
 		return
 	}
