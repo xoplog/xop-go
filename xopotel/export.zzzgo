@@ -27,7 +27,6 @@ import (
 )
 
 var _ sdktrace.SpanExporter = &spanExporter{}
-var _ sdktrace.SpanExporter = &unhack{}
 
 var ErrShutdown = fmt.Errorf("Shutdown called")
 
@@ -41,7 +40,7 @@ type spanExporter struct {
 type spanReplay struct {
 	*spanExporter
 	id2Index map[oteltrace.SpanID]int
-	spans    []sdktrace.ReadOnlySpan
+	spans    []ReadOnlySpan
 	subSpans [][]int
 	data     []*datum
 }
@@ -69,17 +68,12 @@ type orderedFinish struct {
 type baseSpanReplay struct {
 	spanReplay
 	*datum
-	span sdktrace.ReadOnlySpan
+	span ReadOnlySpan
 }
 
 type decodeAttributeDefinition struct {
 	xopat.Make
 	AttributeType xopproto.AttributeType `json:"vtype"`
-}
-
-type wrappedReadOnlySpan struct {
-	sdktrace.ReadOnlySpan
-	links []sdktrace.Link
 }
 
 // ExportToXOP allows open telementry spans to be exported through
@@ -91,6 +85,14 @@ func ExportToXOP(base xopbase.Logger) sdktrace.SpanExporter {
 }
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) (err error) {
+	s := make([]ReadOnlySpan, len(spans))
+	for i, span := range spans {
+		s[i] = span
+	}
+	return e.exportSpans(ctx, s)
+}
+
+func (e *spanExporter) exportSpans(ctx context.Context, spans []ReadOnlySpan) (err error) {
 	id2Index := makeIndex(spans)
 	subSpans, todo := makeSubspans(id2Index, spans)
 	x := spanReplay{
@@ -127,7 +129,7 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 	return nil
 }
 
-func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) error {
+func (x spanReplay) Replay(ctx context.Context, span ReadOnlySpan, data *datum, myIndex int) error {
 	var bundle xoptrace.Bundle
 	spanContext := span.SpanContext()
 	if spanContext.HasTraceID() {
@@ -439,64 +441,7 @@ type unhack struct {
 	next sdktrace.SpanExporter
 }
 
-// NewUnhacker wraps a SpanExporter and if the input is from BaseLogger or SpanLog,
-// then it "fixes" the data hack in the output that puts inter-span links in sub-spans
-// rather than in the span that defined them.
-func NewUnhacker(exporter sdktrace.SpanExporter) sdktrace.SpanExporter {
-	return &unhack{next: exporter}
-}
-
-func (u *unhack) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
-	// TODO: fix up SpanKind if spanKind is one of the attributes
-	id2Index := makeIndex(spans)
-	subLinks := make([][]sdktrace.Link, len(spans))
-	for i, span := range spans {
-		parentIndex, ok := lookupParent(id2Index, span)
-		if !ok {
-			continue
-		}
-		var addToParent bool
-		for _, attribute := range span.Attributes() {
-			switch attribute.Key {
-			case spanIsLinkAttributeKey, spanIsLinkEventKey:
-				spans[i] = nil
-				addToParent = true
-			}
-		}
-		if !addToParent {
-			continue
-		}
-		subLinks[parentIndex] = append(subLinks[parentIndex], span.Links()...)
-	}
-	n := make([]sdktrace.ReadOnlySpan, 0, len(spans))
-	for i, span := range spans {
-		span := span
-		switch {
-		case len(subLinks[i]) > 0:
-			n = append(n, wrappedReadOnlySpan{
-				ReadOnlySpan: span,
-				links:        append(list.Copy(span.Links()), subLinks[i]...),
-			})
-		case span == nil:
-			// skip
-		default:
-			n = append(n, span)
-		}
-	}
-	return u.next.ExportSpans(ctx, n)
-}
-
-func (u *unhack) Shutdown(ctx context.Context) error {
-	return u.next.Shutdown(ctx)
-}
-
-var _ sdktrace.ReadOnlySpan = wrappedReadOnlySpan{}
-
-func (w wrappedReadOnlySpan) Links() []sdktrace.Link {
-	return w.links
-}
-
-func makeIndex(spans []sdktrace.ReadOnlySpan) map[oteltrace.SpanID]int {
+func makeIndex(spans []ReadOnlySpan) map[oteltrace.SpanID]int {
 	id2Index := make(map[oteltrace.SpanID]int)
 	for i, span := range spans {
 		spanContext := span.SpanContext()
@@ -507,7 +452,7 @@ func makeIndex(spans []sdktrace.ReadOnlySpan) map[oteltrace.SpanID]int {
 	return id2Index
 }
 
-func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan) (int, bool) {
+func lookupParent(id2Index map[oteltrace.SpanID]int, span ReadOnlySpan) (int, bool) {
 	parent := span.Parent()
 	if !parent.HasSpanID() {
 		return 0, false
@@ -519,7 +464,7 @@ func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan)
 	return parentIndex, true
 }
 
-func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) ([][]int, []int) {
+func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []ReadOnlySpan) ([][]int, []int) {
 	ss := make([][]int, len(spans))
 	noParent := make([]int, 0, len(spans))
 	for i, span := range spans {
@@ -533,7 +478,7 @@ func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySp
 	return ss, noParent
 }
 
-func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap aMap) xopbase.SourceInfo {
+func buildSourceInfo(span ReadOnlySpan, attributeMap aMap) xopbase.SourceInfo {
 	var si xopbase.SourceInfo
 	var source string
 	if s := attributeMap.GetString(xopSource); s != "" {

@@ -26,6 +26,7 @@ type logger struct {
 	doLogging       bool
 	ignoreDone      oteltrace.Span
 	spanFromContext bool
+	bypass          bool
 }
 
 type request struct {
@@ -35,7 +36,7 @@ type request struct {
 }
 
 type span struct {
-	otelSpan           oteltrace.Span
+	otelSpan           otelSpanWrap
 	logger             *logger
 	request            *request
 	ctx                context.Context
@@ -119,21 +120,28 @@ func overrideIntoContext(ctx context.Context, bundle xoptrace.Bundle) context.Co
 	}
 	ctx = context.WithValue(ctx, overrideContextKey, override)
 	if !bundle.Parent.IsZero() || !bundle.State.IsZero() {
-		spanConfig := oteltrace.SpanContextConfig{
-			TraceID:    bundle.Parent.TraceID().Array(),
-			SpanID:     bundle.Parent.SpanID().Array(),
-			TraceFlags: oteltrace.TraceFlags(bundle.Parent.Flags().Array()[0]),
-		}
-		if !bundle.State.IsZero() {
-			state, err := oteltrace.ParseTraceState(bundle.State.String())
-			if err == nil {
-				spanConfig.TraceState = state
-			}
-		}
+		spanConfig := spanConfigFromTrace(bundle.Parent)
+		addStateToSpanConfig(&spanConfig, bundle.State)
 		spanContext := oteltrace.NewSpanContext(spanConfig)
 		ctx = oteltrace.ContextWithSpanContext(ctx, spanContext)
 	}
 	return ctx
+}
+
+func addStateToSpanConfig(spanConfig *oteltrace.SpanContextConfig, state xoptrace.State) {
+	if !state.IsZero() {
+		state, err := oteltrace.ParseTraceState(state.String())
+		if err == nil {
+			spanConfig.TraceState = state
+		}
+	}
+}
+func spanConfigFromTrace(trace xoptrace.Trace) oteltrace.SpanContextConfig {
+	return oteltrace.SpanContextConfig{
+		TraceID:    trace.TraceID().Array(),
+		SpanID:     trace.SpanID().Array(),
+		TraceFlags: oteltrace.TraceFlags(trace.Flags().Array()[0]),
+	}
 }
 
 func overrideFromContext(ctx context.Context) *idOverride {

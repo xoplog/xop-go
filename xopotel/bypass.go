@@ -10,7 +10,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-type otelSpan struct {
+type outputSpan struct {
 	name                 string
 	spanContext          oteltrace.SpanContext
 	parentContext        oteltrace.SpanContext
@@ -19,9 +19,9 @@ type otelSpan struct {
 	endTime              time.Time
 	attributes           []attribute.KeyValue
 	attributeMap         map[attribute.Key]int
-	links                oteltrace.Link
-	events               []oteltrace.Event
-	status               oteltrace.Status
+	links                []sdktrace.Link
+	events               []sdktrace.Event
+	status               sdktrace.Status
 	instrumentationScope instrumentation.Scope
 	resource             *resource.Resource
 	droppedAttributes    int
@@ -30,44 +30,45 @@ type otelSpan struct {
 	childSpanCount       int
 }
 
-var _ sdktrace.ReadOnlySpan = otelSpan{}
+var _ ReadOnlySpan = outputSpan{}
 
-func (s otelSpan) Name() string                                    { return s.name }
-func (s otelSpan) SpanContext() oteltrace.SpanContext              { return s.spanContext }
-func (s otelSpan) Parent() oteltrace.SpanContext                   { return s.parentContext }
-func (s otelSpan) SpanKind() oteltrace.SpanKind                    { return s.spanKind }
-func (s otelSpan) StartTime() time.Time                            { return s.startTime }
-func (s otelSpan) EndTime() time.Time                              { return s.endTime }
-func (s otelSpan) Attributes() []attribute.KeyValue                { return s.attributes }
-func (s otelSpan) Links() oteltrace.Link                           { return s.links }
-func (s otelSpan) Events() []oteltrace.Event                       { return s.events }
-func (s otelSpan) Status() oteltrace.Status                        { return s.status }
-func (s otelSpan) Resource() *resource.Resource                    { return s.resource }
-func (s otelSpan) DroppedAttributes() int                          { return s.droppedAttributes }
-func (s otelSpan) DroppedLinks() int                               { return s.droppedLinks }
-func (s otelSpan) DroppedEvents() int                              { return s.droppedEvents }
-func (s otelSpan) ChildSpanCount() int                             { return s.childSpanCount }
-func (s otelSpan) InstrumentationScope() instrumentation.Scope     { return s.instrumentationScope }
-func (s otelSpan) InstrumentationLibrary() instrumentation.Library { return s.instrumentationScope }
+func (s outputSpan) Name() string                                    { return s.name }
+func (s outputSpan) SpanContext() oteltrace.SpanContext              { return s.spanContext }
+func (s outputSpan) Parent() oteltrace.SpanContext                   { return s.parentContext }
+func (s outputSpan) SpanKind() oteltrace.SpanKind                    { return s.spanKind }
+func (s outputSpan) StartTime() time.Time                            { return s.startTime }
+func (s outputSpan) EndTime() time.Time                              { return s.endTime }
+func (s outputSpan) Attributes() []attribute.KeyValue                { return s.attributes }
+func (s outputSpan) Links() []sdktrace.Link                          { return s.links }
+func (s outputSpan) Events() []sdktrace.Event                        { return s.events }
+func (s outputSpan) Status() sdktrace.Status                         { return s.status }
+func (s outputSpan) Resource() *resource.Resource                    { return s.resource }
+func (s outputSpan) DroppedAttributes() int                          { return s.droppedAttributes }
+func (s outputSpan) DroppedLinks() int                               { return s.droppedLinks }
+func (s outputSpan) DroppedEvents() int                              { return s.droppedEvents }
+func (s outputSpan) ChildSpanCount() int                             { return s.childSpanCount }
+func (s outputSpan) InstrumentationScope() instrumentation.Scope     { return s.instrumentationScope }
+func (s outputSpan) InstrumentationLibrary() instrumentation.Library { return s.instrumentationScope }
 
-func (s *otelSpan) SetAttributes(attributes []attribute.KeyValue) {
+func (s *outputSpan) IsRecording() bool { return true }
+func (s *outputSpan) SetAttributes(attributes ...attribute.KeyValue) {
 	for _, a := range attributes {
 		if i, ok := s.attributeMap[a.Key]; ok {
 			s.attributes[i] = a
 			continue
 		}
-		attributeMap[a.Key] = len(s.attributes)
+		s.attributeMap[a.Key] = len(s.attributes)
 		s.attributes = append(s.attributes, a)
 	}
 }
 
-func (s *otelSpan) end(ts time.Time) {
+func (s *outputSpan) end(ts time.Time) {
 	s.endTime = ts
 	// XXX send it
 }
 
-func (s *otelSpan) addEvent(name string, ts time.Time, attributes []attribute.KeyValue) {
-	s.events = append(s.events, stktrace.Event{
+func (s *outputSpan) addEvent(name string, ts time.Time, attributes []attribute.KeyValue) {
+	s.events = append(s.events, sdktrace.Event{
 		Name:                  name,
 		Time:                  ts,
 		Attributes:            attributes,
@@ -75,25 +76,26 @@ func (s *otelSpan) addEvent(name string, ts time.Time, attributes []attribute.Ke
 	})
 }
 
+type canSetAttributes interface {
+	SetAttributes(...attribute.KeyValue)
+}
 type otelSpanWrap interface {
+	canSetAttributes
 	IsRecording() bool
 	SpanContext() oteltrace.SpanContext
-	SetAttributes([]attribute.KeyValue)
 	// ignoreDone()
 	end(time.Time)
 	addEvent(string, time.Time, []attribute.KeyValue)
 }
 
-var _ otelSpanWrap = &otelSpan{}
+var _ otelSpanWrap = &outputSpan{}
 var _ otelSpanWrap = wrappedSpan{}
 
 type wrappedSpan struct {
 	oteltrace.Span
 }
 
-func (w wrappedSpan) end(ts time.Time) { span.otelSpan.End(oteltrace.WithTimestamp(ts)) }
+func (w wrappedSpan) end(ts time.Time) { w.End(oteltrace.WithTimestamp(ts)) }
 func (w wrappedSpan) addEvent(name string, ts time.Time, attributes []attribute.KeyValue) {
-	w.AddEvent(line.level.String(),
-		oteltrace.WithTimestamp(line.timestamp),
-		oteltrace.WithAttributes(line.attributes...))
+	w.AddEvent(name, oteltrace.WithTimestamp(ts), oteltrace.WithAttributes(attributes...))
 }
