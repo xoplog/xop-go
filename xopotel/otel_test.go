@@ -3,6 +3,7 @@ package xopotel_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -184,7 +186,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 //	   \--> JSON                                       \--> JSON
 //
 // Do we get the same JSON?
-func XXXTestOTELRoundTrip(t *testing.T) {
+func TestOTELRoundTrip(t *testing.T) {
 	r, _ := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
@@ -198,18 +200,17 @@ func XXXTestOTELRoundTrip(t *testing.T) {
 	var replay bytes.Buffer
 	replayExporter, err := stdouttrace.New(
 		stdouttrace.WithWriter(&replay),
-		stdouttrace.WithPrettyPrint(),
 	)
 	require.NoError(t, err)
 
 	var origin bytes.Buffer
 	originExporter, err := stdouttrace.New(
 		stdouttrace.WithWriter(&origin),
-		stdouttrace.WithPrettyPrint(),
 	)
 	require.NoError(t, err)
 
 	tpReplay := sdktrace.NewTracerProvider(
+		xopotel.IDGenerator(),
 		sdktrace.WithBatcher(replayExporter),
 		sdktrace.WithResource(r),
 	)
@@ -273,7 +274,25 @@ func XXXTestOTELRoundTrip(t *testing.T) {
 	span1.End()
 	require.NoError(t, tpOrigin.ForceFlush(ctx), "flush origin")
 	require.NoError(t, tpReplay.ForceFlush(ctx), "flush replay")
-	assert.Equal(t, origin.String(), replay.String())
+
+	originSpans := unpack(t, origin.Bytes())
+	replaySpans := unpack(t, replay.Bytes())
+	assert.NotEmpty(t, originSpans, "some spans")
+	assert.Equal(t, len(originSpans), len(replaySpans), "equal length")
+}
+
+func unpack(t *testing.T, data []byte) []tracetest.SpanStub {
+	var spans []tracetest.SpanStub
+	for _, chunk := range bytes.Split(data, []byte{'\n'}) {
+		if len(chunk) == 0 {
+			continue
+		}
+		var span tracetest.SpanStub
+		err := json.Unmarshal(chunk, &span)
+		require.NoErrorf(t, err, "unmarshal '%s'", string(chunk))
+		spans = append(spans, span)
+	}
+	return spans
 }
 
 func kvExamples(p string) []attribute.KeyValue {

@@ -45,11 +45,22 @@ Integration can go the other direction. You can flow traces from Open Telemetry 
 XOP base loggers. Use ExportToXOP() to wrap a xopbase.Logger so that it can be used
 as a SpanExporter.
 
-# ExporterAsLogger
+# Limitations
 
-# ExporterAsLogger is NOT YET IMPLEMENTED
+Ideally, it should be possible to run data in a round trip from XOP to OTEL back to XOP
+and have it unchanged and also run data from OTEL to XOP and back to OTEL and
+have it unchanged.
 
-ExporterAsLogger wraps an Open Telemetry SpanExporter so that it can be used
-as a xopbase.Logger. This bypasses the TracerProvider, Tracer, and Span APIs.
+The former (XOP -> OTEL -> XOP) works. Unfortunately, OTEL -> XOP -> OTEL is
+impractical because the Open Telemetry interfaces require data to be set in
+advance. For example, you cannot change a SpanKind after a Span is created.
+XOP doesn't directly encode SpanKind as a fundemental part of the Span so
+in a OTEL -> XOP translation, SpanKind ends up as a span attribute. When going
+back the other way, the SpanKind isn't available at the time the Span is created
+even if it is available soon after.
+
+If ReadOnlySpan were implementable by others, then it would be possible to bypass
+these limitations and have a full-fidelety OTEL -> XOP -> OTEL loop by bypassing
+the limitations of Span.
 */
 package xopotel
