@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xopotel"
+	"github.com/xoplog/xop-go/xopotel/xopoteltest"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -279,6 +281,11 @@ func TestOTELRoundTrip(t *testing.T) {
 	replaySpans := unpack(t, replay.Bytes())
 	assert.NotEmpty(t, originSpans, "some spans")
 	assert.Equal(t, len(originSpans), len(replaySpans), "equal length")
+	diffs := xopoteltest.CompareSpanStubSlice("-", originSpans, replaySpans)
+	for _, diff := range diffs {
+		t.Logf("diff at %s: %s vs %s", strings.Join(diff.Path, "."), diff.A, diff.B)
+	}
+	assert.Equal(t, 0, len(diffs), "count of unfiltered diffs")
 }
 
 func unpack(t *testing.T, data []byte) []tracetest.SpanStub {

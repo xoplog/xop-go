@@ -259,15 +259,8 @@ const (
 var lineRE = regexp.MustCompile(`^(.+):(\d+)$`)
 
 func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int32, error) {
-	level, err := xopnum.LevelString(event.Name)
-	var nameMessage string
-	if err != nil {
-		level = xopnum.InfoLevel
-		nameMessage = event.Name
-	}
 	lineType := lineTypeLine
 	lineFormat := lineFormatDefault
-	var message string
 	var template string
 	var link xoptrace.Trace
 	var modelArg xopbase.ModelArg
@@ -275,6 +268,7 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 	x.sequenceNumber++
 	lineNumber := x.sequenceNumber
 	nonSpecial := make([]attribute.KeyValue, 0, len(event.Attributes))
+	level := xopnum.InfoLevel
 	for _, a := range event.Attributes {
 		switch a.Key {
 		case xopLineNumber:
@@ -283,11 +277,15 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 			} else {
 				return 0, errors.Errorf("invalid line number attribute type %s", a.Value.Type())
 			}
-		case logMessageKey:
+		case xopLevel:
 			if a.Value.Type() == attribute.STRING {
-				message = a.Value.AsString()
+				var err error
+				level, err = xopnum.LevelString(a.Value.AsString())
+				if err != nil {
+					level = xopnum.InfoLevel
+				}
 			} else {
-				return 0, errors.Errorf("invalid line message attribute type %s", a.Value.Type())
+				return 0, errors.Errorf("invalid line level attribute type %s", a.Value.Type())
 			}
 		case typeKey:
 			if a.Value.Type() == attribute.STRING {
@@ -393,19 +391,12 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 			}
 		}
 	}
-	if nameMessage != "" {
-		if message != "" {
-			message = nameMessage + " " + message
-		} else {
-			message = nameMessage
-		}
-	}
 	switch lineType {
 	case lineTypeLine:
 		switch lineFormat {
 		case lineFormatDefault:
 			x.addOrdered(lineNumber, func() {
-				line.Msg(message)
+				line.Msg(event.Name)
 			})
 		case lineFormatTemplate:
 			x.addOrdered(lineNumber, func() {
@@ -416,13 +407,13 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 		}
 	case lineTypeLink:
 		x.addOrdered(lineNumber, func() {
-			line.Link(message, link)
+			line.Link(event.Name, link)
 		})
 	case lineTypeLinkEvent:
 		return 0, errors.Errorf("unexpected lineType: link event")
 	case lineTypeModel:
 		x.addOrdered(lineNumber, func() {
-			line.Model(message, modelArg)
+			line.Model(event.Name, modelArg)
 		})
 	default:
 		return 0, errors.Errorf("unexpected lineType %d", lineType)

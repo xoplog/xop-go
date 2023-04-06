@@ -274,7 +274,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 	line := &line{}
 	line.level = level
 	line.span = prefilled.span
-	line.attributes = line.prealloc[:1] // reserving one spot at the beginnging
+	line.attributes = line.prealloc[:2] // reserving two spots at the beginnging
 	line.attributes = append(line.attributes, prefilled.span.spanPrefill...)
 	line.attributes = append(line.attributes, prefilled.attributes...)
 	line.prefillMsg = prefilled.prefillMsg
@@ -293,11 +293,10 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 
 func (line *line) Link(k string, v xoptrace.Trace) {
 	line.attributes = append(line.attributes,
-		logMessageKey.String(line.prefillMsg+k),
 		typeKey.String("link"),
 		xopLinkData.String(v.String()),
 	)
-	line.done()
+	line.done(line.prefillMsg + k)
 	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k,
 		oteltrace.WithLinks(
 			oteltrace.Link{
@@ -323,24 +322,24 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 func (line *line) Model(msg string, v xopbase.ModelArg) {
 	v.Encode()
 	line.attributes = append(line.attributes,
-		logMessageKey.String(line.prefillMsg+msg),
 		typeKey.String("model"),
 		xopModelType.String(v.ModelType),
 		xopEncoding.String(v.Encoding.String()),
 		xopModel.String(string(v.Encoded)),
 	)
-	line.done()
+	line.done(line.prefillMsg + msg)
 }
 
 func (line *line) Msg(msg string) {
-	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), typeKey.String("line"))
-	line.done()
+	line.attributes = append(line.attributes, typeKey.String("line"))
+	line.done(line.prefillMsg + msg)
 	// PERFORMANCE: return line to pool
 }
 
-func (line *line) done() {
+func (line *line) done(msg string) {
 	line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
-	line.span.otelSpan.AddEvent(line.level.String(),
+	line.attributes[1] = xopLevel.String(line.level.String())
+	line.span.otelSpan.AddEvent(msg,
 		oteltrace.WithTimestamp(line.timestamp),
 		oteltrace.WithAttributes(line.attributes...))
 }
@@ -380,12 +379,11 @@ func (line *line) Template(template string) {
 		return "''"
 	})
 	line.attributes = append(line.attributes,
-		logMessageKey.String(line.prefillMsg+msg),
 		typeKey.String("line"),
 		xopLineFormat.String("tmpl"),
 		xopTemplate.String(template),
 	)
-	line.done()
+	line.done(line.prefillMsg + msg)
 }
 
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {

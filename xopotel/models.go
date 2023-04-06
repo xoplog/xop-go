@@ -79,7 +79,7 @@ var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-var logMessageKey = attribute.Key("xop.message")
+var xopLevel = attribute.Key("xop.level")
 var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
 var typeKey = attribute.Key("xop.type")
 var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
