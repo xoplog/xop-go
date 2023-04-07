@@ -190,6 +190,14 @@ var macros = map[string]map[string]string{
 		"FLOAT64": "Float64",
 		"BOOL":    "Bool",
 	},
+	"OTELSpanKinds": {
+		// "SpanKindUnspecified": "false", omitted because it's not valid
+		"SpanKindInternal": "false",
+		"SpanKindServer":   "true",
+		"SpanKindClient":   "true",
+		"SpanKindProducer": "true",
+		"SpanKindConsumer": "true",
+	},
 	// Note: these map to base types, not exact types.  Exact types
 	// can be found in xopbase.StringToDataType
 	"DataTypeAbbreviations": {

@@ -2,12 +2,13 @@ package xopoteltest
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -39,8 +40,34 @@ func makeListCompare[T any, K keyConstraint](mapper func([]T) map[K]T, compare f
 
 type Diff struct {
 	Path []string
-	A    interface{}
-	B    interface{}
+	A    any
+	B    any
+}
+
+func (d Diff) String() string {
+	return fmt.Sprintf("%s: %s vs %s", strings.Join(d.Path, "."), toString(d.A), toString(d.B))
+}
+
+var stringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+
+func toString(a any) string {
+	if a == nil {
+		return "missing"
+	}
+	if stringer, ok := a.(fmt.Stringer); ok {
+		return stringer.String()
+	}
+	v := reflect.ValueOf(a)
+	if v.IsValid() &&
+		v.Type().Kind() == reflect.Func &&
+		v.Type().NumIn() == 0 &&
+		v.Type().NumOut() == 1 &&
+		v.Type().Out(0).AssignableTo(stringerType) {
+		out := v.Call([]reflect.Value{})
+		ov := out[0].Interface()
+		return ov.(fmt.Stringer).String()
+	}
+	return reflect.TypeOf(a).String() + "/" + fmt.Sprint(a)
 }
 
 func diffPrefix(prefix string, diffs []Diff) []Diff {
@@ -60,15 +87,15 @@ func diffPrefix(prefix string, diffs []Diff) []Diff {
 
 var CompareSpanStubSlice = makeListCompare(makeSpanSubIndex, CompareSpanStub)
 
-func makeSpanSubIndex(list []tracetest.SpanStub) map[oteltrace.SpanID]tracetest.SpanStub {
-	m := make(map[oteltrace.SpanID]tracetest.SpanStub)
+func makeSpanSubIndex(list []SpanStub) map[oteltrace.SpanID]SpanStub {
+	m := make(map[oteltrace.SpanID]SpanStub)
 	for _, e := range list {
 		m[e.SpanContext.SpanID()] = e
 	}
 	return m
 }
 
-func CompareSpanStub(name string, a tracetest.SpanStub, b tracetest.SpanStub) []Diff {
+func CompareSpanStub(name string, a SpanStub, b SpanStub) []Diff {
 	var diffs []Diff
 	diffs = append(diffs, Compare("Name", a.Name, b.Name)...)
 	diffs = append(diffs, CompareSpanContext("SpanContext", a.SpanContext, b.SpanContext)...)
@@ -179,7 +206,7 @@ func CompareTime(name string, a time.Time, b time.Time) []Diff {
 	return []Diff{{Path: []string{name}, A: a.Format(time.RFC3339Nano), B: b.Format(time.RFC3339Nano)}}
 }
 
-func CompareSpanContext(name string, a oteltrace.SpanContext, b oteltrace.SpanContext) []Diff {
+func CompareSpanContext(name string, a SpanContext, b SpanContext) []Diff {
 	if a.IsValid() != b.IsValid() {
 		if a.IsValid() {
 			return []Diff{{Path: []string{name}, A: a}}
@@ -191,28 +218,8 @@ func CompareSpanContext(name string, a oteltrace.SpanContext, b oteltrace.SpanCo
 		return nil
 	}
 	var diffs []Diff
-	switch {
-	case a.HasSpanID() && b.HasSpanID():
-		if a.SpanID() != b.SpanID() {
-			diffs = append(diffs, Diff{Path: []string{"SpanID"}, A: a.SpanID(), B: b.SpanID()})
-		}
-	case !a.HasSpanID() && !b.HasSpanID():
-	case a.HasSpanID():
-		diffs = append(diffs, Diff{Path: []string{"SpanID"}, A: a.SpanID()})
-	default:
-		diffs = append(diffs, Diff{Path: []string{"SpanID"}, B: b.SpanID()})
-	}
-	switch {
-	case a.HasTraceID() && b.HasTraceID():
-		if a.TraceID() != b.TraceID() {
-			diffs = append(diffs, Diff{Path: []string{"TraceID"}, A: a.TraceID(), B: b.TraceID()})
-		}
-	case !a.HasTraceID() && !b.HasTraceID():
-	case a.HasTraceID():
-		diffs = append(diffs, Diff{Path: []string{"TraceID"}, A: a.TraceID()})
-	default:
-		diffs = append(diffs, Diff{Path: []string{"TraceID"}, B: b.TraceID()})
-	}
+	diffs = append(diffs, Diff{Path: []string{"SpanID"}, A: a.SpanID, B: b.SpanID})
+	diffs = append(diffs, Diff{Path: []string{"TraceID"}, A: a.TraceID, B: b.TraceID})
 	diffs = append(diffs, Compare("IsRemote", a.IsRemote(), b.IsRemote())...)
 	diffs = append(diffs, Compare("IsSampled", a.IsSampled(), b.IsSampled())...)
 	diffs = append(diffs, Compare("TraceFlags", int(a.TraceFlags()), int(b.TraceFlags()))...)

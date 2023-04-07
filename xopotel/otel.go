@@ -165,14 +165,16 @@ func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
 func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer) (context.Context, oteltrace.Span) {
+	spanKind := oteltrace.SpanKindServer
+	if sourceInfo.Source == otelDataSource {
+		// replaying data originally coming from OTEL.
+		// The spanKind is encoded as the namespace.
+		if sk, ok := spanKindFromString[sourceInfo.Namespace]; ok {
+			spanKind = sk
+		}
+	}
 	opts := []oteltrace.SpanStartOption{
-		oteltrace.WithAttributes(
-			xopVersion.String(xopVersionValue),
-			xopOTELVersion.String(xopotelVersionValue),
-			xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
-			xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
-		),
-		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
+		oteltrace.WithSpanKind(spanKind),
 		oteltrace.WithTimestamp(ts),
 	}
 	if bundle.Parent.TraceID().IsZero() {
@@ -181,6 +183,16 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
 	if !bundle.Baggage.IsZero() {
 		otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
+	}
+	// We are replaying data that originated in OTEL.
+
+	if sourceInfo.Source != otelDataSource {
+		otelSpan.SetAttributes(
+			xopVersion.String(xopVersionValue),
+			xopOTELVersion.String(xopotelVersionValue),
+			xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
+			xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
+		)
 	}
 	return ctx, otelSpan
 }
@@ -863,4 +875,12 @@ func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	s = append(s, value)
 	span.priorStringSlices[key] = s
 	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+}
+
+var spanKindFromString = map[string]oteltrace.SpanKind{
+	oteltrace.SpanKindClient.String():   oteltrace.SpanKindClient,
+	oteltrace.SpanKindConsumer.String(): oteltrace.SpanKindConsumer,
+	oteltrace.SpanKindInternal.String(): oteltrace.SpanKindInternal,
+	oteltrace.SpanKindProducer.String(): oteltrace.SpanKindProducer,
+	oteltrace.SpanKindServer.String():   oteltrace.SpanKindServer,
 }

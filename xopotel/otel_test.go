@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -283,20 +281,22 @@ func TestOTELRoundTrip(t *testing.T) {
 	assert.Equal(t, len(originSpans), len(replaySpans), "equal length")
 	diffs := xopoteltest.CompareSpanStubSlice("-", originSpans, replaySpans)
 	for _, diff := range diffs {
-		t.Logf("diff at %s: %s vs %s", strings.Join(diff.Path, "."), diff.A, diff.B)
+		t.Logf("diff %s", diff)
 	}
 	assert.Equal(t, 0, len(diffs), "count of unfiltered diffs")
 }
 
-func unpack(t *testing.T, data []byte) []tracetest.SpanStub {
-	var spans []tracetest.SpanStub
+func unpack(t *testing.T, data []byte) []xopoteltest.SpanStub {
+	var spans []xopoteltest.SpanStub
 	for _, chunk := range bytes.Split(data, []byte{'\n'}) {
 		if len(chunk) == 0 {
 			continue
 		}
-		var span tracetest.SpanStub
+		var span xopoteltest.SpanStub
 		err := json.Unmarshal(chunk, &span)
 		require.NoErrorf(t, err, "unmarshal '%s'", string(chunk))
+		t.Logf("unpacking %s", string(chunk))
+		t.Logf("unpacked %s %s", span.SpanContext.TraceID().String(), span.SpanContext.SpanID().String())
 		spans = append(spans, span)
 	}
 	return spans

@@ -103,6 +103,8 @@ var xopStackTrace = attribute.Key("xop.stackTrace")
 const xopVersionValue = "0.3.0"
 const xopotelVersionValue = xopVersionValue
 
+const otelDataSource = "source-is-not-xop"
+
 var xopPromotedMetadata = xopat.Make{Key: "xop.span-is-promoted", Namespace: "xopotel"}.BoolAttribute()
 
 var emptyTraceState oteltrace.TraceState
