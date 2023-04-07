@@ -218,8 +218,12 @@ func CompareSpanContext(name string, a SpanContext, b SpanContext) []Diff {
 		return nil
 	}
 	var diffs []Diff
-	diffs = append(diffs, Diff{Path: []string{"SpanID"}, A: a.SpanID, B: b.SpanID})
-	diffs = append(diffs, Diff{Path: []string{"TraceID"}, A: a.TraceID, B: b.TraceID})
+	if a.SpanID() != b.SpanID() {
+		diffs = append(diffs, Diff{Path: []string{"SpanID"}, A: a.SpanID(), B: b.SpanID()})
+	}
+	if a.TraceID() != b.TraceID() {
+		diffs = append(diffs, Diff{Path: []string{"TraceID"}, A: a.TraceID(), B: b.TraceID()})
+	}
 	diffs = append(diffs, Compare("IsRemote", a.IsRemote(), b.IsRemote())...)
 	diffs = append(diffs, Compare("IsSampled", a.IsSampled(), b.IsSampled())...)
 	diffs = append(diffs, Compare("TraceFlags", int(a.TraceFlags()), int(b.TraceFlags()))...)

@@ -105,7 +105,7 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 			}
 			parentCtx := ctx
 			bundle := seed.Bundle()
-			ctx, otelSpan := buildRequestSpan(ctx, ts, bundle, nameOrDescription, seed.SourceInfo(), tracer)
+			ctx, _, otelSpan := buildRequestSpan(ctx, ts, bundle, nameOrDescription, seed.SourceInfo(), tracer)
 			if bundle.Parent.IsZero() {
 				parentSpan := oteltrace.SpanFromContext(parentCtx)
 				if parentSpan.SpanContext().HasTraceID() {
@@ -161,9 +161,10 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer) (context.Context, oteltrace.Span) {
+func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer) (context.Context, bool, oteltrace.Span) {
 	spanKind := oteltrace.SpanKindServer
-	if sourceInfo.Source == otelDataSource {
+	isXOP := sourceInfo.Source != otelDataSource
+	if !isXOP {
 		// replaying data originally coming from OTEL.
 		// The spanKind is encoded as the namespace.
 		if sk, ok := spanKindFromString[sourceInfo.Namespace]; ok {
@@ -178,12 +179,10 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 		opts = append(opts, oteltrace.WithNewRoot())
 	}
 	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
-	if !bundle.Baggage.IsZero() {
-		otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
-	}
-	// We are replaying data that originated in OTEL.
-
-	if sourceInfo.Source != otelDataSource {
+	if isXOP {
+		if !bundle.Baggage.IsZero() {
+			otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
+		}
 		otelSpan.SetAttributes(
 			xopVersion.String(xopVersionValue),
 			xopOTELVersion.String(xopotelVersionValue),
@@ -191,21 +190,24 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 			xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
 		)
 	}
-	return ctx, otelSpan
+	return ctx, isXOP, otelSpan
 }
 
 func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
 	var otelSpan oteltrace.Span
+	var isXOP bool
 	if logger.spanFromContext {
 		otelSpan = oteltrace.SpanFromContext(ctx)
+		isXOP = sourceInfo.Source != otelDataSource
 	} else {
-		ctx, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer)
+		ctx, isXOP, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer)
 	}
 	r := &request{
 		span: &span{
 			logger:   logger,
 			otelSpan: otelSpan,
 			ctx:      ctx,
+			isXOP:    isXOP,
 		},
 		attributesDefined: make(map[string]struct{}),
 	}
@@ -248,8 +250,9 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 		otelSpan: otelSpan,
 		ctx:      ctx,
 		request:  parentSpan.request,
+		isXOP:    parentSpan.isXOP,
 	}
-	if spanSequenceCode != "" {
+	if parentSpan.isXOP && spanSequenceCode != "" {
 		otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
 	}
 	return s
@@ -349,11 +352,20 @@ func (line *line) Msg(msg string) {
 }
 
 func (line *line) done(msg string) {
-	line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
-	line.attributes[1] = xopLevel.String(line.level.String())
-	line.span.otelSpan.AddEvent(msg,
-		oteltrace.WithTimestamp(line.timestamp),
-		oteltrace.WithAttributes(line.attributes...))
+	if line.span.isXOP {
+		line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
+		line.attributes[1] = xopLevel.String(line.level.String())
+	} else {
+		line.attributes = line.attributes[2:]
+	}
+	if line.timestamp.IsZero() {
+		line.span.otelSpan.AddEvent(msg,
+			oteltrace.WithAttributes(line.attributes...))
+	} else {
+		line.span.otelSpan.AddEvent(msg,
+			oteltrace.WithTimestamp(line.timestamp),
+			oteltrace.WithAttributes(line.attributes...))
+	}
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)

@@ -47,6 +47,7 @@ type span struct {
 	hasPrior           map[string]struct{}
 	metadataSeen       map[string]interface{}
 	spanPrefill        []attribute.KeyValue // holds spanID & traceID
+	isXOP              bool                 // true unless data is imported from OTEL
 }
 
 type prefilling struct {
