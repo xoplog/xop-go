@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 )
@@ -19,14 +19,14 @@ import (
 func TestRecorderLogMethods(t *testing.T) {
 	start := time.Now()
 	rLog := xoprecorder.New()
-	log := xop.NewSeed(xop.WithBase(rLog))
+	log := xop.NewSeed(xop.WithBase(rLog)).Request(t.Name())
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
 	log.Alert().Msg("basic alert message")
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
-	lines := tLog.FindLines(xoptest.MessageEquals("basic trace message"))
+	lines := rLog.FindLines(xoprecorder.MessageEquals("basic trace message"))
 	if assert.NotEmpty(t, lines, "found some") {
 		assert.True(t, !lines[0].Timestamp.Before(start), "time seq")
 		assert.Equal(t, "basic trace message", lines[0].Message, "message")
@@ -34,15 +34,15 @@ func TestRecorderLogMethods(t *testing.T) {
 	}
 	f := log.Sub().Fork("forkie")
 	f.Span().Int(xopconst.HTTPStatusCode, 204)
-	assert.Empty(t, tLog.FindLines(xoptest.MessageEquals("basic debug message")), "debug filtered out by log level")
-	assert.Equal(t, 1, tLog.CountLines(xoptest.MessageEquals("basic alert message")), "count alert")
-	// XXX assert.Equal(t, 1, tLog.CountLines(xoptest.TextContains("a test")), "count a test")
-	// XXX assert.Equal(t, 1, tLog.CountLines(xoptest.TextContains("a test bar")), "count a test foo")
-	// XXX assert.Equal(t, 1, tLog.CountLines(xoptest.TextContains("a test bar with 38")), "count a test foo with 38")
-	if assert.NotEmpty(t, tLog.Spans, "have a sub-span") {
-		assert.Equal(t, ".A", tLog.Spans[0].SequenceCode, "span sequence for fork")
-		assert.Equal(t, int64(204), tLog.Spans[0].Metadata["http.status_code"], "an explicit attribute")
-		assert.Equal(t, xopbase.Int64DataType, tLog.Spans[0].MetadataType["http.status_code"], "http status code attribute type")
+	assert.Empty(t, rLog.FindLines(xoprecorder.MessageEquals("basic debug message")), "debug filtered out by log level")
+	assert.Equal(t, 1, rLog.CountLines(xoprecorder.MessageEquals("basic alert message")), "count alert")
+	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test")), "count a test")
+	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test bar")), "count a test foo")
+	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test bar with 38")), "count a test foo with 38")
+	if assert.NotEmpty(t, rLog.Spans, "have a sub-span") {
+		assert.Equal(t, ".A", rLog.Spans[0].SequenceCode, "span sequence for fork")
+		// XXX assert.Equal(t, int64(204), rLog.Spans[0].Metadata["http.status_code"], "an explicit attribute")
+		// XXX assert.Equal(t, xopbase.Int64DataType, rLog.Spans[0].MetadataType["http.status_code"], "http status code attribute type")
 	}
 }
 
@@ -103,7 +103,7 @@ func TestReplayRecorder(t *testing.T) {
 			mc.Do(t, log, tLog)
 			replayLog := xoptest.New(t)
 			t.Log("replay from generated logs")
-			err := tLog.Replay(context.Background(), replayLog)
+			err := rLog.Replay(context.Background(), replayLog)
 			require.NoError(t, err, "replay")
 			t.Log("verify replay equals original")
 			xoptestutil.VerifyReplay(t, tLog, replayLog)

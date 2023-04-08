@@ -43,6 +43,7 @@ func testRequestCounter(t *testing.T, seed int64, traceCount int, requestCount i
 	var wg sync.WaitGroup
 	traceNums := make(map[int]int)
 	requestNums := make(map[[2]int]int)
+	var newCount int
 	var threadCount int
 	var mu sync.Mutex
 	for _, req := range requests {
@@ -51,11 +52,14 @@ func testRequestCounter(t *testing.T, seed int64, traceCount int, requestCount i
 			wg.Add(1)
 			go func() {
 				<-starter
-				traceNum, requestNum := counter.GetNumber(req)
+				traceNum, requestNum, isNew := counter.GetNumber(req)
 				mu.Lock()
 				traceNums[traceNum]++
 				requestNums[[2]int{traceNum, requestNum}]++
 				threadCount++
+				if isNew {
+					newCount++
+				}
 				mu.Unlock()
 				wg.Done()
 			}()
@@ -65,5 +69,6 @@ func testRequestCounter(t *testing.T, seed int64, traceCount int, requestCount i
 	wg.Wait()
 	assert.Equal(t, traceCount, len(traceNums), "unique trace numbers")
 	assert.Equal(t, requestCount, len(requestNums), "unique request numbers")
+	assert.Equal(t, requestCount, newCount, "count of new requests")
 	t.Logf("raced %d threads", threadCount)
 }

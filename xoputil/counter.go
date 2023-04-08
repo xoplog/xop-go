@@ -30,7 +30,7 @@ func NewRequestCounter() *RequestCounter {
 	return &RequestCounter{}
 }
 
-func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestNum int) {
+func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestNum int, isNew bool) {
 	traceID := trace.TraceID().Array()
 	ti, ok := c.traceMap.Load(traceID)
 	if !ok {
@@ -55,9 +55,8 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 	}
 
 	spanID := trace.SpanID().Array()
-	ri, ok := ti.requestMap.Load(spanID)
-	if !ok {
-		var loaded bool
+	ri, loaded := ti.requestMap.Load(spanID)
+	if !loaded {
 		n := &requestInfo{}
 		n.mu.Lock()
 		ri, loaded = ti.requestMap.LoadOrStore(spanID, n)
@@ -71,5 +70,5 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 		ri.mu.Lock()
 		ri.mu.Unlock()
 	}
-	return int(ti.traceNum), int(ri.requestNum)
+	return int(ti.traceNum), int(ri.requestNum), !loaded
 }

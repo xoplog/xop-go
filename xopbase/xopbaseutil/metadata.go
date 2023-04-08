@@ -35,9 +35,9 @@ func (s *SpanMetadata) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -87,9 +87,9 @@ func (s *SpanMetadata) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -137,9 +137,9 @@ func (s *SpanMetadata) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -187,9 +187,9 @@ func (s *SpanMetadata) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -237,9 +237,9 @@ func (s *SpanMetadata) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -287,9 +287,9 @@ func (s *SpanMetadata) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -337,9 +337,9 @@ func (s *SpanMetadata) MetadataString(k *xopat.StringAttribute, v string) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
@@ -387,9 +387,9 @@ func (s *SpanMetadata) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()

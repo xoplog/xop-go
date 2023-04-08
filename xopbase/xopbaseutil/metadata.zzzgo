@@ -32,9 +32,9 @@ func (s *SpanMetadata) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		n.Mu.Lock()
 		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
 		if loaded {
-			tracker.Attribute = k
-		} else {
 			tracker.Mu.Lock()
+		} else {
+			tracker.Attribute = k
 		}
 	}
 	defer tracker.Mu.Unlock()
