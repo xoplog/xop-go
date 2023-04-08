@@ -1,0 +1,133 @@
+package xoprecorder
+
+import (
+	"context"
+	"time"
+
+	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
+
+	"github.com/pkg/errors"
+)
+
+// Replay dumps the recorded logs to another base logger
+func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
+	requests := make(map[xoptrace.HexBytes8]xopbase.Request)
+	spans := make(map[xoptrace.HexBytes8]xopbase.Span)
+	for _, event := range log.Events {
+		switch event.Type {
+		case CustomEvent:
+			// ignore
+		case RequestStart:
+			request := dest.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, *event.Span.SourceInfo)
+			id := event.Span.Bundle.Trace.GetSpanID()
+			requests[id] = request
+			spans[id] = request
+		case RequestDone:
+			if req, ok := requests[event.Span.Bundle.Trace.GetSpanID()]; ok {
+				req.Done(time.Unix(0, event.Span.EndTime), event.Done)
+			} else {
+				return errors.Errorf("RequestDone event without corresponding RequestStart for %s", event.Span.Bundle.Trace)
+			}
+		case SpanDone:
+			if span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]; ok {
+				span.Done(time.Unix(0, event.Span.EndTime), event.Done)
+			} else {
+				return errors.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)
+			}
+		case FlushEvent:
+			id := event.Span.Bundle.Trace.GetSpanID()
+			if req, ok := requests[id]; ok {
+				req.Flush()
+			} else {
+				return errors.Errorf("Flush for unknown req %s", event.Span.Bundle.Trace)
+			}
+		case SpanStart:
+			if event.Span.Parent == nil {
+				return errors.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
+			}
+			if parent, ok := spans[event.Span.Parent.Bundle.Trace.GetSpanID()]; ok {
+				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SequenceCode)
+				spans[event.Span.Bundle.Trace.GetSpanID()] = span
+			}
+		case LineEvent:
+			span, ok := spans[event.Line.Span.Bundle.Trace.GetSpanID()]
+			if !ok {
+				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
+			}
+			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, event.Line.Stack)
+			for k, v := range event.Line.Data {
+				dataType := event.Line.DataType[k]
+				switch dataType {
+				//MACRO BaseDataWithoutType
+				case xopbase.ZZZDataType:
+					line.ZZZ(k, v.(zzz))
+				// next line must be blank to end macro BaseDataWithoutType
+
+				//MACRO BaseDataWithType SKIP:Int64,Uint64
+				case xopbase.ZZZDataType:
+					line.ZZZ(k, v.(zzz), dataType)
+				// next line must be blank to end macro BaseDataWithType
+
+				//MACRO Ints
+				case xopbase.ZZZDataType:
+					line.Int64(k, v.(int64), dataType)
+				// next line must be blank to end macro Ints
+
+				//MACRO Uints
+				case xopbase.ZZZDataType:
+					line.Uint64(k, v.(uint64), dataType)
+				// next line must be blank to end macro Ints
+
+				case xopbase.ErrorDataType, xopbase.StringerDataType:
+					line.String(k, v.(string), dataType)
+				case xopbase.Float32DataType:
+					line.Float64(k, v.(float64), dataType)
+				case xopbase.EnumDataType:
+					line.Enum(event.Line.Enums[k], v.(xopat.Enum))
+				default:
+					return errors.Errorf("unexpected data type %s in line", dataType)
+				}
+			}
+			switch {
+			case event.Line.Tmpl != "":
+				line.Template(event.Line.Tmpl)
+			case event.Line.AsLink != nil:
+				line.Link(event.Line.Message, *event.Line.AsLink)
+			case event.Line.AsModel != nil:
+				line.Model(event.Line.Message, *event.Line.AsModel)
+			default:
+				line.Msg(event.Line.Message)
+			}
+
+		case MetadataSet:
+			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
+			if !ok {
+				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
+			}
+			switch event.Attribute.SubType().SpanAttributeType() {
+			//MACRO BaseAttribute
+			case xopat.AttributeTypeZZZ:
+				v := event.Value
+				//CONDITIONAL ONLY:Any
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(xopbase.ModelArg))
+				//CONDITIONAL ONLY:Enum
+				enum, ok := v.(xopat.Enum)
+				if !ok {
+					return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
+				}
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), enum)
+				//CONDITIONAL SKIP:Enum,Any
+				span.MetadataZZZ(event.Attribute.(*xopat.ZZZAttribute), v.(zzz))
+				//END CONDITIONAL
+				// next line must be blank to end macro
+
+			default:
+				return errors.Errorf("unknown attribute type %s", event.Attribute.ProtoType())
+			}
+		default:
+
+		}
+	}
+	return nil
+}

@@ -1,0 +1,93 @@
+package xopbaseutil
+
+import (
+	"sync"
+
+	"github.com/muir/gwrap"
+	"github.com/xoplog/xop-go/xopat"
+	"github.com/xoplog/xop-go/xopbase"
+)
+
+// SpanMetadata
+type SpanMetadata struct {
+	Map gwrap.SyncMap[string, *MetadataTracker]
+}
+
+type MetadataTracker struct {
+	Mu        sync.Mutex
+	Value     any
+	Type      xopbase.DataType
+	Attribute xopat.AttributeInterface
+	Seen      any
+}
+
+// MACRO BaseAttribute
+// MetadataZZZ is a required method for xopbase.Span
+func (s *SpanMetadata) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	tracker, loaded := s.Map.Load(k.Key())
+	if loaded {
+		tracker.Mu.Lock()
+	} else {
+		n := &MetadataTracker{}
+		n.Mu.Lock()
+		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		if loaded {
+			tracker.Attribute = k
+		} else {
+			tracker.Mu.Lock()
+		}
+	}
+	defer tracker.Mu.Unlock()
+	if tracker.Attribute.Multiple() {
+		//CONDITIONAL ONLY:Enum
+		value := v
+		//ELSE CONDITIONAL
+		value := v
+		//END CONDITIONAL
+		if tracker.Attribute.Distinct() {
+			//CONDITIONAL ONLY:Any
+			var key string
+			v.Encode()
+			key = string(v.Encoded)
+			//CONDITIONAL ONLY:Enum
+			key := v.String()
+			//CONDITIONAL SKIP:Enum,Any
+			key := value
+			//END CONDITIONAL
+			if !loaded {
+				//CONDITIONAL ONLY:Any,Enum
+				seen := make(map[string]struct{})
+				//ELSE CONDITIONAL
+				seen := make(map[zzz]struct{})
+				//END CONDITIONAL
+				tracker.Seen = seen
+				seen[key] = struct{}{}
+			} else {
+				//CONDITIONAL ONLY:Any,Enum
+				seen := tracker.Seen.(map[string]struct{})
+				//ELSE CONDITIONAL
+				seen := tracker.Seen.(map[zzz]struct{})
+				//END CONDITIONAL
+				if _, ok := seen[key]; ok {
+					return
+				}
+				seen[key] = struct{}{}
+			}
+		}
+		if loaded {
+			tracker.Value = append(tracker.Value.([]any), value)
+		} else {
+			tracker.Value = []any{value}
+			tracker.Type = xopbase.ZZZArrayDataType
+		}
+	} else {
+		if loaded {
+			if tracker.Attribute.Locked() {
+				return
+			}
+		} else {
+			tracker.Type = xopbase.ZZZDataType
+		}
+		tracker.Value = v
+	}
+}
