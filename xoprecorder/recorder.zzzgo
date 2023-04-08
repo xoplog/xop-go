@@ -72,7 +72,6 @@ type traceInfo struct {
 }
 
 type Span struct {
-	xopbaseutil.SpanMetadata
 	EndTime            int64
 	provisionalEndTime int64
 	lock               sync.Mutex
@@ -88,6 +87,7 @@ type Span struct {
 	SequenceCode       string
 	Ctx                context.Context
 	SourceInfo         *xopbase.SourceInfo
+	SpanMetadata       xopbaseutil.SpanMetadata
 }
 
 type Prefilling struct {
@@ -428,7 +428,7 @@ func (line *Line) Text() string {
 		}
 	}
 	if end != "" {
-	text += " " + end
+		text += " " + end
 	}
 	return text
 }
@@ -462,3 +462,17 @@ func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v, xopbase.ZZZDataType) }
 // MACRO BaseDataWithType
 // ZZZ is a required method for xopbase.ObjectParts
 func (b *Builder) ZZZ(k string, v zzz, dt xopbase.DataType) { b.any(k, v, dt) }
+
+// MACRO BaseAttribute
+// MetadataZZZ is a required method for xopbase.Span
+func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	s.SpanMetadata.MetadataZZZ(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}

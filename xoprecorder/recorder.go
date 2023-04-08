@@ -76,7 +76,6 @@ type traceInfo struct {
 }
 
 type Span struct {
-	xopbaseutil.SpanMetadata
 	EndTime            int64
 	provisionalEndTime int64
 	lock               sync.Mutex
@@ -92,6 +91,7 @@ type Span struct {
 	SequenceCode       string
 	Ctx                context.Context
 	SourceInfo         *xopbase.SourceInfo
+	SpanMetadata       xopbaseutil.SpanMetadata
 }
 
 type Prefilling struct {
@@ -482,3 +482,107 @@ func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v, 
 
 // Uint64 is a required method for xopbase.ObjectParts
 func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v, dt) }
+
+// MetadataAny is a required method for xopbase.Span
+func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
+	s.SpanMetadata.MetadataAny(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataBool is a required method for xopbase.Span
+func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+	s.SpanMetadata.MetadataBool(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataEnum is a required method for xopbase.Span
+func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	s.SpanMetadata.MetadataEnum(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataFloat64 is a required method for xopbase.Span
+func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
+	s.SpanMetadata.MetadataFloat64(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataInt64 is a required method for xopbase.Span
+func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+	s.SpanMetadata.MetadataInt64(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataLink is a required method for xopbase.Span
+func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	s.SpanMetadata.MetadataLink(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataString is a required method for xopbase.Span
+func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
+	s.SpanMetadata.MetadataString(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
+
+// MetadataTime is a required method for xopbase.Span
+func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+	s.SpanMetadata.MetadataTime(k, v)
+	s.logger.lock.Lock()
+	defer s.logger.lock.Unlock()
+	s.logger.Events = append(s.logger.Events, &Event{
+		Type:      MetadataSet,
+		Attribute: k,
+		Span:      s,
+		Value:     v,
+	})
+}
