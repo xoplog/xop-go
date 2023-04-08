@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -65,7 +64,6 @@ func New(opts ...Opt) *Logger {
 }
 
 type Logger struct {
-	lock           sync.Mutex
 	out            io.Writer
 	traceCount     int
 	id             string
@@ -78,7 +76,6 @@ type Span struct {
 	xopbaseutil.SpanMetadata
 	EndTime            int64
 	provisionalEndTime int64
-	lock               sync.Mutex
 	logger             *Logger
 	RequestNum         int // sequence of requests with the same traceID
 	TraceNum           int // sequence of traces
@@ -138,13 +135,6 @@ func (log *Logger) output(s string) {
 	}
 }
 
-// WithLock is provided for thread-safe introspection of the logger
-func (log *Logger) WithLock(f func(*Logger) error) error {
-	log.lock.Lock()
-	defer log.lock.Unlock()
-	return f(log)
-}
-
 // ID is a required method for xopbase.Logger
 func (log *Logger) ID() string { return log.id }
 
@@ -159,8 +149,6 @@ func (log *Logger) SetErrorReporter(f func(error)) { log.errorReporter = f }
 
 // Request is a required method for xopbase.Logger
 func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	log.lock.Lock()
-	defer log.lock.Unlock()
 	traceNum, requestNum, isNew := log.requestCounter.GetNumber(bundle.Trace)
 	s := &Span{
 		logger:     log,
@@ -202,10 +190,6 @@ func (span *Span) SetErrorReporter(func(error)) {}
 
 // Span is a required method for xopbase.Span
 func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, spanSequenceCode string) xopbase.Span {
-	span.logger.lock.Lock()
-	defer span.logger.lock.Unlock()
-	span.lock.Lock()
-	defer span.lock.Unlock()
 	n := &Span{
 		logger:       span.logger,
 		Bundle:       bundle,

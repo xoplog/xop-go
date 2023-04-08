@@ -50,23 +50,34 @@ var (
 	_ xopbase.Line       = &Line{}
 )
 
-func New() *Logger {
-	return &Logger{
-		id:       "xoprecorder-" + uuid.New().String(),
-		traceMap: make(map[string]*traceInfo),
+type Opt func(*Logger)
+
+func WithRequestCounter(c *xoputil.RequestCounter) Opt {
+	return func(log *Logger) {
+		log.requestCounter = c
 	}
 }
 
+func New(opts ...Opt) *Logger {
+	log := &Logger{
+		id:             "xoprecorder-" + uuid.New().String(),
+		requestCounter: xoputil.NewRequestCounter(),
+	}
+	for _, opt := range opts {
+		opt(log)
+	}
+	return log
+}
+
 type Logger struct {
-	lock       sync.Mutex
-	Requests   []*Span
-	Spans      []*Span
-	Lines      []*Line
-	Events     []*Event
-	traceCount int
-	traceMap   map[string]*traceInfo
-	id         string
-	linePrefix string
+	lock           sync.Mutex
+	Requests       []*Span
+	Spans          []*Span
+	Lines          []*Line
+	Events         []*Event
+	requestCounter *xoputil.RequestCounter
+	id             string
+	linePrefix     string
 }
 
 type traceInfo struct {
@@ -81,6 +92,7 @@ type Span struct {
 	lock               sync.Mutex
 	logger             *Logger
 	RequestNum         int // sequence of requests with the same traceID
+	TraceNum           int // sequence of traces
 	Bundle             xoptrace.Bundle
 	IsRequest          bool
 	Parent             *Span
@@ -164,8 +176,7 @@ func (log *Logger) SetErrorReporter(func(error)) {}
 
 // Request is a required method for xopbase.Logger
 func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	log.lock.Lock()
-	defer log.lock.Unlock()
+	traceNum, requestNum, _ := log.requestCounter.GetNumber(bundle.Trace)
 	s := &Span{
 		logger:     log,
 		IsRequest:  true,
@@ -174,42 +185,18 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 		Name:       name,
 		Ctx:        ctx,
 		SourceInfo: &sourceInfo,
+		TraceNum:   traceNum,
+		RequestNum: requestNum,
 	}
-	s.setRequestNumber()
+	s.Parent = s
+	log.lock.Lock()
+	defer log.lock.Unlock()
 	log.Requests = append(log.Requests, s)
 	log.Events = append(log.Events, &Event{
 		Type: RequestStart,
 		Span: s,
 	})
 	return s
-}
-
-// must hold a lock to call setRequestNumber
-func (span *Span) setRequestNumber() {
-	ts := span.Bundle.Trace.GetTraceID().String()
-	if ti, ok := span.logger.traceMap[ts]; ok {
-		ti.requestCount++
-		span.RequestNum = ti.requestCount
-		ti.spans[span.Bundle.Trace.SpanID().String()] = span
-		return
-	}
-	span.logger.traceCount++
-	span.RequestNum = 1
-	span.logger.traceMap[ts] = &traceInfo{
-		requestCount: 1,
-		traceNum:     span.logger.traceCount,
-		spans: map[string]*Span{
-			span.Bundle.Trace.SpanID().String(): span,
-		},
-	}
-}
-
-// must hold a lock to call setSpanNumber
-func (span *Span) setSpanNumber() {
-	ts := span.Bundle.Trace.GetTraceID().String()
-	ti := span.logger.traceMap[ts]
-	span.RequestNum = span.Parent.RequestNum
-	ti.spans[span.Bundle.Trace.SpanID().String()] = span
 }
 
 // Done is a required method for xopbase.Span
@@ -264,6 +251,8 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 		SequenceCode: spanSequenceCode,
 		Ctx:          ctx,
 		Parent:       span,
+		RequestNum:   span.Parent.RequestNum,
+		TraceNum:     span.Parent.TraceNum,
 	}
 	event := &Event{
 		Type: SpanStart,
@@ -273,7 +262,6 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 	defer span.logger.lock.Unlock()
 	span.lock.Lock()
 	defer span.lock.Unlock()
-	n.setSpanNumber()
 	span.Spans = append(span.Spans, n)
 	span.logger.Spans = append(span.logger.Spans, n)
 	span.logger.Events = append(span.logger.Events, event)
@@ -424,8 +412,8 @@ func (line *Line) Text() string {
 	default:
 		end = line.Message
 	}
-	// XXX include short
-	text := start + msg
+	text := fmt.Sprintf("T%d.%d-%s %s%s",
+		line.Span.TraceNum, line.Span.RequestNum, line.Span.Bundle.Trace.SpanID(), start, msg)
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)

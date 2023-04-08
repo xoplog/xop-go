@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoprecorder"
@@ -41,8 +42,10 @@ func TestRecorderLogMethods(t *testing.T) {
 	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test bar with 38")), "count a test foo with 38")
 	if assert.NotEmpty(t, rLog.Spans, "have a sub-span") {
 		assert.Equal(t, ".A", rLog.Spans[0].SequenceCode, "span sequence for fork")
-		// XXX assert.Equal(t, int64(204), rLog.Spans[0].Metadata["http.status_code"], "an explicit attribute")
-		// XXX assert.Equal(t, xopbase.Int64DataType, rLog.Spans[0].MetadataType["http.status_code"], "http status code attribute type")
+		mv := rLog.Spans[0].SpanMetadata.Get("http.status_code")
+		require.NotNil(t, mv, "has http.status_code metadata")
+		assert.Equal(t, int64(204), mv.Value, "an explicit attribute")
+		assert.Equal(t, xopbase.Int64DataType, mv.Type, "http status code attribute type")
 	}
 }
 

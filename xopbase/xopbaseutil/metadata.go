@@ -25,6 +25,22 @@ type MetadataTracker struct {
 	Seen      any
 }
 
+func (s SpanMetadata) GetValue(k string) any {
+	mt, loaded := s.Map.Load(k)
+	if !loaded {
+		return nil
+	}
+	return mt.Value
+}
+
+func (s SpanMetadata) Get(k string) *MetadataTracker {
+	mt, loaded := s.Map.Load(k)
+	if !loaded {
+		return nil
+	}
+	return mt
+}
+
 // MetadataAny is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	tracker, loaded := s.Map.Load(k.Key())
