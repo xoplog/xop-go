@@ -149,6 +149,12 @@ func (t Trace) String() string {
 	return t.headerString
 }
 
+func NewRandomTraceID() HexBytes16 {
+	spanID := newHexBytes16()
+	spanID.setRandom()
+	return spanID
+}
+
 func NewRandomSpanID() HexBytes8 {
 	spanID := newHexBytes8()
 	spanID.setRandom()
