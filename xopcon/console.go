@@ -95,20 +95,16 @@ type Prefilling struct {
 }
 
 type Builder struct {
-	Enums    map[string]*xopat.EnumAttribute
-	Data     map[string]interface{}
-	DataType map[string]xopbase.DataType
-	Span     *Span
-	kvText   []string
+	Data   map[string]interface{}
+	Span   *Span
+	kvText []string
 }
 
 type Prefilled struct {
-	Enums    map[string]*xopat.EnumAttribute
-	Data     map[string]interface{}
-	DataType map[string]xopbase.DataType
-	Span     *Span
-	Msg      string
-	kvText   []string
+	Data   map[string]interface{}
+	Span   *Span
+	Msg    string
+	kvText []string
 }
 
 type Line struct {
@@ -229,10 +225,8 @@ func (span *Span) NoPrefill() xopbase.Prefilled {
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
-			Enums:    make(map[string]*xopat.EnumAttribute),
-			Data:     make(map[string]interface{}),
-			DataType: make(map[string]xopbase.DataType),
-			Span:     span,
+			Data: make(map[string]interface{}),
+			Span: span,
 		},
 	}
 }
@@ -240,12 +234,10 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 // PrefillComplete is a required method for xopbase.Prefilling
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
-		Enums:    p.Enums,
-		Data:     p.Data,
-		DataType: p.DataType,
-		Span:     p.Span,
-		kvText:   p.kvText,
-		Msg:      m,
+		Data:   p.Data,
+		Span:   p.Span,
+		kvText: p.kvText,
+		Msg:    m,
 	}
 }
 
@@ -254,10 +246,8 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 	xoputil.AtomicMaxInt64(&p.Span.provisionalEndTime, t.UnixNano())
 	line := &Line{
 		Builder: Builder{
-			Enums:    make(map[string]*xopat.EnumAttribute),
-			Data:     make(map[string]interface{}),
-			DataType: make(map[string]xopbase.DataType),
-			Span:     p.Span,
+			Data: make(map[string]interface{}),
+			Span: p.Span,
 		},
 		Level:     level,
 		Timestamp: t,
@@ -265,10 +255,6 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 	}
 	for k, v := range p.Data {
 		line.Data[k] = v
-		line.DataType[k] = p.DataType[k]
-		if e, ok := p.Enums[k]; ok {
-			line.Enums[k] = e
-		}
 	}
 	if len(p.kvText) != 0 {
 		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
@@ -346,41 +332,38 @@ func (line Line) send(text string) {
 	line.Span.logger.output(text)
 }
 
-func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
+func (b *Builder) any(k string, v interface{}) {
 	b.Data[k] = v
-	b.DataType[k] = dt
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
 // Enum is a required method for xopbase.ObjectParts
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	ks := k.Key()
-	b.Enums[ks] = k
 	b.Data[ks] = v
-	b.DataType[ks] = xopbase.EnumDataType
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
 // Any is a required method for xopbase.ObjectParts
-func (b *Builder) Any(k string, v xopbase.ModelArg) { b.any(k, v, xopbase.AnyDataType) }
+func (b *Builder) Any(k string, v xopbase.ModelArg) { b.any(k, v) }
 
 // Bool is a required method for xopbase.ObjectParts
-func (b *Builder) Bool(k string, v bool) { b.any(k, v, xopbase.BoolDataType) }
+func (b *Builder) Bool(k string, v bool) { b.any(k, v) }
 
 // Duration is a required method for xopbase.ObjectParts
-func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
+func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v) }
 
 // Time is a required method for xopbase.ObjectParts
-func (b *Builder) Time(k string, v time.Time) { b.any(k, v, xopbase.TimeDataType) }
+func (b *Builder) Time(k string, v time.Time) { b.any(k, v) }
 
 // Float64 is a required method for xopbase.ObjectParts
-func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v) }
 
 // Int64 is a required method for xopbase.ObjectParts
-func (b *Builder) Int64(k string, v int64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Int64(k string, v int64, dt xopbase.DataType) { b.any(k, v) }
 
 // String is a required method for xopbase.ObjectParts
-func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v) }
 
 // Uint64 is a required method for xopbase.ObjectParts
-func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v) }

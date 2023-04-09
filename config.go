@@ -19,6 +19,11 @@ type Config struct {
 	ErrorReporter func(error)
 }
 
+// LogLinkPrefix can be set during init(). It should not be modified
+// afterwards. It can be used by base loggers (like xoptest) to prefix
+// a traceheader to turn it into a link.
+var LogLinkPrefix string
+
 var DefaultConfig = Config{
 	FlushDelay: time.Minute * 5,
 	ErrorReporter: func(err error) {

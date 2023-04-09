@@ -21,8 +21,6 @@ xoppb/pb.go linguist-generated
 xoppb/replay.go linguist-generated
 xoprecorder/recorder.go linguist-generated
 xoprecorder/replay.go linguist-generated
-xoptest/replay.go linguist-generated
-xoptest/testlogger.go linguist-generated
 xoptrace/hexbytes.go linguist-generated
 xopbase/xopbaseutil/metadata.go linguist-generated
 xoptest/xoptestutil/enums.go linguist-generated

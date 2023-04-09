@@ -8,6 +8,8 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
+	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -16,20 +18,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func VerifyReplay(t *testing.T, want *xoptest.TestLogger, got *xoptest.TestLogger) {
+func VerifyTestReplay(t *testing.T, want *xoptest.Logger, got *xoptest.Logger) {
+	VerifyRecorderReplay(t, want.Recorder(), got.Recorder())
+}
+
+func VerifyRecorderReplay(t *testing.T, want *xoprecorder.Logger, got *xoprecorder.Logger) {
 	verifyReplaySpans(t, "request", want.Requests, got.Requests)
 	verifyReplaySpans(t, "spans", want.Spans, got.Spans)
 	verifyReplayLines(t, want.Lines, got.Lines)
 }
 
-func verifyReplayLines(t *testing.T, want []*xoptest.Line, got []*xoptest.Line) {
+func verifyReplayLines(t *testing.T, want []*xoprecorder.Line, got []*xoprecorder.Line) {
 	require.Equal(t, len(want), len(got), "count of lines")
 	for i := range want {
 		verifyReplayLine(t, want[i], got[i])
 	}
 }
 
-func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
+func verifyReplayLine(t *testing.T, want *xoprecorder.Line, got *xoprecorder.Line) {
 	t.Log("verify line", want.Text)
 	assert.Equal(t, want.Level, got.Level, "level")
 	assert.Truef(t, want.Timestamp.Equal(got.Timestamp), "timestamp %s vs %s", want.Timestamp.Format(time.RFC3339Nano), got.Timestamp.Format(time.RFC3339Nano))
@@ -89,7 +95,7 @@ func verifyReplayLine(t *testing.T, want *xoptest.Line, got *xoptest.Line) {
 	}
 }
 
-func verifyReplaySpans(t *testing.T, kind string, want []*xoptest.Span, got []*xoptest.Span) {
+func verifyReplaySpans(t *testing.T, kind string, want []*xoprecorder.Span, got []*xoprecorder.Span) {
 	if !assert.Equalf(t, len(want), len(got), "count of %s", kind) {
 		return
 	}
@@ -100,7 +106,7 @@ func verifyReplaySpans(t *testing.T, kind string, want []*xoptest.Span, got []*x
 	}
 }
 
-func sortSpans(spans []*xoptest.Span) []*xoptest.Span {
+func sortSpans(spans []*xoprecorder.Span) []*xoprecorder.Span {
 	spans = list.Copy(spans)
 	sort.Slice(spans, func(i, j int) bool {
 		return spans[i].Bundle.Trace.GetSpanID().String() < spans[j].Bundle.Trace.GetSpanID().String()
@@ -145,7 +151,7 @@ func verifyMetadataEnum(t *testing.T, k string, want interface{}, got interface{
 	assert.Equalf(t, w.Int64(), g.Int64(), "metadata %s enum value", k)
 }
 
-func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
+func verifyReplaySpan(t *testing.T, want *xoprecorder.Span, got *xoprecorder.Span) {
 	t.Logf("validating replay of span %s", want.Bundle.Trace)
 	assert.Equal(t, want.IsRequest, got.IsRequest, "is request?")
 	// assert.Equal(t, want.RequestNum, got.RequestNum, "sequence number (RequestNum)")
@@ -164,50 +170,47 @@ func verifyReplaySpan(t *testing.T, want *xoptest.Span, got *xoptest.Span) {
 	assert.Equal(t, want.EndTime, got.EndTime, "end time")
 	assert.Equal(t, want.SequenceCode, got.SequenceCode, "sequence code")
 	assert.Equal(t, want.SourceInfo, got.SourceInfo, "source info")
-	for k, typ := range want.MetadataType {
+	want.SpanMetadata.Map.Range(func(k string, wantM *xopbaseutil.MetadataTracker) bool {
 		t.Logf(" validating metadata %s", k)
-		if _, ok := got.MetadataType[k]; !assert.Truef(t, ok, "missing metadata %s", k) {
-			continue
+		gotM := got.SpanMetadata.Get(k)
+		if !assert.NotNil(t, gotM, "missing metadata %s", k) {
+			return true
 		}
-		if assert.Equal(t, want.MetadataType[k].String(), got.MetadataType[k].String(), "metadata type derived from ZZZ in MetadataZZZ") {
-			if ws, ok := want.Metadata[k].(fmt.Stringer); ok && typ != xopbase.TimeDataType {
-				gs := got.Metadata[k].(fmt.Stringer)
+		if assert.Equal(t, wantM.Type.String(), gotM.Type.String(), "metadata type derived from ZZZ in MetadataZZZ") {
+			if ws, ok := wantM.Value.(fmt.Stringer); ok && wantM.Type != xopbase.TimeDataType {
+				gs := gotM.Value.(fmt.Stringer)
 				assert.Equalf(t, ws.String(), gs.String(), "metadata (as string) %s", k)
 			}
-			switch typ {
+			switch wantM.Type {
 			// MACRO BaseAttribute ONLY:Link,Any,Enum,Time
 			case xopbase.ZZZArrayDataType:
-				verifyMetadataArray(t, k, want.Metadata[k], got.Metadata[k], verifyMetadataZZZ)
+				verifyMetadataArray(t, k, wantM.Value, gotM.Value, verifyMetadataZZZ)
 			case xopbase.ZZZDataType:
-				verifyMetadataZZZ(t, k, want.Metadata[k], got.Metadata[k])
+				verifyMetadataZZZ(t, k, wantM.Value, gotM.Value)
 
 			default:
-				assert.Equalf(t, want.Metadata[k], got.Metadata[k], "metadata %s", typ)
+				assert.Equalf(t, wantM.Value, gotM.Value, "metadata %s", k)
 			}
 		}
-	}
-	for k, wantAI := range want.MetadataAttribute {
-		gotAI, ok := got.MetadataAttribute[k]
-		if !assert.Truef(t, ok, "missing metadata attribute %s", k) {
-			continue
-		}
-		assert.Equalf(t, wantAI.JSONKey().String(), gotAI.JSONKey().String(), "JSONKey.String for %s", k)
-		assert.Equalf(t, wantAI.Key(), gotAI.Key(), "Key for %s", k)
-		assert.Equalf(t, wantAI.Description(), gotAI.Description(), "Description for %s", k)
-		assert.Equalf(t, wantAI.Namespace(), gotAI.Namespace(), "Namespace for %s", k)
-		assert.Equalf(t, wantAI.Indexed(), gotAI.Indexed(), "Indexed for %s", k)
-		assert.Equalf(t, wantAI.Multiple(), gotAI.Multiple(), "Multiple for %s", k)
-		assert.Equalf(t, wantAI.Ranged(), gotAI.Ranged(), "Ranged for %s", k)
-		assert.Equalf(t, wantAI.Locked(), gotAI.Locked(), "Locked for %s", k)
-		assert.Equalf(t, wantAI.Distinct(), gotAI.Distinct(), "Distinct for %s", k)
-		assert.Equalf(t, wantAI.Prominence(), gotAI.Prominence(), "Prominence for %s", k)
-		assert.Equalf(t, wantAI.SemverString(), gotAI.SemverString(), "SemverString for %s", k)
+		assert.Equalf(t, wantM.Attribute.JSONKey().String(), gotM.Attribute.JSONKey().String(), "JSONKey.String for %s", k)
+		assert.Equalf(t, wantM.Attribute.Key(), gotM.Attribute.Key(), "Key for %s", k)
+		assert.Equalf(t, wantM.Attribute.Description(), gotM.Attribute.Description(), "Description for %s", k)
+		assert.Equalf(t, wantM.Attribute.Namespace(), gotM.Attribute.Namespace(), "Namespace for %s", k)
+		assert.Equalf(t, wantM.Attribute.Indexed(), gotM.Attribute.Indexed(), "Indexed for %s", k)
+		assert.Equalf(t, wantM.Attribute.Multiple(), gotM.Attribute.Multiple(), "Multiple for %s", k)
+		assert.Equalf(t, wantM.Attribute.Ranged(), gotM.Attribute.Ranged(), "Ranged for %s", k)
+		assert.Equalf(t, wantM.Attribute.Locked(), gotM.Attribute.Locked(), "Locked for %s", k)
+		assert.Equalf(t, wantM.Attribute.Distinct(), gotM.Attribute.Distinct(), "Distinct for %s", k)
+		assert.Equalf(t, wantM.Attribute.Prominence(), gotM.Attribute.Prominence(), "Prominence for %s", k)
+		assert.Equalf(t, wantM.Attribute.SemverString(), gotM.Attribute.SemverString(), "SemverString for %s", k)
 		// We don't verify TypeName because it comes from the example value
-		assert.Equalf(t, wantAI.SubType(), gotAI.SubType(), "SubType for %s", k)
-		assert.Equalf(t, wantAI.ProtoType().String(), gotAI.ProtoType().String(), "ProtoType for %s", k)
-	}
-	for k := range got.MetadataType {
-		_, ok := want.MetadataType[k]
-		assert.Truef(t, ok, "extraneous metadata key '%s'", k)
-	}
+		assert.Equalf(t, wantM.Attribute.SubType(), gotM.Attribute.SubType(), "SubType for %s", k)
+		assert.Equalf(t, wantM.Attribute.ProtoType().String(), gotM.Attribute.ProtoType().String(), "ProtoType for %s", k)
+		return true
+	})
+	got.SpanMetadata.Map.Range(func(k string, gotM *xopbaseutil.MetadataTracker) bool {
+		wantM := want.SpanMetadata.Get(k)
+		assert.Nil(t, wantM, "extraneous metadata %s", k)
+		return true
+	})
 }
