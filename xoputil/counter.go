@@ -50,7 +50,7 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 	if atomic.LoadInt32(&ti.traceNum) == 0 {
 		// brand new traceInfo
 		ti.mu.Lock()
-		ti.mu.Unlock()
+		ti.mu.Unlock() //nolint:staticcheck // this empty lock/unlock is on purpose
 		// no longer brand new, the request count will never change again
 	}
 
@@ -68,7 +68,7 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 	if atomic.LoadInt32(&ri.requestNum) == 0 {
 		// brand new requestInfo
 		ri.mu.Lock()
-		ri.mu.Unlock()
+		ri.mu.Unlock() //nolint:staticcheck // this empty lock/unlock is on purpose
 	}
 	return int(atomic.LoadInt32(&ti.traceNum)), int(atomic.LoadInt32(&ri.requestNum)), !loaded
 }
