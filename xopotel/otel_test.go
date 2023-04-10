@@ -197,38 +197,46 @@ func TestOTELRoundTrip(t *testing.T) {
 		),
 	)
 
-	var replay bytes.Buffer
-	replayExporter, err := stdouttrace.New(
-		stdouttrace.WithWriter(&replay),
-	)
-	require.NoError(t, err)
-
+	// JSON created directly by OTEL (no XOP involved) lands here
 	var origin bytes.Buffer
 	originExporter, err := stdouttrace.New(
 		stdouttrace.WithWriter(&origin),
 	)
 	require.NoError(t, err)
 
-	tpReplay := sdktrace.NewTracerProvider(
-		xopotel.IDGenerator(),
+	// The final resulting JSON lands here after going to XOP and back to OTEL
+	var replay bytes.Buffer
+	replayExporter, err := stdouttrace.New(
+		stdouttrace.WithWriter(&replay),
+	)
+	require.NoError(t, err)
+
+	// This is the base Logger that writes to OTEL
+	replayBaseLogger := xopotel.BufferedReplayLogger(
+		// Notice: WithResource() is not used here
 		sdktrace.WithBatcher(replayExporter),
-		sdktrace.WithResource(r),
 	)
 
-	xopotelExporter := xopotel.ExportToXOP(xopotel.BaseLogger(tpReplay))
+	// This is the OTEL exporter that writes to the replay base logger
+	xopotelExporter := xopotel.ExportToXOP(replayBaseLogger)
 
+	// This is the TracerProvider that writes to the unmodified JSON exporter
+	// and also to the exporter that writes to XOP and back to OTEL
 	tpOrigin := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(originExporter),
 		sdktrace.WithBatcher(xopotelExporter),
 		sdktrace.WithResource(r),
 	)
 
+	// This is the OTEL tracer we'll use to generate some OTEL logs.
 	tracer := tpOrigin.Tracer("round-trip",
 		oteltrace.WithSchemaURL("http://something"),
 		oteltrace.WithInstrumentationAttributes(kvExamples("ia")...),
 		oteltrace.WithInstrumentationVersion("0.3.0-test4"),
 	)
 	ctx := context.Background()
+
+	// Now we will generate some rich OTEl logs.
 	span1Ctx, span1 := tracer.Start(ctx, "span1 first-name",
 		oteltrace.WithNewRoot(),
 		oteltrace.WithSpanKind(oteltrace.SpanKindProducer),
@@ -272,9 +280,11 @@ func TestOTELRoundTrip(t *testing.T) {
 	)
 	span2.End()
 	span1.End()
-	require.NoError(t, tpOrigin.ForceFlush(ctx), "flush origin")
-	require.NoError(t, tpReplay.ForceFlush(ctx), "flush replay")
 
+	// We've finished generating logs. Flush them.
+	require.NoError(t, tpOrigin.ForceFlush(ctx), "flush origin")
+
+	// Now we verify the end result, looking for differences
 	originSpans := unpack(t, origin.Bytes())
 	replaySpans := unpack(t, replay.Bytes())
 	assert.NotEmpty(t, originSpans, "some spans")

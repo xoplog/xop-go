@@ -8,7 +8,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -16,21 +15,22 @@ import (
 // SpanStub from https://pkg.go.dev/go.opentelemetry.io/otel/sdk@v1.14.0/trace/tracetest#SpanStub because
 // it doesn't implement UnmarshalJSON. Why not?
 type SpanStub struct {
-	Name                   string
-	SpanContext            SpanContext
-	Parent                 SpanContext
-	SpanKind               oteltrace.SpanKind
-	StartTime              time.Time
-	EndTime                time.Time
-	Attributes             []attribute.KeyValue
-	Events                 []sdktrace.Event
-	Links                  []Link
-	Status                 sdktrace.Status
-	DroppedAttributes      int
-	DroppedEvents          int
-	DroppedLinks           int
-	ChildSpanCount         int
-	Resource               *resource.Resource
+	Name              string
+	SpanContext       SpanContext
+	Parent            SpanContext
+	SpanKind          oteltrace.SpanKind
+	StartTime         time.Time
+	EndTime           time.Time
+	Attributes        []attribute.KeyValue
+	Events            []sdktrace.Event
+	Links             []Link
+	Status            sdktrace.Status
+	DroppedAttributes int
+	DroppedEvents     int
+	DroppedLinks      int
+	ChildSpanCount    int
+	Resource          interface{}
+	// XXX Resource               *resource.Resource
 	InstrumentationLibrary instrumentation.Library
 }
 

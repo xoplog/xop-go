@@ -25,6 +25,8 @@
 
 # Just do it (build ready)
 
+- all "Xop" -> "XOP"
+
 - simplify code in xopcon 
 
 - share implementation between xopcon and xoprecorder (opportunities for DRY)

@@ -39,6 +39,17 @@ If you don't have access to a TracerProvider at all and instead have
 a "go.opentelemetry.io/otel/trace".Span, you can use that as the basis for generating
 logs with XOP by converting it directly to a *xop.Log.
 
+# BufferedReplayLogger
+
+BufferedReplayLogger creates a fresh TracerProvider and Tracer for each XOP Request.
+It offeres the highest quality translation from XOP into OTEL but at a cost: all data
+relating to each Request is fully buffered in memory before the TracerProvider and
+Tracer are crated. There is no output until the Request is complete.
+
+BufferedReplayLogger is meant for the situation where another xopbase.Logger is being
+replayed into xopotel. It is also the only way to losslessly round trip OTEL logs to
+XOP and then back to OTEL.
+
 # ExportToXOP
 
 Integration can go the other direction. You can flow traces from Open Telemetry to

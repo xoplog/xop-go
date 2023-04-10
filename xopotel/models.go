@@ -26,6 +26,7 @@ type logger struct {
 	doLogging       bool
 	ignoreDone      oteltrace.Span
 	spanFromContext bool
+	recorder        *xoprecorder.Logger // only set when BufferedReplayLogger is used
 }
 
 type request struct {
