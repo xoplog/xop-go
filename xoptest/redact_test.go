@@ -7,6 +7,7 @@ import (
 
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptest"
 
 	"github.com/mohae/deepcopy"
@@ -71,7 +72,7 @@ func TestRedaction(t *testing.T) {
 		Error("oops", fmt.Errorf("outer: %w", fmt.Errorf("inner"))).
 		Msg("foo")
 
-	foos := tLog.FindLines(xoptest.MessageEquals("foo"))
+	foos := tLog.Recorder().FindLines(xoprecorder.MessageEquals("foo"))
 	require.NotEmpty(t, foos, "foo line")
 
 	assert.Equal(t, "nothing in my garden is taller than my daisy!", foos[0].Data["garden"], "garden")

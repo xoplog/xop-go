@@ -57,7 +57,7 @@ func TestReplayPB(t *testing.T) {
 				require.NoError(t, err, "replay")
 			}
 			t.Log("verify replay equals original")
-			xoptestutil.VerifyReplay(t, tLog, rLog)
+			xoptestutil.VerifyTestReplay(t, tLog, rLog)
 		})
 	}
 }

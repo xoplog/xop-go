@@ -185,8 +185,8 @@ func TestHandlerFuncMiddleware(t *testing.T) {
 
 					im.f(t, inbound, w, r)
 
-					require.Equal(t, 1, len(tLog.Requests), "one request")
-					request := tLog.Requests[0]
+					require.Equal(t, 1, len(tLog.Recorder().Requests), "one request")
+					request := tLog.Recorder().Requests[0]
 					assert.Equal(t, hc.expectParentTrace, request.Bundle.Parent.TraceID().String(), "parent traceID")
 					assert.Equal(t, hc.expectParentSpan, request.Bundle.Parent.SpanID().String(), "parent spanID")
 					assert.Equal(t, "00", request.Bundle.Parent.Version().String(), "parent version")

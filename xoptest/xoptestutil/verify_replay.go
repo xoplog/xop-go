@@ -38,7 +38,7 @@ func verifyReplayLines(t *testing.T, want []*xoprecorder.Line, got []*xoprecorde
 }
 
 func verifyReplayLine(t *testing.T, want *xoprecorder.Line, got *xoprecorder.Line) {
-	t.Log("verify line", want.Text)
+	t.Log("verify line", want.Text())
 	assert.Equal(t, want.Level, got.Level, "level")
 	assert.Truef(t, want.Timestamp.Equal(got.Timestamp), "timestamp %s vs %s", want.Timestamp.Format(time.RFC3339Nano), got.Timestamp.Format(time.RFC3339Nano))
 	assert.Equal(t, want.Message, got.Message, "message")
@@ -170,7 +170,7 @@ func verifyReplaySpan(t *testing.T, want *xoprecorder.Span, got *xoprecorder.Spa
 	// assert.Equal(t, want.Short, got.Short, "short span id for test output")
 	assert.Truef(t, want.StartTime.Equal(got.StartTime), "start time %s vs %s", want.StartTime.Format(time.RFC3339Nano), got.StartTime.Format(time.RFC3339Nano))
 	assert.Equal(t, want.EndTime, got.EndTime, "end time")
-	assert.Equal(t, want.SequenceCode, got.SequenceCode, "sequence code")
+	assert.Equal(t, want.SpanSequenceCode, got.SpanSequenceCode, "span sequence code")
 	assert.Equal(t, want.SourceInfo, got.SourceInfo, "source info")
 	want.SpanMetadata.Map.Range(func(k string, wantM *xopbaseutil.MetadataTracker) bool {
 		t.Logf(" validating metadata %s", k)
@@ -223,7 +223,7 @@ func verifyReplaySpan(t *testing.T, want *xoprecorder.Span, got *xoprecorder.Spa
 	})
 	got.SpanMetadata.Map.Range(func(k string, gotM *xopbaseutil.MetadataTracker) bool {
 		wantM := want.SpanMetadata.Get(k)
-		assert.Nil(t, wantM, "extraneous metadata %s", k)
+		assert.NotNil(t, wantM, "extraneous metadata %s", k)
 		return true
 	})
 }

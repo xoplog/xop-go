@@ -100,7 +100,7 @@ type Span struct {
 	Lines              []*Line
 	StartTime          time.Time
 	Name               string
-	SequenceCode       string
+	SpanSequenceCode   string
 	Ctx                context.Context
 	SourceInfo         *xopbase.SourceInfo
 	SpanMetadata       xopbaseutil.SpanMetadata
@@ -244,15 +244,15 @@ func (span *Span) SetErrorReporter(func(error)) {}
 // Span is a required method for xopbase.Span
 func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, spanSequenceCode string) xopbase.Span {
 	n := &Span{
-		logger:       span.logger,
-		Bundle:       bundle,
-		StartTime:    ts,
-		Name:         name,
-		SequenceCode: spanSequenceCode,
-		Ctx:          ctx,
-		Parent:       span,
-		RequestNum:   span.Parent.RequestNum,
-		TraceNum:     span.Parent.TraceNum,
+		logger:           span.logger,
+		Bundle:           bundle,
+		StartTime:        ts,
+		Name:             name,
+		SpanSequenceCode: spanSequenceCode,
+		Ctx:              ctx,
+		Parent:           span,
+		RequestNum:       span.Parent.RequestNum,
+		TraceNum:         span.Parent.TraceNum,
 	}
 	event := &Event{
 		Type: SpanStart,
@@ -278,6 +278,11 @@ func (span *Span) ParentRequest() *Span {
 		}
 		span = span.Parent
 	}
+}
+
+func (span *Span) Short() string {
+	return fmt.Sprintf("T%d.%d%s",
+		span.TraceNum, span.RequestNum, span.SpanSequenceCode)
 }
 
 // NoPrefill is a required method for xopbase.Span
@@ -412,8 +417,7 @@ func (line *Line) Text() string {
 	default:
 		end = line.Message
 	}
-	text := fmt.Sprintf("T%d.%d-%s %s%s",
-		line.Span.TraceNum, line.Span.RequestNum, line.Span.Bundle.Trace.SpanID(), start, msg)
+	text := line.Span.Short() + " " + start + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + k + "=" + fmt.Sprint(v)

@@ -36,15 +36,15 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 	if !ok {
 		var loaded bool
 		n := &traceInfo{}
-		n.mu.Lock() // unlocked only if loaded
+		n.mu.Lock() // unlocked only if !loaded (and thus this is the new value)
 		ti, loaded = c.traceMap.LoadOrStore(traceID, n)
 		if !loaded {
 			// unfortunately, there is a race where a reader of this
 			// value could get zero for a brand-new traceInfo. We
 			// resolve that by releasing the lock to say the traceInfo
 			// is now ready to use.
-			ti.traceNum = atomic.AddInt32(&c.traceCount, 1)
-			ti.mu.Unlock()
+			atomic.StoreInt32(&n.traceNum, atomic.AddInt32(&c.traceCount, 1))
+			n.mu.Unlock()
 		}
 	}
 	if atomic.LoadInt32(&ti.traceNum) == 0 {
@@ -61,7 +61,7 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 		n.mu.Lock()
 		ri, loaded = ti.requestMap.LoadOrStore(spanID, n)
 		if !loaded {
-			ri.requestNum = atomic.AddInt32(&ti.requestCount, 1)
+			atomic.StoreInt32(&ri.requestNum, atomic.AddInt32(&ti.requestCount, 1))
 			ri.mu.Unlock()
 		}
 	}
@@ -70,5 +70,5 @@ func (c *RequestCounter) GetNumber(trace xoptrace.Trace) (traceNum int, requestN
 		ri.mu.Lock()
 		ri.mu.Unlock()
 	}
-	return int(ti.traceNum), int(ri.requestNum), !loaded
+	return int(atomic.LoadInt32(&ti.traceNum)), int(atomic.LoadInt32(&ri.requestNum)), !loaded
 }

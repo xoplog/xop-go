@@ -12,33 +12,33 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
-	"github.com/xoplog/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoprecorder"
 )
 
 func TestEnumerEventType(t *testing.T) {
-	values := xoptest.EventTypeValues()
+	values := xoprecorder.EventTypeValues()
 	vlast := values[len(values)-1]
 	assert.NotEmpty(t, vlast.String(), "valid")
 	assert.NotEmpty(t, (vlast + 1).String(), "invalid")
-	for _, s := range xoptest.EventTypeStrings() {
-		v, err := xoptest.EventTypeString(s)
+	for _, s := range xoprecorder.EventTypeStrings() {
+		v, err := xoprecorder.EventTypeString(s)
 		assert.NoError(t, err, s)
 		assert.Equal(t, s, v.String())
 	}
-	v, err := xoptest.EventTypeString(vlast.String())
+	v, err := xoprecorder.EventTypeString(vlast.String())
 	require.NoError(t, err, "identity")
 	assert.Equal(t, vlast, v, "identity")
-	v, err = xoptest.EventTypeString(strings.ToLower(vlast.String()))
+	v, err = xoprecorder.EventTypeString(strings.ToLower(vlast.String()))
 	require.NoError(t, err, "identity, lower")
 	assert.Equal(t, vlast, v, "identity, lower")
-	_, err = xoptest.EventTypeString("lasjf;asjfl;adsjf;lasdjfl;jasdf")
+	_, err = xoprecorder.EventTypeString("lasjf;asjfl;adsjf;lasdjfl;jasdf")
 	assert.Error(t, err, "invalid")
 	assert.True(t, vlast.IsAEventType(), "is valid")
 	assert.False(t, (vlast + 1).IsAEventType(), "is not valid")
 	enc, err := json.Marshal(vlast)
 	require.NoError(t, err, "marshal")
 	require.NotEmpty(t, enc, "enc")
-	var unenc xoptest.EventType
+	var unenc xoprecorder.EventType
 	err = json.Unmarshal(enc, &unenc)
 	require.NoError(t, err, "unmarshal")
 	assert.Equal(t, vlast, unenc, "json round trip")
@@ -47,7 +47,7 @@ func TestEnumerEventType(t *testing.T) {
 	value, err := vlast.Value()
 	assert.NoError(t, err, "value")
 	assert.NotEmpty(t, value, "value")
-	var scan xoptest.EventType
+	var scan xoprecorder.EventType
 	err = (&scan).Scan(vlast.String())
 	assert.NoError(t, err, "scan string")
 	assert.Equal(t, vlast, scan, "scan string")

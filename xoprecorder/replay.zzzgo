@@ -47,7 +47,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				return errors.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
 			}
 			if parent, ok := spans[event.Span.Parent.Bundle.Trace.GetSpanID()]; ok {
-				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SequenceCode)
+				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SpanSequenceCode)
 				spans[event.Span.Bundle.Trace.GetSpanID()] = span
 			}
 		case LineEvent:

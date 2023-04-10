@@ -13,6 +13,15 @@ type Predicates []LinePredicate
 
 func (p LinePredicate) String() string { return p.desc }
 
+func (p SpanPredicate) LinePredicate() LinePredicate {
+	return LinePredicate{
+		f: func(line *Line) bool {
+			return p.f(line.Span)
+		},
+		desc: "span " + p.String(),
+	}
+}
+
 func MessageEquals(msg string) LinePredicate {
 	return LinePredicate{
 		f: func(line *Line) bool {
@@ -75,6 +84,15 @@ type SpanPredicate struct {
 type SpanPredicates []SpanPredicate
 
 func (p SpanPredicate) String() string { return p.desc }
+
+func ShortEquals(name string) SpanPredicate {
+	return SpanPredicate{
+		f: func(span *Span) bool {
+			return span.Short() == name
+		},
+		desc: "short equals " + name,
+	}
+}
 
 func NameEquals(name string) SpanPredicate {
 	return SpanPredicate{

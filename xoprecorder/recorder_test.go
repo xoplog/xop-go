@@ -41,7 +41,7 @@ func TestRecorderLogMethods(t *testing.T) {
 	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test bar")), "count a test foo")
 	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test bar with 38")), "count a test foo with 38")
 	if assert.NotEmpty(t, rLog.Spans, "have a sub-span") {
-		assert.Equal(t, ".A", rLog.Spans[0].SequenceCode, "span sequence for fork")
+		assert.Equal(t, ".A", rLog.Spans[0].SpanSequenceCode, "span sequence for fork")
 		mv := rLog.Spans[0].SpanMetadata.Get("http.status_code")
 		require.NotNil(t, mv, "has http.status_code metadata")
 		assert.Equal(t, int64(204), mv.Value, "an explicit attribute")
@@ -54,7 +54,7 @@ func TestRecorderWithLock(t *testing.T) {
 	defer close(message)
 	wg := sync.WaitGroup{}
 	invocations := 0
-	f := func(l *xoptest.TestLogger) error {
+	f := func(l *xoprecorder.Logger) error {
 		time.Sleep(100 * time.Millisecond)
 		invocations++
 		message <- invocations
@@ -64,12 +64,12 @@ func TestRecorderWithLock(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		err := tLog.WithLock(f)
+		err := tLog.Recorder().WithLock(f)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := tLog.WithLock(f)
+		err := tLog.Recorder().WithLock(f)
 		assert.NoError(t, err)
 	}()
 
@@ -82,10 +82,10 @@ func TestRecorderCustomEvent(t *testing.T) {
 	tLog := xoptest.New(t)
 	f := func(_ error) {}
 	tLog.SetErrorReporter(f)
-	tLog.CustomEvent("custom message (%v-%v)", "foo", "bar")
-	assert.Len(t, tLog.Events, 1)
-	assert.Equal(t, "custom message (foo-bar)", tLog.Events[0].Msg)
-	assert.Equal(t, xoptest.CustomEvent, tLog.Events[0].Type)
+	tLog.Recorder().CustomEvent("custom message (%v-%v)", "foo", "bar")
+	assert.Len(t, tLog.Recorder().Events, 1)
+	assert.Equal(t, "custom message (foo-bar)", tLog.Recorder().Events[0].Msg)
+	assert.Equal(t, xoprecorder.CustomEvent, tLog.Recorder().Events[0].Type)
 }
 
 func TestReplayRecorder(t *testing.T) {
@@ -109,7 +109,7 @@ func TestReplayRecorder(t *testing.T) {
 			err := rLog.Replay(context.Background(), replayLog)
 			require.NoError(t, err, "replay")
 			t.Log("verify replay equals original")
-			xoptestutil.VerifyReplay(t, tLog, replayLog)
+			xoptestutil.VerifyTestReplay(t, tLog, replayLog)
 		})
 	}
 }

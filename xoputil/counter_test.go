@@ -51,17 +51,17 @@ func testRequestCounter(t *testing.T, seed int64, traceCount int, requestCount i
 		for i := 0; i < dupCount; i++ {
 			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				<-starter
 				traceNum, requestNum, isNew := counter.GetNumber(req)
 				mu.Lock()
+				defer mu.Unlock()
 				traceNums[traceNum]++
 				requestNums[[2]int{traceNum, requestNum}]++
 				threadCount++
 				if isNew {
 					newCount++
 				}
-				mu.Unlock()
-				wg.Done()
 			}()
 		}
 	}

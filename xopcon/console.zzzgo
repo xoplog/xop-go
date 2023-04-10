@@ -154,6 +154,7 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 		TraceNum:   traceNum,
 		Short:      fmt.Sprintf("T%d.%d", traceNum, requestNum),
 	}
+	s.Parent = s
 	if isNew {
 		s.logger.output("Start request " + s.Short + "=" + bundle.Trace.String() + " " + name)
 	}

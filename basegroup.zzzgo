@@ -117,6 +117,7 @@ func (s baseRequests) Flush() {
 	var wg sync.WaitGroup
 	wg.Add(len(s.baseRequests))
 	for _, request := range s.baseRequests {
+		request := request
 		go func() {
 			defer wg.Done()
 			request.Flush()
@@ -140,7 +141,11 @@ func (s baseSpans) Done(t time.Time, final bool) {
 }
 
 func (s baseSpans) ID() string {
-	panic("this is not expected to be called")
+	ids := make([]string, len(s))
+	for i, span := range s {
+		ids[i] = span.ID()
+	}
+	return strings.Join(ids, "/")
 }
 
 func (s baseSpans) Boring(b bool) {

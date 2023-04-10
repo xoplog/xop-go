@@ -15,7 +15,7 @@ func DumpEvents(t testing.TB, tlog *xoprecorder.Logger) {
 		for _, event := range tlog.Events {
 			switch event.Type {
 			case xoprecorder.LineEvent:
-				o = append(o, fmt.Sprintf("line: %s", event.Line.Text))
+				o = append(o, fmt.Sprintf("line: %s", event.Line.Text()))
 			case xoprecorder.SpanStart:
 				o = append(o, fmt.Sprintf("spanstart: %s", event.Span.Bundle.Trace.SpanID().String()))
 			case xoprecorder.SpanDone:
