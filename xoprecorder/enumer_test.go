@@ -1,4 +1,4 @@
-package xoptest
+package xoprecorder
 
 import "testing"
 

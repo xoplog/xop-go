@@ -1,4 +1,4 @@
-package xoptest
+package xoprecorder
 
 import (
 	"strings"
@@ -13,6 +13,15 @@ type Predicates []LinePredicate
 
 func (p LinePredicate) String() string { return p.desc }
 
+func (p SpanPredicate) LinePredicate() LinePredicate {
+	return LinePredicate{
+		f: func(line *Line) bool {
+			return p.f(line.Span)
+		},
+		desc: "span " + p.String(),
+	}
+}
+
 func MessageEquals(msg string) LinePredicate {
 	return LinePredicate{
 		f: func(line *Line) bool {
@@ -25,13 +34,13 @@ func MessageEquals(msg string) LinePredicate {
 func TextContains(msg string) LinePredicate {
 	return LinePredicate{
 		f: func(line *Line) bool {
-			return strings.Contains(line.Text, msg)
+			return strings.Contains(line.Text(), msg)
 		},
 		desc: "text contains " + msg,
 	}
 }
 
-func (log *TestLogger) FindLines(predicates ...LinePredicate) []*Line {
+func (log *Logger) FindLines(predicates ...LinePredicate) []*Line {
 	log.lock.Lock()
 	defer log.lock.Unlock()
 	var found []*Line
@@ -47,22 +56,20 @@ Line:
 	return found
 }
 
-func (log *TestLogger) CountLines(predicates ...LinePredicate) int {
+func (log *Logger) CountLines(predicates ...LinePredicate) int {
 	return len(log.FindLines(predicates...))
 }
 
 // FindSpanByLine returns nil unless there is exactly one span that
 // has lines that match the predicate.
-func (log *TestLogger) FindSpanByLine(predicates ...LinePredicate) *Span {
+func (log *Logger) FindSpanByLine(predicates ...LinePredicate) *Span {
 	matching := log.FindLines(predicates...)
 	if len(matching) == 0 {
-		log.t.Log("no lines matching", Predicates(predicates))
 		return nil
 	}
 	span := matching[0].Span
 	for _, m := range matching {
 		if m.Span != span {
-			log.t.Log("multiple lines matching", Predicates(predicates))
 			return nil
 		}
 	}
@@ -78,12 +85,12 @@ type SpanPredicates []SpanPredicate
 
 func (p SpanPredicate) String() string { return p.desc }
 
-func ShortEquals(short string) SpanPredicate {
+func ShortEquals(name string) SpanPredicate {
 	return SpanPredicate{
 		f: func(span *Span) bool {
-			return span.Short == short
+			return span.Short() == name
 		},
-		desc: "short equals " + short,
+		desc: "short equals " + name,
 	}
 }
 
@@ -96,7 +103,7 @@ func NameEquals(name string) SpanPredicate {
 	}
 }
 
-func (log *TestLogger) FindSpan(predicates ...SpanPredicate) *Span {
+func (log *Logger) FindSpan(predicates ...SpanPredicate) *Span {
 Request:
 	for _, span := range log.Requests {
 		for _, predicate := range predicates {
@@ -115,6 +122,5 @@ Span:
 		}
 		return span
 	}
-	log.t.Log("no spans match", SpanPredicates(predicates))
 	return nil
 }

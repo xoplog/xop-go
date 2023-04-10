@@ -5,30 +5,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xoplog/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoprecorder"
 )
 
-func DumpEvents(t testing.TB, tlog *xoptest.TestLogger) {
+// XXX move to xoprecorder
+func DumpEvents(t testing.TB, tlog *xoprecorder.Logger) {
 	var o []string
-	_ = tlog.WithLock(func(tlog *xoptest.TestLogger) error {
+	_ = tlog.WithLock(func(tlog *xoprecorder.Logger) error {
 		for _, event := range tlog.Events {
 			switch event.Type {
-			case xoptest.LineEvent:
-				o = append(o, fmt.Sprintf("line: %s", event.Line.Text))
-			case xoptest.SpanStart:
+			case xoprecorder.LineEvent:
+				o = append(o, fmt.Sprintf("line: %s", event.Line.Text()))
+			case xoprecorder.SpanStart:
 				o = append(o, fmt.Sprintf("spanstart: %s", event.Span.Bundle.Trace.SpanID().String()))
-			case xoptest.SpanDone:
+			case xoprecorder.SpanDone:
 				o = append(o, fmt.Sprintf("spandone: %s", event.Span.Bundle.Trace.SpanID().String()))
 
-			case xoptest.RequestStart:
+			case xoprecorder.RequestStart:
 				o = append(o, fmt.Sprintf("requeststart: %s", event.Span.Bundle.Trace.SpanID().String()))
-			case xoptest.RequestDone:
+			case xoprecorder.RequestDone:
 				o = append(o, fmt.Sprintf("requestdone: %s", event.Span.Bundle.Trace.SpanID().String()))
-			case xoptest.FlushEvent:
+			case xoprecorder.FlushEvent:
 				o = append(o, "Flush!")
-			case xoptest.CustomEvent:
+			case xoprecorder.CustomEvent:
 				o = append(o, "Custom: "+event.Msg)
-			case xoptest.MetadataSet:
+			case xoprecorder.MetadataSet:
 				o = append(o, fmt.Sprintf("Metadata on %s: %s", event.Span.Bundle.Trace.SpanID().String(), event.Msg))
 			default:
 				o = append(o, "unknown event")

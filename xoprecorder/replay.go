@@ -1,26 +1,20 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-package xoptest
+package xoprecorder
 
 import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
+
+	"github.com/pkg/errors"
 )
 
-func (log *TestLogger) Replay(ctx context.Context, input any, logger xopbase.Logger) error {
-	return log.LosslessReplay(ctx, input, logger)
-}
-
-func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopbase.Logger) error {
-	log, ok := input.(*TestLogger)
-	if !ok {
-		return errors.Errorf("xoptest Replay only supports *TestLogger")
-	}
+// Replay dumps the recorded logs to another base logger
+func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 	requests := make(map[xoptrace.HexBytes8]xopbase.Request)
 	spans := make(map[xoptrace.HexBytes8]xopbase.Span)
 	for _, event := range log.Events {
@@ -28,7 +22,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 		case CustomEvent:
 			// ignore
 		case RequestStart:
-			request := logger.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, *event.Span.SourceInfo)
+			request := dest.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, *event.Span.SourceInfo)
 			id := event.Span.Bundle.Trace.GetSpanID()
 			requests[id] = request
 			spans[id] = request
@@ -56,7 +50,7 @@ func (_ *TestLogger) LosslessReplay(ctx context.Context, input any, logger xopba
 				return errors.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
 			}
 			if parent, ok := spans[event.Span.Parent.Bundle.Trace.GetSpanID()]; ok {
-				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SequenceCode)
+				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SpanSequenceCode)
 				spans[event.Span.Bundle.Trace.GetSpanID()] = span
 			}
 		case LineEvent:

@@ -147,7 +147,7 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 					}
 
 					t.Log("verify replay equals original")
-					xoptestutil.VerifyReplay(t, tLog, rLog)
+					xoptestutil.VerifyTestReplay(t, tLog, rLog)
 				})
 			}
 		})

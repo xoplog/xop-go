@@ -10,6 +10,7 @@ import (
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopmiddle"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xopresty"
 	"github.com/xoplog/xop-go/xoptest"
 
@@ -116,7 +117,7 @@ func TestXopResty(t *testing.T) {
 
 			_, err := r.Get(ts.URL)
 
-			requestSpan := tLog.FindSpan(xoptest.NameEquals("GET handler:GET"))
+			requestSpan := tLog.Recorder().FindSpan(xoprecorder.NameEquals("GET handler:GET"))
 
 			require.NotNil(t, requestSpan, "requestSpan")
 			assert.NotEmpty(t, requestSpan.EndTime, "client request span completed")
@@ -126,17 +127,17 @@ func TestXopResty(t *testing.T) {
 				return
 			}
 
-			farSideSpan := tLog.FindSpan(xoptest.ShortEquals("T1.2"))
+			farSideSpan := tLog.Recorder().FindSpan(xoprecorder.ShortEquals("T1.2"))
 			require.NotNil(t, farSideSpan, "farSideSpan")
 			assert.NotEmpty(t, farSideSpan.EndTime, "server endpoint span completed")
 			assert.NoError(t, err, "Get")
 			assert.True(t, called, "handler called")
 
 			text := "T1.1.1 LINK:http.remote_trace " + farSideSpan.Bundle.Trace.String()
-			assert.Equalf(t, 1, tLog.CountLines(xoptest.TextContains(text)), "count lines with '%s'", text)
+			assert.Equalf(t, 1, tLog.Recorder().CountLines(xoprecorder.TextContains(text)), "count lines with '%s'", text)
 
 			for _, text := range tc.expectedText {
-				assert.Equalf(t, 1, tLog.CountLines(xoptest.TextContains(text)), "count lines with '%s'", text)
+				assert.Equalf(t, 1, tLog.Recorder().CountLines(xoprecorder.TextContains(text)), "count lines with '%s'", text)
 			}
 		})
 	}

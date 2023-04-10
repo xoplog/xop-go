@@ -1,11 +1,8 @@
 
-
 # Big picture
 
 - rip out current redaction functions.  They aren't right but it's not time
   to fix them
-
-- Change base logger Any to have additional parameters: type & de-redaction
 
 - Change logging API
 
@@ -13,10 +10,7 @@
 
 - (Re)define/document output formats
 
-  - xopproto 
-  - xopjson (retains full type info)
   - xopjs (focuses on human-readability)
-  - xopcon
 
 - Document the above and also
 
@@ -25,15 +19,15 @@
 
 - Build the above
 
-- Each of xopproto, xopjson, xoptest, xopotel needs a reversal function to take it's
-  output and call a xopbase.Logger to re-process it's data.  This is how one type can
-  be converted to another.  This library is maybe only in the server?
-
 - Rebuild xopup uploader to use the new xopproto
 
 - Rebuild server to ingest the new xopproto
 
 # Just do it (build ready)
+
+- simplify code in xopcon 
+
+- share implementation between xopcon and xoprecorder (opportunities for DRY)
 
 - add stack filters / filename formatters
 
