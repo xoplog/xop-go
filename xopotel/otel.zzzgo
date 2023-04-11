@@ -179,9 +179,9 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 	}
 	if recorder != nil {
 		recorder.WithLock(func(r *xoprecorder.Logger) error {
-			if len(r.Requests) == 1 && r.Requests[0].bundle.Trace.SpanID() == bundle.Trace.SpanID() {
+			if len(r.Requests) == 1 && r.Requests[0].Bundle.Trace.SpanID() == bundle.Trace.SpanID() {
 				recorded := r.Requests[0]
-				if md := recorded.SpanMetadata.Get(replayFromOTEL.Key); md != nil && cast.To[bool](md.Value) {
+				if md := recorded.SpanMetadata.Get(replayFromOTEL.Key()); md != nil && cast.To[bool](md.Value) {
 					isXOP = false
 				}
 			}
@@ -462,7 +462,10 @@ func (builder *builder) Bool(k string, v bool) {
 }
 
 var skipIfOTEL = map[string]struct{}{
-	replayFromOTEL.Key: {},
+	replayFromOTEL.Key(): {},
+	// XXX Resource
+	// XXX Scope & Library
+	// XXX Status
 }
 
 // MACRO BaseAttribute

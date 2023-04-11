@@ -73,5 +73,8 @@ even if it is available soon after.
 If ReadOnlySpan were implementable by others, then it would be possible to bypass
 these limitations and have a full-fidelety OTEL -> XOP -> OTEL loop by bypassing
 the limitations of Span.
+
+Even BufferedReplayLogger cannot really round-trip OTEL data because there is no way
+to set DroppedAttributes(), DroppedLinks(), or DroppedEvents().
 */
 package xopotel

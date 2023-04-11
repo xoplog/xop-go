@@ -94,7 +94,7 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 		id:        "bufotel-" + uuid.New().String(),
 		doLogging: true,
 		tracer:    tracer,
-		recorder:  request.logger.recorder,
+		recorder:  request.recorder,
 	}
 	request.recorder.Replay(request.ctx, otel)
 	err := tracerProvider.ForceFlush(request.ctx)

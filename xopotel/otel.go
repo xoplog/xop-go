@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/internal/util/cast"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/google/uuid"
@@ -108,7 +110,7 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 			}
 			parentCtx := ctx
 			bundle := seed.Bundle()
-			ctx, _, otelSpan := buildRequestSpan(ctx, ts, bundle, nameOrDescription, seed.SourceInfo(), tracer)
+			ctx, _, otelSpan := buildRequestSpan(ctx, ts, bundle, nameOrDescription, seed.SourceInfo(), tracer, nil)
 			if bundle.Parent.IsZero() {
 				parentSpan := oteltrace.SpanFromContext(parentCtx)
 				if parentSpan.SpanContext().HasTraceID() {
@@ -164,7 +166,7 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer) (context.Context, bool, oteltrace.Span) {
+func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer, recorder *xoprecorder.Logger) (context.Context, bool, oteltrace.Span) {
 	spanKind := oteltrace.SpanKindServer
 	isXOP := sourceInfo.Source != otelDataSource
 	if !isXOP {
@@ -178,6 +180,18 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 		oteltrace.WithSpanKind(spanKind),
 		oteltrace.WithTimestamp(ts),
 	}
+	if recorder != nil {
+		recorder.WithLock(func(r *xoprecorder.Logger) error {
+			if len(r.Requests) == 1 && r.Requests[0].Bundle.Trace.SpanID() == bundle.Trace.SpanID() {
+				recorded := r.Requests[0]
+				if md := recorded.SpanMetadata.Get(replayFromOTEL.Key()); md != nil && cast.To[bool](md.Value) {
+					isXOP = false
+				}
+			}
+			return nil
+		})
+	}
+
 	if bundle.Parent.TraceID().IsZero() {
 		opts = append(opts, oteltrace.WithNewRoot())
 	}
@@ -203,7 +217,7 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace
 		otelSpan = oteltrace.SpanFromContext(ctx)
 		isXOP = sourceInfo.Source != otelDataSource
 	} else {
-		ctx, isXOP, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer)
+		ctx, isXOP, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer, logger.recorder)
 	}
 	r := &request{
 		span: &span{
@@ -448,6 +462,13 @@ func (builder *builder) String(k string, v string, dt xopbase.DataType) {
 
 func (builder *builder) Bool(k string, v bool) {
 	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
+}
+
+var skipIfOTEL = map[string]struct{}{
+	replayFromOTEL.Key(): {},
+	// XXX Resource
+	// XXX Scope & Library
+	// XXX Status
 }
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {

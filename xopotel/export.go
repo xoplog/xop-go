@@ -35,6 +35,11 @@ var (
 
 var ErrShutdown = fmt.Errorf("Shutdown called")
 
+var replayFromOTEL = xopat.Make{
+	Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
+	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config",
+}.AnyAttribute(&otelBundle{})
+
 type spanExporter struct {
 	base           xopbase.Logger
 	orderedFinish  []orderedFinish
@@ -214,6 +219,15 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 		data.xopSpan = attributeMap.GetString(xopVersion) != ""
 		data.registry = xopat.NewRegistry(false)
+		if !data.xopSpan {
+			data.baseSpan.MetadataAny(replayFromOTEL, xopbase.ModelArg{
+				Model: &otelBundle{
+					Status:               span.Status(),
+					Resource:             span.Resource(),
+					InstrumentationScope: span.InstrumentationScope(),
+				},
+			})
+		}
 	}
 	y := baseSpanReplay{
 		spanReplay: x,

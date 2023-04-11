@@ -10,9 +10,12 @@ import (
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -72,6 +75,12 @@ type builder struct {
 	prefillMsg string
 	linkKey    string
 	linkValue  xoptrace.Trace
+}
+
+type otelBundle struct {
+	Status               sdktrace.Status
+	Resource             *resource.Resource
+	InstrumentationScope instrumentation.Scope
 }
 
 var _ xopbase.Logger = &logger{}
