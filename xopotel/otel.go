@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
-	"github.com/xoplog/xop-go/internal/util/cast"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
@@ -102,7 +101,7 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 		xop.WithContext(ctx),
 		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, ts time.Time) []xop.SeedModifier {
 			if isChildSpan {
-				ctx, span := buildSpan(ctx, ts, seed.Bundle(), nameOrDescription, tracer)
+				ctx, span := buildSpan(ctx, ts, seed.Bundle(), nameOrDescription, tracer, nil)
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
@@ -180,17 +179,9 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 		oteltrace.WithSpanKind(spanKind),
 		oteltrace.WithTimestamp(ts),
 	}
-	if recorder != nil {
-		recorder.WithLock(func(r *xoprecorder.Logger) error {
-			if len(r.Requests) == 1 && r.Requests[0].Bundle.Trace.SpanID() == bundle.Trace.SpanID() {
-				recorded := r.Requests[0]
-				if md := recorded.SpanMetadata.Get(replayFromOTEL.Key()); md != nil && cast.To[bool](md.Value) {
-					isXOP = false
-				}
-			}
-			return nil
-		})
-	}
+
+	otelStuff := getStuff(recorder, bundle)
+	opts = append(opts, otelStuff.Options()...)
 
 	if bundle.Parent.TraceID().IsZero() {
 		opts = append(opts, oteltrace.WithNewRoot())
@@ -207,6 +198,7 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 			xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
 		)
 	}
+	otelStuff.Set(otelSpan)
 	return ctx, isXOP, otelSpan
 }
 
@@ -250,11 +242,16 @@ func (span *span) Done(endTime time.Time, final bool) {
 	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
 }
 
-func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, tracer oteltrace.Tracer) (context.Context, oteltrace.Span) {
-	return tracer.Start(overrideIntoContext(ctx, bundle), description,
+func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, tracer oteltrace.Tracer, recorder *xoprecorder.Logger) (context.Context, oteltrace.Span) {
+	opts := []oteltrace.SpanStartOption{
 		oteltrace.WithTimestamp(ts),
 		oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
-	)
+	}
+	otelStuff := getStuff(recorder, bundle)
+	opts = append(opts, otelStuff.Options()...)
+	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
+	otelStuff.Set(otelSpan)
+	return ctx, otelSpan
 }
 
 func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
@@ -267,7 +264,7 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 			XXX := oteltrace.SpanFromContext(ctx)
 			fmt.Println("XXX in Span, have span in context", XXX != nil)
 		}
-		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer)
+		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer, parentSpan.logger.recorder)
 	}
 	s := &span{
 		logger:   parentSpan.logger,

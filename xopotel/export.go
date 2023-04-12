@@ -216,7 +216,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		data.registry = xopat.NewRegistry(false)
 		if !data.xopSpan {
 			data.baseSpan.MetadataAny(replayFromOTEL, xopbase.ModelArg{
-				Model: &otelBundle{
+				Model: &otelStuff{
 					Status:               span.Status(),
 					Resource:             span.Resource(),
 					InstrumentationScope: span.InstrumentationScope(),

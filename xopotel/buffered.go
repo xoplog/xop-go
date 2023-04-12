@@ -102,3 +102,45 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 		fmt.Println("XXX", err)
 	}
 }
+
+func getStuff(recorder *xoprecorder.Logger, bundle xoptrace.Bundle) (stuff *otelStuff) {
+	if recorder == nil {
+		return
+	}
+	_ = recorder.WithLock(func(r *xoprecorder.Logger) error {
+		span, ok := r.SpanIndex[bundle.Trace.SpanID().Array()]
+		if !ok {
+			return nil
+		}
+		if md := span.SpanMetadata.Get(replayFromOTEL.Key()); md != nil {
+			ma, ok := md.Value.(xopbase.ModelArg)
+			if ok {
+				var otelStuff otelStuff
+				err := ma.DecodeTo(&otelStuff)
+				if err != nil {
+					fmt.Println("XXX could not decode", err)
+				} else {
+					stuff = &otelStuff
+					fmt.Println("XXX decoded")
+				}
+			} else {
+				fmt.Println("XXX cast failed")
+			}
+		} else {
+			fmt.Println("XXX key missing")
+		}
+		return nil
+	})
+	return
+}
+
+func (o *otelStuff) Options() []oteltrace.SpanStartOption {
+	return nil
+}
+
+func (o *otelStuff) Set(otelSpan oteltrace.Span) {
+	if o == nil {
+		return
+	}
+	otelSpan.SetStatus(o.Status.Code, o.Status.Description)
+}

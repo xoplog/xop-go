@@ -62,6 +62,7 @@ func New(opts ...Opt) *Logger {
 	log := &Logger{
 		id:             "xoprecorder-" + uuid.New().String(),
 		requestCounter: xoputil.NewRequestCounter(),
+		SpanIndex:      make(map[[8]byte]*Span),
 	}
 	for _, opt := range opts {
 		opt(log)
@@ -75,6 +76,7 @@ type Logger struct {
 	Spans          []*Span
 	Lines          []*Line
 	Events         []*Event
+	SpanIndex      map[[8]byte]*Span
 	requestCounter *xoputil.RequestCounter
 	id             string
 	linePrefix     string
@@ -196,6 +198,7 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 		Type: RequestStart,
 		Span: s,
 	})
+	log.SpanIndex[bundle.Trace.SpanID().Array()] = s
 	return s
 }
 
@@ -265,6 +268,7 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 	span.Spans = append(span.Spans, n)
 	span.logger.Spans = append(span.logger.Spans, n)
 	span.logger.Events = append(span.logger.Events, event)
+	span.logger.SpanIndex[bundle.Trace.SpanID().Array()] = n
 	return n
 }
 

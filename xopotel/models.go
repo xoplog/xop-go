@@ -78,7 +78,7 @@ type builder struct {
 	linkValue  xoptrace.Trace
 }
 
-type otelBundle struct {
+type otelStuff struct {
 	Status               sdktrace.Status
 	Resource             *resource.Resource
 	InstrumentationScope instrumentation.Scope
@@ -112,7 +112,7 @@ var xopBaggage = attribute.Key("xop.baggage")
 var xopStackTrace = attribute.Key("xop.stackTrace")
 
 var replayFromOTEL = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
-	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelBundle{})
+	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})
 
 // TODO: find a better way to set this version string
 const xopVersionValue = "0.3.0"

@@ -117,13 +117,20 @@ func CompareSpanStub(name string, a SpanStub, b SpanStub) []Diff {
 	diffs = append(diffs, CompareAttributes("Attributes", a.Attributes, b.Attributes)...)
 	diffs = append(diffs, CompareEvents("Events", a.Events, b.Events)...)
 	// XXX diffs = append(diffs, CompareLinks("Links", a.Links, b.Links)...)
-	// XXX diffs = append(diffs, CompareStatus("Status", a.Status, b.Status)...)
+	diffs = append(diffs, CompareStatus("Status", a.Status, b.Status)...)
 	diffs = append(diffs, Compare("DroppedAttributes", a.DroppedAttributes, b.DroppedAttributes)...)
 	diffs = append(diffs, Compare("DroppedEvents", a.DroppedEvents, b.DroppedEvents)...)
 	diffs = append(diffs, Compare("DroppedLinks", a.DroppedLinks, b.DroppedLinks)...)
 	diffs = append(diffs, Compare("ChildSpanCount", a.ChildSpanCount, b.ChildSpanCount)...)
 	// XXX diffs = append(diffs, CompareResource("Resource", a.Resource, b.Resource)...)
 	// XXX diffs = append(diffs, CompareInstrumentationLibrary("InstrumentationLibrary", a.InstrumentationLibrary, b.InstrumentationLibrary)...)
+	return diffPrefix(name, diffs)
+}
+
+func CompareStatus(name string, a sdktrace.Status, b sdktrace.Status) []Diff {
+	var diffs []Diff
+	diffs = append(diffs, Compare("Code", a.Code.String(), b.Code.String())...)
+	diffs = append(diffs, Compare("Description", a.Description, b.Description)...)
 	return diffPrefix(name, diffs)
 }
 

@@ -130,3 +130,15 @@ func (m *ModelArg) UnmarshalJSON(b []byte) error {
 	}
 	return nil
 }
+
+func (m *ModelArg) DecodeTo(dest any) error {
+	m.Encode()
+	switch m.Encoding {
+	case xopproto.Encoding_JSON:
+		return json.Unmarshal(m.Encoded, dest)
+	case xopproto.Encoding_XML:
+		return xml.Unmarshal(m.Encoded, dest)
+	default:
+		return fmt.Errorf("do not not how to decode %s", m.Encoding)
+	}
+}
