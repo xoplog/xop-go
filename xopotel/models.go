@@ -52,6 +52,7 @@ type span struct {
 	metadataSeen       map[string]interface{}
 	spanPrefill        []attribute.KeyValue // holds spanID & traceID
 	isXOP              bool                 // true unless data is imported from OTEL
+	XXX                xoptrace.Bundle
 }
 
 type prefilling struct {
@@ -92,7 +93,7 @@ var _ xopbase.Prefilled = &prefilled{}
 
 var xopLevel = attribute.Key("xop.level")
 var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
-var typeKey = attribute.Key("xop.type")
+var xopType = attribute.Key("xop.type")
 var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
 var spanIsLinkEventKey = attribute.Key("xop.span.is-link-event")
 var xopVersion = attribute.Key("xop.version")
@@ -109,6 +110,9 @@ var otelSpanKind = attribute.Key("span.kind")
 var xopLineNumber = attribute.Key("xop.lineNumber")
 var xopBaggage = attribute.Key("xop.baggage")
 var xopStackTrace = attribute.Key("xop.stackTrace")
+
+var replayFromOTEL = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
+	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelBundle{})
 
 // TODO: find a better way to set this version string
 const xopVersionValue = "0.3.0"

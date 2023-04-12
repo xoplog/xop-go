@@ -48,6 +48,18 @@ func (d Diff) String() string {
 	return fmt.Sprintf("%s: %s vs %s", strings.Join(d.Path, "."), toString(d.A), toString(d.B))
 }
 
+func (d Diff) MatchTail(tail ...string) bool {
+	if len(tail) > len(d.Path) {
+		return false
+	}
+	for i, tailPart := range tail {
+		if d.Path[len(d.Path)-len(tail)+i] != tailPart {
+			return false
+		}
+	}
+	return true
+}
+
 var stringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
 
 func toString(a any) string {

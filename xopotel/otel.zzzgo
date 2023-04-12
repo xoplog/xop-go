@@ -222,6 +222,7 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace
 			otelSpan: otelSpan,
 			ctx:      ctx,
 			isXOP:    isXOP,
+			XXX:      bundle,
 		},
 		attributesDefined: make(map[string]struct{}),
 	}
@@ -242,6 +243,7 @@ func (span *span) Done(endTime time.Time, final bool) {
 		// skip Done for spans passed in to SpanLog()
 		return
 	}
+	fmt.Println("XXX DONE", span.XXX.Trace)
 	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
 }
 
@@ -257,6 +259,11 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 	if parentSpan.logger.spanFromContext {
 		otelSpan = oteltrace.SpanFromContext(ctx)
 	} else {
+		if parentSpan.logger.recorder != nil {
+			ctx = parentSpan.ctx
+			XXX := oteltrace.SpanFromContext(ctx)
+			fmt.Println("XXX in Span, have span in context", XXX != nil)
+		}
 		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer)
 	}
 	s := &span{
@@ -265,6 +272,7 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 		ctx:      ctx,
 		request:  parentSpan.request,
 		isXOP:    parentSpan.isXOP,
+		XXX:      bundle,
 	}
 	if parentSpan.isXOP && spanSequenceCode != "" {
 		otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
@@ -321,8 +329,10 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
+	// Link will not be called with OTEL->XOP->OTEL so no need to
+	// suppress anything
 	line.attributes = append(line.attributes,
-		typeKey.String("link"),
+		xopType.String("link"),
 		xopLinkData.String(v.String()),
 	)
 	line.done(line.prefillMsg + k)
@@ -344,14 +354,14 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 	tmpSpan.AddEvent(line.level.String(),
 		oteltrace.WithTimestamp(line.timestamp),
 		oteltrace.WithAttributes(line.attributes...))
-	tmpSpan.SetAttributes(typeKey.String("link-event"))
+	tmpSpan.SetAttributes(xopType.String("link-event"))
 	tmpSpan.End()
 }
 
 func (line *line) Model(msg string, v xopbase.ModelArg) {
 	v.Encode()
 	line.attributes = append(line.attributes,
-		typeKey.String("model"),
+		xopType.String("model"),
 		xopModelType.String(v.ModelType),
 		xopEncoding.String(v.Encoding.String()),
 		xopModel.String(string(v.Encoded)),
@@ -360,7 +370,9 @@ func (line *line) Model(msg string, v xopbase.ModelArg) {
 }
 
 func (line *line) Msg(msg string) {
-	line.attributes = append(line.attributes, typeKey.String("line"))
+	if line.span.isXOP {
+		line.attributes = append(line.attributes, xopType.String("line"))
+	}
 	line.done(line.prefillMsg + msg)
 	// PERFORMANCE: return line to pool
 }
@@ -417,7 +429,7 @@ func (line *line) Template(template string) {
 		return "''"
 	})
 	line.attributes = append(line.attributes,
-		typeKey.String("line"),
+		xopType.String("line"),
 		xopLineFormat.String("tmpl"),
 		xopTemplate.String(template),
 	)
@@ -470,6 +482,11 @@ var skipIfOTEL = map[string]struct{}{
 
 // MACRO BaseAttribute
 func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	//CONDITIONAL ONLY:Any
+	if k.Key() == replayFromOTEL.Key() {
+		return
+	}
+	//END CONDITIONAL
 	key := k.Key()
 	if _, ok := span.request.attributesDefined[key]; !ok {
 		if k.Description() != xopSynthesizedForOTEL {

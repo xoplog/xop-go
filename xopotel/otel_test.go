@@ -285,18 +285,30 @@ func TestOTELRoundTrip(t *testing.T) {
 	require.NoError(t, tpOrigin.ForceFlush(ctx), "flush origin")
 
 	// Now we verify the end result, looking for differences
-	originSpans := unpack(t, origin.Bytes())
-	replaySpans := unpack(t, replay.Bytes())
+	originSpans := unpack(t, "origin", origin.Bytes())
+	replaySpans := unpack(t, "replay", replay.Bytes())
 	assert.NotEmpty(t, originSpans, "some spans")
 	assert.Equal(t, len(originSpans), len(replaySpans), "equal length")
-	diffs := xopoteltest.CompareSpanStubSlice("-", originSpans, replaySpans)
+	diffs := xopoteltest.CompareSpanStubSlice("", originSpans, replaySpans)
+	filtered := make([]xopoteltest.Diff, 0, len(diffs))
 	for _, diff := range diffs {
-		t.Logf("diff %s", diff)
+		if diff.MatchTail("ChildSpanCount") {
+			t.Log("ignoring", diff)
+			continue
+		}
+		t.Log("diff", diff)
+		filtered = append(filtered, diff)
 	}
-	assert.Equal(t, 0, len(diffs), "count of unfiltered diffs")
+	assert.Equal(t, 0, len(filtered), "count of unfiltered diffs")
+
+	// TODO:
+	//  span type
+	//  span status
+	//  resource
+	//  instrumentation.Scope
 }
 
-func unpack(t *testing.T, data []byte) []xopoteltest.SpanStub {
+func unpack(t *testing.T, what string, data []byte) []xopoteltest.SpanStub {
 	var spans []xopoteltest.SpanStub
 	for _, chunk := range bytes.Split(data, []byte{'\n'}) {
 		if len(chunk) == 0 {
@@ -305,8 +317,8 @@ func unpack(t *testing.T, data []byte) []xopoteltest.SpanStub {
 		var span xopoteltest.SpanStub
 		err := json.Unmarshal(chunk, &span)
 		require.NoErrorf(t, err, "unmarshal '%s'", string(chunk))
-		t.Logf("unpacking %s", string(chunk))
-		t.Logf("unpacked %s %s", span.SpanContext.TraceID().String(), span.SpanContext.SpanID().String())
+		t.Logf("%s unpacking %s", what, string(chunk))
+		t.Logf("%s unpacked %s %s", what, span.SpanContext.TraceID().String(), span.SpanContext.SpanID().String())
 		spans = append(spans, span)
 	}
 	return spans

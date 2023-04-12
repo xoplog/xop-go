@@ -35,11 +35,6 @@ var (
 
 var ErrShutdown = fmt.Errorf("Shutdown called")
 
-var replayFromOTEL = xopat.Make{
-	Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
-	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config",
-}.AnyAttribute(&otelBundle{})
-
 type spanExporter struct {
 	base           xopbase.Logger
 	orderedFinish  []orderedFinish
@@ -305,7 +300,7 @@ func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int
 			} else {
 				return 0, errors.Errorf("invalid line level attribute type %s", a.Value.Type())
 			}
-		case typeKey:
+		case xopType:
 			if a.Value.Type() == attribute.STRING {
 				switch a.Value.AsString() {
 				case "link":
@@ -808,7 +803,7 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 		xopNamespace,
 		xopBaggage,
 		xopSpanSequence,
-		typeKey,
+		xopType,
 		otelSpanKind:
 		// special cases handled elsewhere
 		return nil
