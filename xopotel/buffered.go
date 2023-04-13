@@ -1,7 +1,10 @@
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xopotel
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,6 +13,8 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -41,6 +46,7 @@ type bufferedRequest struct {
 	finalized bool
 	logger    *bufferedLogger
 	ctx       context.Context
+	bundle    xoptrace.Bundle
 }
 
 func (logger *bufferedLogger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
@@ -50,6 +56,7 @@ func (logger *bufferedLogger) Request(ctx context.Context, ts time.Time, bundle 
 		Request:  recorder.Request(ctx, ts, bundle, description, sourceInfo),
 		logger:   logger,
 		ctx:      ctx,
+		bundle:   bundle,
 	}
 }
 
@@ -70,9 +77,14 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 			LinkCountLimit:              -1,
 			AttributePerEventCountLimit: -1,
 			AttributePerLinkCountLimit:  -1,
-		})}
+		}),
+	}
 	tpOpts = append(tpOpts, request.logger.tracerProviderOpts...)
 	tpOpts = append(tpOpts, IDGenerator())
+
+	otelStuff := getStuff(request.recorder, request.bundle)
+	tpOpts = append(tpOpts, otelStuff.TracerProviderOptions()...)
+
 	// XXX WithResource
 	// XXX WithSpanLimits
 	tracerProvider := sdktrace.NewTracerProvider(tpOpts...)
@@ -116,6 +128,7 @@ func getStuff(recorder *xoprecorder.Logger, bundle xoptrace.Bundle) (stuff *otel
 			ma, ok := md.Value.(xopbase.ModelArg)
 			if ok {
 				var otelStuff otelStuff
+				fmt.Println("XXX otelStuff.Encoded", string(ma.Encoded))
 				err := ma.DecodeTo(&otelStuff)
 				if err != nil {
 					fmt.Println("XXX could not decode", err)
@@ -134,8 +147,32 @@ func getStuff(recorder *xoprecorder.Logger, bundle xoptrace.Bundle) (stuff *otel
 	return
 }
 
-func (o *otelStuff) Options() []oteltrace.SpanStartOption {
+type bufferedResource struct {
+	*resource.Resource
+}
+
+var _ json.Unmarshaler = &bufferedResource{}
+
+func (r *bufferedResource) UnmarshalJSON(b []byte) error {
+	fmt.Println("XXX unmarshal resoruce", string(b))
+	var bufferedAttributes bufferedAttributes
+	err := json.Unmarshal(b, &bufferedAttributes)
+	if err != nil {
+		return err
+	}
+	fmt.Println("XXX attributes", len(bufferedAttributes.attributes), bufferedAttributes.attributes)
+	r.Resource = resource.NewWithAttributes("", bufferedAttributes.attributes...)
+	fmt.Println("XXX resource now", r.Resource)
 	return nil
+}
+
+func (o *otelStuff) Options() []oteltrace.SpanStartOption {
+	if o == nil {
+		return nil
+	}
+	return []oteltrace.SpanStartOption{
+		oteltrace.WithSpanKind(oteltrace.SpanKind(o.SpanKind)),
+	}
 }
 
 func (o *otelStuff) Set(otelSpan oteltrace.Span) {
@@ -143,4 +180,166 @@ func (o *otelStuff) Set(otelSpan oteltrace.Span) {
 		return
 	}
 	otelSpan.SetStatus(o.Status.Code, o.Status.Description)
+}
+
+func (o *otelStuff) TracerProviderOptions() []sdktrace.TracerProviderOption {
+	fmt.Println("XXX Resource=", o.Resource.Resource)
+	return []sdktrace.TracerProviderOption{
+		sdktrace.WithResource(o.Resource.Resource),
+	}
+}
+
+// {"Key":"environment","Value":{"Type":"STRING","Value":"demo"}
+
+type bufferedAttributes struct {
+	attributes []attribute.KeyValue
+}
+
+var _ json.Unmarshaler = &bufferedAttributes{}
+
+func (a *bufferedAttributes) UnmarshalJSON(b []byte) error {
+	var standIn []bufferedKeyValue
+	err := json.Unmarshal(b, &standIn)
+	if err != nil {
+		return err
+	}
+	a.attributes = make([]attribute.KeyValue, len(standIn))
+	for i, si := range standIn {
+		a.attributes[i] = si.KeyValue
+	}
+	return nil
+}
+
+type bufferedKeyValue struct {
+	attribute.KeyValue
+}
+
+var _ json.Unmarshaler = &bufferedKeyValue{}
+
+func (a *bufferedKeyValue) UnmarshalJSON(b []byte) error {
+	var standIn struct {
+		Key   string
+		Value struct {
+			Type  string
+			Value any
+		}
+	}
+	err := json.Unmarshal(b, &standIn)
+	if err != nil {
+		return err
+	}
+	switch standIn.Value.Type {
+	case "BOOL":
+		if c, ok := standIn.Value.Value.(bool); ok {
+			a.KeyValue = attribute.Bool(standIn.Key, c)
+		} else {
+			var si2 struct {
+				Value struct {
+					Value bool
+				}
+			}
+			err := json.Unmarshal(b, &si2)
+			if err != nil {
+				return err
+			}
+			a.KeyValue = attribute.Bool(standIn.Key, si2.Value.Value)
+		}
+	case "BOOLSLICE":
+		var si2 struct {
+			Value struct {
+				Value []bool
+			}
+		}
+		err := json.Unmarshal(b, &si2)
+		if err != nil {
+			return err
+		}
+		a.KeyValue = attribute.BoolSlice(standIn.Key, si2.Value.Value)
+	// blank line required here
+	case "FLOAT64":
+		if c, ok := standIn.Value.Value.(float64); ok {
+			a.KeyValue = attribute.Float64(standIn.Key, c)
+		} else {
+			var si2 struct {
+				Value struct {
+					Value float64
+				}
+			}
+			err := json.Unmarshal(b, &si2)
+			if err != nil {
+				return err
+			}
+			a.KeyValue = attribute.Float64(standIn.Key, si2.Value.Value)
+		}
+	case "FLOAT64SLICE":
+		var si2 struct {
+			Value struct {
+				Value []float64
+			}
+		}
+		err := json.Unmarshal(b, &si2)
+		if err != nil {
+			return err
+		}
+		a.KeyValue = attribute.Float64Slice(standIn.Key, si2.Value.Value)
+	// blank line required here
+	case "INT64":
+		if c, ok := standIn.Value.Value.(int64); ok {
+			a.KeyValue = attribute.Int64(standIn.Key, c)
+		} else {
+			var si2 struct {
+				Value struct {
+					Value int64
+				}
+			}
+			err := json.Unmarshal(b, &si2)
+			if err != nil {
+				return err
+			}
+			a.KeyValue = attribute.Int64(standIn.Key, si2.Value.Value)
+		}
+	case "INT64SLICE":
+		var si2 struct {
+			Value struct {
+				Value []int64
+			}
+		}
+		err := json.Unmarshal(b, &si2)
+		if err != nil {
+			return err
+		}
+		a.KeyValue = attribute.Int64Slice(standIn.Key, si2.Value.Value)
+	// blank line required here
+	case "STRING":
+		if c, ok := standIn.Value.Value.(string); ok {
+			a.KeyValue = attribute.String(standIn.Key, c)
+		} else {
+			var si2 struct {
+				Value struct {
+					Value string
+				}
+			}
+			err := json.Unmarshal(b, &si2)
+			if err != nil {
+				return err
+			}
+			a.KeyValue = attribute.String(standIn.Key, si2.Value.Value)
+		}
+	case "STRINGSLICE":
+		var si2 struct {
+			Value struct {
+				Value []string
+			}
+		}
+		err := json.Unmarshal(b, &si2)
+		if err != nil {
+			return err
+		}
+		a.KeyValue = attribute.StringSlice(standIn.Key, si2.Value.Value)
+	// blank line required here
+
+	default:
+		return fmt.Errorf("unknown attribute.KeyValue type '%s'", standIn.Value.Type)
+	}
+	return nil
 }
