@@ -43,6 +43,7 @@ func (s SpanMetadata) Get(k string) *MetadataTracker {
 
 // MetadataAny is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
+	v.Encode()
 	tracker, loaded := s.Map.Load(k.Key())
 	if loaded {
 		tracker.Mu.Lock()

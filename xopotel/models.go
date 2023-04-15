@@ -9,13 +9,12 @@ import (
 
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
-	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -29,7 +28,7 @@ type logger struct {
 	doLogging       bool
 	ignoreDone      oteltrace.Span
 	spanFromContext bool
-	recorder        *xoprecorder.Logger // only set when BufferedReplayLogger is used
+	bufferedRequest *bufferedRequest // only set when BufferedReplayLogger is used
 }
 
 type request struct {
@@ -79,9 +78,18 @@ type builder struct {
 }
 
 type otelStuff struct {
+	spanCounters
 	Status               sdktrace.Status
-	Resource             *resource.Resource
+	SpanKind             xopconst.SpanKindEnum
+	Resource             bufferedResource
 	InstrumentationScope instrumentation.Scope
+}
+
+type spanCounters struct {
+	DroppedAttributes int
+	DroppedLinks      int
+	DroppedEvents     int
+	ChildSpanCount    int
 }
 
 var _ xopbase.Logger = &logger{}

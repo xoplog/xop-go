@@ -69,7 +69,8 @@ calculate_coverage:
 	  grep -v ^mode profile.out >> coverage.txt; \
 	  rm profile.out; \
 	fi
-	grep -v '\.pb.go:' coverage.txt > coverage.txt.tmp
+	grep -v '\.pb.go:' coverage.txt | \
+		egrep -v 'xoptestutil/|xopoteltest/' > coverage.txt.tmp
 	mv coverage.txt.tmp coverage.txt
 
 coverage: calculate_coverage
@@ -106,3 +107,6 @@ xopproto/%.proto: ../xopproto/%.proto
 
 $(PB): xopproto/xop.proto
 	cd xopproto && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative *.proto
+
+depgraph:
+	set -x; godepgraph -s -p `go list -deps ./... | sort | perl -n -e 'next if m!^github\.com/(?:xoplog|muir)!; next unless m!^[^/]+\.!; print' | perl -n -e 'print "$$1\n" if m!^([^/]+)! && $$1 ne "github.com"; print "$$1\n" if m!^(github.com/[^/]+)!' | sort -u | perl -000 -p -e 'chomp; s/\n/,/g'` `go list ./...` | grep -v github.com/muir | dot -Tpng -o godepgraph.png && open godepgraph.png

@@ -42,13 +42,19 @@ logs with XOP by converting it directly to a *xop.Log.
 # BufferedReplayLogger
 
 BufferedReplayLogger creates a fresh TracerProvider and Tracer for each XOP Request.
-It offeres the highest quality translation from XOP into OTEL but at a cost: all data
+It offeres the higher quality translation from XOP into OTEL but at a cost: all data
 relating to each Request is fully buffered in memory before the TracerProvider and
 Tracer are crated. There is no output until the Request is complete.
 
 BufferedReplayLogger is meant for the situation where another xopbase.Logger is being
 replayed into xopotel. It is also the only way to losslessly round trip OTEL logs to
 XOP and then back to OTEL.
+
+# BufferedReplayExporterWrapper
+
+BufferedReplayExporterWrapper augments BufferedReplayLogger by passing information
+around the OTEL TracerProvider, Tracer, and Span. When not using it, Scope.Name,
+and all the counters that ReadOnlySpan provides are lost.
 
 # ExportToXOP
 
@@ -63,18 +69,8 @@ and have it unchanged and also run data from OTEL to XOP and back to OTEL and
 have it unchanged.
 
 The former (XOP -> OTEL -> XOP) works. Unfortunately, OTEL -> XOP -> OTEL is
-impractical because the Open Telemetry interfaces require data to be set in
-advance. For example, you cannot change a SpanKind after a Span is created.
-XOP doesn't directly encode SpanKind as a fundemental part of the Span so
-in a OTEL -> XOP translation, SpanKind ends up as a span attribute. When going
-back the other way, the SpanKind isn't available at the time the Span is created
-even if it is available soon after.
-
-If ReadOnlySpan were implementable by others, then it would be possible to bypass
-these limitations and have a full-fidelety OTEL -> XOP -> OTEL loop by bypassing
-the limitations of Span.
-
-Even BufferedReplayLogger cannot really round-trip OTEL data because there is no way
-to set DroppedAttributes(), DroppedLinks(), or DroppedEvents().
+difficult to get working and only fully works when using the BufferedReplayLogger
+and the BufferedReplayExporterWrapper. This complexity could be avoided if
+it were possible for others to implement ReadOnlySpan.
 */
 package xopotel

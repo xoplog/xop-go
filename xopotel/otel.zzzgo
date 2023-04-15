@@ -12,7 +12,6 @@ import (
 	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
-	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/google/uuid"
@@ -162,7 +161,7 @@ func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer, recorder *xoprecorder.Logger) (context.Context, bool, oteltrace.Span) {
+func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer, bufferedRequest *bufferedRequest) (context.Context, bool, oteltrace.Span) {
 	spanKind := oteltrace.SpanKindServer
 	isXOP := sourceInfo.Source != otelDataSource
 	if !isXOP {
@@ -177,8 +176,8 @@ func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle,
 		oteltrace.WithTimestamp(ts),
 	}
 
-	otelStuff := getStuff(recorder, bundle)
-	opts = append(opts, otelStuff.Options()...)
+	otelStuff := bufferedRequest.getStuff(bundle, true)
+	opts = append(opts, otelStuff.SpanOptions()...)
 
 	if bundle.Parent.TraceID().IsZero() {
 		opts = append(opts, oteltrace.WithNewRoot())
@@ -206,7 +205,7 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace
 		otelSpan = oteltrace.SpanFromContext(ctx)
 		isXOP = sourceInfo.Source != otelDataSource
 	} else {
-		ctx, isXOP, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer, logger.recorder)
+		ctx, isXOP, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer, logger.bufferedRequest)
 	}
 	r := &request{
 		span: &span{
@@ -239,13 +238,13 @@ func (span *span) Done(endTime time.Time, final bool) {
 	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
 }
 
-func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, tracer oteltrace.Tracer, recorder *xoprecorder.Logger) (context.Context, oteltrace.Span) {
+func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, tracer oteltrace.Tracer, bufferedRequest *bufferedRequest) (context.Context, oteltrace.Span) {
 	opts := []oteltrace.SpanStartOption{
 		oteltrace.WithTimestamp(ts),
 		oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
 	}
-	otelStuff := getStuff(recorder, bundle)
-	opts = append(opts, otelStuff.Options()...)
+	otelStuff := bufferedRequest.getStuff(bundle, true)
+	opts = append(opts, otelStuff.SpanOptions()...)
 	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
 	otelStuff.Set(otelSpan)
 	return ctx, otelSpan
@@ -256,12 +255,12 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 	if parentSpan.logger.spanFromContext {
 		otelSpan = oteltrace.SpanFromContext(ctx)
 	} else {
-		if parentSpan.logger.recorder != nil {
+		if parentSpan.logger.bufferedRequest != nil {
 			ctx = parentSpan.ctx
 			XXX := oteltrace.SpanFromContext(ctx)
 			fmt.Println("XXX in Span, have span in context", XXX != nil)
 		}
-		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer, parentSpan.logger.recorder)
+		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer, parentSpan.logger.bufferedRequest)
 	}
 	s := &span{
 		logger:   parentSpan.logger,

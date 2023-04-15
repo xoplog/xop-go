@@ -25,7 +25,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -182,20 +181,18 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 
 // TestOTELRoundTrip does a round trip of logging:
 //
-//	OTEL -> xopotel.Exporter -> xopotel.BaseLogger -> OTEL
-//	   \--> JSON                                       \--> JSON
+//	OTEL -> xopotel.Exporter -> xopotel.BufferedBaseLogger -> OTEL -> JSON
+//	   \--> JSON
 //
 // Do we get the same JSON?
 func TestOTELRoundTrip(t *testing.T) {
-	r, _ := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("fib"),
-			semconv.ServiceVersionKey.String("v0.1.0"),
-			attribute.String("environment", "demo"),
-		),
+	exampleResource := resource.NewWithAttributes("http://test/foo",
+		attribute.String("environment", "demo"),
 	)
+
+	enc, e := json.Marshal(exampleResource)
+	require.NoError(t, e)
+	t.Log("example resource", string(enc))
 
 	// JSON created directly by OTEL (no XOP involved) lands here
 	var origin bytes.Buffer
@@ -211,10 +208,15 @@ func TestOTELRoundTrip(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	exporterWrapper := xopotel.NewBufferedReplayExporterWrapper()
+
+	wrappedReplayExporter := exporterWrapper.WrapExporter(replayExporter)
+
 	// This is the base Logger that writes to OTEL
-	replayBaseLogger := xopotel.BufferedReplayLogger(
-		// Notice: WithResource() is not used here
-		sdktrace.WithBatcher(replayExporter),
+	replayBaseLogger := exporterWrapper.BufferedReplayLogger(
+		// Notice: WithResource() is not used here since
+		// this will come from the replay logger.
+		sdktrace.WithBatcher(wrappedReplayExporter),
 	)
 
 	// This is the OTEL exporter that writes to the replay base logger
@@ -223,9 +225,9 @@ func TestOTELRoundTrip(t *testing.T) {
 	// This is the TracerProvider that writes to the unmodified JSON exporter
 	// and also to the exporter that writes to XOP and back to OTEL
 	tpOrigin := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(exampleResource),
 		sdktrace.WithBatcher(originExporter),
 		sdktrace.WithBatcher(xopotelExporter),
-		sdktrace.WithResource(r),
 	)
 
 	// This is the OTEL tracer we'll use to generate some OTEL logs.
@@ -247,7 +249,7 @@ func TestOTELRoundTrip(t *testing.T) {
 		oteltrace.WithAttributes(kvExamples("s1event")...),
 	)
 	span1.SetAttributes(kvExamples("s1set")...)
-	span1.SetStatus(codes.Ok, "a-okay here")
+	span1.SetStatus(codes.Error, "a-okay here")
 	span1.SetName("span1 new-name")
 	span1.RecordError(fmt.Errorf("an error"),
 		oteltrace.WithTimestamp(time.Now()),
@@ -292,19 +294,12 @@ func TestOTELRoundTrip(t *testing.T) {
 	diffs := xopoteltest.CompareSpanStubSlice("", originSpans, replaySpans)
 	filtered := make([]xopoteltest.Diff, 0, len(diffs))
 	for _, diff := range diffs {
-		if diff.MatchTail("ChildSpanCount") {
-			t.Log("ignoring", diff)
-			continue
-		}
 		t.Log("diff", diff)
 		filtered = append(filtered, diff)
 	}
 	assert.Equal(t, 0, len(filtered), "count of unfiltered diffs")
 
 	// TODO:
-	// XXX span type
-	// XXX span status
-	// XXX resource
 	// XXX instrumentation.Scope
 }
 

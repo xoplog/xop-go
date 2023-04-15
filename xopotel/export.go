@@ -17,6 +17,7 @@ import (
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -217,9 +218,16 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		if !data.xopSpan {
 			data.baseSpan.MetadataAny(replayFromOTEL, xopbase.ModelArg{
 				Model: &otelStuff{
+					SpanKind:             xopconst.SpanKindEnum(span.SpanKind()),
 					Status:               span.Status(),
-					Resource:             span.Resource(),
+					Resource:             bufferedResource{span.Resource()},
 					InstrumentationScope: span.InstrumentationScope(),
+					spanCounters: spanCounters{
+						DroppedAttributes: span.DroppedAttributes(),
+						DroppedLinks:      span.DroppedLinks(),
+						DroppedEvents:     span.DroppedEvents(),
+						ChildSpanCount:    span.ChildSpanCount(),
+					},
 				},
 			})
 		}

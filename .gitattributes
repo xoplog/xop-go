@@ -15,6 +15,7 @@ xopcon/console.go linguist-generated
 xopjson/attributes.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
 xopjson/replay.go linguist-generated
+xopotel/buffered.go linguist-generated
 xopotel/export.go linguist-generated
 xopotel/otel.go linguist-generated
 xoppb/pb.go linguist-generated

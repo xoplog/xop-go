@@ -40,6 +40,9 @@ func (s SpanMetadata) Get(k string) *MetadataTracker {
 // MACRO BaseAttribute
 // MetadataZZZ is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	//CONDITIONAL ONLY:Any
+	v.Encode()
+	//END CONDITIONAL
 	tracker, loaded := s.Map.Load(k.Key())
 	if loaded {
 		tracker.Mu.Lock()

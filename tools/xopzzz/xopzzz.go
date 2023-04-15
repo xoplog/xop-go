@@ -13,7 +13,7 @@ import (
 var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+(SKIP|ONLY):(\S+))?\s*$`)
 var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
-var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
+var zzzRE = regexp.MustCompile(`(zzz|Zzz|ZZZ)`)
 var packageRE = regexp.MustCompile(`^package (\w+)`)
 var conditionalRE = regexp.MustCompile(`^\s*//\s?CONDITIONAL (?:(?:ONLY:(\S+))|(?:SKIP:(\S+)))\s*$`)
 var endConditionalRE = regexp.MustCompile(`^\s*//\s?END CONDITIONAL\s*$`)
@@ -169,9 +169,8 @@ var macros = map[string]map[string]string{
 	},
 	// Enumer is all of the generated enumers, used for generating a test
 	"Enumer": {
-		"EventType":    "xoprecorder",
-		"Level":        "xopnum",
-		"SpanKindEnum": "xopconst",
+		"EventType": "xoprecorder",
+		"Level":     "xopnum",
 	},
 	"OTELAttributes": {
 		"String":       "string",
@@ -185,10 +184,10 @@ var macros = map[string]map[string]string{
 		"Stringer":     "fmt.Stringer",
 	},
 	"OTELTypes": {
-		"STRING":  "String",
-		"INT64":   "Int64",
-		"FLOAT64": "Float64",
-		"BOOL":    "Bool",
+		"STRING":  "string",
+		"INT64":   "int64",
+		"FLOAT64": "float64",
+		"BOOL":    "bool",
 	},
 	"OTELSpanKinds": {
 		// "SpanKindUnspecified": "false", omitted because it's not valid
@@ -314,6 +313,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		replMap := map[string]string{
 			"ZZZ": name,
 			"zzz": typ,
+			"Zzz": strings.Title(typ),
 		}
 		var skipping bool
 		for _, line := range lines {

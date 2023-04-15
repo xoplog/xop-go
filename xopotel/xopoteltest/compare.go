@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/muir/reflectutils"
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -36,6 +38,23 @@ func makeListCompare[T any, K keyConstraint](mapper func([]T) map[K]T, compare f
 		}
 		return diffPrefix(name, diffs)
 	}
+}
+
+func CompareMap[K comparable, V any](name string, aMap map[K]V, bMap map[K]V, compare func(string, V, V) []Diff) []Diff {
+	var diffs []Diff
+	for key, aThing := range aMap {
+		if bThing, ok := bMap[key]; ok {
+			diffs = append(diffs, compare(fmt.Sprint(key), aThing, bThing)...)
+		} else {
+			diffs = append(diffs, Diff{Path: []string{fmt.Sprint(key)}, A: aThing})
+		}
+	}
+	for key, bThing := range bMap {
+		if _, ok := aMap[key]; !ok {
+			diffs = append(diffs, Diff{Path: []string{fmt.Sprint(key)}, B: bThing})
+		}
+	}
+	return diffPrefix(name, diffs)
 }
 
 type Diff struct {
@@ -86,6 +105,9 @@ func diffPrefix(prefix string, diffs []Diff) []Diff {
 	if diffs == nil {
 		return nil
 	}
+	if prefix == "" {
+		return diffs
+	}
 	m := make([]Diff, len(diffs))
 	for i, diff := range diffs {
 		m[i] = Diff{
@@ -118,11 +140,12 @@ func CompareSpanStub(name string, a SpanStub, b SpanStub) []Diff {
 	diffs = append(diffs, CompareEvents("Events", a.Events, b.Events)...)
 	// XXX diffs = append(diffs, CompareLinks("Links", a.Links, b.Links)...)
 	diffs = append(diffs, CompareStatus("Status", a.Status, b.Status)...)
+	diffs = append(diffs, Compare("SpanKind", a.SpanKind.String(), b.SpanKind.String())...)
 	diffs = append(diffs, Compare("DroppedAttributes", a.DroppedAttributes, b.DroppedAttributes)...)
 	diffs = append(diffs, Compare("DroppedEvents", a.DroppedEvents, b.DroppedEvents)...)
 	diffs = append(diffs, Compare("DroppedLinks", a.DroppedLinks, b.DroppedLinks)...)
 	diffs = append(diffs, Compare("ChildSpanCount", a.ChildSpanCount, b.ChildSpanCount)...)
-	// XXX diffs = append(diffs, CompareResource("Resource", a.Resource, b.Resource)...)
+	diffs = append(diffs, CompareAny("Resource", reflect.ValueOf(a.Resource), reflect.ValueOf(b.Resource))...)
 	// XXX diffs = append(diffs, CompareInstrumentationLibrary("InstrumentationLibrary", a.InstrumentationLibrary, b.InstrumentationLibrary)...)
 	return diffPrefix(name, diffs)
 }
@@ -255,4 +278,139 @@ func Compare[T comparable](name string, a T, b T) []Diff {
 		return nil
 	}
 	return []Diff{{Path: []string{name}, A: a, B: b}}
+}
+
+var zeroValue reflect.Value
+
+func CompareInterface(name string, a any, b any) []Diff {
+	return CompareAny(name, reflect.ValueOf(a), reflect.ValueOf(b))
+}
+
+func CompareAny(name string, a reflect.Value, b reflect.Value) []Diff {
+	if !a.IsValid() {
+		if !b.IsValid() {
+			return nil
+		}
+		// calling Interface() w/o checking CanInterface() is a bit
+		// dangerous. We'll depend on our caller to not mess us up.
+		return []Diff{{Path: []string{name}, B: b.Interface()}}
+	}
+	if !b.IsValid() {
+		return []Diff{{Path: []string{name}, A: a.Interface()}}
+	}
+	if a.Type() != b.Type() {
+		return []Diff{{Path: []string{name}, A: a.Interface(), B: b.Interface()}}
+	}
+	var diffs []Diff
+	switch a.Type().Kind() {
+	case reflect.Invalid:
+		return nil
+	case reflect.Bool:
+		return Compare(name, a.Interface().(bool), b.Interface().(bool))
+	case reflect.Int:
+		return Compare(name, a.Interface().(int), b.Interface().(int))
+	case reflect.Int8:
+		return Compare(name, a.Interface().(int8), b.Interface().(int8))
+	case reflect.Int16:
+		return Compare(name, a.Interface().(int16), b.Interface().(int16))
+	case reflect.Int32:
+		return Compare(name, a.Interface().(int32), b.Interface().(int32))
+	case reflect.Int64:
+		return Compare(name, a.Interface().(int64), b.Interface().(int64))
+	case reflect.Uint:
+		return Compare(name, a.Interface().(uint), b.Interface().(uint))
+	case reflect.Uint8:
+		return Compare(name, a.Interface().(uint8), b.Interface().(uint8))
+	case reflect.Uint16:
+		return Compare(name, a.Interface().(uint16), b.Interface().(uint16))
+	case reflect.Uint32:
+		return Compare(name, a.Interface().(uint32), b.Interface().(uint32))
+	case reflect.Uint64:
+		return Compare(name, a.Interface().(uint64), b.Interface().(uint64))
+	case reflect.Uintptr:
+		return Compare(name, a.Interface().(uintptr), b.Interface().(uintptr))
+	case reflect.Float32:
+		return Compare(name, a.Interface().(float32), b.Interface().(float32))
+	case reflect.Float64:
+		return Compare(name, a.Interface().(float64), b.Interface().(float64))
+	case reflect.Complex64:
+		return Compare(name, a.Interface().(complex64), b.Interface().(complex64))
+	case reflect.Complex128:
+		return Compare(name, a.Interface().(complex128), b.Interface().(complex128))
+	case reflect.Array:
+		for i := 0; i < a.Len(); i++ {
+			diffs = append(diffs, CompareAny("["+strconv.Itoa(i)+"]", a.Index(i), b.Index(i))...)
+		}
+	case reflect.Chan:
+		panic("unexpected, chan")
+	case reflect.Func:
+		panic("unexpected, func")
+	case reflect.Interface:
+		if iA := reflect.ValueOf(a.Interface()); iA.Type().Kind() != reflect.Interface {
+			if iB := reflect.ValueOf(b.Interface()); iB.Type().Kind() != reflect.Interface {
+				return CompareAny(name, iA, iB)
+			}
+		}
+		return []Diff{{Path: []string{name, a.Type().String()}, A: b.Interface(), B: b.Interface()}}
+	case reflect.Map:
+		for _, k := range a.MapKeys() {
+			av := a.MapIndex(k)
+			bv := b.MapIndex(k)
+			ks := fmt.Sprint(k.Interface())
+			if bv == zeroValue {
+				diffs = append(diffs, Diff{Path: []string{ks}, A: av.Interface()})
+			} else {
+				diffs = append(diffs, CompareAny(ks, av, bv)...)
+			}
+		}
+		for _, k := range b.MapKeys() {
+			av := a.MapIndex(k)
+			if av == zeroValue {
+				bv := b.MapIndex(k)
+				ks := fmt.Sprint(k.Interface())
+				diffs = append(diffs, Diff{Path: []string{ks}, B: bv.Interface()})
+			}
+		}
+	case reflect.Pointer:
+		if a.IsNil() != b.IsNil() {
+			return []Diff{{Path: []string{name}, A: a.Interface(), B: b.Interface()}}
+		}
+		if a.IsNil() {
+			return nil
+		}
+		return CompareAny(name, a.Elem(), b.Elem())
+	case reflect.Slice:
+		maxLen := a.Len()
+		if b.Len() > maxLen {
+			maxLen = b.Len()
+		}
+		for i := 0; i < maxLen; i++ {
+			if i > a.Len()-1 {
+				diffs = append(diffs, Diff{Path: []string{"[" + strconv.Itoa(i) + "]"}, B: b.Index(i).Interface()})
+			} else if i > b.Len()-1 {
+				diffs = append(diffs, Diff{Path: []string{"[" + strconv.Itoa(i) + "]"}, A: a.Index(i).Interface()})
+			} else {
+				diffs = append(diffs, CompareAny("["+strconv.Itoa(i)+"]", a.Index(i), b.Index(i))...)
+			}
+		}
+	case reflect.String:
+		return Compare(name, a.Interface().(string), b.Interface().(string))
+	case reflect.Struct:
+		reflectutils.WalkStructElements(a.Type(), func(field reflect.StructField) bool {
+			for _, c := range field.Name {
+				if unicode.IsUpper(c) {
+					// ignore un-exported fields
+					return false
+				}
+				break
+			}
+			diffs = append(diffs, CompareAny(field.Name, a.FieldByIndex(field.Index), b.FieldByIndex(field.Index))...)
+			return true
+		})
+	case reflect.UnsafePointer:
+		panic("unexpected, unsafe ptr")
+	default:
+		panic("unexpected " + a.Type().String())
+	}
+	return diffPrefix(name, diffs)
 }
