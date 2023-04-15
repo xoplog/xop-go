@@ -138,7 +138,7 @@ func CompareSpanStub(name string, a SpanStub, b SpanStub) []Diff {
 	diffs = append(diffs, CompareTime("EndTime", a.EndTime, b.EndTime)...)
 	diffs = append(diffs, CompareAttributes("Attributes", a.Attributes, b.Attributes)...)
 	diffs = append(diffs, CompareEvents("Events", a.Events, b.Events)...)
-	// XXX diffs = append(diffs, CompareLinks("Links", a.Links, b.Links)...)
+	diffs = append(diffs, CompareLinks("Links", a.Links, b.Links)...)
 	diffs = append(diffs, CompareStatus("Status", a.Status, b.Status)...)
 	diffs = append(diffs, Compare("SpanKind", a.SpanKind.String(), b.SpanKind.String())...)
 	diffs = append(diffs, Compare("DroppedAttributes", a.DroppedAttributes, b.DroppedAttributes)...)
@@ -146,7 +146,7 @@ func CompareSpanStub(name string, a SpanStub, b SpanStub) []Diff {
 	diffs = append(diffs, Compare("DroppedLinks", a.DroppedLinks, b.DroppedLinks)...)
 	diffs = append(diffs, Compare("ChildSpanCount", a.ChildSpanCount, b.ChildSpanCount)...)
 	diffs = append(diffs, CompareAny("Resource", reflect.ValueOf(a.Resource), reflect.ValueOf(b.Resource))...)
-	// XXX diffs = append(diffs, CompareInstrumentationLibrary("InstrumentationLibrary", a.InstrumentationLibrary, b.InstrumentationLibrary)...)
+	diffs = append(diffs, CompareAny("Scope", reflect.ValueOf(a.Scope), reflect.ValueOf(b.Scope))...)
 	return diffPrefix(name, diffs)
 }
 
@@ -157,7 +157,23 @@ func CompareStatus(name string, a sdktrace.Status, b sdktrace.Status) []Diff {
 	return diffPrefix(name, diffs)
 }
 
-// XXX var CompareLinks = makeListCompare(makeLinkMap, CompareLink)
+var CompareLinks = makeListCompare(makeLinkMap, CompareLink)
+
+func makeLinkMap(list []Link) map[oteltrace.SpanID]Link {
+	m := make(map[oteltrace.SpanID]Link)
+	for _, e := range list {
+		m[e.SpanContext.SpanID()] = e
+	}
+	return m
+}
+
+func CompareLink(name string, a Link, b Link) []Diff {
+	var diffs []Diff
+	diffs = append(diffs, CompareSpanContext("SpanContext", a.SpanContext, b.SpanContext)...)
+	diffs = append(diffs, CompareAttributes("Attributes", a.Attributes, b.Attributes)...)
+	diffs = append(diffs, Compare("DroppedAttributeCount", a.DroppedAttributeCount, b.DroppedAttributeCount)...)
+	return diffPrefix(name, diffs)
+}
 
 var CompareEvents = makeListCompare(makeEventMap, CompareEvent)
 

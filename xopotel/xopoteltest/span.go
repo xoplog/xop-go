@@ -15,22 +15,22 @@ import (
 // SpanStub from https://pkg.go.dev/go.opentelemetry.io/otel/sdk@v1.14.0/trace/tracetest#SpanStub because
 // it doesn't implement UnmarshalJSON. Why not?
 type SpanStub struct {
-	Name                   string
-	SpanContext            SpanContext
-	Parent                 SpanContext
-	SpanKind               oteltrace.SpanKind
-	StartTime              time.Time
-	EndTime                time.Time
-	Attributes             []attribute.KeyValue
-	Events                 []sdktrace.Event
-	Links                  []Link
-	Status                 sdktrace.Status
-	DroppedAttributes      int
-	DroppedEvents          int
-	DroppedLinks           int
-	ChildSpanCount         int
-	Resource               any
-	InstrumentationLibrary instrumentation.Library
+	Name              string
+	SpanContext       SpanContext
+	Parent            SpanContext
+	SpanKind          oteltrace.SpanKind
+	StartTime         time.Time
+	EndTime           time.Time
+	Attributes        []attribute.KeyValue
+	Events            []sdktrace.Event
+	Links             []Link
+	Status            sdktrace.Status
+	DroppedAttributes int
+	DroppedEvents     int
+	DroppedLinks      int
+	ChildSpanCount    int
+	Resource          any
+	Scope             instrumentation.Scope `json:"InstrumentationLibrary"`
 }
 
 // SpanContext copied from https://github.com/open-telemetry/opentelemetry-go/blob/2e54fbb3fede5b54f316b3a08eab236febd854e0/trace/trace.go#L290
@@ -65,8 +65,9 @@ func (sc *SpanContext) UnmarshalJSON(i []byte) error {
 // Link copied from https://pkg.go.dev/go.opentelemetry.io/otel/trace#Link because
 // it doesn't implement UnmarshalJSON. Why not?
 type Link struct {
-	SpanContext SpanContext
-	Attributes  []attribute.KeyValue
+	SpanContext           SpanContext
+	Attributes            []attribute.KeyValue
+	DroppedAttributeCount int
 }
 
 // SpanID exists because oteltrace.SpanID doesn't implement UnmarshalJSON
