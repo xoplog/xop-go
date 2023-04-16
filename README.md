@@ -6,10 +6,49 @@
 [![report card](https://goreportcard.com/badge/github.com/xoplog/xop-go)](https://goreportcard.com/report/github.com/xoplog/xop-go)
 [![codecov](https://codecov.io/gh/xoplog/xop-go/branch/main/graph/badge.svg)](https://codecov.io/gh/xoplog/xop-go)
 
+## Vision
+
+Logging that is chap, rich, in-context, searchable, and long-lived
+creates a situation where bugs can be fixed quickly, especially when
+combined with with supportive programming practices.
+
+Logs that are in-context allow a story to be told. A story of what
+happened and why. This story can be supported by logging data models,
+tables, and other references that would allow bugs to be reproduced.
+
+In-context means that you know what triggered something to happen. You
+also know what trigggered that prior thing. And what triggered the 
+thing before that. This requires logging a lot. It also requires being
+able to see only the part of the logs that matter. All logs are within
+spans. All spans are within requests. All requests are within traces.
+
+Searchable doesn't mean full-text search, though that could be present.
+When a software engineer learns that there is a problem with someting, 
+that usually comes with identifiers attached to it. Customer numbers. 
+Invoices. Some kinda of identity that lives within the system. These
+identifiers can be attributes that are attached to requests. Searchable
+logs means that given an identifier or two and some hint of what went wrong,
+an engineer can quickly find the exact point, in a log, where the problem
+first manifested, and by working backwards, following links in the logs,
+find likely cause.
+
+The main supportive coding practice that helps at this point is building
+complex things with pure functions. The inputs to pure functions, or at
+least ways to regenerate the inputs, can be included in the logs. Once
+you have one regression test built from replaying inputs from logs, any
+further problems with the same pure function can usually be reporoduced
+in minutes.
+
+Combine all these elements and the time to diagnose and reproduce a new
+code issue can drop down to a handful of minutes.
+
+The goal of XOP is to provide that richness in a way that is easy to
+use, efficient, and easy to integrate into existing code.
+
 ## Development status
 
 Ready to use, not yet stable.  Any incompatible changes will be clearly
-marked in the release notes.  At this point, adoptors should make
+marked in the release descriptions.  At this point, adoptors should make
 themselves known and discuss anything that comes up.
 
 Please open issues to start discussions around a subject.  Please feel free
@@ -18,35 +57,18 @@ to open pull requests, especially to added base loggers or propagators.
 Expect the following changes as development continues:
 
 - Log line keys (for key/value attributes) will become typed and 
-  pre-registered (cheap registrations, not complex)
+  pre-registered (cheap, inline-possible registrations, not complex)
 
 - API changes as additional features are added
 
   Currently xop has no metrics support.  That will change and adding
   metrics will probably be the biggest API change
 
-- Repo will split:
-
-  So that users of xop are somewhat insulated from version changes,
-  the repo will split up into the following parts:
-
-  - main xop top-level 
-  - utility/support functions like xopat
-  - xopbase (because it needs to be versioned separately)
-  - split out packages that have external dependencies:
-
-    - xopotel
-    - xopresty
+- xopresty and xopotel will split off to their own repos.
 
 - Additional base loggers are coming
 
-  A console logger is expected soon.
-
-- xoptest will split
-
-  xoptest will will morf into a introspection base logger and
-  logging to `*testing.T` will be accommodated with the new 
-  console logger.
+  A full-fidelity console logger is expected soon.
 
 - Additional gateway base loggers will be written
 
