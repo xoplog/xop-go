@@ -125,8 +125,14 @@ var xopModelType = attribute.Key("xop.modelType")
 
 // Link
 var xopLinkData = attribute.Key("xop.link")
+var otelLink = xopat.Make{Key: "span.otelLinks", Namespace: "XOP", Indexed: false, Prominence: 300,
+	Multiple: true, Distinct: true,
+	Description: "Data origin is OTEL, span links w/o attributes; links also sent as Link()"}.LinkAttribute()
 
-var replayFromOTEL = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
+const xopOTELLinkDetail = "xop.otelLinkDetail"
+const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"
+
+var otelReplayStuff = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
 	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})
 
 // TODO: find a better way to set this version string

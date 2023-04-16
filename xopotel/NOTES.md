@@ -83,14 +83,11 @@ The detection is based upon the presense of specific attributes in the
 
 ## OTEL -> XOP 
 
-Data imported from OTEL is marked with a MetadataBool: replayFromOTEL.
+Data imported from OTEL is marked with a MetadataAny: otelReplayStuff.
 That marking allows XOP -> OTEL translation to detect where the data came
-from origianlly so that it can be reconstructed.
-
-When translating from OTEL to XOP (`ExportToXOP`) is done with data that
-originated in OTEL, all of the attributes that don't easily mapped are 
-bundled up anyway. At the span level, an `otelStuff` object is created 
-and sent using MetadataAny().
+from origianlly so that it can be reconstructed. This object contains
+all of the attributes that aren't easily mapped to XOP. The type of this
+object is `otelStuff`.
 
 Some of the OTEL types translate directly to XOP and they're sent with their
 natural representation.
@@ -99,6 +96,6 @@ The remaining OTEL types are mostly encoded using `xopbase.ModelArg` and sent
 at the line live with `Model()` and at the span level with `MetadataAny`.  
 
 OTEL links are all span-level, but they all have attribute slices rather than
-names so they do not fit well as MetadataLinks. OTEL links are sent twice, once
-as MetadataLink with `otelLink` and also as line Links where their attributes
-are included. XXX
+just name/description so they do not fit well as MetadataLinks. OTEL links are
+sent twice, once as MetadataLink with `otelLink` and also as line Links where
+their attributes (if any) are included. XXX

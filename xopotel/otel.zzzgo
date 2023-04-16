@@ -470,7 +470,7 @@ func (builder *builder) Bool(k string, v bool) {
 }
 
 var skipIfOTEL = map[string]struct{}{
-	replayFromOTEL.Key(): {},
+	otelReplayStuff.Key(): {},
 	// XXX Resource
 	// XXX Scope & Library
 	// XXX Status
@@ -479,7 +479,7 @@ var skipIfOTEL = map[string]struct{}{
 // MACRO BaseAttribute
 func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	//CONDITIONAL ONLY:Any
-	if k.Key() == replayFromOTEL.Key() {
+	if k.Key() == otelReplayStuff.Key() {
 		return
 	}
 	//END CONDITIONAL

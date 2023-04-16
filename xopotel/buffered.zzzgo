@@ -166,7 +166,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 		if !ok {
 			return nil
 		}
-		md := span.SpanMetadata.Get(replayFromOTEL.Key())
+		md := span.SpanMetadata.Get(otelReplayStuff.Key())
 		if md == nil {
 			fmt.Println("XXX key missing")
 			return nil

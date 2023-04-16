@@ -473,14 +473,14 @@ func (builder *builder) Bool(k string, v bool) {
 }
 
 var skipIfOTEL = map[string]struct{}{
-	replayFromOTEL.Key(): {},
+	otelReplayStuff.Key(): {},
 	// XXX Resource
 	// XXX Scope & Library
 	// XXX Status
 }
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
-	if k.Key() == replayFromOTEL.Key() {
+	if k.Key() == otelReplayStuff.Key() {
 		return
 	}
 	key := k.Key()
