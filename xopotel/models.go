@@ -99,25 +99,32 @@ var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-var xopLevel = attribute.Key("xop.level")
-var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
-var xopType = attribute.Key("xop.type")
+// Span-level
+var otelSpanKind = attribute.Key("span.kind")
 var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
 var spanIsLinkEventKey = attribute.Key("xop.span.is-link-event")
-var xopVersion = attribute.Key("xop.version")
+var xopBaggage = attribute.Key("xop.baggage")
+var xopNamespace = attribute.Key("xop.namespace")
 var xopOTELVersion = attribute.Key("xop.otel-version")
 var xopSource = attribute.Key("xop.source")
-var xopNamespace = attribute.Key("xop.namespace")
-var xopLinkData = attribute.Key("xop.link")
-var xopModelType = attribute.Key("xop.modelType")
+var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
+var xopVersion = attribute.Key("xop.version")
+
+// Line
+var xopLevel = attribute.Key("xop.level")
+var xopLineFormat = attribute.Key("xop.format")
+var xopLineNumber = attribute.Key("xop.lineNumber")
+var xopStackTrace = attribute.Key("xop.stackTrace")
+var xopTemplate = attribute.Key("xop.template")
+var xopType = attribute.Key("xop.type")
+
+// Model
 var xopEncoding = attribute.Key("xop.encoding")
 var xopModel = attribute.Key("xop.model")
-var xopLineFormat = attribute.Key("xop.format")
-var xopTemplate = attribute.Key("xop.template")
-var otelSpanKind = attribute.Key("span.kind")
-var xopLineNumber = attribute.Key("xop.lineNumber")
-var xopBaggage = attribute.Key("xop.baggage")
-var xopStackTrace = attribute.Key("xop.stackTrace")
+var xopModelType = attribute.Key("xop.modelType")
+
+// Link
+var xopLinkData = attribute.Key("xop.link")
 
 var replayFromOTEL = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
 	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})
