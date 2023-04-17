@@ -281,7 +281,7 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 
 func (span *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
-		builder: builder{
+		builderWithSpan: builderWithSpan{
 			span: span,
 		},
 	}
@@ -289,7 +289,7 @@ func (span *span) NoPrefill() xopbase.Prefilled {
 
 func (span *span) StartPrefill() xopbase.Prefilling {
 	return &prefilling{
-		builder: builder{
+		builderWithSpan: builderWithSpan{
 			span: span,
 		},
 	}
@@ -298,7 +298,7 @@ func (span *span) StartPrefill() xopbase.Prefilling {
 func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 	prefill.builder.prefillMsg = msg
 	return &prefilled{
-		builder: prefill.builder,
+		builderWithSpan: prefill.builderWithSpan,
 	}
 }
 

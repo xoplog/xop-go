@@ -98,4 +98,4 @@ at the line live with `Model()` and at the span level with `MetadataAny`.
 OTEL links are all span-level, but they all have attribute slices rather than
 just name/description so they do not fit well as MetadataLinks. OTEL links are
 sent twice, once as MetadataLink with `otelLink` and also as line Links where
-their attributes (if any) are included. XXX
+their attributes (if any) are included, always described as `xopOTELLinkDetail`.

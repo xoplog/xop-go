@@ -100,6 +100,7 @@ type Span struct {
 	Parent             *Span
 	Spans              []*Span
 	Lines              []*Line
+	Links              []*Line // also recorded in Lines
 	StartTime          time.Time
 	Name               string
 	SpanSequenceCode   string
@@ -348,20 +349,20 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 func (line *Line) Link(m string, v xoptrace.Trace) {
 	line.AsLink = &v
 	line.Message += m
-	line.send()
+	line.send(true)
 }
 
 // Model is a required method for xopbase.Line
 func (line *Line) Model(m string, v xopbase.ModelArg) {
 	line.AsModel = &v
 	line.Message += m
-	line.send()
+	line.send(false)
 }
 
 // Msg is a required method for xopbase.Line
 func (line *Line) Msg(m string) {
 	line.Message += m
-	line.send()
+	line.send(false)
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -379,10 +380,10 @@ func (line *Line) Template(m string) {
 		return "''"
 	})
 	line.Message = msg
-	line.send()
+	line.send(false)
 }
 
-func (line Line) send() {
+func (line Line) send(isLink bool) {
 	line.Span.logger.lock.Lock()
 	defer line.Span.logger.lock.Unlock()
 	line.Span.lock.Lock()
@@ -393,6 +394,9 @@ func (line Line) send() {
 		Line: &line,
 	})
 	line.Span.Lines = append(line.Span.Lines, &line)
+	if isLink {
+		line.Span.Links = append(line.Span.Links, &line)
+	}
 }
 
 func (line *Line) Text() string {

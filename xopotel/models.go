@@ -55,23 +55,27 @@ type span struct {
 }
 
 type prefilling struct {
-	builder
+	builderWithSpan
 }
 
 type prefilled struct {
-	builder
+	builderWithSpan
 }
 
 type line struct {
-	builder
+	builderWithSpan
 	prealloc  [15]attribute.KeyValue
 	level     xopnum.Level
 	timestamp time.Time
 }
 
+type builderWithSpan struct {
+	span *span
+	builder
+}
+
 type builder struct {
 	attributes []attribute.KeyValue
-	span       *span
 	prefillMsg string
 	linkKey    string
 	linkValue  xoptrace.Trace
@@ -79,10 +83,12 @@ type builder struct {
 
 type otelStuff struct {
 	spanCounters
-	Status               sdktrace.Status
-	SpanKind             xopconst.SpanKindEnum
-	Resource             bufferedResource
-	InstrumentationScope instrumentation.Scope
+	Status                sdktrace.Status
+	SpanKind              xopconst.SpanKindEnum
+	Resource              bufferedResource
+	InstrumentationScope  instrumentation.Scope
+	links                 []oteltrace.Link // filled in by getStuff()
+	linkDroppedAttributes map[[8]byte]int  // filled in by getStuff() XXX add to augment
 }
 
 type spanCounters struct {

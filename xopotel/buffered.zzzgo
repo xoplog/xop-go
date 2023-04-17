@@ -166,6 +166,34 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 		if !ok {
 			return nil
 		}
+		var otelStuff otelStuff
+		stuff = &otelStuff
+
+		if len(span.Links) > 0 {
+			for _, linkLine := range span.Links {
+				plainBuilder := builder{
+					attributes: make([]attribute.KeyValue, 0, len(linkLine.Data)),
+				}
+				err := xoprecorder.ReplayLineData(linkLine, &plainBuilder)
+				if err != nil {
+					// XXX - can we return error from here?
+					continue
+				}
+
+				otelStuff.links = append(otelStuff.links, oteltrace.Link{
+					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+						TraceID:    linkLine.AsLink.TraceID().Array(),
+						SpanID:     linkLine.AsLink.SpanID().Array(),
+						TraceFlags: oteltrace.TraceFlags(linkLine.AsLink.Flags().Array()[0]),
+						TraceState: emptyTraceState, // XXX
+						Remote:     true,            // XXX
+					}),
+					Attributes: plainBuilder.attributes,
+				})
+				// push dropped count into augment
+			}
+		}
+
 		md := span.SpanMetadata.Get(otelReplayStuff.Key())
 		if md == nil {
 			fmt.Println("XXX key missing")
@@ -176,7 +204,6 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 			fmt.Println("XXX cast failed")
 			return nil
 		}
-		var otelStuff otelStuff
 		fmt.Println("XXX otelStuff.Encoded", string(ma.Encoded))
 		err := ma.DecodeTo(&otelStuff)
 		if err != nil {
@@ -326,9 +353,13 @@ func (o *otelStuff) SpanOptions() []oteltrace.SpanStartOption {
 	if o == nil {
 		return nil
 	}
-	return []oteltrace.SpanStartOption{
+	opts := []oteltrace.SpanStartOption{
 		oteltrace.WithSpanKind(oteltrace.SpanKind(o.SpanKind)),
 	}
+	if len(o.links) != 0 {
+		opts = append(opts, oteltrace.WithLinks(o.links...))
+	}
+	return opts
 }
 
 func (o *otelStuff) Set(otelSpan oteltrace.Span) {

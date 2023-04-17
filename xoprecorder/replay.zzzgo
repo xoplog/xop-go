@@ -56,38 +56,9 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
 			}
 			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, event.Line.Stack)
-			for k, v := range event.Line.Data {
-				dataType := event.Line.DataType[k]
-				switch dataType {
-				//MACRO BaseDataWithoutType
-				case xopbase.ZZZDataType:
-					line.ZZZ(k, v.(zzz))
-				// next line must be blank to end macro BaseDataWithoutType
-
-				//MACRO BaseDataWithType SKIP:Int64,Uint64
-				case xopbase.ZZZDataType:
-					line.ZZZ(k, v.(zzz), dataType)
-				// next line must be blank to end macro BaseDataWithType
-
-				//MACRO Ints
-				case xopbase.ZZZDataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro Ints
-
-				//MACRO Uints
-				case xopbase.ZZZDataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-
-				case xopbase.ErrorDataType, xopbase.StringerDataType:
-					line.String(k, v.(string), dataType)
-				case xopbase.Float32DataType:
-					line.Float64(k, v.(float64), dataType)
-				case xopbase.EnumDataType:
-					line.Enum(event.Line.Enums[k], v.(xopat.Enum))
-				default:
-					return errors.Errorf("unexpected data type %s in line", dataType)
-				}
+			err := ReplayLineData(event.Line, line)
+			if err != nil {
+				return err
 			}
 			switch {
 			case event.Line.Tmpl != "":
@@ -99,7 +70,6 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 			default:
 				line.Msg(event.Line.Message)
 			}
-
 		case MetadataSet:
 			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
@@ -127,6 +97,43 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 			}
 		default:
 
+		}
+	}
+	return nil
+}
+
+func ReplayLineData(source *Line, dest xopbase.Builder) error {
+	for k, v := range source.Data {
+		dataType := source.DataType[k]
+		switch dataType {
+		//MACRO BaseDataWithoutType
+		case xopbase.ZZZDataType:
+			dest.ZZZ(k, v.(zzz))
+		// next line must be blank to end macro BaseDataWithoutType
+
+		//MACRO BaseDataWithType SKIP:Int64,Uint64
+		case xopbase.ZZZDataType:
+			dest.ZZZ(k, v.(zzz), dataType)
+		// next line must be blank to end macro BaseDataWithType
+
+		//MACRO Ints
+		case xopbase.ZZZDataType:
+			dest.Int64(k, v.(int64), dataType)
+		// next line must be blank to end macro Ints
+
+		//MACRO Uints
+		case xopbase.ZZZDataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+
+		case xopbase.ErrorDataType, xopbase.StringerDataType:
+			dest.String(k, v.(string), dataType)
+		case xopbase.Float32DataType:
+			dest.Float64(k, v.(float64), dataType)
+		case xopbase.EnumDataType:
+			dest.Enum(source.Enums[k], v.(xopat.Enum))
+		default:
+			return errors.Errorf("unexpected data type %s in line", dataType)
 		}
 	}
 	return nil
