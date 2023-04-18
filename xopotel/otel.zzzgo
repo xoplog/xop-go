@@ -325,6 +325,10 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
+	if line.span.logger.bufferedRequest != nil {
+		// links are handled early, before the span is created
+		return
+	}
 	// Link will not be called with OTEL->XOP->OTEL so no need to
 	// suppress anything
 	line.attributes = append(line.attributes,

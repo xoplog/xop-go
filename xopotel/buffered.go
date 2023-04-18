@@ -180,6 +180,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 				err := xoprecorder.ReplayLineData(linkLine, &plainBuilder)
 				if err != nil {
 					// XXX - can we return error from here?
+					fmt.Println("XXX replay line data error", err)
 					continue
 				}
 
@@ -193,7 +194,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 					}),
 					Attributes: plainBuilder.attributes,
 				})
-				// push dropped count into augment
+				// XXX push dropped count into augment
 			}
 		}
 

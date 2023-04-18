@@ -290,7 +290,7 @@ func TestOTELRoundTrip(t *testing.T) {
 	originSpans := unpack(t, "origin", origin.Bytes())
 	replaySpans := unpack(t, "replay", replay.Bytes())
 	assert.NotEmpty(t, originSpans, "some spans")
-	assert.Equal(t, len(originSpans), len(replaySpans), "equal length")
+	assert.Equal(t, len(originSpans), len(replaySpans), "count of spans")
 	diffs := xopoteltest.CompareSpanStubSlice("", originSpans, replaySpans)
 	filtered := make([]xopoteltest.Diff, 0, len(diffs))
 	for _, diff := range diffs {

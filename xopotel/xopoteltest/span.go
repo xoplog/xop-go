@@ -33,10 +33,16 @@ type SpanStub struct {
 	Scope             instrumentation.Scope `json:"InstrumentationLibrary"`
 }
 
+func (s SpanStub) String() string { return fmt.Sprintf("span %s - %s", s.Name, s.SpanContext) }
+
 // SpanContext copied from https://github.com/open-telemetry/opentelemetry-go/blob/2e54fbb3fede5b54f316b3a08eab236febd854e0/trace/trace.go#L290
 // because it doesn't implement UnmarshalJSON. Why not?
 type SpanContext struct {
 	oteltrace.SpanContext
+}
+
+func (sc SpanContext) String() string {
+	return fmt.Sprintf("00-%s-%s-%s", sc.TraceID(), sc.SpanID(), sc.TraceFlags())
 }
 
 func (sc *SpanContext) UnmarshalJSON(i []byte) error {
