@@ -241,6 +241,9 @@ func main() {
 			}
 			panic(err)
 		}
+		if len(allLines) == 0 && line == "// TEMPLATE-FILE\n" {
+			continue
+		}
 		allLines = append(allLines, line)
 	}
 

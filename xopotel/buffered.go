@@ -11,6 +11,7 @@ import (
 
 	"github.com/muir/gwrap"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
 	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptrace"
 
@@ -171,6 +172,32 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 		}
 		var otelStuff otelStuff
 		stuff = &otelStuff
+
+		addMetadataLink := func(key string, link xoptrace.Trace) {
+			otelStuff.links = append(otelStuff.links, oteltrace.Link{
+				SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+					TraceID:    link.TraceID().Array(),
+					SpanID:     link.SpanID().Array(),
+					TraceFlags: oteltrace.TraceFlags(link.Flags().Array()[0]),
+					TraceState: emptyTraceState, // XXX
+					Remote:     true,            // XXX
+				}),
+				Attributes: []attribute.KeyValue{
+					xopLinkMetadataKey.String(key),
+				},
+			})
+		}
+		span.SpanMetadata.Map.Range(func(key string, mt *xopbaseutil.MetadataTracker) bool {
+			switch mt.Type {
+			case xopbase.LinkDataType:
+				addMetadataLink(key, mt.Value.(xoptrace.Trace))
+			case xopbase.LinkArrayDataType:
+				for _, link := range mt.Value.([]interface{}) {
+					addMetadataLink(key, link.(xoptrace.Trace))
+				}
+			}
+			return true
+		})
 
 		if len(span.Links) > 0 {
 			for _, linkLine := range span.Links {

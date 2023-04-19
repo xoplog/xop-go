@@ -134,6 +134,7 @@ var xopLinkData = attribute.Key("xop.link")
 var otelLink = xopat.Make{Key: "span.otelLinks", Namespace: "XOP", Indexed: false, Prominence: 300,
 	Multiple: true, Distinct: true,
 	Description: "Data origin is OTEL, span links w/o attributes; links also sent as Link()"}.LinkAttribute()
+var xopLinkMetadataKey = attribute.Key("xop.linkMetadataKey")
 
 const xopOTELLinkDetail = "xop.otelLinkDetail"
 const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"

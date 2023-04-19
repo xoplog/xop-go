@@ -325,10 +325,6 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
-	if line.span.logger.bufferedRequest != nil {
-		// links are handled early, before the span is created
-		return
-	}
 	// Link will not be called with OTEL->XOP->OTEL so no need to
 	// suppress anything
 	line.attributes = append(line.attributes,
@@ -336,6 +332,11 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 		xopLinkData.String(v.String()),
 	)
 	line.done(line.prefillMsg + k)
+	if line.span.logger.bufferedRequest != nil {
+		// add span.Links() is handled in buffered.zzzgo so
+		// a sub-span is not needed here.
+		return
+	}
 	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k,
 		oteltrace.WithLinks(
 			oteltrace.Link{
@@ -488,31 +489,38 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	}
 	//END CONDITIONAL
 	key := k.Key()
-	if _, ok := span.request.attributesDefined[key]; !ok {
-		if k.Description() != xopSynthesizedForOTEL {
-			span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-			span.request.attributesDefined[key] = struct{}{}
+	if span.isXOP {
+		if _, ok := span.request.attributesDefined[key]; !ok {
+			if k.Description() != xopSynthesizedForOTEL {
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+				span.request.attributesDefined[key] = struct{}{}
+			}
 		}
 	}
 	//CONDITIONAL ONLY:Link
 	value := v.String()
-	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
-		oteltrace.WithLinks(
-			oteltrace.Link{
-				SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-					TraceID:    v.TraceID().Array(),
-					SpanID:     v.SpanID().Array(),
-					TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
-					TraceState: emptyTraceState, // TODO: is this right?
-					Remote:     true,            // information not available
+	if span.logger.bufferedRequest == nil {
+		_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
+			oteltrace.WithLinks(
+				oteltrace.Link{
+					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+						TraceID:    v.TraceID().Array(),
+						SpanID:     v.SpanID().Array(),
+						TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
+						TraceState: emptyTraceState, // TODO: is this right?
+						Remote:     true,            // information not available
+					}),
+					Attributes: []attribute.KeyValue{
+						xopLinkMetadataKey.String(key),
+					},
 				}),
-			}),
-		oteltrace.WithAttributes(
-			spanIsLinkAttributeKey.Bool(true),
-		),
-	)
-	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
-	tmpSpan.End()
+			oteltrace.WithAttributes(
+				spanIsLinkAttributeKey.Bool(true),
+			),
+		)
+		tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
+		tmpSpan.End()
+	}
 	//CONDITIONAL ONLY:Enum
 	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	//CONDITIONAL ONLY:Time
