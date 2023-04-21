@@ -188,11 +188,13 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		// span is extra just for link
 		return nil
 	}
+	fmt.Println("XXX EXPORT kind of", bundle.Trace, "is", spanKind)
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 		if hasParent {
 			spanSeq := defaulted(attributeMap.GetString(xopSpanSequence), "")
 			data.xopSpan = xopParent.xopSpan
+			fmt.Println("XXX EXPORT make Span for", bundle.Trace, spanSeq)
 			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), spanSeq)
 			data.requestIndex = xopParent.requestIndex
 			data.attributeDefinitions = xopParent.attributeDefinitions
@@ -203,6 +205,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
 			// this span as a request, but mark it as promoted.
 			data.xopSpan = attributeMap.GetString(xopVersion) != ""
+			fmt.Println("XXX EXPORT make fallback Requeest for", bundle.Trace)
 			data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
 			data.baseSpan.MetadataBool(xopPromotedMetadata, true)
 			data.requestIndex = myIndex
@@ -210,6 +213,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.registry = xopat.NewRegistry(false)
 		}
 	default:
+		fmt.Println("XXX EXPORT make Request for", bundle.Trace)
 		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
 		data.requestIndex = myIndex
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)

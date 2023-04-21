@@ -4,6 +4,7 @@ package xop
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
@@ -46,8 +47,9 @@ func CombineBaseLoggers(first xopbase.Logger, more ...xopbase.Logger) xopbase.Lo
 	return baseLoggers(append([]xopbase.Logger{first}, more...))
 }
 
-func (l baseLoggers) Request(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	r, _ := l.startRequests(ctx, ts, span, descriptionOrName, sourceInfo)
+func (l baseLoggers) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) xopbase.Request {
+	fmt.Println("XXX BASEGROUP start Requests", bundle.Trace)
+	r, _ := l.startRequests(ctx, ts, bundle, descriptionOrName, sourceInfo)
 	return r
 }
 
@@ -59,9 +61,9 @@ func (l baseLoggers) ID() string {
 	return strings.Join(ids, "/")
 }
 
-func (l baseLoggers) startRequests(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) (xopbase.Request, map[string]xopbase.Request) {
+func (l baseLoggers) startRequests(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) (xopbase.Request, map[string]xopbase.Request) {
 	if len(l) == 1 {
-		req := l[0].Request(ctx, ts, span, descriptionOrName, sourceInfo)
+		req := l[0].Request(ctx, ts, bundle, descriptionOrName, sourceInfo)
 		return req, map[string]xopbase.Request{l[0].ID(): req}
 	}
 	m := make(map[string]xopbase.Request)
@@ -75,7 +77,7 @@ func (l baseLoggers) startRequests(ctx context.Context, ts time.Time, span xoptr
 			// duplicate!
 			continue
 		}
-		req := logger.Request(ctx, ts, span, descriptionOrName, sourceInfo)
+		req := logger.Request(ctx, ts, bundle, descriptionOrName, sourceInfo)
 		r.baseRequests = append(r.baseRequests, req)
 		r.baseSpans = append(r.baseSpans, req.(xopbase.Span))
 		m[id] = req
@@ -134,10 +136,11 @@ func (s baseRequests) Flush() {
 	wg.Wait()
 }
 
-func (s baseSpans) Span(ctx context.Context, t time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
+func (s baseSpans) Span(ctx context.Context, t time.Time, bundle xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
+	fmt.Println("XXX BASEGROUP start Span", bundle.Trace)
 	baseSpans := make(baseSpans, len(s))
 	for i, ele := range s {
-		baseSpans[i] = ele.Span(ctx, t, span, descriptionOrName, spanSequenceCode)
+		baseSpans[i] = ele.Span(ctx, t, bundle, descriptionOrName, spanSequenceCode)
 	}
 	return baseSpans
 }

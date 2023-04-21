@@ -181,8 +181,28 @@ func TestOTELBaseLoggerReplay(t *testing.T) {
 
 // TestOTELRoundTrip does a round trip of logging:
 //
-//	OTEL -> xopotel.Exporter -> xopotel.BufferedBaseLogger -> OTEL -> JSON
-//	   \--> JSON
+//		test OTEL log actions
+//		|
+//		v
+//	   	OTEL	-> JSON -> unpack "origin"
+//		|
+//		v
+//		ExportToXOP
+//		|
+//		v
+//		combinedBaseLogger -> xoptest.Logger -> xopcon.Logger -> "O"
+//		|
+//		v
+//		xopotel.BufferedBaseLogger
+//		|
+//		v
+//		OTEL	-> JSON -> unpack "replay"
+//		|
+//		v
+//		ExportToXOP
+//		|
+//		v
+//		xoptest.Logger -> xopcon.Logger "R"
 //
 // Do we get the same JSON?
 func TestOTELRoundTrip(t *testing.T) {
@@ -212,15 +232,28 @@ func TestOTELRoundTrip(t *testing.T) {
 
 	wrappedReplayExporter := exporterWrapper.WrapExporter(replayExporter)
 
+	reExportXoptest := xoptest.New(t)
+	reExportXoptest.SetPrefix("R:")
+
+	reExportToXop := xopotel.ExportToXOP(reExportXoptest)
+
 	// This is the base Logger that writes to OTEL
 	replayBaseLogger := exporterWrapper.BufferedReplayLogger(
 		// Notice: WithResource() is not used here since
 		// this will come from the replay logger.
 		sdktrace.WithBatcher(wrappedReplayExporter),
+		sdktrace.WithBatcher(reExportToXop),
 	)
 
+	// This provides some text output
+	testLogger := xoptest.New(t)
+	testLogger.SetPrefix("O:")
+
+	// This combines the replayBaseLogger with an xoptest.Logger so we can see the output
+	combinedReplayBaseLogger := xop.CombineBaseLoggers(replayBaseLogger, testLogger)
+
 	// This is the OTEL exporter that writes to the replay base logger
-	xopotelExporter := xopotel.ExportToXOP(replayBaseLogger)
+	xopotelExporter := xopotel.ExportToXOP(combinedReplayBaseLogger)
 
 	// This is the TracerProvider that writes to the unmodified JSON exporter
 	// and also to the exporter that writes to XOP and back to OTEL
