@@ -51,7 +51,6 @@ type span struct {
 	metadataSeen       map[string]interface{}
 	spanPrefill        []attribute.KeyValue // holds spanID & traceID
 	isXOP              bool                 // true unless data is imported from OTEL
-	XXX                xoptrace.Bundle
 }
 
 type prefilling struct {

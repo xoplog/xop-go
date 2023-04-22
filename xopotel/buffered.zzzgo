@@ -251,7 +251,6 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 			fmt.Println("XXX BUFFERED cast failed")
 			return nil
 		}
-		fmt.Println("XXX BUFFERED otelStuff.Encoded", string(ma.Encoded))
 		err := ma.DecodeTo(&otelStuff)
 		if err != nil {
 			fmt.Println("XXX BUFFERED could not decode", err)
@@ -264,7 +263,6 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 				scopeName:    stuff.InstrumentationScope.Name,
 			})
 		}
-		fmt.Println("XXX BUFFERED decoded")
 		return nil
 	})
 	return
@@ -374,15 +372,12 @@ type bufferedResource struct {
 var _ json.Unmarshaler = &bufferedResource{}
 
 func (r *bufferedResource) UnmarshalJSON(b []byte) error {
-	fmt.Println("XXX BUFFERED unmarshal resoruce", string(b))
 	var bufferedAttributes bufferedAttributes
 	err := json.Unmarshal(b, &bufferedAttributes)
 	if err != nil {
 		return err
 	}
-	fmt.Println("XXX BUFFERED attributes", len(bufferedAttributes.attributes), bufferedAttributes.attributes)
 	r.Resource = resource.NewWithAttributes("", bufferedAttributes.attributes...)
-	fmt.Println("XXX BUFFERED resource now", r.Resource)
 	return nil
 }
 
@@ -417,7 +412,6 @@ func (o *otelStuff) Set(otelSpan oteltrace.Span) {
 }
 
 func (o *otelStuff) TracerProviderOptions() []sdktrace.TracerProviderOption {
-	fmt.Println("XXX BUFFERED Resource=", o.Resource.Resource)
 	return []sdktrace.TracerProviderOption{
 		sdktrace.WithResource(o.Resource.Resource),
 	}

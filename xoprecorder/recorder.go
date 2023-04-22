@@ -224,14 +224,12 @@ func (span *Span) Done(t time.Time, final bool) {
 	span.logger.lock.Lock()
 	defer span.logger.lock.Unlock()
 	if span.IsRequest {
-		fmt.Println("XXX RECORDER Request Done", span.Bundle.Trace)
 		span.logger.Events = append(span.logger.Events, &Event{
 			Type: RequestDone,
 			Span: span,
 			Done: final,
 		})
 	} else {
-		fmt.Println("XXX RECORDER Span Done", span.Bundle.Trace)
 		span.logger.Events = append(span.logger.Events, &Event{
 			Type: SpanDone,
 			Span: span,

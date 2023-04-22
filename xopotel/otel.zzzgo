@@ -216,7 +216,6 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace
 			otelSpan: otelSpan,
 			ctx:      ctx,
 			isXOP:    isXOP,
-			XXX:      bundle,
 		},
 		attributesDefined: make(map[string]struct{}),
 	}
@@ -237,7 +236,6 @@ func (span *span) Done(endTime time.Time, final bool) {
 		// skip Done for spans passed in to SpanLog()
 		return
 	}
-	fmt.Println("XXX OTEL DONE", span.XXX.Trace)
 	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
 }
 
@@ -260,8 +258,6 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 	} else {
 		if parentSpan.logger.bufferedRequest != nil {
 			ctx = parentSpan.ctx
-			XXX := oteltrace.SpanFromContext(ctx)
-			fmt.Println("XXX OTEL in Span, have span in context", XXX != nil)
 		}
 		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer, parentSpan.logger.bufferedRequest)
 	}
@@ -271,7 +267,6 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 		ctx:      ctx,
 		request:  parentSpan.request,
 		isXOP:    parentSpan.isXOP,
-		XXX:      bundle,
 	}
 	if parentSpan.isXOP && spanSequenceCode != "" {
 		otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
@@ -481,9 +476,6 @@ func (builder *builder) Bool(k string, v bool) {
 
 var skipIfOTEL = map[string]struct{}{
 	otelReplayStuff.Key(): {},
-	// XXX Resource
-	// XXX Scope & Library
-	// XXX Status
 }
 
 // MACRO BaseAttribute

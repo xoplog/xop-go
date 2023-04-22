@@ -4,7 +4,6 @@ package xoprecorder
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -15,6 +14,7 @@ import (
 )
 
 // Replay dumps the recorded logs to another base logger
+// XXX do not return error
 func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 	requests := make(map[xoptrace.HexBytes8]xopbase.Request)
 	spans := make(map[xoptrace.HexBytes8]xopbase.Span)
@@ -29,14 +29,12 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 			spans[id] = request
 		case RequestDone:
 			if req, ok := requests[event.Span.Bundle.Trace.GetSpanID()]; ok {
-				fmt.Println("XXX RECORDER-REPLAY DONE REQUEST", event.Span.Bundle.Trace)
 				req.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
 				return errors.Errorf("RequestDone event without corresponding RequestStart for %s", event.Span.Bundle.Trace)
 			}
 		case SpanDone:
 			if span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]; ok {
-				fmt.Println("XXX RECORDER-REPLAY DONE SPAN", event.Span.Bundle.Trace)
 				span.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
 				return errors.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)

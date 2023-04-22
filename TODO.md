@@ -25,6 +25,12 @@
 
 # Just do it (build ready)
 
+- reshuffle levels to be more OTEL-like, add a couple more.
+  - trace becomes lower level than debug (ugh!)
+  - log? (and then change seed.Log() to seed.Logger()?)
+  - verbose?
+  - flow?
+
 - all "Xop" -> "XOP"
 
 - simplify code in xopcon 

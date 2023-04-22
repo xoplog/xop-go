@@ -4,7 +4,6 @@ package xop
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"strings"
 	"sync"
@@ -48,7 +47,6 @@ func CombineBaseLoggers(first xopbase.Logger, more ...xopbase.Logger) xopbase.Lo
 }
 
 func (l baseLoggers) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, descriptionOrName string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	fmt.Println("XXX BASEGROUP start Requests", bundle.Trace)
 	r, _ := l.startRequests(ctx, ts, bundle, descriptionOrName, sourceInfo)
 	return r
 }
@@ -137,7 +135,6 @@ func (s baseRequests) Flush() {
 }
 
 func (s baseSpans) Span(ctx context.Context, t time.Time, bundle xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) xopbase.Span {
-	fmt.Println("XXX BASEGROUP start Span", bundle.Trace)
 	baseSpans := make(baseSpans, len(s))
 	for i, ele := range s {
 		baseSpans[i] = ele.Span(ctx, t, bundle, descriptionOrName, spanSequenceCode)

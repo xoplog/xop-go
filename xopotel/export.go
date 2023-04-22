@@ -95,6 +95,7 @@ func ExportToXOP(base xopbase.Logger) sdktrace.SpanExporter {
 	return &spanExporter{base: base}
 }
 
+// XXX never return error
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) (err error) {
 	id2Index := makeIndex(spans)
 	subSpans, todo := makeSubspans(id2Index, spans)
@@ -202,13 +203,11 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		// span is extra just for link
 		return func() {}, nil
 	}
-	fmt.Println("XXX EXPORT kind of", bundle.Trace, "is", spanKind)
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
 		if hasParent {
 			spanSeq := defaulted(attributeMap.GetString(xopSpanSequence), "")
 			data.xopSpan = xopParent.xopSpan
-			fmt.Println("XXX EXPORT make Span for", bundle.Trace, spanSeq)
 			data.baseSpan = xopParent.baseSpan.Span(ctx, span.StartTime(), bundle, span.Name(), spanSeq)
 			data.requestIndex = xopParent.requestIndex
 			data.attributeDefinitions = xopParent.attributeDefinitions
@@ -219,7 +218,6 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
 			// this span as a request, but mark it as promoted.
 			data.xopSpan = attributeMap.GetString(xopVersion) != ""
-			fmt.Println("XXX EXPORT make fallback Requeest for", bundle.Trace)
 			data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
 			data.baseSpan.MetadataBool(xopPromotedMetadata, true)
 			data.requestIndex = myIndex
@@ -227,7 +225,6 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.registry = xopat.NewRegistry(false)
 		}
 	default:
-		fmt.Println("XXX EXPORT make Request for", bundle.Trace)
 		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
 		data.requestIndex = myIndex
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
@@ -303,13 +300,10 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	}
 	if endTime := span.EndTime(); !endTime.IsZero() {
 		return func() {
-			fmt.Println("XXX EXPORT DONE", bundle.Trace)
 			data.baseSpan.Done(endTime, true)
 		}, nil
 	}
-	return func() {
-		fmt.Println("XXX EXPORT *NOT* DONE", bundle.Trace)
-	}, nil
+	return func() {}, nil
 }
 
 type lineType int
@@ -482,12 +476,10 @@ func (x lineAttributesReplay) finishLine(ctx context.Context, what string, name 
 		switch x.lineFormat {
 		case lineFormatDefault:
 			x.addOrdered(x.lineNumber, func() {
-				fmt.Println("XXX EXPORT Msg", name)
 				line.Msg(name)
 			})
 		case lineFormatTemplate:
 			x.addOrdered(x.lineNumber, func() {
-				fmt.Println("XXX EXPORT Template", x.template)
 				line.Template(x.template)
 			})
 		default:

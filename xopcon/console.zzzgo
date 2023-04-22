@@ -165,7 +165,6 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 
 // Done is a required method for xopbase.Span
 func (span *Span) Done(t time.Time, final bool) {
-	span.logger.output("XXX CON done " + span.Short + "=" + span.Bundle.Trace.String() + " " + span.Name)
 	xoputil.AtomicMaxInt64(&span.EndTime, xoputil.AtomicMaxInt64(&span.provisionalEndTime, t.UnixNano()))
 }
 
