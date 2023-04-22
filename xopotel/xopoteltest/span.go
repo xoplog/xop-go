@@ -51,7 +51,7 @@ func (sc *SpanContext) UnmarshalJSON(i []byte) error {
 		SpanID     SpanID
 		TraceFlags TraceFlags
 		TraceState TraceState
-		IsRemote   bool
+		Remote     bool
 	}
 	err := json.Unmarshal(i, &tmp)
 	if err != nil {
@@ -62,7 +62,7 @@ func (sc *SpanContext) UnmarshalJSON(i []byte) error {
 		SpanID:     tmp.SpanID.SpanID,
 		TraceFlags: tmp.TraceFlags.TraceFlags,
 		TraceState: tmp.TraceState.TraceState,
-		Remote:     tmp.IsRemote,
+		Remote:     tmp.Remote,
 	}
 	sc.SpanContext = oteltrace.NewSpanContext(scc)
 	return nil

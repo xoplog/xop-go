@@ -96,8 +96,8 @@ func ExportToXOP(base xopbase.Logger) sdktrace.SpanExporter {
 	return &spanExporter{base: base}
 }
 
-// XXX never return error
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) (err error) {
+	// TODO: avoid returning error when possible
 	id2Index := makeIndex(spans)
 	subSpans, todo := makeSubspans(id2Index, spans)
 	x := spanReplay{
@@ -270,9 +270,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		}
 	}
 	for _, link := range span.Links() {
-		if data.xopSpan {
-			// XXX check for the marker attributes
-		} else {
+		if !data.xopSpan {
 			z := lineAttributesReplay{
 				baseSpanReplay: y,
 				lineType:       lineTypeLink,
@@ -291,6 +289,9 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			z.link = trace
 			if ts := link.SpanContext.TraceState(); ts.Len() != 0 {
 				line.String(xopOTELLinkTranceState, ts.String(), xopbase.StringDataType)
+			}
+			if link.SpanContext.IsRemote() {
+				line.Bool(xopOTELLinkIsRemote, true)
 			}
 
 			err = z.finishLine(ctx, "link", xopOTELLinkDetail, line)

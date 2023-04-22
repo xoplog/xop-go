@@ -288,26 +288,40 @@ func TestOTELRoundTrip(t *testing.T) {
 		oteltrace.WithTimestamp(time.Now()),
 		oteltrace.WithAttributes(kvExamples("s1error")...),
 	)
-	var bundle xoptrace.Bundle
-	bundle.Parent.TraceID().SetRandom()
-	bundle.Parent.SpanID().SetRandom()
+	var bundle1 xoptrace.Bundle
+	bundle1.Parent.TraceID().SetRandom()
+	bundle1.Parent.SpanID().SetRandom()
 	var traceState oteltrace.TraceState
 	traceState, err = traceState.Insert("foo", "bar")
 	require.NoError(t, err)
 	traceState, err = traceState.Insert("abc", "xyz")
 	require.NoError(t, err)
-	spanConfig := oteltrace.SpanContextConfig{
-		TraceID:    bundle.Parent.TraceID().Array(),
-		SpanID:     bundle.Parent.SpanID().Array(),
+	spanConfig1 := oteltrace.SpanContextConfig{
+		TraceID:    bundle1.Parent.TraceID().Array(),
+		SpanID:     bundle1.Parent.SpanID().Array(),
 		Remote:     true,
-		TraceFlags: oteltrace.TraceFlags(bundle.Parent.Flags().Array()[0]),
+		TraceFlags: oteltrace.TraceFlags(bundle1.Parent.Flags().Array()[0]),
 		TraceState: traceState,
 	}
+	var bundle2 xoptrace.Bundle
+	bundle2.Parent.TraceID().SetRandom()
+	bundle2.Parent.SpanID().SetRandom()
+	spanConfig2 := oteltrace.SpanContextConfig{
+		TraceID:    bundle2.Parent.TraceID().Array(),
+		SpanID:     bundle2.Parent.SpanID().Array(),
+		Remote:     false,
+		TraceFlags: oteltrace.TraceFlags(bundle2.Parent.Flags().Array()[0]),
+	}
 	_, span2 := tracer.Start(span1Ctx, "span2",
-		oteltrace.WithLinks(oteltrace.Link{
-			SpanContext: oteltrace.NewSpanContext(spanConfig),
-			Attributes:  kvExamples("la"),
-		}),
+		oteltrace.WithLinks(
+			oteltrace.Link{
+				SpanContext: oteltrace.NewSpanContext(spanConfig1),
+				Attributes:  kvExamples("la"),
+			},
+			oteltrace.Link{
+				SpanContext: oteltrace.NewSpanContext(spanConfig2),
+			},
+		),
 	)
 	span1.AddEvent("span2-event",
 		oteltrace.WithTimestamp(time.Now()),

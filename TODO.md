@@ -25,6 +25,8 @@
 
 # Just do it (build ready)
 
+- check for unchecked casts 
+
 - xopresource
   combine line.Data & line.DataType to have a sub-object
   

@@ -137,6 +137,7 @@ var xopLinkMetadataKey = attribute.Key("xop.linkMetadataKey")
 
 const xopLinkTraceStateError = "xop.linkTraceStateError"
 const xopOTELLinkTranceState = "xop.otelLinkTraceState"
+const xopOTELLinkIsRemote = "xop.otelLinkIsRemote"
 const xopOTELLinkDetail = "xop.otelLinkDetail"
 
 // TODO: const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"

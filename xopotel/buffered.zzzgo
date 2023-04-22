@@ -211,6 +211,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 				}
 				linkLine = pointer.To(linkLine.Copy())
 				var ts oteltrace.TraceState
+				var isRemote bool
 				if tssRaw, ok := linkLine.Data[xopOTELLinkTranceState]; ok && linkLine.DataType[xopOTELLinkTranceState] == xopbase.StringDataType {
 					tss, ok := tssRaw.(string)
 					if ok {
@@ -223,17 +224,32 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 							delete(linkLine.Data, xopOTELLinkTranceState)
 							delete(linkLine.DataType, xopOTELLinkTranceState)
 						}
+					} else {
+						linkLine.Data[xopLinkTraceStateError] = "attribute " + xopOTELLinkIsRemote + " should be a string"
+						linkLine.DataType[xopLinkTraceStateError] = xopbase.ErrorDataType
+					}
+				}
+				if tssRaw, ok := linkLine.Data[xopOTELLinkIsRemote]; ok && linkLine.DataType[xopOTELLinkIsRemote] == xopbase.BoolDataType {
+					var ok bool
+					isRemote, ok = tssRaw.(bool)
+					if ok {
+						delete(linkLine.Data, xopOTELLinkIsRemote)
+						delete(linkLine.DataType, xopOTELLinkIsRemote)
+					} else {
+						linkLine.Data[xopLinkTraceStateError] = "attribute " + xopOTELLinkIsRemote + " should be a bool"
+						linkLine.DataType[xopLinkTraceStateError] = xopbase.ErrorDataType
 					}
 				}
 
 				xoprecorder.ReplayLineData(linkLine, &plainBuilder)
+
 				otelStuff.links = append(otelStuff.links, oteltrace.Link{
 					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
 						TraceID:    linkLine.AsLink.TraceID().Array(),
 						SpanID:     linkLine.AsLink.SpanID().Array(),
 						TraceFlags: oteltrace.TraceFlags(linkLine.AsLink.Flags().Array()[0]),
 						TraceState: ts,
-						Remote:     true, // XXX
+						Remote:     isRemote,
 					}),
 					Attributes: plainBuilder.attributes,
 				})
