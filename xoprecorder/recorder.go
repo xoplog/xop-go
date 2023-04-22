@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xoplog/xop-go/internal/util/generic"
+	"github.com/xoplog/xop-go/internal/util/pointer"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
@@ -137,6 +139,19 @@ type Line struct {
 	AsLink    *xoptrace.Trace
 	AsModel   *xopbase.ModelArg
 	Stack     []runtime.Frame
+}
+
+func (l Line) Copy() Line {
+	if l.AsLink != nil {
+		l.AsLink = pointer.To(l.AsLink.Copy())
+	}
+	if l.AsModel != nil {
+		l.AsModel = pointer.To(l.AsModel.Copy())
+	}
+	l.Enums = generic.CopyMap(l.Enums)
+	l.Data = generic.CopyMap(l.Data)
+	l.DataType = generic.CopyMap(l.DataType)
+	return l
 }
 
 type Event struct {

@@ -281,6 +281,10 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			trace.SpanID().SetArray(link.SpanContext.SpanID())
 			data.baseSpan.MetadataLink(otelLink, trace)
 			z.link = trace
+			if ts := link.SpanContext.TraceState(); ts.Len() != 0 {
+				line.String(xopOTELLinkTranceState, ts.String(), xopbase.StringDataType)
+			}
+
 			err = z.finishLine(ctx, "link", xopOTELLinkDetail, line)
 			if err != nil {
 				return func() {}, err

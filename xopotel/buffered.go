@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/muir/gwrap"
+	"github.com/xoplog/xop-go/internal/util/pointer"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
 	"github.com/xoplog/xop-go/xoprecorder"
@@ -204,20 +205,35 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 				plainBuilder := builder{
 					attributes: make([]attribute.KeyValue, 0, len(linkLine.Data)),
 				}
+				linkLine = pointer.To(linkLine.Copy())
+				var ts oteltrace.TraceState
+				if tssRaw, ok := linkLine.Data[xopOTELLinkTranceState]; ok && linkLine.DataType[xopOTELLinkTranceState] == xopbase.StringDataType {
+					tss, ok := tssRaw.(string)
+					if ok {
+						var err error
+						ts, err = oteltrace.ParseTraceState(tss)
+						if err != nil {
+							fmt.Println("XXX BUFFERED replay line data error", err)
+						} else {
+							delete(linkLine.Data, xopOTELLinkTranceState)
+							delete(linkLine.DataType, xopOTELLinkTranceState)
+						}
+					}
+				}
+
 				err := xoprecorder.ReplayLineData(linkLine, &plainBuilder)
 				if err != nil {
 					// XXX - can we return error from here?
 					fmt.Println("XXX BUFFERED replay line data error", err)
 					continue
 				}
-
 				otelStuff.links = append(otelStuff.links, oteltrace.Link{
 					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
 						TraceID:    linkLine.AsLink.TraceID().Array(),
 						SpanID:     linkLine.AsLink.SpanID().Array(),
 						TraceFlags: oteltrace.TraceFlags(linkLine.AsLink.Flags().Array()[0]),
-						TraceState: emptyTraceState, // XXX
-						Remote:     true,            // XXX
+						TraceState: ts,
+						Remote:     true, // XXX
 					}),
 					Attributes: plainBuilder.attributes,
 				})

@@ -10,6 +10,8 @@ import (
 
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoputil"
+
+	"github.com/muir/list"
 )
 
 // ModelArg may be expanded in the future to supply: an Encoder; redaction
@@ -23,6 +25,11 @@ type ModelArg struct {
 	ModelType string            `json:"modelType"`
 	Model     interface{}       `json:"-"`
 	// TODO: extra fields for redacted models
+}
+
+func (m ModelArg) Copy() ModelArg {
+	m.Encoded = list.Copy(m.Encoded)
+	return m
 }
 
 // Calls to Encode are idempotent but not thread-safe
