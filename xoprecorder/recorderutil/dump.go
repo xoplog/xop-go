@@ -1,4 +1,4 @@
-package xoptestutil
+package recorderutil
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"github.com/xoplog/xop-go/xoprecorder"
 )
 
-// XXX move to xoprecorder
 func DumpEvents(t testing.TB, tlog *xoprecorder.Logger) {
 	var o []string
 	_ = tlog.WithLock(func(tlog *xoprecorder.Logger) error {
