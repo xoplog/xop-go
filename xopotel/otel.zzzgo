@@ -328,8 +328,11 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
-	// Link will not be called with OTEL->XOP->OTEL so no need to
-	// suppress anything
+	if k == xopOTELLinkDetail {
+		// Link will not be called with OTEL->XOP->OTEL so no need to
+		// suppress anything
+		return
+	}
 	line.attributes = append(line.attributes,
 		xopType.String("link"),
 		xopLinkData.String(v.String()),
@@ -500,6 +503,9 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		}
 	}
 	//CONDITIONAL ONLY:Link
+	if k.Key() == otelLink.Key() {
+		return
+	}
 	value := v.String()
 	if span.logger.bufferedRequest == nil {
 		_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),

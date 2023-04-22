@@ -328,8 +328,11 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
-	// Link will not be called with OTEL->XOP->OTEL so no need to
-	// suppress anything
+	if k == xopOTELLinkDetail {
+		// Link will not be called with OTEL->XOP->OTEL so no need to
+		// suppress anything
+		return
+	}
 	line.attributes = append(line.attributes,
 		xopType.String("link"),
 		xopLinkData.String(v.String()),
@@ -771,6 +774,9 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 				span.request.attributesDefined[key] = struct{}{}
 			}
 		}
+	}
+	if k.Key() == otelLink.Key() {
+		return
 	}
 	value := v.String()
 	if span.logger.bufferedRequest == nil {
