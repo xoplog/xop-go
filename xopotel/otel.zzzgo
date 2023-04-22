@@ -1,3 +1,6 @@
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+
 package xopotel
 
 import (
@@ -29,9 +32,9 @@ func xopTraceFromSpan(span oteltrace.Span) xoptrace.Trace {
 	return xoptrace
 }
 
-// SpanLog allows xop to add logs to an existing OTEL span.  log.Done() will be
-// ignored for this span. SpanLog is not (yet) a full-fidelity base logger.
-func SpanLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
+// SpanToLog allows xop to add logs to an existing OTEL span.  log.Done() will be
+// ignored for this span.
+func SpanToLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
 	span := oteltrace.SpanFromContext(ctx)
 	xoptrace := xopTraceFromSpan(span)
 	tracer := span.TracerProvider().Tracer("xoputil")
@@ -63,7 +66,7 @@ func (_ idGenerator) NewSpanID(ctx context.Context, _ oteltrace.TraceID) oteltra
 	return spanID
 }
 
-// BaseLogger provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
+// SeedModifier provides a xop.SeedModifier to set up an OTEL Tracer as a xopbase.Logger
 // so that xop logs are output through the OTEL Tracer.
 //
 // As of the writing of this comment, the Open Telemetry Go library does not support
@@ -73,7 +76,9 @@ func (_ idGenerator) NewSpanID(ctx context.Context, _ oteltrace.TraceID) oteltra
 // control the flow of data to SpanExporters.  The default configuration for the Batcher
 // limits spans to 128 Events each. It imposes other limits too but the default event
 // limit is the one that is likely to be hit with even modest usage.
-func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider) xop.SeedModifier {
+//
+// Using SeedModifier, the TraceProvider does not have to have been created using IDGenerator().
+func SeedModifier(ctx context.Context, traceProvider oteltrace.TracerProvider) xop.SeedModifier {
 	tracer := traceProvider.Tracer("xopotel",
 		oteltrace.WithInstrumentationAttributes(
 			xopOTELVersion.String(xopotelVersionValue),
@@ -87,39 +92,23 @@ func BaseLogger(ctx context.Context, traceProvider oteltrace.TracerProvider) xop
 func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifiers ...xop.SeedModifier) xop.SeedModifier {
 	modifiers := []xop.SeedModifier{
 		xop.WithBase(&logger{
-			id:        "otel-" + uuid.New().String(),
-			doLogging: true,
-			tracer:    tracer,
+			id:              "otel-" + uuid.New().String(),
+			doLogging:       true,
+			tracer:          tracer,
+			spanFromContext: true,
 		}),
 		xop.WithContext(ctx),
-		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, now time.Time) []xop.SeedModifier {
+		xop.WithReactive(func(ctx context.Context, seed xop.Seed, nameOrDescription string, isChildSpan bool, ts time.Time) []xop.SeedModifier {
 			if isChildSpan {
-				ctx, span := tracer.Start(overrideIntoContext(ctx, seed), nameOrDescription,
-					oteltrace.WithTimestamp(now),
-					oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
-				)
+				ctx, span := buildSpan(ctx, ts, seed.Bundle(), nameOrDescription, tracer, nil)
 				return []xop.SeedModifier{
 					xop.WithContext(ctx),
 					xop.WithSpan(span.SpanContext().SpanID()),
 				}
 			}
-			si := seed.SourceInfo()
 			parentCtx := ctx
-			opts := []oteltrace.SpanStartOption{
-				oteltrace.WithAttributes(
-					xopVersion.String(xopVersionValue),
-					xopOTELVersion.String(xopotelVersionValue),
-					xopSource.String(si.Source+" "+si.SourceVersion.String()),
-					xopNamespace.String(si.Namespace+" "+si.NamespaceVersion.String()),
-				),
-				oteltrace.WithSpanKind(oteltrace.SpanKindServer),
-				oteltrace.WithTimestamp(now),
-			}
 			bundle := seed.Bundle()
-			if bundle.Parent.TraceID().IsZero() {
-				opts = append(opts, oteltrace.WithNewRoot())
-			}
-			ctx, span := tracer.Start(overrideIntoContext(ctx, seed), nameOrDescription, opts...)
+			ctx, _, otelSpan := buildRequestSpan(ctx, ts, bundle, nameOrDescription, seed.SourceInfo(), tracer, nil)
 			if bundle.Parent.IsZero() {
 				parentSpan := oteltrace.SpanFromContext(parentCtx)
 				if parentSpan.SpanContext().HasTraceID() {
@@ -127,12 +116,12 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 					bundle.Parent.TraceID().SetArray(parentSpan.SpanContext().TraceID())
 					bundle.Parent.SpanID().SetArray(parentSpan.SpanContext().SpanID())
 				}
-				bundle.State.SetString(span.SpanContext().TraceState().String())
-				bundle.Trace.Flags().SetArray([1]byte{byte(span.SpanContext().TraceFlags())})
-				bundle.Trace.TraceID().SetArray(span.SpanContext().TraceID())
-				bundle.Trace.SpanID().SetArray(span.SpanContext().SpanID())
+				bundle.State.SetString(otelSpan.SpanContext().TraceState().String())
+				bundle.Trace.Flags().SetArray([1]byte{byte(otelSpan.SpanContext().TraceFlags())})
+				bundle.Trace.TraceID().SetArray(otelSpan.SpanContext().TraceID())
+				bundle.Trace.SpanID().SetArray(otelSpan.SpanContext().SpanID())
 			}
-			bundle.Trace.SpanID().SetArray(span.SpanContext().SpanID())
+			bundle.Trace.SpanID().SetArray(otelSpan.SpanContext().SpanID())
 			return []xop.SeedModifier{
 				xop.WithContext(ctx),
 				xop.WithBundle(bundle),
@@ -142,33 +131,104 @@ func makeSeedModifier(ctx context.Context, tracer oteltrace.Tracer, extraModifie
 	return xop.CombineSeedModifiers(append(modifiers, extraModifiers...)...)
 }
 
+// BaseLogger provides SeedModifiers to set up an OTEL Tracer as a xopbase.Logger
+// so that xop logs are output through the OTEL Tracer.
+//
+// As of the writing of this comment, the Open Telemetry Go library does not support
+// logging so to use it for logging purposes, log lines are sent as span "Events".
+//
+// The recommended way to create a TracerProvider includes using WithBatcher to
+// control the flow of data to SpanExporters.  The default configuration for the Batcher
+// limits spans to 128 Events each. It imposes other limits too but the default event
+// limit is the one that is likely to be hit with even modest usage.
+//
+// The TracerProvider MUST be created with IDGenerator().  Without that, the SpanID
+// created by Xop will be ignored and that will cause problems with propagation.
+func BaseLogger(traceProvider oteltrace.TracerProvider) xopbase.Logger {
+	tracer := traceProvider.Tracer("xopotel",
+		oteltrace.WithInstrumentationAttributes(
+			xopOTELVersion.String(xopotelVersionValue),
+			xopVersion.String(xopVersionValue),
+		),
+		oteltrace.WithInstrumentationVersion(xopotelVersionValue),
+	)
+	return &logger{
+		id:              "otel-" + uuid.New().String(),
+		doLogging:       true,
+		tracer:          tracer,
+		spanFromContext: false,
+	}
+}
+
 func (logger *logger) ID() string           { return logger.id }
 func (logger *logger) ReferencesKept() bool { return true }
 func (logger *logger) Buffered() bool       { return false }
 
-func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	// we ignore most of the Bundle because we've already recorded that information
-	// in the OTEL span that we've already created.
-	s := logger.span(ctx, ts, description, "")
-	s.otelSpan.SetAttributes(
-		xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
-		xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
-	)
-	if !bundle.Baggage.IsZero() {
-		s.otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
+func buildRequestSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo, tracer oteltrace.Tracer, bufferedRequest *bufferedRequest) (context.Context, bool, oteltrace.Span) {
+	spanKind := oteltrace.SpanKindServer
+	isXOP := sourceInfo.Source != otelDataSource
+	if !isXOP {
+		// replaying data originally coming from OTEL.
+		// The spanKind is encoded as the namespace.
+		if sk, ok := spanKindFromString[sourceInfo.Namespace]; ok {
+			spanKind = sk
+		}
 	}
-	s.request = &request{
-		span:              s,
-		attributesDefined: make(map[string]struct{}),
+	opts := []oteltrace.SpanStartOption{
+		oteltrace.WithSpanKind(spanKind),
+		oteltrace.WithTimestamp(ts),
 	}
-	return s.request
+
+	otelStuff := bufferedRequest.getStuff(bundle, true)
+	opts = append(opts, otelStuff.SpanOptions()...)
+
+	if bundle.Parent.TraceID().IsZero() {
+		opts = append(opts, oteltrace.WithNewRoot())
+	}
+	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
+	if isXOP {
+		if !bundle.Baggage.IsZero() {
+			otelSpan.SetAttributes(xopBaggage.String(bundle.Baggage.String()))
+		}
+		otelSpan.SetAttributes(
+			xopVersion.String(xopVersionValue),
+			xopOTELVersion.String(xopotelVersionValue),
+			xopSource.String(sourceInfo.Source+" "+sourceInfo.SourceVersion.String()),
+			xopNamespace.String(sourceInfo.Namespace+" "+sourceInfo.NamespaceVersion.String()),
+		)
+	}
+	otelStuff.Set(otelSpan)
+	return ctx, isXOP, otelSpan
 }
 
-func (span *span) Flush()                         {}
-func (span *span) Final()                         {}
-func (span *span) SetErrorReporter(f func(error)) {}
-func (span *span) Boring(_ bool)                  {}
-func (span *span) ID() string                     { return span.logger.id }
+func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
+	var otelSpan oteltrace.Span
+	var isXOP bool
+	if logger.spanFromContext {
+		otelSpan = oteltrace.SpanFromContext(ctx)
+		isXOP = sourceInfo.Source != otelDataSource
+	} else {
+		ctx, isXOP, otelSpan = buildRequestSpan(ctx, ts, bundle, description, sourceInfo, logger.tracer, logger.bufferedRequest)
+	}
+	r := &request{
+		span: &span{
+			logger:   logger,
+			otelSpan: otelSpan,
+			ctx:      ctx,
+			isXOP:    isXOP,
+		},
+		attributesDefined: make(map[string]struct{}),
+	}
+	r.span.request = r
+	return r
+}
+
+func (request *request) SetErrorReporter(f func(error)) { request.errorReporter = f }
+func (request *request) Flush()                         {}
+func (request *request) Final()                         {}
+
+func (span *span) Boring(_ bool) {}
+func (span *span) ID() string    { return span.logger.id }
 func (span *span) Done(endTime time.Time, final bool) {
 	if !final {
 		return
@@ -180,27 +240,44 @@ func (span *span) Done(endTime time.Time, final bool) {
 	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
 }
 
-func (span *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
-	s := span.logger.span(ctx, ts, description, spanSequenceCode)
-	s.request = span.request
-	if spanSequenceCode != "" {
-		s.otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
+func buildSpan(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, tracer oteltrace.Tracer, bufferedRequest *bufferedRequest) (context.Context, oteltrace.Span) {
+	opts := []oteltrace.SpanStartOption{
+		oteltrace.WithTimestamp(ts),
+		oteltrace.WithSpanKind(oteltrace.SpanKindInternal),
+	}
+	otelStuff := bufferedRequest.getStuff(bundle, true)
+	opts = append(opts, otelStuff.SpanOptions()...)
+	ctx, otelSpan := tracer.Start(overrideIntoContext(ctx, bundle), description, opts...)
+	otelStuff.Set(otelSpan)
+	return ctx, otelSpan
+}
+
+func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, spanSequenceCode string) xopbase.Span {
+	var otelSpan oteltrace.Span
+	if parentSpan.logger.spanFromContext {
+		otelSpan = oteltrace.SpanFromContext(ctx)
+	} else {
+		if parentSpan.logger.bufferedRequest != nil {
+			ctx = parentSpan.ctx
+		}
+		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer, parentSpan.logger.bufferedRequest)
+	}
+	s := &span{
+		logger:   parentSpan.logger,
+		otelSpan: otelSpan,
+		ctx:      ctx,
+		request:  parentSpan.request,
+		isXOP:    parentSpan.isXOP,
+	}
+	if parentSpan.isXOP && spanSequenceCode != "" {
+		otelSpan.SetAttributes(xopSpanSequence.String(spanSequenceCode))
 	}
 	return s
 }
 
-func (logger *logger) span(ctx context.Context, ts time.Time, description string, spanSequenceCode string) *span {
-	otelSpan := oteltrace.SpanFromContext(ctx)
-	return &span{
-		logger:   logger,
-		otelSpan: otelSpan,
-		ctx:      ctx,
-	}
-}
-
 func (span *span) NoPrefill() xopbase.Prefilled {
 	return &prefilled{
-		builder: builder{
+		builderWithSpan: builderWithSpan{
 			span: span,
 		},
 	}
@@ -208,7 +285,7 @@ func (span *span) NoPrefill() xopbase.Prefilled {
 
 func (span *span) StartPrefill() xopbase.Prefilling {
 	return &prefilling{
-		builder: builder{
+		builderWithSpan: builderWithSpan{
 			span: span,
 		},
 	}
@@ -217,7 +294,7 @@ func (span *span) StartPrefill() xopbase.Prefilling {
 func (prefill *prefilling) PrefillComplete(msg string) xopbase.Prefilled {
 	prefill.builder.prefillMsg = msg
 	return &prefilled{
-		builder: prefill.builder,
+		builderWithSpan: prefill.builderWithSpan,
 	}
 }
 
@@ -229,7 +306,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 	line := &line{}
 	line.level = level
 	line.span = prefilled.span
-	line.attributes = line.prealloc[:1] // reserving one spot at the beginnging
+	line.attributes = line.prealloc[:2] // reserving two spots at the beginnging
 	line.attributes = append(line.attributes, prefilled.span.spanPrefill...)
 	line.attributes = append(line.attributes, prefilled.attributes...)
 	line.prefillMsg = prefilled.prefillMsg
@@ -247,12 +324,21 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
+	if k == xopOTELLinkDetail {
+		// Link will not be called with OTEL->XOP->OTEL so no need to
+		// suppress anything
+		return
+	}
 	line.attributes = append(line.attributes,
-		logMessageKey.String(line.prefillMsg+k),
-		typeKey.String("link"),
+		xopType.String("link"),
 		xopLinkData.String(v.String()),
 	)
-	line.done()
+	line.done(line.prefillMsg + k)
+	if line.span.logger.bufferedRequest != nil {
+		// add span.Links() is handled in buffered.zzzgo so
+		// a sub-span is not needed here.
+		return
+	}
 	_, tmpSpan := line.span.logger.tracer.Start(line.span.ctx, k,
 		oteltrace.WithLinks(
 			oteltrace.Link{
@@ -271,33 +357,44 @@ func (line *line) Link(k string, v xoptrace.Trace) {
 	tmpSpan.AddEvent(line.level.String(),
 		oteltrace.WithTimestamp(line.timestamp),
 		oteltrace.WithAttributes(line.attributes...))
-	tmpSpan.SetAttributes(typeKey.String("link-event"))
+	tmpSpan.SetAttributes(xopType.String("link-event"))
 	tmpSpan.End()
 }
 
 func (line *line) Model(msg string, v xopbase.ModelArg) {
 	v.Encode()
 	line.attributes = append(line.attributes,
-		logMessageKey.String(line.prefillMsg+msg),
-		typeKey.String("model"),
+		xopType.String("model"),
 		xopModelType.String(v.ModelType),
 		xopEncoding.String(v.Encoding.String()),
 		xopModel.String(string(v.Encoded)),
 	)
-	line.done()
+	line.done(line.prefillMsg + msg)
 }
 
 func (line *line) Msg(msg string) {
-	line.attributes = append(line.attributes, logMessageKey.String(line.prefillMsg+msg), typeKey.String("line"))
-	line.done()
+	if line.span.isXOP {
+		line.attributes = append(line.attributes, xopType.String("line"))
+	}
+	line.done(line.prefillMsg + msg)
 	// PERFORMANCE: return line to pool
 }
 
-func (line *line) done() {
-	line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
-	line.span.otelSpan.AddEvent(line.level.String(),
-		oteltrace.WithTimestamp(line.timestamp),
-		oteltrace.WithAttributes(line.attributes...))
+func (line *line) done(msg string) {
+	if line.span.isXOP {
+		line.attributes[0] = xopLineNumber.Int64(int64(atomic.AddInt32(&line.span.request.lineCount, 1)))
+		line.attributes[1] = xopLevel.String(line.level.String())
+	} else {
+		line.attributes = line.attributes[2:]
+	}
+	if line.timestamp.IsZero() {
+		line.span.otelSpan.AddEvent(msg,
+			oteltrace.WithAttributes(line.attributes...))
+	} else {
+		line.span.otelSpan.AddEvent(msg,
+			oteltrace.WithTimestamp(line.timestamp),
+			oteltrace.WithAttributes(line.attributes...))
+	}
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -335,12 +432,10 @@ func (line *line) Template(template string) {
 		return "''"
 	})
 	line.attributes = append(line.attributes,
-		logMessageKey.String(line.prefillMsg+msg),
-		typeKey.String("line"),
-		xopLineFormat.String("tmpl"),
+		xopType.String("line"),
 		xopTemplate.String(template),
 	)
-	line.done()
+	line.done(line.prefillMsg + msg)
 }
 
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
@@ -380,34 +475,53 @@ func (builder *builder) Bool(k string, v bool) {
 	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
 }
 
+var skipIfOTEL = map[string]struct{}{
+	otelReplayStuff.Key(): {},
+}
+
 // MACRO BaseAttribute
 func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	//CONDITIONAL ONLY:Any
+	if k.Key() == otelReplayStuff.Key() {
+		return
+	}
+	//END CONDITIONAL
 	key := k.Key()
-	if _, ok := span.request.attributesDefined[key]; !ok {
-		if k.Description() != xopSynthesizedForOTEL {
-			span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-			span.request.attributesDefined[key] = struct{}{}
+	if span.isXOP {
+		if _, ok := span.request.attributesDefined[key]; !ok {
+			if k.Description() != xopSynthesizedForOTEL {
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
+				span.request.attributesDefined[key] = struct{}{}
+			}
 		}
 	}
 	//CONDITIONAL ONLY:Link
+	if k.Key() == otelLink.Key() {
+		return
+	}
 	value := v.String()
-	_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
-		oteltrace.WithLinks(
-			oteltrace.Link{
-				SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
-					TraceID:    v.TraceID().Array(),
-					SpanID:     v.SpanID().Array(),
-					TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
-					TraceState: emptyTraceState, // TODO: is this right?
-					Remote:     true,            // information not available
+	if span.logger.bufferedRequest == nil {
+		_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
+			oteltrace.WithLinks(
+				oteltrace.Link{
+					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+						TraceID:    v.TraceID().Array(),
+						SpanID:     v.SpanID().Array(),
+						TraceFlags: oteltrace.TraceFlags(v.Flags().Array()[0]),
+						TraceState: emptyTraceState, // TODO: is this right?
+						Remote:     true,            // information not available
+					}),
+					Attributes: []attribute.KeyValue{
+						xopLinkMetadataKey.String(key),
+					},
 				}),
-			}),
-		oteltrace.WithAttributes(
-			spanIsLinkAttributeKey.Bool(true),
-		),
-	)
-	tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
-	tmpSpan.End()
+			oteltrace.WithAttributes(
+				spanIsLinkAttributeKey.Bool(true),
+			),
+		)
+		tmpSpan.SetAttributes(spanIsLinkAttributeKey.Bool(true))
+		tmpSpan.End()
+	}
 	//CONDITIONAL ONLY:Enum
 	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	//CONDITIONAL ONLY:Time
@@ -488,4 +602,9 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	span.priorZZZSlices[key] = s
 	span.otelSpan.SetAttributes(attribute.ZZZSlice(key, s))
 	//END CONDITIONAL
+}
+
+var spanKindFromString = map[string]oteltrace.SpanKind{
+	// MACRO OTELSpanKinds
+	oteltrace.ZZZ.String(): oteltrace.ZZZ,
 }

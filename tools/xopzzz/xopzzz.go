@@ -8,12 +8,15 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+(SKIP|ONLY):(\S+))?\s*$`)
 var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
-var zzzRE = regexp.MustCompile(`(zzz|ZZZ)`)
+var zzzRE = regexp.MustCompile(`(zzz|Zzz|ZZZ)`)
 var packageRE = regexp.MustCompile(`^package (\w+)`)
 var conditionalRE = regexp.MustCompile(`^\s*//\s?CONDITIONAL (?:(?:ONLY:(\S+))|(?:SKIP:(\S+)))\s*$`)
 var endConditionalRE = regexp.MustCompile(`^\s*//\s?END CONDITIONAL\s*$`)
@@ -169,9 +172,8 @@ var macros = map[string]map[string]string{
 	},
 	// Enumer is all of the generated enumers, used for generating a test
 	"Enumer": {
-		"EventType":    "xoprecorder",
-		"Level":        "xopnum",
-		"SpanKindEnum": "xopconst",
+		"EventType": "xoprecorder",
+		"Level":     "xopnum",
 	},
 	"OTELAttributes": {
 		"String":       "string",
@@ -185,10 +187,18 @@ var macros = map[string]map[string]string{
 		"Stringer":     "fmt.Stringer",
 	},
 	"OTELTypes": {
-		"STRING":  "String",
-		"INT64":   "Int64",
-		"FLOAT64": "Float64",
-		"BOOL":    "Bool",
+		"STRING":  "string",
+		"INT64":   "int64",
+		"FLOAT64": "float64",
+		"BOOL":    "bool",
+	},
+	"OTELSpanKinds": {
+		// "SpanKindUnspecified": "false", omitted because it's not valid
+		"SpanKindInternal": "false",
+		"SpanKindServer":   "true",
+		"SpanKindClient":   "true",
+		"SpanKindProducer": "true",
+		"SpanKindConsumer": "true",
 	},
 	// Note: these map to base types, not exact types.  Exact types
 	// can be found in xopbase.StringToDataType
@@ -234,6 +244,9 @@ func main() {
 			}
 			panic(err)
 		}
+		if len(allLines) == 0 && line == "// TEMPLATE-FILE\n" {
+			continue
+		}
 		allLines = append(allLines, line)
 	}
 
@@ -258,6 +271,8 @@ func main() {
 		fmt.Print(line)
 	}
 }
+
+var toTitle = cases.Title(language.Und)
 
 func macroExpand(indent string, macro string, skip bool, skipList string) {
 	m, ok := macros[macro]
@@ -306,6 +321,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		replMap := map[string]string{
 			"ZZZ": name,
 			"zzz": typ,
+			"Zzz": toTitle.String(typ),
 		}
 		var skipping bool
 		for _, line := range lines {

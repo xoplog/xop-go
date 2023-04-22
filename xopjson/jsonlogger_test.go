@@ -11,6 +11,7 @@ import (
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xoprecorder"
+	"github.com/xoplog/xop-go/xoprecorder/recorderutil"
 	"github.com/xoplog/xop-go/xoptest"
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoputil"
@@ -142,12 +143,12 @@ func TestReplayJSON(t *testing.T) {
 					expectedFlushes := 1 + tc.extraFlushes + mc.ExtraFlushes
 					if tc.waitForFlush {
 						assert.Eventually(t, func() bool {
-							return xoptestutil.EventCount(tLog.Recorder(), xoprecorder.FlushEvent) >= expectedFlushes
+							return recorderutil.EventCount(tLog.Recorder(), xoprecorder.FlushEvent) >= expectedFlushes
 						}, time.Second, time.Millisecond*3)
 					}
 					t.Log("\n", buffer.String())
-					xoptestutil.DumpEvents(t, tLog.Recorder())
-					assert.Equal(t, expectedFlushes, xoptestutil.EventCount(tLog.Recorder(), xoprecorder.FlushEvent), "count of flush")
+					recorderutil.DumpEvents(t, tLog.Recorder())
+					assert.Equal(t, expectedFlushes, recorderutil.EventCount(tLog.Recorder(), xoprecorder.FlushEvent), "count of flush")
 
 					t.Log("verify generated JSON decodes as JSON")
 					for _, inputText := range strings.Split(buffer.String(), "\n") {

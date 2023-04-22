@@ -1,10 +1,9 @@
-package xoptestutil
+package recorderutil
 
 import (
 	"github.com/xoplog/xop-go/xoprecorder"
 )
 
-// XXX move to xoprecorder
 func EventCount(tlog *xoprecorder.Logger, typ xoprecorder.EventType) int {
 	var got int
 	_ = tlog.WithLock(func(tlog *xoprecorder.Logger) error {

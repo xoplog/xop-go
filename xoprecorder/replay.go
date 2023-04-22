@@ -4,25 +4,32 @@ package xoprecorder
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/muir/gwrap"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
-
-	"github.com/pkg/errors"
 )
 
 // Replay dumps the recorded logs to another base logger
 func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 	requests := make(map[xoptrace.HexBytes8]xopbase.Request)
 	spans := make(map[xoptrace.HexBytes8]xopbase.Span)
+	var downStreamError gwrap.AtomicValue[error]
+	errorReporter := func(err error) {
+		if err != nil {
+			downStreamError.Store(err)
+		}
+	}
 	for _, event := range log.Events {
 		switch event.Type {
 		case CustomEvent:
 			// ignore
 		case RequestStart:
 			request := dest.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, *event.Span.SourceInfo)
+			request.SetErrorReporter(errorReporter)
 			id := event.Span.Bundle.Trace.GetSpanID()
 			requests[id] = request
 			spans[id] = request
@@ -30,24 +37,24 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 			if req, ok := requests[event.Span.Bundle.Trace.GetSpanID()]; ok {
 				req.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
-				return errors.Errorf("RequestDone event without corresponding RequestStart for %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("RequestDone event without corresponding RequestStart for %s", event.Span.Bundle.Trace)
 			}
 		case SpanDone:
 			if span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]; ok {
 				span.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
-				return errors.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)
 			}
 		case FlushEvent:
 			id := event.Span.Bundle.Trace.GetSpanID()
 			if req, ok := requests[id]; ok {
 				req.Flush()
 			} else {
-				return errors.Errorf("Flush for unknown req %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("Flush for unknown req %s", event.Span.Bundle.Trace)
 			}
 		case SpanStart:
 			if event.Span.Parent == nil {
-				return errors.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
 			}
 			if parent, ok := spans[event.Span.Parent.Bundle.Trace.GetSpanID()]; ok {
 				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SpanSequenceCode)
@@ -56,77 +63,10 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 		case LineEvent:
 			span, ok := spans[event.Line.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
-				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
+				return fmt.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
 			}
 			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, event.Line.Stack)
-			for k, v := range event.Line.Data {
-				dataType := event.Line.DataType[k]
-				switch dataType {
-				case xopbase.AnyDataType:
-					line.Any(k, v.(xopbase.ModelArg))
-				// next line must be blank to end macro BaseDataWithoutType
-				case xopbase.BoolDataType:
-					line.Bool(k, v.(bool))
-				// next line must be blank to end macro BaseDataWithoutType
-				case xopbase.DurationDataType:
-					line.Duration(k, v.(time.Duration))
-				// next line must be blank to end macro BaseDataWithoutType
-				case xopbase.TimeDataType:
-					line.Time(k, v.(time.Time))
-				// next line must be blank to end macro BaseDataWithoutType
-
-				case xopbase.Float64DataType:
-					line.Float64(k, v.(float64), dataType)
-				// next line must be blank to end macro BaseDataWithType
-				case xopbase.StringDataType:
-					line.String(k, v.(string), dataType)
-				// next line must be blank to end macro BaseDataWithType
-
-				case xopbase.IntDataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Int16DataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Int32DataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Int64DataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Int8DataType:
-					line.Int64(k, v.(int64), dataType)
-				// next line must be blank to end macro Ints
-
-				case xopbase.UintDataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Uint16DataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Uint32DataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Uint64DataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.Uint8DataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-				case xopbase.UintptrDataType:
-					line.Uint64(k, v.(uint64), dataType)
-				// next line must be blank to end macro Ints
-
-				case xopbase.ErrorDataType, xopbase.StringerDataType:
-					line.String(k, v.(string), dataType)
-				case xopbase.Float32DataType:
-					line.Float64(k, v.(float64), dataType)
-				case xopbase.EnumDataType:
-					line.Enum(event.Line.Enums[k], v.(xopat.Enum))
-				default:
-					return errors.Errorf("unexpected data type %s in line", dataType)
-				}
-			}
+			ReplayLineData(event.Line, line)
 			switch {
 			case event.Line.Tmpl != "":
 				line.Template(event.Line.Tmpl)
@@ -137,11 +77,10 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 			default:
 				line.Msg(event.Line.Message)
 			}
-
 		case MetadataSet:
 			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
-				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
+				return fmt.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
 			}
 			switch event.Attribute.SubType().SpanAttributeType() {
 			case xopat.AttributeTypeAny:
@@ -156,7 +95,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				v := event.Value
 				enum, ok := v.(xopat.Enum)
 				if !ok {
-					return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
+					return fmt.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
 				}
 				span.MetadataEnum(event.Attribute.(*xopat.EnumAttribute), enum)
 				// next line must be blank to end macro
@@ -182,11 +121,82 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				// next line must be blank to end macro
 
 			default:
-				return errors.Errorf("unknown attribute type %s", event.Attribute.ProtoType())
+				return fmt.Errorf("unknown attribute type %s", event.Attribute.ProtoType())
 			}
 		default:
-
+			return fmt.Errorf("unexpected event type %v", event.Type)
 		}
 	}
-	return nil
+	return downStreamError.Load()
+}
+
+func ReplayLineData(source *Line, dest xopbase.Builder) {
+	for k, v := range source.Data {
+		dataType := source.DataType[k]
+		switch dataType {
+		case xopbase.AnyDataType:
+			dest.Any(k, v.(xopbase.ModelArg))
+		// next line must be blank to end macro BaseDataWithoutType
+		case xopbase.BoolDataType:
+			dest.Bool(k, v.(bool))
+		// next line must be blank to end macro BaseDataWithoutType
+		case xopbase.DurationDataType:
+			dest.Duration(k, v.(time.Duration))
+		// next line must be blank to end macro BaseDataWithoutType
+		case xopbase.TimeDataType:
+			dest.Time(k, v.(time.Time))
+		// next line must be blank to end macro BaseDataWithoutType
+
+		case xopbase.Float64DataType:
+			dest.Float64(k, v.(float64), dataType)
+		// next line must be blank to end macro BaseDataWithType
+		case xopbase.StringDataType:
+			dest.String(k, v.(string), dataType)
+		// next line must be blank to end macro BaseDataWithType
+
+		case xopbase.IntDataType:
+			dest.Int64(k, v.(int64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Int16DataType:
+			dest.Int64(k, v.(int64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Int32DataType:
+			dest.Int64(k, v.(int64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Int64DataType:
+			dest.Int64(k, v.(int64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Int8DataType:
+			dest.Int64(k, v.(int64), dataType)
+		// next line must be blank to end macro Ints
+
+		case xopbase.UintDataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Uint16DataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Uint32DataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Uint64DataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.Uint8DataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+		case xopbase.UintptrDataType:
+			dest.Uint64(k, v.(uint64), dataType)
+		// next line must be blank to end macro Ints
+
+		case xopbase.ErrorDataType, xopbase.StringerDataType:
+			dest.String(k, v.(string), dataType)
+		case xopbase.Float32DataType:
+			dest.Float64(k, v.(float64), dataType)
+		case xopbase.EnumDataType:
+			dest.Enum(source.Enums[k], v.(xopat.Enum))
+		default:
+			dest.String(k, fmt.Sprintf("unexpected data type %s in line, with value of type %T: %+v", dataType, v, v), xopbase.ErrorDataType)
+		}
+	}
 }

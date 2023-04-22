@@ -1,4 +1,3 @@
-// xopotel provides interconnection between OpenTelemetry and xop
 package xopotel
 
 import (
@@ -8,13 +7,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -23,16 +23,19 @@ const attributeDefinitionPrefix = "xop.defineKey."
 const xopSynthesizedForOTEL = "xopotel-shim type"
 
 type logger struct {
-	tracer     oteltrace.Tracer
-	id         string
-	doLogging  bool
-	ignoreDone oteltrace.Span
+	tracer          oteltrace.Tracer
+	id              string
+	doLogging       bool
+	ignoreDone      oteltrace.Span
+	spanFromContext bool
+	bufferedRequest *bufferedRequest // only set when BufferedReplayLogger is used
 }
 
 type request struct {
 	*span
 	attributesDefined map[string]struct{}
 	lineCount         int32
+	errorReporter     func(error)
 }
 
 type span struct {
@@ -48,61 +51,105 @@ type span struct {
 	hasPrior           map[string]struct{}
 	metadataSeen       map[string]interface{}
 	spanPrefill        []attribute.KeyValue // holds spanID & traceID
+	isXOP              bool                 // true unless data is imported from OTEL
 }
 
 type prefilling struct {
-	builder
+	builderWithSpan
 }
 
 type prefilled struct {
-	builder
+	builderWithSpan
 }
 
 type line struct {
-	builder
+	builderWithSpan
 	prealloc  [15]attribute.KeyValue
 	level     xopnum.Level
 	timestamp time.Time
 }
 
+type builderWithSpan struct {
+	span *span
+	builder
+}
+
 type builder struct {
 	attributes []attribute.KeyValue
-	span       *span
 	prefillMsg string
 	linkKey    string
 	linkValue  xoptrace.Trace
 }
 
+type otelStuff struct {
+	spanCounters
+	Status               sdktrace.Status
+	SpanKind             xopconst.SpanKindEnum
+	Resource             bufferedResource
+	InstrumentationScope instrumentation.Scope
+	links                []oteltrace.Link // filled in by getStuff()
+}
+
+type spanCounters struct {
+	DroppedAttributes int
+	DroppedLinks      int
+	DroppedEvents     int
+	ChildSpanCount    int
+}
+
 var _ xopbase.Logger = &logger{}
-var _ xopbase.Request = &span{}
+var _ xopbase.Request = &request{}
 var _ xopbase.Span = &span{}
 var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
 var _ xopbase.Prefilled = &prefilled{}
 
-var logMessageKey = attribute.Key("xop.message")
-var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
-var typeKey = attribute.Key("xop.type")
+// Span-level
+var otelSpanKind = attribute.Key("span.kind")
 var spanIsLinkAttributeKey = attribute.Key("xop.span.is-link-attribute")
 var spanIsLinkEventKey = attribute.Key("xop.span.is-link-event")
-var xopVersion = attribute.Key("xop.version")
+var xopBaggage = attribute.Key("xop.baggage")
+var xopNamespace = attribute.Key("xop.namespace")
 var xopOTELVersion = attribute.Key("xop.otel-version")
 var xopSource = attribute.Key("xop.source")
-var xopNamespace = attribute.Key("xop.namespace")
-var xopLinkData = attribute.Key("xop.link")
-var xopModelType = attribute.Key("xop.modelType")
+var xopSpanSequence = attribute.Key("xop.xopSpanSequence")
+var xopVersion = attribute.Key("xop.version")
+
+// Line
+var xopLevel = attribute.Key("xop.level")
+var xopLineNumber = attribute.Key("xop.lineNumber")
+var xopStackTrace = attribute.Key("xop.stackTrace")
+var xopTemplate = attribute.Key("xop.template")
+var xopType = attribute.Key("xop.type")
+
+// Model
 var xopEncoding = attribute.Key("xop.encoding")
 var xopModel = attribute.Key("xop.model")
-var xopLineFormat = attribute.Key("xop.format")
-var xopTemplate = attribute.Key("xop.template")
-var otelSpanKind = attribute.Key("span.kind")
-var xopLineNumber = attribute.Key("xop.lineNumber")
-var xopBaggage = attribute.Key("xop.baggage")
-var xopStackTrace = attribute.Key("xop.stackTrace")
+var xopModelType = attribute.Key("xop.modelType")
+
+// Link
+var xopLinkData = attribute.Key("xop.link")
+var otelLink = xopat.Make{Key: "span.otelLinks", Namespace: "XOP", Indexed: false, Prominence: 300,
+	Multiple: true, Distinct: true,
+	Description: "Data origin is OTEL, span links w/o attributes; links also sent as Link()"}.LinkAttribute()
+var xopLinkMetadataKey = attribute.Key("xop.linkMetadataKey")
+
+const xopLinkTraceStateError = "xop.linkTraceStateError"
+const xopOTELLinkTranceState = "xop.otelLinkTraceState"
+const xopOTELLinkIsRemote = "xop.otelLinkIsRemote"
+const xopOTELLinkDetail = "xop.otelLinkDetail"
+const xopLinkRemoteError = "xop.otelLinkRemoteError"
+const xopOTELLinkDroppedAttributeCount = "xop.otelLinkDroppedAttributeCount"
+const xopLinkeDroppedError = "xop.otelLinkDroppedError"
+
+var otelReplayStuff = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
+	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})
 
 // TODO: find a better way to set this version string
 const xopVersionValue = "0.3.0"
 const xopotelVersionValue = xopVersionValue
+
+const otelDataSource = "source-is-not-xop"
 
 var xopPromotedMetadata = xopat.Make{Key: "xop.span-is-promoted", Namespace: "xopotel"}.BoolAttribute()
 
@@ -112,8 +159,7 @@ type overrideContextKeyType struct{}
 
 var overrideContextKey = overrideContextKeyType{}
 
-func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
-	bundle := seed.Bundle()
+func overrideIntoContext(ctx context.Context, bundle xoptrace.Bundle) context.Context {
 	override := &idOverride{
 		valid:   1,
 		traceID: bundle.Trace.GetTraceID(),
@@ -133,12 +179,6 @@ func overrideIntoContext(ctx context.Context, seed xop.Seed) context.Context {
 			}
 		}
 		spanContext := oteltrace.NewSpanContext(spanConfig)
-		if !bundle.State.IsZero() {
-			traceState, err := oteltrace.ParseTraceState(bundle.State.String())
-			if err == nil {
-				spanContext = spanContext.WithTraceState(traceState)
-			}
-		}
 		ctx = oteltrace.ContextWithSpanContext(ctx, spanContext)
 	}
 	return ctx
@@ -192,7 +232,7 @@ func random16() oteltrace.TraceID {
 	}
 }
 
-// IDGenerator generates an override that can be used with
+// IDGenerator generates an override that must be used with
 // https://pkg.go.dev/go.opentelemetry.io/otel/sdk/trace#NewTracerProvider
 // when creating a TracerProvider.  This override causes the
 // TracerProvider to respect the TraceIDs and SpanIDs generated by

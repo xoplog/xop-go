@@ -187,7 +187,7 @@ type Span interface {
 }
 
 type Prefilling interface {
-	AttributeParts
+	Builder
 
 	PrefillComplete(msg string) Prefilled
 }
@@ -209,8 +209,7 @@ type Prefilled interface {
 }
 
 type Line interface {
-	AttributeParts
-
+	Builder
 	LineDone
 }
 
@@ -222,9 +221,12 @@ type LineDone interface {
 	// Object may change in the future to also take an un-redaction string,
 	Model(string, ModelArg)
 	Link(string, xoptrace.Trace)
+
+	// TODO: support special table handling inside Models
+	// TODO: ExternalReference(name string, itemID string, storageID string)
 }
 
-type AttributeParts interface {
+type Builder interface {
 	// Enum adds a key/value pair.  Calls to Enum are expected to be
 	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
@@ -264,12 +266,6 @@ type AttributeParts interface {
 	// lines.
 	Time(string, time.Time)
 
-	// TODO: split the above off as "BasicAttributeParts"
-	// TODO: Table(string, table)
-	// TODO: Encoded(name string, elementName string, encoder Encoder, data interface{})
-	// TODO: PreEncodedBytes(name string, elementName string, mimeType string, data []byte)
-	// TODO: PreEncodedText(name string, elementName string, mimeType string, data string)
-	// TODO: ExternalReference(name string, itemID string, storageID string)
 	// TODO: RedactedString(name string, value string, unredaction string)
 }
 

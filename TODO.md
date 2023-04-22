@@ -25,6 +25,19 @@
 
 # Just do it (build ready)
 
+- check for unchecked casts 
+
+- xopresource
+  combine line.Data & line.DataType to have a sub-object
+  
+- reshuffle levels to be more OTEL-like, add a couple more.
+  - trace becomes lower level than debug (ugh!)
+  - log? (and then change seed.Log() to seed.Logger()?)
+  - verbose?
+  - flow?
+
+- all "Xop" -> "XOP"
+
 - simplify code in xopcon 
 
 - share implementation between xopcon and xoprecorder (opportunities for DRY)

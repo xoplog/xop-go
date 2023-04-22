@@ -138,6 +138,7 @@ func NewSeed(mods ...SeedModifier) Seed {
 		spanSeed: spanSeed{
 			config:      DefaultConfig,
 			traceBundle: xoptrace.NewBundle(),
+			ctx:         context.Background(),
 		},
 		settings: DefaultSettings,
 	}

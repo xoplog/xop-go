@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xoplog/xop-go/internal/util/generic"
+	"github.com/xoplog/xop-go/internal/util/pointer"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
@@ -62,6 +64,7 @@ func New(opts ...Opt) *Logger {
 	log := &Logger{
 		id:             "xoprecorder-" + uuid.New().String(),
 		requestCounter: xoputil.NewRequestCounter(),
+		SpanIndex:      make(map[[8]byte]*Span),
 	}
 	for _, opt := range opts {
 		opt(log)
@@ -75,6 +78,7 @@ type Logger struct {
 	Spans          []*Span
 	Lines          []*Line
 	Events         []*Event
+	SpanIndex      map[[8]byte]*Span
 	requestCounter *xoputil.RequestCounter
 	id             string
 	linePrefix     string
@@ -98,6 +102,7 @@ type Span struct {
 	Parent             *Span
 	Spans              []*Span
 	Lines              []*Line
+	Links              []*Line // also recorded in Lines
 	StartTime          time.Time
 	Name               string
 	SpanSequenceCode   string
@@ -134,6 +139,19 @@ type Line struct {
 	AsLink    *xoptrace.Trace
 	AsModel   *xopbase.ModelArg
 	Stack     []runtime.Frame
+}
+
+func (l Line) Copy() Line {
+	if l.AsLink != nil {
+		l.AsLink = pointer.To(l.AsLink.Copy())
+	}
+	if l.AsModel != nil {
+		l.AsModel = pointer.To(l.AsModel.Copy())
+	}
+	l.Enums = generic.CopyMap(l.Enums)
+	l.Data = generic.CopyMap(l.Data)
+	l.DataType = generic.CopyMap(l.DataType)
+	return l
 }
 
 type Event struct {
@@ -196,6 +214,7 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 		Type: RequestStart,
 		Span: s,
 	})
+	log.SpanIndex[bundle.Trace.SpanID().Array()] = s
 	return s
 }
 
@@ -265,6 +284,7 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 	span.Spans = append(span.Spans, n)
 	span.logger.Spans = append(span.logger.Spans, n)
 	span.logger.Events = append(span.logger.Events, event)
+	span.logger.SpanIndex[bundle.Trace.SpanID().Array()] = n
 	return n
 }
 
@@ -344,20 +364,20 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 func (line *Line) Link(m string, v xoptrace.Trace) {
 	line.AsLink = &v
 	line.Message += m
-	line.send()
+	line.send(true)
 }
 
 // Model is a required method for xopbase.Line
 func (line *Line) Model(m string, v xopbase.ModelArg) {
 	line.AsModel = &v
 	line.Message += m
-	line.send()
+	line.send(false)
 }
 
 // Msg is a required method for xopbase.Line
 func (line *Line) Msg(m string) {
 	line.Message += m
-	line.send()
+	line.send(false)
 }
 
 var templateRE = regexp.MustCompile(`\{.+?\}`)
@@ -375,10 +395,10 @@ func (line *Line) Template(m string) {
 		return "''"
 	})
 	line.Message = msg
-	line.send()
+	line.send(false)
 }
 
-func (line Line) send() {
+func (line Line) send(isLink bool) {
 	line.Span.logger.lock.Lock()
 	defer line.Span.logger.lock.Unlock()
 	line.Span.lock.Lock()
@@ -389,6 +409,9 @@ func (line Line) send() {
 		Line: &line,
 	})
 	line.Span.Lines = append(line.Span.Lines, &line)
+	if isLink {
+		line.Span.Links = append(line.Span.Links, &line)
+	}
 }
 
 func (line *Line) Text() string {

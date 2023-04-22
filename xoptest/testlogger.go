@@ -31,9 +31,26 @@ type Logger struct {
 
 var _ xopbase.Logger = &Logger{}
 
+type tPassthrough struct{ t testingT }
+
+func (t tPassthrough) Write(b []byte) (int, error) {
+	if len(b) == 0 {
+		return 0, nil
+	}
+	if b[len(b)-1] == '\n' {
+		t.t.Log(string(b[0 : len(b)-1]))
+	} else {
+		t.t.Log(string(b))
+	}
+	return len(b), nil
+}
+
 func New(t testingT) *Logger {
 	requestCounter := xoputil.NewRequestCounter()
-	console := xopcon.New(xopcon.WithRequestCounter(requestCounter))
+	console := xopcon.New(
+		xopcon.WithRequestCounter(requestCounter),
+		xopcon.WithWriter(tPassthrough{t}),
+	)
 	recorder := xoprecorder.New(xoprecorder.WithRequestCounter(requestCounter))
 	return &Logger{
 		t:        t,

@@ -1,3 +1,7 @@
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+
 package xopotel
 
 import (
@@ -15,10 +19,12 @@ import (
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
+	"github.com/muir/gwrap"
 	"github.com/muir/list"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
@@ -82,15 +88,16 @@ type wrappedReadOnlySpan struct {
 	links []sdktrace.Link
 }
 
-// NewExporter allows open telementry spans to be exported through
+// ExportToXOP allows open telementry spans to be exported through
 // a xopbase.Logger. If the open telementry spans were generated
 // originally using xoputil, then the exported data should almost
 // exactly match the original inputs.
-func NewExporter(base xopbase.Logger) sdktrace.SpanExporter {
+func ExportToXOP(base xopbase.Logger) sdktrace.SpanExporter {
 	return &spanExporter{base: base}
 }
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) (err error) {
+	// TODO: avoid returning error when possible
 	id2Index := makeIndex(spans)
 	subSpans, todo := makeSubspans(id2Index, spans)
 	x := spanReplay{
@@ -100,34 +107,48 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 		subSpans:     subSpans,
 		data:         make([]*datum, len(spans)),
 	}
-	done := make([]bool, len(spans))
-	for len(todo) > 0 {
-		i := todo[0]
-		if done[i] {
-			return errors.Errorf("attempt to re-do span %d", i)
-		}
-		done[i] = true
-		todo = todo[1:]
+
+	var toFinish []func()
+
+	var processSpan func(int) error
+	processSpan = func(i int) error {
 		x.data[i] = &datum{}
-		err := x.Replay(ctx, spans[i], x.data[i], i)
+		finisher, err := x.Replay(ctx, spans[i], x.data[i], i)
 		if err != nil {
 			return err
 		}
-		todo = append(todo, subSpans[i]...)
-		if atomic.LoadInt32(&e.done) == 1 {
-			return ErrShutdown
+		for _, subSpan := range subSpans[i] {
+			err := processSpan(subSpan)
+			if err != nil {
+				return err
+			}
 		}
+		toFinish = append(toFinish, finisher)
+		return nil
 	}
-	sort.Slice(e.orderedFinish, func(i, j int) bool {
-		return e.orderedFinish[i].num < e.orderedFinish[j].num
-	})
-	for _, o := range x.orderedFinish {
-		o.f()
+	for _, i := range todo {
+		err := processSpan(i)
+		if err != nil {
+			return err
+		}
+
+		sort.Slice(e.orderedFinish, func(i, j int) bool {
+			return e.orderedFinish[i].num < e.orderedFinish[j].num
+		})
+		for _, o := range x.orderedFinish {
+			o.f()
+		}
+		x.orderedFinish = x.orderedFinish[:0]
+
+		for _, finisher := range toFinish {
+			finisher()
+		}
+		toFinish = toFinish[:0]
 	}
 	return nil
 }
 
-func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) error {
+func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) (func(), error) {
 	var bundle xoptrace.Bundle
 	spanContext := span.SpanContext()
 	if spanContext.HasTraceID() {
@@ -169,6 +190,12 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		}
 	}
 
+	var downStreamError gwrap.AtomicValue[error]
+	errorReporter := func(err error) {
+		if err != nil {
+			downStreamError.Store(err)
+		}
+	}
 	bundle.Parent.Flags().SetBytes([]byte{1})
 	bundle.Trace.Flags().SetBytes([]byte{1})
 	spanKind := span.SpanKind()
@@ -181,7 +208,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	}
 	if attributeMap.GetBool(spanIsLinkEventKey) {
 		// span is extra just for link
-		return nil
+		return func() {}, nil
 	}
 	switch spanKind {
 	case oteltrace.SpanKindUnspecified, oteltrace.SpanKindInternal:
@@ -198,18 +225,38 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
 			// this span as a request, but mark it as promoted.
 			data.xopSpan = attributeMap.GetString(xopVersion) != ""
-			data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			baseRequest := x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			baseRequest.SetErrorReporter(errorReporter)
+			data.baseSpan = baseRequest
 			data.baseSpan.MetadataBool(xopPromotedMetadata, true)
 			data.requestIndex = myIndex
 			data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 			data.registry = xopat.NewRegistry(false)
 		}
 	default:
-		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+		baseRequest := x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+		baseRequest.SetErrorReporter(errorReporter)
+		data.baseSpan = baseRequest
 		data.requestIndex = myIndex
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 		data.xopSpan = attributeMap.GetString(xopVersion) != ""
 		data.registry = xopat.NewRegistry(false)
+		if !data.xopSpan {
+			data.baseSpan.MetadataAny(otelReplayStuff, xopbase.ModelArg{
+				Model: &otelStuff{
+					SpanKind:             xopconst.SpanKindEnum(span.SpanKind()),
+					Status:               span.Status(),
+					Resource:             bufferedResource{span.Resource()},
+					InstrumentationScope: span.InstrumentationScope(),
+					spanCounters: spanCounters{
+						DroppedAttributes: span.DroppedAttributes(),
+						DroppedLinks:      span.DroppedLinks(),
+						DroppedEvents:     span.DroppedEvents(),
+						ChildSpanCount:    span.ChildSpanCount(),
+					},
+				},
+			})
+		}
 	}
 	y := baseSpanReplay{
 		spanReplay: x,
@@ -219,25 +266,59 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	for _, attribute := range span.Attributes() {
 		err := y.AddSpanAttribute(ctx, attribute)
 		if err != nil {
-			return err
+			return func() {}, err
 		}
 	}
 	var maxNumber int32
 	for _, event := range span.Events() {
 		lastNumber, err := y.AddEvent(ctx, event)
 		if err != nil {
-			return err
+			return func() {}, err
 		}
 		if lastNumber > maxNumber {
 			maxNumber = lastNumber
 		}
 	}
-	if endTime := span.EndTime(); !endTime.IsZero() {
-		x.addOrdered(maxNumber+1, func() {
-			data.baseSpan.Done(endTime, true)
-		})
+	for _, link := range span.Links() {
+		if !data.xopSpan {
+			z := lineAttributesReplay{
+				baseSpanReplay: y,
+				lineType:       lineTypeLink,
+				lineFormat:     lineFormatDefault,
+				level:          xopnum.InfoLevel,
+			}
+			line, err := z.AddLineAttributes(ctx, "link", span.StartTime(), link.Attributes)
+			if err != nil {
+				return func() {}, err
+			}
+			var trace xoptrace.Trace
+			trace.Flags().SetArray([1]byte{byte(link.SpanContext.TraceFlags())})
+			trace.TraceID().SetArray(link.SpanContext.TraceID())
+			trace.SpanID().SetArray(link.SpanContext.SpanID())
+			data.baseSpan.MetadataLink(otelLink, trace)
+			z.link = trace
+			if ts := link.SpanContext.TraceState(); ts.Len() != 0 {
+				line.String(xopOTELLinkTranceState, ts.String(), xopbase.StringDataType)
+			}
+			if link.SpanContext.IsRemote() {
+				line.Bool(xopOTELLinkIsRemote, true)
+			}
+			if link.DroppedAttributeCount != 0 {
+				line.Int64(xopOTELLinkDroppedAttributeCount, int64(link.DroppedAttributeCount), xopbase.IntDataType)
+			}
+
+			err = z.finishLine(ctx, "link", xopOTELLinkDetail, line)
+			if err != nil {
+				return func() {}, err
+			}
+		}
 	}
-	return nil
+	if endTime := span.EndTime(); !endTime.IsZero() {
+		return func() {
+			data.baseSpan.Done(endTime, true)
+		}, nil
+	}
+	return func() {}, downStreamError.Load()
 }
 
 type lineType int
@@ -259,175 +340,180 @@ const (
 var lineRE = regexp.MustCompile(`^(.+):(\d+)$`)
 
 func (x baseSpanReplay) AddEvent(ctx context.Context, event sdktrace.Event) (int32, error) {
-	level, err := xopnum.LevelString(event.Name)
-	var nameMessage string
-	if err != nil {
-		level = xopnum.InfoLevel
-		nameMessage = event.Name
+	z := lineAttributesReplay{
+		baseSpanReplay: x,
+		lineType:       lineTypeLine,
+		lineFormat:     lineFormatDefault,
+		level:          xopnum.InfoLevel,
 	}
-	lineType := lineTypeLine
-	lineFormat := lineFormatDefault
-	var message string
-	var template string
-	var link xoptrace.Trace
-	var modelArg xopbase.ModelArg
-	var frames []runtime.Frame
+	line, err := z.AddLineAttributes(ctx, "event", event.Time, event.Attributes)
+	if err != nil {
+		return 0, err
+	}
+	err = z.finishLine(ctx, "event", event.Name, line)
+	return z.lineNumber, err
+}
+
+type lineAttributesReplay struct {
+	baseSpanReplay
+	lineType   lineType
+	lineFormat lineFormat
+	template   string
+	link       xoptrace.Trace
+	modelArg   xopbase.ModelArg
+	frames     []runtime.Frame
+	lineNumber int32
+	level      xopnum.Level
+}
+
+func (x *lineAttributesReplay) AddLineAttributes(ctx context.Context, what string, ts time.Time, attributes []attribute.KeyValue) (xopbase.Line, error) {
 	x.sequenceNumber++
-	lineNumber := x.sequenceNumber
-	nonSpecial := make([]attribute.KeyValue, 0, len(event.Attributes))
-	for _, a := range event.Attributes {
+	x.lineNumber = x.sequenceNumber
+	nonSpecial := make([]attribute.KeyValue, 0, len(attributes))
+	for _, a := range attributes {
 		switch a.Key {
 		case xopLineNumber:
 			if a.Value.Type() == attribute.INT64 {
-				lineNumber = int32(a.Value.AsInt64())
+				x.lineNumber = int32(a.Value.AsInt64())
 			} else {
-				return 0, errors.Errorf("invalid line number attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid line number attribute type %s", a.Value.Type())
 			}
-		case logMessageKey:
+		case xopLevel:
 			if a.Value.Type() == attribute.STRING {
-				message = a.Value.AsString()
+				var err error
+				x.level, err = xopnum.LevelString(a.Value.AsString())
+				if err != nil {
+					x.level = xopnum.InfoLevel
+				}
 			} else {
-				return 0, errors.Errorf("invalid line message attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid line level attribute type %s", a.Value.Type())
 			}
-		case typeKey:
+		case xopType:
 			if a.Value.Type() == attribute.STRING {
 				switch a.Value.AsString() {
 				case "link":
-					lineType = lineTypeLink
+					x.lineType = lineTypeLink
 				case "link-event":
-					lineType = lineTypeLinkEvent
+					x.lineType = lineTypeLinkEvent
 				case "model":
-					lineType = lineTypeModel
+					x.lineType = lineTypeModel
 				case "line":
 					// defaulted
 				default:
-					return 0, errors.Errorf("invalid line type attribute value %s", a.Value.AsString())
+					return nil, errors.Errorf("invalid line type attribute value %s", a.Value.AsString())
 				}
 			} else {
-				return 0, errors.Errorf("invalid line type attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid line type attribute type %s", a.Value.Type())
 			}
 		case xopModelType:
 			if a.Value.Type() == attribute.STRING {
-				modelArg.ModelType = a.Value.AsString()
+				x.modelArg.ModelType = a.Value.AsString()
 			} else {
-				return 0, errors.Errorf("invalid model type attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid model type attribute type %s", a.Value.Type())
 			}
 		case xopEncoding:
 			if a.Value.Type() == attribute.STRING {
 				e, ok := xopproto.Encoding_value[a.Value.AsString()]
 				if !ok {
-					return 0, errors.Errorf("invalid model encoding '%s'", a.Value.AsString())
+					return nil, errors.Errorf("invalid model encoding '%s'", a.Value.AsString())
 				}
-				modelArg.Encoding = xopproto.Encoding(e)
+				x.modelArg.Encoding = xopproto.Encoding(e)
 			} else {
-				return 0, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
 			}
 		case xopModel:
 			if a.Value.Type() == attribute.STRING {
-				modelArg.Encoded = []byte(a.Value.AsString())
+				x.modelArg.Encoded = []byte(a.Value.AsString())
 			} else {
-				return 0, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
-			}
-		case xopLineFormat:
-			if a.Value.Type() == attribute.STRING {
-				switch a.Value.AsString() {
-				case "tmpl":
-					lineFormat = lineFormatTemplate
-				default:
-					return 0, errors.Errorf("invalid line format attribute value %s", a.Value.AsString())
-				}
-			} else {
-				return 0, errors.Errorf("invalid line format attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
 			}
 		case xopTemplate:
 			if a.Value.Type() == attribute.STRING {
-				template = a.Value.AsString()
+				x.lineFormat = lineFormatTemplate
+				x.template = a.Value.AsString()
 			} else {
-				return 0, errors.Errorf("invalid line template attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid line template attribute type %s", a.Value.Type())
 			}
 		case xopLinkData:
 			if a.Value.Type() == attribute.STRING {
 				var ok bool
-				link, ok = xoptrace.TraceFromString(a.Value.AsString())
+				x.link, ok = xoptrace.TraceFromString(a.Value.AsString())
 				if !ok {
-					return 0, errors.Errorf("invalid link data attribute value %s", a.Value.AsString())
+					return nil, errors.Errorf("invalid link data attribute value %s", a.Value.AsString())
 				}
 			} else {
-				return 0, errors.Errorf("invalid link data attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid link data attribute type %s", a.Value.Type())
 			}
 		case xopStackTrace:
 			if a.Value.Type() == attribute.STRINGSLICE {
 				raw := a.Value.AsStringSlice()
-				frames = make([]runtime.Frame, len(raw))
+				x.frames = make([]runtime.Frame, len(raw))
 				for i, s := range raw {
 					m := lineRE.FindStringSubmatch(s)
 					if m == nil {
-						return 0, errors.Errorf("could not match stack line '%s'", s)
+						return nil, errors.Errorf("could not match stack line '%s'", s)
 					}
-					frames[i].File = m[1]
+					x.frames[i].File = m[1]
 					num, _ := strconv.ParseInt(m[2], 10, 64)
-					frames[i].Line = int(num)
+					x.frames[i].Line = int(num)
 				}
 			} else {
-				return 0, errors.Errorf("invalid stack trace attribute type %s", a.Value.Type())
+				return nil, errors.Errorf("invalid stack trace attribute type %s", a.Value.Type())
 			}
 		default:
 			nonSpecial = append(nonSpecial, a)
 		}
 	}
 	line := x.baseSpan.NoPrefill().Line(
-		level,
-		event.Time,
-		frames,
+		x.level,
+		ts,
+		x.frames,
 	)
 	for _, a := range nonSpecial {
 		if x.xopSpan {
-			err := x.AddXopEventAttribute(ctx, event, a, line)
+			err := x.AddXopEventAttribute(ctx, a, line)
 			if err != nil {
-				return 0, errors.Wrapf(err, "add xop event attribute %s", string(a.Key))
+				return nil, errors.Wrapf(err, "add xop %s attribute %s", what, string(a.Key))
 			}
 		} else {
-			err := x.AddEventAttribute(ctx, event, a, line)
+			err := x.AddEventAttribute(ctx, a, line)
 			if err != nil {
-				return 0, errors.Wrapf(err, "add event attribute %s with type %s", string(a.Key), a.Value.Type())
+				return nil, errors.Wrapf(err, "add %s attribute %s with type %s", what, string(a.Key), a.Value.Type())
 			}
 		}
 	}
-	if nameMessage != "" {
-		if message != "" {
-			message = nameMessage + " " + message
-		} else {
-			message = nameMessage
-		}
-	}
-	switch lineType {
+	return line, nil
+}
+
+func (x lineAttributesReplay) finishLine(ctx context.Context, what string, name string, line xopbase.Line) error {
+	switch x.lineType {
 	case lineTypeLine:
-		switch lineFormat {
+		switch x.lineFormat {
 		case lineFormatDefault:
-			x.addOrdered(lineNumber, func() {
-				line.Msg(message)
+			x.addOrdered(x.lineNumber, func() {
+				line.Msg(name)
 			})
 		case lineFormatTemplate:
-			x.addOrdered(lineNumber, func() {
-				line.Template(template)
+			x.addOrdered(x.lineNumber, func() {
+				line.Template(x.template)
 			})
 		default:
-			return 0, errors.Errorf("unexpected lineType %d", lineType)
+			return errors.Errorf("unexpected lineType %d", x.lineType)
 		}
 	case lineTypeLink:
-		x.addOrdered(lineNumber, func() {
-			line.Link(message, link)
+		x.addOrdered(x.lineNumber, func() {
+			line.Link(name, x.link)
 		})
 	case lineTypeLinkEvent:
-		return 0, errors.Errorf("unexpected lineType: link event")
+		return errors.Errorf("unexpected lineType: link event")
 	case lineTypeModel:
-		x.addOrdered(lineNumber, func() {
-			line.Model(message, modelArg)
+		x.addOrdered(x.lineNumber, func() {
+			line.Model(name, x.modelArg)
 		})
 	default:
-		return 0, errors.Errorf("unexpected lineType %d", lineType)
+		return errors.Errorf("unexpected lineType %d", x.lineType)
 	}
-	return lineNumber, nil
+	return nil
 }
 
 func (e *spanExporter) Shutdown(ctx context.Context) error {
@@ -519,6 +605,9 @@ func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan)
 	return parentIndex, true
 }
 
+// makeSubspans figures out what subspans each span has and also which spans
+// have no parent span (and thus are not a subspan). We are assuming that there
+// are no cycles in the graph of spans & subspans. UNSAFE
 func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) ([][]int, []int) {
 	ss := make([][]int, len(spans))
 	noParent := make([]int, 0, len(spans))
@@ -536,18 +625,25 @@ func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySp
 func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap aMap) xopbase.SourceInfo {
 	var si xopbase.SourceInfo
 	var source string
-	if s := attributeMap.GetString(xopSource); s != "" {
-		source = s
-	} else if n := span.InstrumentationScope().Name; n != "" {
-		if v := span.InstrumentationScope().Version; v != "" {
-			source = n + " " + v
-		} else {
-			source = n
-		}
+	var namespace string
+	if attributeMap.GetString(xopVersion) == "" {
+		// span did not come from XOP
+		source = otelDataSource
+		namespace = span.SpanKind().String()
 	} else {
-		source = "OTEL"
+		if s := attributeMap.GetString(xopSource); s != "" {
+			source = s
+		} else if n := span.InstrumentationScope().Name; n != "" {
+			if v := span.InstrumentationScope().Version; v != "" {
+				source = n + " " + v
+			} else {
+				source = n
+			}
+		} else {
+			source = "OTEL"
+		}
+		namespace = defaulted(attributeMap.GetString(xopNamespace), source)
 	}
-	namespace := defaulted(attributeMap.GetString(xopNamespace), source)
 	si.Source, si.SourceVersion = version.SplitVersion(source)
 	si.Namespace, si.NamespaceVersion = version.SplitVersion(namespace)
 	return si
@@ -590,7 +686,7 @@ func defaulted[T comparable](a, b T) T {
 	return a
 }
 
-func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace.Event, a attribute.KeyValue, line xopbase.Line) error {
+func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, a attribute.KeyValue, line xopbase.Line) error {
 	key := string(a.Key)
 	switch a.Value.Type() {
 	case attribute.STRINGSLICE:
@@ -674,18 +770,18 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, event sdktrace
 	return nil
 }
 
-func (x baseSpanReplay) AddEventAttribute(ctx context.Context, event sdktrace.Event, a attribute.KeyValue, line xopbase.Line) error {
+func (x baseSpanReplay) AddEventAttribute(ctx context.Context, a attribute.KeyValue, line xopbase.Line) error {
 	switch a.Value.Type() {
 	// MACRO OTELTypes
 	case attribute.ZZZ:
 		// CONDITIONAL SKIP:BOOL
-		line.zzz(string(a.Key), a.Value.Aszzz(), xopbase.zzzDataType)
+		line.Zzz(string(a.Key), a.Value.AsZzz(), xopbase.ZzzDataType)
 		// ELSE CONDITIONAL
-		line.Bool(string(a.Key), a.Value.Aszzz())
+		line.Bool(string(a.Key), a.Value.AsZzz())
 		// END CONDITIONAL
 	case attribute.ZZZSLICE:
 		var ma xopbase.ModelArg
-		ma.Model = a.Value.AszzzSlice()
+		ma.Model = a.Value.AsZzzSlice()
 		ma.ModelType = toTypeSliceName["ZZZ"]
 		line.Any(string(a.Key), ma)
 
@@ -708,15 +804,17 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	switch a.Key {
 	case spanIsLinkAttributeKey,
 		spanIsLinkEventKey,
-		xopVersion,
-		xopOTELVersion,
 		xopSource,
 		xopNamespace,
 		xopBaggage,
 		xopSpanSequence,
-		typeKey,
+		xopType,
 		otelSpanKind:
 		// special cases handled elsewhere
+		return nil
+	case xopVersion,
+		xopOTELVersion:
+		// dropped
 		return nil
 	}
 	key := string(a.Key)
@@ -759,18 +857,18 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	switch a.Value.Type() {
 	// MACRO OTELTypes
 	case attribute.ZZZ:
-		registeredAttribute, err := x.registry.ConstructzzzAttribute(mkMake(key, false), xopat.AttributeTypezzz)
+		registeredAttribute, err := x.registry.ConstructZzzAttribute(mkMake(key, false), xopat.AttributeTypeZzz)
 		if err != nil {
 			return err
 		}
-		x.baseSpan.Metadatazzz(registeredAttribute, a.Value.Aszzz())
+		x.baseSpan.MetadataZzz(registeredAttribute, a.Value.AsZzz())
 	case attribute.ZZZSLICE:
-		registeredAttribute, err := x.registry.ConstructzzzAttribute(mkMake(key, true), xopat.AttributeTypezzz)
+		registeredAttribute, err := x.registry.ConstructZzzAttribute(mkMake(key, true), xopat.AttributeTypeZzz)
 		if err != nil {
 			return err
 		}
-		for _, v := range a.Value.AszzzSlice() {
-			x.baseSpan.Metadatazzz(registeredAttribute, v)
+		for _, v := range a.Value.AsZzzSlice() {
+			x.baseSpan.MetadataZzz(registeredAttribute, v)
 		}
 
 	case attribute.INVALID:
