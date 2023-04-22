@@ -434,7 +434,6 @@ func (line *line) Template(template string) {
 	})
 	line.attributes = append(line.attributes,
 		xopType.String("line"),
-		xopLineFormat.String("tmpl"),
 		xopTemplate.String(template),
 	)
 	line.done(line.prefillMsg + msg)

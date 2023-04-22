@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -105,6 +106,8 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 		data:         make([]*datum, len(spans)),
 	}
 
+	var toFinish []func()
+
 	var processSpan func(int) error
 	processSpan = func(i int) error {
 		x.data[i] = &datum{}
@@ -118,7 +121,7 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 				return err
 			}
 		}
-		finisher()
+		toFinish = append(toFinish, finisher)
 		return nil
 	}
 	for _, i := range todo {
@@ -126,6 +129,19 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 		if err != nil {
 			return err
 		}
+
+		sort.Slice(e.orderedFinish, func(i, j int) bool {
+			return e.orderedFinish[i].num < e.orderedFinish[j].num
+		})
+		for _, o := range x.orderedFinish {
+			o.f()
+		}
+		x.orderedFinish = x.orderedFinish[:0]
+
+		for _, finisher := range toFinish {
+			finisher()
+		}
+		toFinish = toFinish[:0]
 	}
 	return nil
 }
@@ -337,7 +353,7 @@ type lineAttributesReplay struct {
 	level      xopnum.Level
 }
 
-func (x lineAttributesReplay) AddLineAttributes(ctx context.Context, what string, ts time.Time, attributes []attribute.KeyValue) (xopbase.Line, error) {
+func (x *lineAttributesReplay) AddLineAttributes(ctx context.Context, what string, ts time.Time, attributes []attribute.KeyValue) (xopbase.Line, error) {
 	x.sequenceNumber++
 	x.lineNumber = x.sequenceNumber
 	nonSpecial := make([]attribute.KeyValue, 0, len(attributes))
@@ -398,19 +414,9 @@ func (x lineAttributesReplay) AddLineAttributes(ctx context.Context, what string
 			} else {
 				return nil, errors.Errorf("invalid model encoding attribute type %s", a.Value.Type())
 			}
-		case xopLineFormat:
-			if a.Value.Type() == attribute.STRING {
-				switch a.Value.AsString() {
-				case "tmpl":
-					x.lineFormat = lineFormatTemplate
-				default:
-					return nil, errors.Errorf("invalid line format attribute value %s", a.Value.AsString())
-				}
-			} else {
-				return nil, errors.Errorf("invalid line format attribute type %s", a.Value.Type())
-			}
 		case xopTemplate:
 			if a.Value.Type() == attribute.STRING {
+				x.lineFormat = lineFormatTemplate
 				x.template = a.Value.AsString()
 			} else {
 				return nil, errors.Errorf("invalid line template attribute type %s", a.Value.Type())
@@ -472,10 +478,12 @@ func (x lineAttributesReplay) finishLine(ctx context.Context, what string, name 
 		switch x.lineFormat {
 		case lineFormatDefault:
 			x.addOrdered(x.lineNumber, func() {
+				fmt.Println("XXX EXPORT Msg", name)
 				line.Msg(name)
 			})
 		case lineFormatTemplate:
 			x.addOrdered(x.lineNumber, func() {
+				fmt.Println("XXX EXPORT Template", x.template)
 				line.Template(x.template)
 			})
 		default:
