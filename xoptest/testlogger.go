@@ -85,7 +85,7 @@ func (log *Logger) SetErrorReporter(func(error)) {}
 
 // Request is a required method for xopbase.Logger
 func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, name string, sourceInfo xopbase.SourceInfo) xopbase.Request {
-	log.t.Log(fmt.Sprintf("XXX START REQUEST %s: %s%s", name, xop.LogLinkPrefix, bundle.Trace.String()))
+	log.t.Log(fmt.Sprintf("XXX TEST START REQUEST %s: %s%s", name, xop.LogLinkPrefix, bundle.Trace.String()))
 	log.t.Cleanup(func() {
 		log.t.Log(fmt.Sprintf("%s: %s%s", name, xop.LogLinkPrefix, bundle.Trace.String()))
 	})

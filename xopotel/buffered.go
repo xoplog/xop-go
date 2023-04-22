@@ -156,7 +156,7 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 	request.recorder.Replay(request.ctx, otel)
 	err := tracerProvider.ForceFlush(request.ctx)
 	if err != nil {
-		fmt.Println("XXX", err)
+		fmt.Println("XXX BUFFERED replay error", err)
 	}
 }
 
@@ -207,7 +207,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 				err := xoprecorder.ReplayLineData(linkLine, &plainBuilder)
 				if err != nil {
 					// XXX - can we return error from here?
-					fmt.Println("XXX replay line data error", err)
+					fmt.Println("XXX BUFFERED replay line data error", err)
 					continue
 				}
 
@@ -227,18 +227,18 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 
 		md := span.SpanMetadata.Get(otelReplayStuff.Key())
 		if md == nil {
-			fmt.Println("XXX key missing")
+			fmt.Println("XXX BUFFERED key missing")
 			return nil
 		}
 		ma, ok := md.Value.(xopbase.ModelArg)
 		if !ok {
-			fmt.Println("XXX cast failed")
+			fmt.Println("XXX BUFFERED cast failed")
 			return nil
 		}
-		fmt.Println("XXX otelStuff.Encoded", string(ma.Encoded))
+		fmt.Println("XXX BUFFERED otelStuff.Encoded", string(ma.Encoded))
 		err := ma.DecodeTo(&otelStuff)
 		if err != nil {
-			fmt.Println("XXX could not decode", err)
+			fmt.Println("XXX BUFFERED could not decode", err)
 			return nil
 		}
 		stuff = &otelStuff
@@ -248,7 +248,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 				scopeName:    stuff.InstrumentationScope.Name,
 			})
 		}
-		fmt.Println("XXX decoded")
+		fmt.Println("XXX BUFFERED decoded")
 		return nil
 	})
 	return
@@ -358,15 +358,15 @@ type bufferedResource struct {
 var _ json.Unmarshaler = &bufferedResource{}
 
 func (r *bufferedResource) UnmarshalJSON(b []byte) error {
-	fmt.Println("XXX unmarshal resoruce", string(b))
+	fmt.Println("XXX BUFFERED unmarshal resoruce", string(b))
 	var bufferedAttributes bufferedAttributes
 	err := json.Unmarshal(b, &bufferedAttributes)
 	if err != nil {
 		return err
 	}
-	fmt.Println("XXX attributes", len(bufferedAttributes.attributes), bufferedAttributes.attributes)
+	fmt.Println("XXX BUFFERED attributes", len(bufferedAttributes.attributes), bufferedAttributes.attributes)
 	r.Resource = resource.NewWithAttributes("", bufferedAttributes.attributes...)
-	fmt.Println("XXX resource now", r.Resource)
+	fmt.Println("XXX BUFFERED resource now", r.Resource)
 	return nil
 }
 
@@ -401,7 +401,7 @@ func (o *otelStuff) Set(otelSpan oteltrace.Span) {
 }
 
 func (o *otelStuff) TracerProviderOptions() []sdktrace.TracerProviderOption {
-	fmt.Println("XXX Resource=", o.Resource.Resource)
+	fmt.Println("XXX BUFFERED Resource=", o.Resource.Resource)
 	return []sdktrace.TracerProviderOption{
 		sdktrace.WithResource(o.Resource.Resource),
 	}

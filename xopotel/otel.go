@@ -237,7 +237,7 @@ func (span *span) Done(endTime time.Time, final bool) {
 		// skip Done for spans passed in to SpanLog()
 		return
 	}
-	fmt.Println("XXX DONE", span.XXX.Trace)
+	fmt.Println("XXX OTEL DONE", span.XXX.Trace)
 	span.otelSpan.End(oteltrace.WithTimestamp(endTime))
 }
 
@@ -261,7 +261,7 @@ func (parentSpan *span) Span(ctx context.Context, ts time.Time, bundle xoptrace.
 		if parentSpan.logger.bufferedRequest != nil {
 			ctx = parentSpan.ctx
 			XXX := oteltrace.SpanFromContext(ctx)
-			fmt.Println("XXX in Span, have span in context", XXX != nil)
+			fmt.Println("XXX OTEL in Span, have span in context", XXX != nil)
 		}
 		ctx, otelSpan = buildSpan(ctx, ts, bundle, description, parentSpan.logger.tracer, parentSpan.logger.bufferedRequest)
 	}

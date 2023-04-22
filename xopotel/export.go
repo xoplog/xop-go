@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"regexp"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -105,34 +104,33 @@ func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnl
 		subSpans:     subSpans,
 		data:         make([]*datum, len(spans)),
 	}
-	done := make([]bool, len(spans))
-	for len(todo) > 0 {
-		i := todo[0]
-		if done[i] {
-			return errors.Errorf("attempt to re-do span %d", i)
-		}
-		done[i] = true
-		todo = todo[1:]
+
+	var processSpan func(int) error
+	processSpan = func(i int) error {
 		x.data[i] = &datum{}
-		err := x.Replay(ctx, spans[i], x.data[i], i)
+		finisher, err := x.Replay(ctx, spans[i], x.data[i], i)
 		if err != nil {
 			return err
 		}
-		todo = append(todo, subSpans[i]...)
-		if atomic.LoadInt32(&e.done) == 1 {
-			return ErrShutdown
+		for _, subSpan := range subSpans[i] {
+			err := processSpan(subSpan)
+			if err != nil {
+				return err
+			}
 		}
+		finisher()
+		return nil
 	}
-	sort.Slice(e.orderedFinish, func(i, j int) bool {
-		return e.orderedFinish[i].num < e.orderedFinish[j].num
-	})
-	for _, o := range x.orderedFinish {
-		o.f()
+	for _, i := range todo {
+		err := processSpan(i)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) error {
+func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data *datum, myIndex int) (func(), error) {
 	var bundle xoptrace.Bundle
 	spanContext := span.SpanContext()
 	if spanContext.HasTraceID() {
@@ -186,7 +184,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	}
 	if attributeMap.GetBool(spanIsLinkEventKey) {
 		// span is extra just for link
-		return nil
+		return func() {}, nil
 	}
 	fmt.Println("XXX EXPORT kind of", bundle.Trace, "is", spanKind)
 	switch spanKind {
@@ -244,7 +242,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	for _, attribute := range span.Attributes() {
 		err := y.AddSpanAttribute(ctx, attribute)
 		if err != nil {
-			return err
+			return func() {}, err
 		}
 	}
 	for _, link := range span.Links() {
@@ -259,7 +257,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			}
 			line, err := z.AddLineAttributes(ctx, "link", span.StartTime(), link.Attributes)
 			if err != nil {
-				return err
+				return func() {}, err
 			}
 			var trace xoptrace.Trace
 			trace.Flags().SetArray([1]byte{byte(link.SpanContext.TraceFlags())})
@@ -269,7 +267,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			z.link = trace
 			err = z.finishLine(ctx, "link", xopOTELLinkDetail, line)
 			if err != nil {
-				return err
+				return func() {}, err
 			}
 		}
 	}
@@ -277,18 +275,21 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 	for _, event := range span.Events() {
 		lastNumber, err := y.AddEvent(ctx, event)
 		if err != nil {
-			return err
+			return func() {}, err
 		}
 		if lastNumber > maxNumber {
 			maxNumber = lastNumber
 		}
 	}
 	if endTime := span.EndTime(); !endTime.IsZero() {
-		x.addOrdered(maxNumber+1, func() {
+		return func() {
+			fmt.Println("XXX EXPORT DONE", bundle.Trace)
 			data.baseSpan.Done(endTime, true)
-		})
+		}, nil
 	}
-	return nil
+	return func() {
+		fmt.Println("XXX EXPORT *NOT* DONE", bundle.Trace)
+	}, nil
 }
 
 type lineType int
@@ -585,6 +586,9 @@ func lookupParent(id2Index map[oteltrace.SpanID]int, span sdktrace.ReadOnlySpan)
 	return parentIndex, true
 }
 
+// makeSubspans figures out what subspans each span has and also which spans
+// have no parent span (and thus are not a subspan). We are assuming that there
+// are no cycles in the graph of spans & subspans. UNSAFE
 func makeSubspans(id2Index map[oteltrace.SpanID]int, spans []sdktrace.ReadOnlySpan) ([][]int, []int) {
 	ss := make([][]int, len(spans))
 	noParent := make([]int, 0, len(spans))
