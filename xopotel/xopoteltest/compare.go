@@ -418,7 +418,7 @@ func CompareAny(name string, a reflect.Value, b reflect.Value) []Diff {
 					// ignore un-exported fields
 					return false
 				}
-				break
+				break //nolint:staticcheck // on purpose
 			}
 			diffs = append(diffs, CompareAny(field.Name, a.FieldByIndex(field.Index), b.FieldByIndex(field.Index))...)
 			return true

@@ -223,11 +223,12 @@ func (logger *logger) Request(ctx context.Context, ts time.Time, bundle xoptrace
 	return r
 }
 
-func (span *span) Flush()                         {}
-func (span *span) Final()                         {}
-func (span *span) SetErrorReporter(f func(error)) {}
-func (span *span) Boring(_ bool)                  {}
-func (span *span) ID() string                     { return span.logger.id }
+func (request *request) SetErrorReporter(f func(error)) { request.errorReporter = f }
+func (request *request) Flush()                         {}
+func (request *request) Final()                         {}
+
+func (span *span) Boring(_ bool) {}
+func (span *span) ID() string    { return span.logger.id }
 func (span *span) Done(endTime time.Time, final bool) {
 	if !final {
 		return

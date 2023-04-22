@@ -88,12 +88,13 @@ func (logger *bufferedLogger) Buffered() bool       { return false }
 // per logger{} in this situation.
 type bufferedRequest struct {
 	xopbase.Request
-	recorder  *xoprecorder.Logger
-	finalized bool
-	logger    *bufferedLogger
-	ctx       context.Context
-	bundle    xoptrace.Bundle
-	isXOP     bool // request originally came from XOP
+	recorder      *xoprecorder.Logger
+	finalized     bool
+	logger        *bufferedLogger
+	ctx           context.Context
+	bundle        xoptrace.Bundle
+	errorReporter func(error)
+	isXOP         bool // request originally came from XOP
 }
 
 func (logger *bufferedLogger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
@@ -107,6 +108,8 @@ func (logger *bufferedLogger) Request(ctx context.Context, ts time.Time, bundle 
 		isXOP:    sourceInfo.Source != otelDataSource,
 	}
 }
+
+func (request *bufferedRequest) SetErrorReporter(f func(error)) { request.errorReporter = f }
 
 func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 	if request.finalized {
@@ -157,8 +160,8 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 	}
 	request.recorder.Replay(request.ctx, otel)
 	err := tracerProvider.ForceFlush(request.ctx)
-	if err != nil {
-		fmt.Println("XXX BUFFERED replay error", err)
+	if err != nil && request.errorReporter != nil {
+		request.errorReporter(err)
 	}
 }
 

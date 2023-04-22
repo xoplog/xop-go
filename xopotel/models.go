@@ -35,6 +35,7 @@ type request struct {
 	*span
 	attributesDefined map[string]struct{}
 	lineCount         int32
+	errorReporter     func(error)
 }
 
 type span struct {
@@ -82,12 +83,12 @@ type builder struct {
 
 type otelStuff struct {
 	spanCounters
-	Status                sdktrace.Status
-	SpanKind              xopconst.SpanKindEnum
-	Resource              bufferedResource
-	InstrumentationScope  instrumentation.Scope
-	links                 []oteltrace.Link // filled in by getStuff()
-	linkDroppedAttributes map[[8]byte]int  // filled in by getStuff() XXX add to augment
+	Status               sdktrace.Status
+	SpanKind             xopconst.SpanKindEnum
+	Resource             bufferedResource
+	InstrumentationScope instrumentation.Scope
+	links                []oteltrace.Link // filled in by getStuff()
+	// TODO linkDroppedAttributes map[[8]byte]int  // filled in by getStuff() XXX add to augment
 }
 
 type spanCounters struct {
@@ -98,7 +99,7 @@ type spanCounters struct {
 }
 
 var _ xopbase.Logger = &logger{}
-var _ xopbase.Request = &span{}
+var _ xopbase.Request = &request{}
 var _ xopbase.Span = &span{}
 var _ xopbase.Line = &line{}
 var _ xopbase.Prefilling = &prefilling{}
@@ -117,7 +118,6 @@ var xopVersion = attribute.Key("xop.version")
 
 // Line
 var xopLevel = attribute.Key("xop.level")
-var xopLineFormat = attribute.Key("xop.format")
 var xopLineNumber = attribute.Key("xop.lineNumber")
 var xopStackTrace = attribute.Key("xop.stackTrace")
 var xopTemplate = attribute.Key("xop.template")
@@ -138,7 +138,8 @@ var xopLinkMetadataKey = attribute.Key("xop.linkMetadataKey")
 const xopLinkTraceStateError = "xop.linkTraceStateError"
 const xopOTELLinkTranceState = "xop.otelLinkTraceState"
 const xopOTELLinkDetail = "xop.otelLinkDetail"
-const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"
+
+// TODO: const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"
 
 var otelReplayStuff = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
 	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})

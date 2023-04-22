@@ -22,6 +22,7 @@ import (
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 
+	"github.com/muir/gwrap"
 	"github.com/muir/list"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
@@ -189,6 +190,12 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 		}
 	}
 
+	var downStreamError gwrap.AtomicValue[error]
+	errorReporter := func(err error) {
+		if err != nil {
+			downStreamError.Store(err)
+		}
+	}
 	bundle.Parent.Flags().SetBytes([]byte{1})
 	bundle.Trace.Flags().SetBytes([]byte{1})
 	spanKind := span.SpanKind()
@@ -218,14 +225,18 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			// to do. In the Xop world, such a span isn't allowed to exist. We'll treat
 			// this span as a request, but mark it as promoted.
 			data.xopSpan = attributeMap.GetString(xopVersion) != ""
-			data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			baseRequest := x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+			baseRequest.SetErrorReporter(errorReporter)
+			data.baseSpan = baseRequest
 			data.baseSpan.MetadataBool(xopPromotedMetadata, true)
 			data.requestIndex = myIndex
 			data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 			data.registry = xopat.NewRegistry(false)
 		}
 	default:
-		data.baseSpan = x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+		baseRequest := x.base.Request(ctx, span.StartTime(), bundle, span.Name(), buildSourceInfo(span, attributeMap))
+		baseRequest.SetErrorReporter(errorReporter)
+		data.baseSpan = baseRequest
 		data.requestIndex = myIndex
 		data.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
 		data.xopSpan = attributeMap.GetString(xopVersion) != ""
@@ -303,7 +314,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			data.baseSpan.Done(endTime, true)
 		}, nil
 	}
-	return func() {}, nil
+	return func() {}, downStreamError.Load()
 }
 
 type lineType int

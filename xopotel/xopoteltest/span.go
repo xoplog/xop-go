@@ -98,7 +98,7 @@ func decode(s []byte, h []byte) error {
 		return err
 	}
 	if len(b) != len(s) {
-		fmt.Errorf("wrong length")
+		return fmt.Errorf("wrong length")
 	}
 	copy(s[:], b)
 	return nil

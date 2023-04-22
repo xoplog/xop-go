@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+(SKIP|ONLY):(\S+))?\s*$`)
@@ -269,6 +272,8 @@ func main() {
 	}
 }
 
+var toTitle = cases.Title(language.Und)
+
 func macroExpand(indent string, macro string, skip bool, skipList string) {
 	m, ok := macros[macro]
 	if !ok {
@@ -316,7 +321,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		replMap := map[string]string{
 			"ZZZ": name,
 			"zzz": typ,
-			"Zzz": strings.Title(typ),
+			"Zzz": toTitle.String(typ),
 		}
 		var skipping bool
 		for _, line := range lines {
