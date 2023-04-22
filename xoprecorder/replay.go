@@ -7,24 +7,29 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/muir/gwrap"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
-
-	"github.com/pkg/errors"
 )
 
 // Replay dumps the recorded logs to another base logger
-// XXX do not return error
 func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 	requests := make(map[xoptrace.HexBytes8]xopbase.Request)
 	spans := make(map[xoptrace.HexBytes8]xopbase.Span)
+	var downStreamError gwrap.AtomicValue[error]
+	errorReporter := func(err error) {
+		if err != nil {
+			downStreamError.Store(err)
+		}
+	}
 	for _, event := range log.Events {
 		switch event.Type {
 		case CustomEvent:
 			// ignore
 		case RequestStart:
 			request := dest.Request(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, *event.Span.SourceInfo)
+			request.SetErrorReporter(errorReporter)
 			id := event.Span.Bundle.Trace.GetSpanID()
 			requests[id] = request
 			spans[id] = request
@@ -32,24 +37,24 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 			if req, ok := requests[event.Span.Bundle.Trace.GetSpanID()]; ok {
 				req.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
-				return errors.Errorf("RequestDone event without corresponding RequestStart for %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("RequestDone event without corresponding RequestStart for %s", event.Span.Bundle.Trace)
 			}
 		case SpanDone:
 			if span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]; ok {
 				span.Done(time.Unix(0, event.Span.EndTime), event.Done)
 			} else {
-				return errors.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("SpanDone event without corresponding SpanStart for %s", event.Span.Bundle.Trace)
 			}
 		case FlushEvent:
 			id := event.Span.Bundle.Trace.GetSpanID()
 			if req, ok := requests[id]; ok {
 				req.Flush()
 			} else {
-				return errors.Errorf("Flush for unknown req %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("Flush for unknown req %s", event.Span.Bundle.Trace)
 			}
 		case SpanStart:
 			if event.Span.Parent == nil {
-				return errors.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
+				return fmt.Errorf("Span w/o parent, %s", event.Span.Bundle.Trace)
 			}
 			if parent, ok := spans[event.Span.Parent.Bundle.Trace.GetSpanID()]; ok {
 				span := parent.Span(ctx, event.Span.StartTime, event.Span.Bundle, event.Span.Name, event.Span.SpanSequenceCode)
@@ -58,7 +63,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 		case LineEvent:
 			span, ok := spans[event.Line.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
-				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
+				return fmt.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
 			}
 			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, event.Line.Stack)
 			ReplayLineData(event.Line, line)
@@ -75,7 +80,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 		case MetadataSet:
 			span, ok := spans[event.Span.Bundle.Trace.GetSpanID()]
 			if !ok {
-				return errors.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
+				return fmt.Errorf("missing span %s for metadataSet", event.Span.Bundle.Trace)
 			}
 			switch event.Attribute.SubType().SpanAttributeType() {
 			case xopat.AttributeTypeAny:
@@ -90,7 +95,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				v := event.Value
 				enum, ok := v.(xopat.Enum)
 				if !ok {
-					return errors.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
+					return fmt.Errorf("missing enum value for %T key %s", v, event.Attribute.Key())
 				}
 				span.MetadataEnum(event.Attribute.(*xopat.EnumAttribute), enum)
 				// next line must be blank to end macro
@@ -116,13 +121,13 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				// next line must be blank to end macro
 
 			default:
-				return errors.Errorf("unknown attribute type %s", event.Attribute.ProtoType())
+				return fmt.Errorf("unknown attribute type %s", event.Attribute.ProtoType())
 			}
 		default:
-
+			return fmt.Errorf("unexpected event type %v", event.Type)
 		}
 	}
-	return nil
+	return downStreamError.Load()
 }
 
 func ReplayLineData(source *Line, dest xopbase.Builder) {

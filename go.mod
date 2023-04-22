@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/google/uuid v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
-	github.com/muir/gwrap v0.0.1
+	github.com/muir/gwrap v0.1.0
 	github.com/muir/list v1.1.1
 	github.com/muir/reflectutils v0.7.0
 	github.com/muir/resty v0.0.1

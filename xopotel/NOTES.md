@@ -57,8 +57,8 @@ The encoding of XOP links varies a bit depending on which XOP->OTEL
 encoder is used.
 
 - For `BufferedReplayLogger` and `ReadOnlySpan`s that have been 
-  post-processed with `NewUnhacker` (TODO XXX), span Metadata links
-  become OTEL span-level links directly with a single attribute (xopXXX).
+  post-processed with `NewUnhacker`, span Metadata links
+  become OTEL span-level links directly.
 - For other encoders links in span Metadata becomes sub-spans that are 
   marked as existing just to encode links in their parent span. These
   extra `Span`s are marked with a spanIsLinkAttributeKey attribute.
@@ -66,7 +66,7 @@ encoder is used.
   and also with a sub-Span that is used just to encode the links. These
   extra `Span`s are marked with a spanIsLinkEventKey attribute.
   WIth `BufferedReplayLogger`, line links are also added to the span
-  attributes with an additional attribute to mark them (xopXXX)
+  attributes.
 
 - Baggage
   While OTEL includes functions for manipulating Baggage, the Baggage is
