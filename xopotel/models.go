@@ -135,6 +135,7 @@ var otelLink = xopat.Make{Key: "span.otelLinks", Namespace: "XOP", Indexed: fals
 	Description: "Data origin is OTEL, span links w/o attributes; links also sent as Link()"}.LinkAttribute()
 var xopLinkMetadataKey = attribute.Key("xop.linkMetadataKey")
 
+const xopLinkTraceStateError = "xop.linkTraceStateError"
 const xopOTELLinkTranceState = "xop.otelLinkTraceState"
 const xopOTELLinkDetail = "xop.otelLinkDetail"
 const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"

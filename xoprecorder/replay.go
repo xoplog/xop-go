@@ -4,6 +4,7 @@ package xoprecorder
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -60,10 +61,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 				return errors.Errorf("missing span %s for line", event.Line.Span.Bundle.Trace)
 			}
 			line := span.NoPrefill().Line(event.Line.Level, event.Line.Timestamp, event.Line.Stack)
-			err := ReplayLineData(event.Line, line)
-			if err != nil {
-				return err
-			}
+			ReplayLineData(event.Line, line)
 			switch {
 			case event.Line.Tmpl != "":
 				line.Template(event.Line.Tmpl)
@@ -127,7 +125,7 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 	return nil
 }
 
-func ReplayLineData(source *Line, dest xopbase.Builder) error {
+func ReplayLineData(source *Line, dest xopbase.Builder) {
 	for k, v := range source.Data {
 		dataType := source.DataType[k]
 		switch dataType {
@@ -193,8 +191,7 @@ func ReplayLineData(source *Line, dest xopbase.Builder) error {
 		case xopbase.EnumDataType:
 			dest.Enum(source.Enums[k], v.(xopat.Enum))
 		default:
-			return errors.Errorf("unexpected data type %s in line", dataType)
+			dest.String(k, fmt.Sprintf("unexpected data type %s in line, with value of type %T: %+v", dataType, v, v), xopbase.ErrorDataType)
 		}
 	}
-	return nil
 }

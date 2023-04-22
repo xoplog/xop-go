@@ -867,8 +867,6 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 	switch a.Key {
 	case spanIsLinkAttributeKey,
 		spanIsLinkEventKey,
-		xopVersion,
-		xopOTELVersion,
 		xopSource,
 		xopNamespace,
 		xopBaggage,
@@ -876,6 +874,10 @@ func (x baseSpanReplay) AddSpanAttribute(ctx context.Context, a attribute.KeyVal
 		xopType,
 		otelSpanKind:
 		// special cases handled elsewhere
+		return nil
+	case xopVersion,
+		xopOTELVersion:
+		// dropped
 		return nil
 	}
 	key := string(a.Key)

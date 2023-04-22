@@ -92,6 +92,7 @@ type bufferedRequest struct {
 	logger    *bufferedLogger
 	ctx       context.Context
 	bundle    xoptrace.Bundle
+	isXOP     bool // request originally came from XOP
 }
 
 func (logger *bufferedLogger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bundle, description string, sourceInfo xopbase.SourceInfo) xopbase.Request {
@@ -102,6 +103,7 @@ func (logger *bufferedLogger) Request(ctx context.Context, ts time.Time, bundle 
 		logger:   logger,
 		ctx:      ctx,
 		bundle:   bundle,
+		isXOP:    sourceInfo.Source != otelDataSource,
 	}
 }
 
@@ -136,8 +138,7 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 	defer tracerProvider.Shutdown(request.ctx)
 
 	var tOpts []oteltrace.TracerOption
-	isZOP := true // XXX
-	if isZOP {
+	if request.isXOP {
 		tOpts = append(tOpts,
 			oteltrace.WithInstrumentationAttributes(
 				xopOTELVersion.String(xopotelVersionValue),
@@ -180,8 +181,8 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 					TraceID:    link.TraceID().Array(),
 					SpanID:     link.SpanID().Array(),
 					TraceFlags: oteltrace.TraceFlags(link.Flags().Array()[0]),
-					TraceState: emptyTraceState, // XXX
-					Remote:     true,            // XXX
+					TraceState: emptyTraceState,
+					Remote:     true,
 				}),
 				Attributes: []attribute.KeyValue{
 					xopLinkMetadataKey.String(key),
@@ -213,7 +214,8 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 						var err error
 						ts, err = oteltrace.ParseTraceState(tss)
 						if err != nil {
-							fmt.Println("XXX BUFFERED replay line data error", err)
+							linkLine.Data[xopLinkTraceStateError] = err.Error()
+							linkLine.DataType[xopLinkTraceStateError] = xopbase.ErrorDataType
 						} else {
 							delete(linkLine.Data, xopOTELLinkTranceState)
 							delete(linkLine.DataType, xopOTELLinkTranceState)
@@ -221,12 +223,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 					}
 				}
 
-				err := xoprecorder.ReplayLineData(linkLine, &plainBuilder)
-				if err != nil {
-					// XXX - can we return error from here?
-					fmt.Println("XXX BUFFERED replay line data error", err)
-					continue
-				}
+				xoprecorder.ReplayLineData(linkLine, &plainBuilder)
 				otelStuff.links = append(otelStuff.links, oteltrace.Link{
 					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
 						TraceID:    linkLine.AsLink.TraceID().Array(),
@@ -241,44 +238,37 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 			}
 		}
 
-		md := span.SpanMetadata.Get(otelReplayStuff.Key())
-		if md == nil {
-			fmt.Println("XXX BUFFERED key missing")
-			return nil
-		}
-		ma, ok := md.Value.(xopbase.ModelArg)
-		if !ok {
-			fmt.Println("XXX BUFFERED cast failed")
-			return nil
-		}
-		err := ma.DecodeTo(&otelStuff)
-		if err != nil {
-			fmt.Println("XXX BUFFERED could not decode", err)
-			return nil
-		}
-		stuff = &otelStuff
-		if agument && atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) > 0 {
-			req.logger.exporterWrapper.augmentMap.Store(spanID, &missingSpanData{
-				spanCounters: stuff.spanCounters,
-				scopeName:    stuff.InstrumentationScope.Name,
-			})
+		if failure := func() string {
+			md := span.SpanMetadata.Get(otelReplayStuff.Key())
+			if md == nil {
+				return "span metdata missing replay key expected for BufferedReplayLogger " + string(otelReplayStuff.Key())
+			}
+			ma, ok := md.Value.(xopbase.ModelArg)
+			if !ok {
+				return fmt.Sprintf("cast of %s data to ModelArg failed, is %T", string(otelReplayStuff.Key()), md.Value)
+			}
+			err := ma.DecodeTo(&otelStuff)
+			if err != nil {
+				return fmt.Sprintf("failed to decode encoded data in %s: %s", string(otelReplayStuff.Key()), err)
+			}
+			return ""
+		}(); failure != "" {
+			if agument && atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) > 0 {
+				req.logger.exporterWrapper.augmentMap.Store(spanID, &missingSpanData{
+					error: failure,
+				})
+			}
+		} else {
+			if agument && atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) > 0 {
+				req.logger.exporterWrapper.augmentMap.Store(spanID, &missingSpanData{
+					spanCounters: otelStuff.spanCounters,
+					scopeName:    otelStuff.InstrumentationScope.Name,
+				})
+			}
 		}
 		return nil
 	})
 	return
-}
-
-func (req *bufferedRequest) augment(spanID [8]byte, stuff *otelStuff) {
-	if req == nil {
-		return
-	}
-	if atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) == 0 {
-		return
-	}
-	req.logger.exporterWrapper.augmentMap.Store(spanID, &missingSpanData{
-		spanCounters: stuff.spanCounters,
-		scopeName:    stuff.InstrumentationScope.Name,
-	})
 }
 
 func NewBufferedReplayExporterWrapper() BufferedReplayExporterWrapper {
@@ -341,6 +331,7 @@ type missingSpanData struct {
 	spanCounters
 	consumptionCount int32
 	scopeName        string
+	error            string // for when then round-trip fails
 }
 
 type wrappedSpan struct {
@@ -416,8 +407,6 @@ func (o *otelStuff) TracerProviderOptions() []sdktrace.TracerProviderOption {
 		sdktrace.WithResource(o.Resource.Resource),
 	}
 }
-
-// {"Key":"environment","Value":{"Type":"STRING","Value":"demo"}
 
 type bufferedAttributes struct {
 	attributes []attribute.KeyValue
