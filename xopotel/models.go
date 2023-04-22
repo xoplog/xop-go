@@ -139,6 +139,7 @@ const xopLinkTraceStateError = "xop.linkTraceStateError"
 const xopOTELLinkTranceState = "xop.otelLinkTraceState"
 const xopOTELLinkIsRemote = "xop.otelLinkIsRemote"
 const xopOTELLinkDetail = "xop.otelLinkDetail"
+const xopLinkRemoteError = "xop.otelLinkRemoteError"
 
 // TODO: const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"
 

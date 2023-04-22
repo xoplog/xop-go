@@ -210,36 +210,20 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 					attributes: make([]attribute.KeyValue, 0, len(linkLine.Data)),
 				}
 				linkLine = pointer.To(linkLine.Copy())
+
 				var ts oteltrace.TraceState
-				var isRemote bool
-				if tssRaw, ok := linkLine.Data[xopOTELLinkTranceState]; ok && linkLine.DataType[xopOTELLinkTranceState] == xopbase.StringDataType {
-					tss, ok := tssRaw.(string)
-					if ok {
-						var err error
-						ts, err = oteltrace.ParseTraceState(tss)
-						if err != nil {
-							linkLine.Data[xopLinkTraceStateError] = err.Error()
-							linkLine.DataType[xopLinkTraceStateError] = xopbase.ErrorDataType
-						} else {
-							delete(linkLine.Data, xopOTELLinkTranceState)
-							delete(linkLine.DataType, xopOTELLinkTranceState)
-						}
-					} else {
-						linkLine.Data[xopLinkTraceStateError] = "attribute " + xopOTELLinkIsRemote + " should be a string"
+
+				tsRaw, ok := extractValue[string](linkLine, xopOTELLinkTranceState, xopbase.StringDataType, xopLinkTraceStateError)
+				if ok {
+					var err error
+					ts, err = oteltrace.ParseTraceState(tsRaw)
+					if err != nil {
+						linkLine.Data[xopLinkTraceStateError] = err.Error()
 						linkLine.DataType[xopLinkTraceStateError] = xopbase.ErrorDataType
 					}
 				}
-				if tssRaw, ok := linkLine.Data[xopOTELLinkIsRemote]; ok && linkLine.DataType[xopOTELLinkIsRemote] == xopbase.BoolDataType {
-					var ok bool
-					isRemote, ok = tssRaw.(bool)
-					if ok {
-						delete(linkLine.Data, xopOTELLinkIsRemote)
-						delete(linkLine.DataType, xopOTELLinkIsRemote)
-					} else {
-						linkLine.Data[xopLinkTraceStateError] = "attribute " + xopOTELLinkIsRemote + " should be a bool"
-						linkLine.DataType[xopLinkTraceStateError] = xopbase.ErrorDataType
-					}
-				}
+
+				isRemote, _ := extractValue[bool](linkLine, xopOTELLinkIsRemote, xopbase.BoolDataType, xopLinkRemoteError)
 
 				xoprecorder.ReplayLineData(linkLine, &plainBuilder)
 
@@ -290,6 +274,28 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 	return
 }
 
+func extractValue[T any](linkLine *xoprecorder.Line, name string, dataType xopbase.DataType, errorKey string) (T, bool) {
+	var zero T
+	if raw, ok := linkLine.Data[name]; ok {
+		if linkLine.DataType[name] == dataType {
+			cooked, ok := raw.(T)
+			if ok {
+				delete(linkLine.Data, name)
+				delete(linkLine.DataType, name)
+				return cooked, true
+			} else {
+				linkLine.Data[errorKey] = fmt.Sprintf("%s should be a %T, but is a %T",
+					name, zero, raw)
+				linkLine.DataType[errorKey] = xopbase.ErrorDataType
+			}
+		} else {
+			linkLine.Data[errorKey] = fmt.Sprintf("%s should be a %s, but is a %s",
+				name, dataType, linkLine.DataType[name])
+			linkLine.DataType[errorKey] = xopbase.ErrorDataType
+		}
+	}
+	return zero, false
+}
 func NewBufferedReplayExporterWrapper() BufferedReplayExporterWrapper {
 	return &exporterWrapper{}
 }
