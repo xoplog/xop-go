@@ -345,9 +345,6 @@ func TestOTELRoundTrip(t *testing.T) {
 		filtered = append(filtered, diff)
 	}
 	assert.Equal(t, 0, len(filtered), "count of unfiltered diffs")
-
-	// TODO:
-	// XXX instrumentation.Scope
 }
 
 func unpack(t *testing.T, what string, data []byte) []xopoteltest.SpanStub {

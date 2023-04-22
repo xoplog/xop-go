@@ -269,6 +269,16 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			return func() {}, err
 		}
 	}
+	var maxNumber int32
+	for _, event := range span.Events() {
+		lastNumber, err := y.AddEvent(ctx, event)
+		if err != nil {
+			return func() {}, err
+		}
+		if lastNumber > maxNumber {
+			maxNumber = lastNumber
+		}
+	}
 	for _, link := range span.Links() {
 		if !data.xopSpan {
 			z := lineAttributesReplay{
@@ -293,21 +303,14 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 			if link.SpanContext.IsRemote() {
 				line.Bool(xopOTELLinkIsRemote, true)
 			}
+			if link.DroppedAttributeCount != 0 {
+				line.Int64(xopOTELLinkDroppedAttributeCount, int64(link.DroppedAttributeCount), xopbase.IntDataType)
+			}
 
 			err = z.finishLine(ctx, "link", xopOTELLinkDetail, line)
 			if err != nil {
 				return func() {}, err
 			}
-		}
-	}
-	var maxNumber int32
-	for _, event := range span.Events() {
-		lastNumber, err := y.AddEvent(ctx, event)
-		if err != nil {
-			return func() {}, err
-		}
-		if lastNumber > maxNumber {
-			maxNumber = lastNumber
 		}
 	}
 	if endTime := span.EndTime(); !endTime.IsZero() {

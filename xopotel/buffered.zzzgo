@@ -165,7 +165,7 @@ func (request *bufferedRequest) Done(endTime time.Time, final bool) {
 	}
 }
 
-func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuff *otelStuff) {
+func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, augment bool) (stuff *otelStuff) {
 	if req == nil || req.recorder == nil {
 		return
 	}
@@ -204,6 +204,8 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 			return true
 		})
 
+		var missingData missingSpanData
+
 		if len(span.Links) > 0 {
 			for _, linkLine := range span.Links {
 				plainBuilder := builder{
@@ -225,19 +227,30 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 
 				isRemote, _ := extractValue[bool](linkLine, xopOTELLinkIsRemote, xopbase.BoolDataType, xopLinkRemoteError)
 
+				linkSpanID := linkLine.AsLink.SpanID().Array()
+
+				if augment {
+					droppedCount, _ := extractValue[int64](linkLine, xopOTELLinkDroppedAttributeCount, xopbase.IntDataType, xopLinkeDroppedError)
+					if droppedCount != 0 {
+						if missingData.droppedLinkAttributeCount == nil {
+							missingData.droppedLinkAttributeCount = make(map[[8]byte]int)
+						}
+						missingData.droppedLinkAttributeCount[linkSpanID] = int(droppedCount)
+					}
+				}
+
 				xoprecorder.ReplayLineData(linkLine, &plainBuilder)
 
 				otelStuff.links = append(otelStuff.links, oteltrace.Link{
 					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
 						TraceID:    linkLine.AsLink.TraceID().Array(),
-						SpanID:     linkLine.AsLink.SpanID().Array(),
+						SpanID:     linkSpanID,
 						TraceFlags: oteltrace.TraceFlags(linkLine.AsLink.Flags().Array()[0]),
 						TraceState: ts,
 						Remote:     isRemote,
 					}),
 					Attributes: plainBuilder.attributes,
 				})
-				// XXX push dropped count into augment
 			}
 		}
 
@@ -256,18 +269,15 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, agument bool) (stuf
 			}
 			return ""
 		}(); failure != "" {
-			if agument && atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) > 0 {
-				req.logger.exporterWrapper.augmentMap.Store(spanID, &missingSpanData{
-					error: failure,
-				})
-			}
+			missingData.error = failure
 		} else {
-			if agument && atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) > 0 {
-				req.logger.exporterWrapper.augmentMap.Store(spanID, &missingSpanData{
-					spanCounters: otelStuff.spanCounters,
-					scopeName:    otelStuff.InstrumentationScope.Name,
-				})
-			}
+			missingData.spanCounters = otelStuff.spanCounters
+			missingData.scopeName = otelStuff.InstrumentationScope.Name
+		}
+		var zeroMissing missingSpanDataComparable
+		if augment && atomic.LoadInt32(&req.logger.exporterWrapper.exporterCount) > 0 &&
+			(missingData.missingSpanDataComparable != zeroMissing || missingData.droppedLinkAttributeCount != nil) {
+			req.logger.exporterWrapper.augmentMap.Store(spanID, &missingData)
 		}
 		return nil
 	})
@@ -296,6 +306,14 @@ func extractValue[T any](linkLine *xoprecorder.Line, name string, dataType xopba
 	}
 	return zero, false
 }
+
+// NewBufferedReplayExportWrapper creates an export wrapper that can be used to
+// improve the accuracy of data exported after replay. This comes into play
+// when data is run from OTEL to XOP and then back to OTEL. When it comes back
+// to OTEL, the export wrapper improves what a SpanExporter exports.
+//
+// Use the BufferedReplayExporterWrapper to both wrap SpanExporter and to
+// create the BufferedReplayLogger that is used to export from XOP to OTEL.
 func NewBufferedReplayExporterWrapper() BufferedReplayExporterWrapper {
 	return &exporterWrapper{}
 }
@@ -353,6 +371,11 @@ func (w wrappedExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadO
 // We delete the missingSpanData from the augmentMap when consumptionCount
 // equals or exceeds the number of wrapped exporters.
 type missingSpanData struct {
+	missingSpanDataComparable
+	droppedLinkAttributeCount map[[8]byte]int
+}
+
+type missingSpanDataComparable struct {
 	spanCounters
 	consumptionCount int32
 	scopeName        string
@@ -380,6 +403,18 @@ func (s wrappedSpan) DroppedAttributes() int { return s.missingSpanData.DroppedA
 func (s wrappedSpan) DroppedLinks() int      { return s.missingSpanData.DroppedLinks }
 func (s wrappedSpan) DroppedEvents() int     { return s.missingSpanData.DroppedEvents }
 func (s wrappedSpan) ChildSpanCount() int    { return s.missingSpanData.ChildSpanCount }
+
+func (s wrappedSpan) Links() []sdktrace.Link {
+	links := s.ReadOnlySpan.Links()
+	if s.missingSpanData != nil {
+		for i, link := range links {
+			if dropped, ok := s.missingSpanData.droppedLinkAttributeCount[([8]byte)(link.SpanContext.SpanID())]; ok {
+				links[i].DroppedAttributeCount = dropped
+			}
+		}
+	}
+	return links
+}
 
 type bufferedResource struct {
 	*resource.Resource

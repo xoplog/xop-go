@@ -88,7 +88,6 @@ type otelStuff struct {
 	Resource             bufferedResource
 	InstrumentationScope instrumentation.Scope
 	links                []oteltrace.Link // filled in by getStuff()
-	// TODO linkDroppedAttributes map[[8]byte]int  // filled in by getStuff() XXX add to augment
 }
 
 type spanCounters struct {
@@ -140,8 +139,8 @@ const xopOTELLinkTranceState = "xop.otelLinkTraceState"
 const xopOTELLinkIsRemote = "xop.otelLinkIsRemote"
 const xopOTELLinkDetail = "xop.otelLinkDetail"
 const xopLinkRemoteError = "xop.otelLinkRemoteError"
-
-// TODO: const xopOTELLinkDroppedAttributes = "xop.otelLinkDroppedAttributes"
+const xopOTELLinkDroppedAttributeCount = "xop.otelLinkDroppedAttributeCount"
+const xopLinkeDroppedError = "xop.otelLinkDroppedError"
 
 var otelReplayStuff = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
 	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})
