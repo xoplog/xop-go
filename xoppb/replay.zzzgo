@@ -14,21 +14,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (log *Logger) Replay(ctx context.Context, input any, logger xopbase.Logger) error {
-	return log.LosslessReplay(ctx, input, logger)
-}
-
 type replayTrace struct {
 	logger    xopbase.Logger
 	traceID   xoptrace.HexBytes16
 	spansSeen map[xoptrace.HexBytes8]spanData
 }
 
-func (_ *Logger) LosslessReplay(ctx context.Context, input any, logger xopbase.Logger) error {
-	trace, ok := input.(*xopproto.Trace)
-	if !ok {
-		return errors.Errorf("expected *xopproto.Trace for xoppb.Replay, got %T", input)
-	}
+func Replay(ctx context.Context, trace *xopproto.Trace, logger xopbase.Logger) error {
 	x := replayTrace{
 		logger:    logger,
 		traceID:   xoptrace.NewHexBytes16FromSlice(trace.TraceID),
