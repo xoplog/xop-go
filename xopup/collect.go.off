@@ -37,7 +37,7 @@ func (u *Uploader) DefineAttribute(a *xopat.Attribute) {
 			NamespaceSemver: a.SemverString(),
 			Type:            xopproto.AttributeType(a.SubType()),
 			ShouldIndex:     a.Indexed(),
-			Prominance:      int32(a.Prominence()),
+			Prominence:      int32(a.Prominence()),
 			Locked:          a.Locked(),
 			Distinct:        a.Distinct(),
 			Multiple:        a.Multiple(),
