@@ -260,8 +260,8 @@ func (s *span) NoPrefill() xopbase.Prefilled {
 }
 
 func (b *builder) reset(s *span) {
+	b.Reset()
 	b.span = s
-	b.B = b.B[:0]
 	b.attributesWanted = false
 	b.attributesStarted = false
 }
@@ -470,8 +470,6 @@ func (l *line) Template(m string) {
 	}
 }
 
-func (b *builder) AsBytes() []byte { return b.B }
-
 func (b *builder) startAttributes() {
 	if b.attributesWanted && !b.attributesStarted {
 		b.attributesStarted = true
@@ -481,11 +479,7 @@ func (b *builder) startAttributes() {
 
 func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.startAttributes()
-	b.AddKey(k)
-	b.AppendBytes([]byte(`{"v":`)) // }
-	b.anyCommon(v)
-	// {
-	b.AppendBytes([]byte(`,"t":"any"}`))
+	b.Builder.Any(k, v)
 }
 
 func (b *builder) AttributeAny(v xopbase.ModelArg) {

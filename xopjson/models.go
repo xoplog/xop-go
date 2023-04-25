@@ -109,8 +109,7 @@ type line struct {
 }
 
 type builder struct {
-	xoputil.JBuilder
-	encoder           *json.Encoder
+	xopbaseutil.Builder
 	span              *span
 	attributesStarted bool
 	attributesWanted  bool
