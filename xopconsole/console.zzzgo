@@ -3,8 +3,8 @@
 // TEMPLATE-FILE
 // TEMPLATE-FILE
 /*
-Package xopcon provides a xopbase.Logger that is mostly meant human consumption.
-It fully suppors replay without day loss and that requires all data to be 
+Package xopconsole provides a xopbase.Logger that is mostly meant human consumption.
+It fully suppors replay without data loss and that requires all data to be
 output. Since console loggers exist in situations with other writers, all lines
 are prefixed.
 */
@@ -38,6 +38,9 @@ var _ xopbase.Span = &Span{}
 var _ xopbase.Prefilling = &Prefilling{}
 var _ xopbase.Prefilled = &Prefilled{}
 var _ xopbase.Line = &Line{}
+
+const universalPrefix = "xop"
+const timeFormat = "2006-01-02 15:04:05.00000000"
 
 type Opt func(*Logger)
 
@@ -319,14 +322,27 @@ func (line *Line) Template(m string) {
 		return "''"
 	})
 	line.Message = msg
-	text := line.Span.Short + ": " + msg
+	text := universalPrefix + line.Timestamp.UTC().Format(timeFormat) + "-" + line.Level + "-" + line.Span.Short + ": " + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
-			text += " " + k + "=" + fmt.Sprint(v)
+			text += " " + safe(k) + "=" + fmt.Sprint(v)
 		}
 	}
 	line.Text = text
 	line.send(text)
+}
+
+var safeRE = regexp.MustCompile(`/^[-` + "`" + `\w_~!@#$%^&*()\[\]{}:;'<>,./?]+$/`)
+
+func safe(s string) string {
+	if safeRE.MatchString(s) {
+		return s
+	}
+	b := xoputil.JBuilder{
+		B: make([]byte, 0, len(s)+4),
+	}
+	b.AddString(s)
+	return string(b.B)
 }
 
 func (line Line) send(text string) {
