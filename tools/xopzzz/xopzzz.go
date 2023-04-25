@@ -201,7 +201,7 @@ var macros = map[string]map[string]string{
 		"SpanKindConsumer": "true",
 	},
 	// Note: these map to base types, not exact types.  Exact types
-	// can be found in xopbase.StringToDataType
+	// are next.
 	"DataTypeAbbreviations": {
 		"i":        "Int64",
 		"i8":       "Int64",
@@ -224,6 +224,29 @@ var macros = map[string]map[string]string{
 		"stringer": "String",
 		"enum":     "Enum",
 		"error":    "String",
+	},
+	"DataTypeAbbreviationsExact": {
+		"i":        "Int",
+		"i8":       "Int8",
+		"i16":      "Int16",
+		"i32":      "Int32",
+		"i64":      "Int64",
+		"u":        "Uint",
+		"u8":       "Uint8",
+		"u16":      "Uint16",
+		"u32":      "Uint32",
+		"u64":      "Uint64",
+		"uintptr":  "Uintptr",
+		"f32":      "Float32",
+		"f64":      "Float64",
+		"any":      "Any",
+		"bool":     "Bool",
+		"dur":      "Duration",
+		"time":     "Time",
+		"s":        "String",
+		"stringer": "Stringer",
+		"enum":     "Enum",
+		"error":    "Error",
 	},
 }
 

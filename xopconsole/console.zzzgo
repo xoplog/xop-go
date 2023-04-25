@@ -332,34 +332,99 @@ func (line *Line) Template(m string) {
 	line.send(text)
 }
 
-var safeRE = regexp.MustCompile(`/^[-` + "`" + `\w_~!@#$%^&*()\[\]{}:;'<>,./?]+$/`)
-
-func safe(s string) string {
-	if safeRE.MatchString(s) {
-		return s
-	}
-	b := xoputil.JBuilder{
-		B: make([]byte, 0, len(s)+4),
-	}
-	b.AddString(s)
-	return string(b.B)
-}
-
 func (line Line) send(text string) {
 	line.Span.logger.output(text)
 }
 
-func (b *Builder) any(k string, v interface{}) {
-	b.Data[k] = v
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
+// excluded:
+// 	/ - used in enum
+//	() - used for type signatures
+//	" - used for quoted strings
+//	space - used to separate attributes
+var punct := "-`" + `_~!@#$%^&*\[\]{}:;'<>,.?]+$/`
+var safeString = regexp.MustCompile(`/^[`+punct+`\p{L}][`+punct+`\w]*$`)
+
+func (b *Builder) addString(s string) {
+	if safeRE.MatchString(s) && s != "t" && s != "f" {
+		b.B = append(b.B, []byte(s))
+	}
+	b.B = strconv.AppendQuote(b.B, s)
 }
 
-// Enum is a required method for xopbase.ObjectParts
-func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	ks := k.Key()
-	b.Data[ks] = v
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
+func (b *Builder) addKey(k string) {
+	b.addString(k)
+	b.B = append(b.B, '=')
 }
+
+func (b *Builder) addType(t string) {
+	b.B = append(b.B, '(')
+	b.B = append(b.B, []byte(t))
+	b.B = append(b.B, ')')
+}
+
+func (b *Builder) Duration(k string, v time.Duration) {
+	b.addKey(k)
+	b.B = append(b.B, []byte(v.String())
+	b.addType(xopbase.DurationDataTypeAbbr)
+}
+
+func (b *Builder) Float64(k string, v float64, t xopbase.DataType) {
+	b.addKey(k)
+	b.B = strconv.AppendFloat(b.B, v, 'f', -1, 64)
+	b.addType(xopbase.DataTypeToString[t])
+}
+
+func (b *builder) String(k string, v string, t xopbase.DataType) {
+	b.addKey(k)
+	b.addString(v)
+	if t != xopbase.StringDataType {
+		b.addType(xopbase.DataTypeToString[t])
+	}
+}
+	
+func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
+	b.addKey(k)
+	b.B = strconv.AppendInt(b.B, v, 64)
+	if t != xopbase.IntDataType {
+		b.addType(xopbase.DataTypeToString[t])
+	}
+}
+
+func (b *builder) Uint64(k string, v uint64, t xopbase.DataType) {
+	b.addKey(k)
+	b.B = strconv.AppendUint(b.B, v, 64)
+	b.addType(xopbase.DataTypeToString[t])
+}
+
+func (b *builder) Bool(k string, v bool) {
+	b.addKey(k)
+	if v {
+		b.B = append(b.B, 't')
+	} else {
+		b.B = append(b.B, 'f')
+	}
+	b.addType(xopbase.BoolDataTypeAbbr)
+}
+
+func (b *builder) Time(k string, t time.Time) {
+	b.addKey(k)
+	b.B = t.AppendFormat(b.B, time.RFC3339Nano)
+	b.addType(xopbase.TimeDataTypeAbbr)
+}
+
+// Enum doesn't need a type indicator
+func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
+	b.addKey(k)
+	b.B = strconv.AppendInt(b.B, v.Int64(), 64)
+	b.B = append(b.B, '/')
+	b.addString(v.String())
+}
+
+func (b *builder) Any(k string, v xopbase.ModelArg) {
+	b.addKey(k)
+
+
+	
 
 // MACRO BaseDataWithoutType
 // ZZZ is a required method for xopbase.ObjectParts
