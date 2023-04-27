@@ -24,8 +24,6 @@ type ModelArg struct {
 	Encoded   []byte            `json:"v"`
 	ModelType string            `json:"modelType"`
 	Model     interface{}       `json:"-"`
-	asOneLine string 	
-	// TODO: extra fields for redacted models
 }
 
 func (m ModelArg) Copy() ModelArg {
@@ -38,7 +36,7 @@ func (m *ModelArg) Encode() {
 	if m.ModelType == "" && m.Model != nil {
 		m.ModelType = reflect.TypeOf(m.Model).String()
 	}
-	f len(m.Encoded) != 0 {
+	if len(m.Encoded) != 0 {
 		return
 	}
 	switch m.Encoding {
@@ -90,9 +88,6 @@ func (m *ModelArg) Encode() {
 		m.Encoding = xopproto.Encoding_ErrorMessage
 	}
 }
-
-func (m *ModelArg) OneLineEncoded() []byte { }
-func (m *ModelArg) OneLineEncoding() xopproto.Encoding 
 
 type SimpleTable interface {
 	Header() []string

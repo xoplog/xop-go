@@ -18,6 +18,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -337,12 +338,13 @@ func (line Line) send(text string) {
 }
 
 // excluded:
-// 	/ - used in enum
-//	() - used for type signatures
-//	" - used for quoted strings
-//	space - used to separate attributes
-var punct := "-`" + `_~!@#$%^&*\[\]{}:;'<>,.?]+$/`
-var safeString = regexp.MustCompile(`/^[`+punct+`\p{L}][`+punct+`\w]*$`)
+//   - used for ints
+//     / - used in enum
+//     () - used for type signatures and lengths
+//     " - used for quoted strings
+//     space - used to separate attributes
+var punct = "`" + `_~!@#$%^&*\[\]{}:;'<>,.?]+$/`
+var safeString = regexp.MustCompile(`/^[` + punct + `\p{L}][-` + punct + `\w]*$`)
 
 func (b *Builder) addString(s string) {
 	if safeRE.MatchString(s) && s != "t" && s != "f" {
@@ -364,7 +366,7 @@ func (b *Builder) addType(t string) {
 
 func (b *Builder) Duration(k string, v time.Duration) {
 	b.addKey(k)
-	b.B = append(b.B, []byte(v.String())
+	b.B = append(b.B, []byte(v.String()))
 	b.addType(xopbase.DurationDataTypeAbbr)
 }
 
@@ -381,7 +383,7 @@ func (b *builder) String(k string, v string, t xopbase.DataType) {
 		b.addType(xopbase.DataTypeToString[t])
 	}
 }
-	
+
 func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.addKey(k)
 	b.B = strconv.AppendInt(b.B, v, 64)
@@ -422,14 +424,13 @@ func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.addKey(k)
+	v.Encode()
+	v.addString(strconv.Quote(string(v.Encoded)))
+	b.B = append(b.B, '/')
+	v.addString(v.Encoding.ToString())
+}
 
-
-	
-
-// MACRO BaseDataWithoutType
-// ZZZ is a required method for xopbase.ObjectParts
-func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v) }
-
-// MACRO BaseDataWithType
-// ZZZ is a required method for xopbase.ObjectParts
-func (b *Builder) ZZZ(k string, v zzz, dt xopbase.DataType) { b.any(k, v) }
+// MACRO BaseAttribute
+// MetadataZZZ is a required method for xopbase.Span
+func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
+	s.SpanMetadata.MetadataZZZ(k, v)

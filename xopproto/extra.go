@@ -17,6 +17,31 @@ var encodingBytes = func() map[Encoding][]byte {
 	return m
 }()
 
+func (x Encoding) ToString() string {
+	if s, ok := Encoding_name[x]; ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
+}
+
+func (x *Encoding) FromString(s string) error {
+	switch s[0] {
+	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return err
+		}
+		*x = Encoding(i)
+	default:
+		if i, ok := Encoding_value[s]; ok {
+			*x = Encoding(i)
+		} else {
+			return fmt.Errorf("invalid Encoding (%s)", s)
+		}
+	}
+	return nil
+}
+
 func (x Encoding) MarshalJSON() ([]byte, error) {
 	if e, ok := encodingBytes[x]; ok {
 		return e, nil
