@@ -4,7 +4,6 @@ package xopjson
 
 import (
 	"context"
-	"encoding/json"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
+	"github.com/xoplog/xop-go/xopjson/xopjsonutil"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
@@ -30,7 +30,7 @@ func New(w xopbytes.BytesWriter, opts ...Option) *Logger {
 	log := &Logger{
 		writer:           w,
 		id:               uuid.New(),
-		timeFormatter:    defaultTimeFormatter,
+		timeFormatter:    xopjsonutil.DefaultTimeFormatter,
 		attributeOption:  AttributesDefinedAlways,
 		tagOption:        SpanSequenceTagOption | SpanIDTagOption,
 		spanStarts:       true,
@@ -79,7 +79,7 @@ func (logger *Logger) Request(_ context.Context, ts time.Time, bundle xoptrace.B
 	if logger.tagOption&TraceNumberTagOption != 0 {
 		request.idNum = atomic.AddInt64(&logger.requestCount, 1)
 	}
-	request.attributes.Init(&request.span)
+	request.attributes.Init()
 	request.request = request
 	request.span.setSpanIDPrefill()
 	request.writer = logger.writer.Request(request)
@@ -157,7 +157,7 @@ func (s *span) Span(_ context.Context, ts time.Time, bundle xoptrace.Bundle, nam
 		endTime:      ts.UnixNano(),
 		sequenceCode: spanSequenceCode,
 	}
-	n.attributes.Init(n)
+	n.attributes.Init()
 	n.setSpanIDPrefill()
 
 	if s.logger.spanStarts {
@@ -234,7 +234,7 @@ func (s *span) flushAttributes() {
 		rq.AppendBytes(s.request.logger.durationKey)
 		rq.AttributeDuration(time.Duration(s.endTime - s.startTime.UnixNano()))
 	}
-	s.attributes.Append(&rq.JBuilder, s.logger.spanChangesOnly)
+	s.attributes.Append(&rq.JBuilder, s.logger.spanChangesOnly, s.logger.attributesObject)
 	// {
 	rq.AppendBytes([]byte{'}', '\n'})
 	err := s.request.writer.Span(s, rq)
@@ -277,13 +277,14 @@ func (s *span) builder() *builder {
 	} else {
 		b = &builder{
 			span: s,
-			JBuilder: xoputil.JBuilder{
-				B:        make([]byte, 0, minBuffer),
-				FastKeys: s.logger.fastKeys,
+			Builder: xopjsonutil.Builder{
+				JBuilder: xoputil.JBuilder{
+					B:        make([]byte, 0, minBuffer),
+					FastKeys: s.logger.fastKeys,
+				},
 			},
 		}
-		b.encoder = json.NewEncoder(&b.JBuilder)
-		b.encoder.SetEscapeHTML(false)
+		b.Init()
 	}
 	return b
 }
@@ -485,29 +486,9 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 	b.startAttributes()
 	b.AddKey(k)
 	b.AppendBytes([]byte(`{"v":`)) // }
-	b.anyCommon(v)
+	b.AnyCommon(v)
 	// {
 	b.AppendBytes([]byte(`,"t":"any"}`))
-}
-
-func (b *builder) AttributeAny(v xopbase.ModelArg) {
-	b.AppendBytes([]byte(`{"v":`)) // }
-	b.anyCommon(v)
-	// {
-	b.AppendByte('}')
-}
-
-func (b *builder) anyCommon(v xopbase.ModelArg) {
-	v.Encode()
-	if v.Encoding == xopproto.Encoding_JSON {
-		b.AppendBytes(v.Encoded)
-	} else {
-		b.AddString(string(v.Encoded))
-		b.AppendBytes([]byte(`,"encoding":`))
-		b.AddSafeString(v.Encoding.String())
-	}
-	b.AppendBytes([]byte(`,"modelType":`))
-	b.AddString(v.ModelType)
 }
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
@@ -519,14 +500,6 @@ func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.AppendBytes([]byte(`,"i":`))
 	b.AddInt64(v.Int64())
 	b.AppendBytes([]byte(`,"t":"enum"}`))
-}
-
-func (b *builder) AttributeEnum(v xopat.Enum) {
-	b.AppendBytes([]byte(`{"s":`))
-	b.AddString(v.String())
-	b.AppendBytes([]byte(`,"i":`))
-	b.AddInt64(v.Int64())
-	b.AppendByte('}')
 }
 
 func (b *builder) Time(k string, t time.Time) {
@@ -549,10 +522,6 @@ func (b *builder) Bool(k string, v bool) {
 	b.AppendBytes([]byte(`,"t":"bool"}`))
 }
 
-func (b *builder) AttributeBool(v bool) {
-	b.AddBool(v)
-}
-
 func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.startAttributes()
 	b.AddKey(k)
@@ -561,10 +530,6 @@ func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`,"t":`))
 	b.AddSafeString(xopbase.DataTypeToString[t])
 	b.AppendByte('}')
-}
-
-func (b *builder) AttributeInt64(v int64) {
-	b.AddInt64(v)
 }
 
 func (b *builder) Uint64(k string, v uint64, t xopbase.DataType) {
@@ -593,10 +558,6 @@ func (b *builder) String(k string, v string, t xopbase.DataType) {
 	b.AppendByte('}')
 }
 
-func (b *builder) AttributeString(v string) {
-	b.AddString(v)
-}
-
 func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.startAttributes()
 	b.AddKey(k)
@@ -605,10 +566,6 @@ func (b *builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.AppendBytes([]byte(`,"t":`))
 	b.AddSafeString(xopbase.DataTypeToString[t])
 	b.AppendByte('}')
-}
-
-func (b *builder) AttributeFloat64(f float64) {
-	b.AddFloat64(f)
 }
 
 func (b *builder) Duration(k string, v time.Duration) {
@@ -634,10 +591,6 @@ func (b *builder) AttributeDuration(v time.Duration) {
 	default:
 		b.AddSafeString(v.String())
 	}
-}
-
-func (b *builder) AttributeLink(v xoptrace.Trace) {
-	b.AddSafeString(v.String())
 }
 
 func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {

@@ -12,7 +12,6 @@ xopat/attributes.go linguist-generated
 xopbase/base.go linguist-generated
 xopbase/skip.go linguist-generated
 xopcon/console.go linguist-generated
-xopjson/attributes.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
 xopjson/replay.go linguist-generated
 xopotel/buffered.go linguist-generated
@@ -24,5 +23,6 @@ xoprecorder/recorder.go linguist-generated
 xoprecorder/replay.go linguist-generated
 xoptrace/hexbytes.go linguist-generated
 xopbase/xopbaseutil/metadata.go linguist-generated
+xopjson/xopjsonutil/attributes.go linguist-generated
 xoptest/xoptestutil/enums.go linguist-generated
 xoptest/xoptestutil/verify_replay.go linguist-generated

@@ -1,12 +1,12 @@
 package xopjson
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
+	"github.com/xoplog/xop-go/xopjson/xopjsonutil"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
@@ -84,7 +84,7 @@ type span struct {
 	request            *request
 	startTime          time.Time
 	serializationCount int32
-	attributes         AttributeBuilder
+	attributes         xopjsonutil.AttributeBuilder
 	sequenceCode       string
 	spanIDBuffer       [len(`"trace.header":`) + 55 + 2]byte
 	spanIDPrebuilt     xoputil.JBuilder
@@ -109,8 +109,7 @@ type line struct {
 }
 
 type builder struct {
-	xoputil.JBuilder
-	encoder           *json.Encoder
+	xopjsonutil.Builder
 	span              *span
 	attributesStarted bool
 	attributesWanted  bool
@@ -278,19 +277,3 @@ func WithGoroutineID(b bool) Option {
 // The default encoding is simply a string: error.Error().
 //
 // TODO
-
-/* TODO
-func defaultTimeFormatter2(b []byte, t time.Time) []byte {
-	b = append(b, '"')
-	b = fasttime.AppendStrftime(b, fasttime.RFC3339Nano, t)
-	b = append(b, '"')
-	return b
-}
-*/
-
-func defaultTimeFormatter(b []byte, t time.Time) []byte {
-	b = append(b, '"')
-	b = append(b, []byte(t.Format(time.RFC3339Nano))...)
-	b = append(b, '"')
-	return b
-}
