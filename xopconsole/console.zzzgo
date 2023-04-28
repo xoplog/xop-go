@@ -3,10 +3,10 @@
 // TEMPLATE-FILE
 // TEMPLATE-FILE
 /*
-Package xopconsole provides a xopbase.Logger that is mostly meant human consumption.
-It fully suppors replay without data loss and that requires all data to be
+Package xopconsole provides a xopbase.Logger that is partially meant for human consumption.
+It fully suppors replay without data loss and that requires all details to be
 output. Since console loggers exist in situations with other writers, all lines
-are prefixed.
+are prefixed so that lines that did not come from xopconsole can be ignored.
 */
 package xopcon
 
@@ -434,3 +434,4 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 // MetadataZZZ is a required method for xopbase.Span
 func (s *Span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	s.SpanMetadata.MetadataZZZ(k, v)
+}

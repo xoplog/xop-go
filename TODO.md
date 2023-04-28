@@ -1,6 +1,10 @@
 
 # Big picture
 
+- TIMES
+  - drop precision to microsecond?
+  - add timezone offset?
+
 - rip out current redaction functions.  They aren't right but it's not time
   to fix them
 
