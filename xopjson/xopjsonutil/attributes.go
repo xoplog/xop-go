@@ -1,6 +1,6 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-package xopjson
+package xopjsonutil
 
 import (
 	"encoding/json"
@@ -34,7 +34,6 @@ type AttributeBuilder struct {
 	singleMap    map[string]*singleAttribute
 	multiMap     map[string]*multiAttribute
 	anyChanged   bool
-	span         *span
 	encodeTarget *[]byte
 	encoder      *json.Encoder
 }
@@ -50,7 +49,7 @@ type multiAttribute struct {
 	attribute
 	Buf      [100]byte
 	Distinct map[string]struct{}
-	Builder  builder
+	Builder  Builder
 }
 
 type attribute struct {
@@ -58,23 +57,23 @@ type attribute struct {
 	Type    xopbase.DataType
 }
 
-func (a *AttributeBuilder) Init(s *span) {
+func (a *AttributeBuilder) Init() {
 	a.singles = a.singlesBuf[:0]
 	a.multis = a.multiBuf[:0]
 	a.singleMap = make(map[string]*singleAttribute)
 	a.multiMap = make(map[string]*multiAttribute)
 	a.anyChanged = false
-	a.span = s
 }
 
-func (a *AttributeBuilder) Append(b *xoputil.JBuilder, onlyChanged bool) {
+// Append will only add data if there is any unflushed data to add.
+func (a *AttributeBuilder) Append(b *xoputil.JBuilder, onlyChanged bool, attributesObject bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if (!a.anyChanged && onlyChanged) || (len(a.multiMap) == 0 && len(a.singleMap) == 0) {
 		return
 	}
 	a.anyChanged = false
-	if a.span.logger.attributesObject {
+	if attributesObject {
 		b.Comma()
 		b.AppendBytes([]byte(`"attributes":{`)) // }
 	}
@@ -94,7 +93,7 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder, onlyChanged bool) {
 			s.Changed = false
 		}
 	}
-	if a.span.logger.attributesObject {
+	if attributesObject {
 		// {
 		b.AppendByte('}')
 	}
@@ -102,7 +101,7 @@ func (a *AttributeBuilder) Append(b *xoputil.JBuilder, onlyChanged bool) {
 
 func (m *multiAttribute) init(a *AttributeBuilder, jsonKey xopat.JSONKey) {
 	m.Builder.B = m.Buf[:0]
-	m.Builder.reset(a.span)
+	m.Builder.Reset()
 	m.Builder.AppendString(jsonKey.String())
 	m.Builder.AppendByte('[') // ]
 	m.Distinct = nil
@@ -170,8 +169,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.AnyDataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -222,8 +220,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.BoolDataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -270,8 +267,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.EnumDataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -318,8 +314,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.Float64DataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -366,8 +361,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.Int64DataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -414,8 +408,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.LinkDataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -462,8 +455,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.StringDataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
@@ -510,8 +502,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			s.keyLen = len(s.KeyValue)
 		}
 		s.Type = xopbase.TimeDataType
-		b := builder{
-			span: a.span,
+		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
 			},
