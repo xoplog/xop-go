@@ -20,19 +20,38 @@ xop Request 2009-11-10T23:00:00.032832823Z
         - Start
           1. Next up is a console format version number, "1" for now.
           1. A space
+          1. trace-header
+          1. A space
           1. A quoted-if-needed "name" for the request
           1. A space
           1. A quoted-if-needed Source+version 
           1. A space
           1. A quoted-if-needed Namespace+version
+          1. Optional:
+             1. A space
+             1. "state:"
+             1. state header, quoted if needed
+          1. Optional:
+             1. A space
+             1. "bundle:"
+             1. bundle header, quoted if needed
         - "v"
           1. a record version number that increments each time the request is printed
           1. A space
    - Span
      1. "Start" or "v" + a version number
-     1. ("v" only) a record version number that inrements each time the span record is printed
+        - "Start"
+          1. A space
+          1. The SpanID (hex)
+          1. A space
+          1. A quoted-if-needed "name" for the span
+          1. A space
+          1. The span sequence abbreviation or "" if none
+        - "v"
+          1. a record version number that inrements each time the span record is printed
+          1. A space
+          1. The SpanID (hex)
      1. A space
-     1. ("Start" only) A quoted "name" for the span, followed by a space
    - Def
    - Trace/Debug/Info/Warn/Error/Alert
 
