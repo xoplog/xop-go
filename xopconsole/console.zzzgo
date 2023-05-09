@@ -2,13 +2,15 @@
 // TEMPLATE-FILE
 // TEMPLATE-FILE
 // TEMPLATE-FILE
+// TEMPLATE-FILE
+// TEMPLATE-FILE
 /*
 Package xopconsole provides a xopbase.Logger that is partially meant for human consumption.
 It fully suppors replay without data loss and that requires all details to be
 output. Since console loggers exist in situations with other writers, all lines
 are prefixed so that lines that did not come from xopconsole can be ignored.
 */
-package xopcon
+package xopconsole
 
 import (
 	"context"
@@ -97,24 +99,21 @@ type Span struct {
 }
 
 type Prefilling struct {
-	Builder
+	builder
 }
 
-type Builder struct {
-	Data   map[string]interface{}
-	Span   *Span
-	kvText []string
+type builder struct {
+	Builder
+	Span *Span
 }
 
 type Prefilled struct {
-	Data   map[string]interface{}
-	Span   *Span
-	Msg    string
-	kvText []string
+	builder
+	Msg string
 }
 
 type Line struct {
-	Builder
+	builder
 	Level     xopnum.Level
 	Timestamp time.Time
 	Message   string // Prefill text + line text (template evaluated)
@@ -222,15 +221,16 @@ func (span *Span) ParentRequest() *Span {
 // NoPrefill is a required method for xopbase.Span
 func (span *Span) NoPrefill() xopbase.Prefilled {
 	return &Prefilled{
-		Span: span,
+		builder: builder{
+			Span: span,
+		},
 	}
 }
 
 // StartPrefill is a required method for xopbase.Span
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
-		Builder: Builder{
-			Data: make(map[string]interface{}),
+		builder: builder{
 			Span: span,
 		},
 	}
@@ -239,10 +239,8 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 // PrefillComplete is a required method for xopbase.Prefilling
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
-		Data:   p.Data,
-		Span:   p.Span,
-		kvText: p.kvText,
-		Msg:    m,
+		builder: p.builder,
+		Msg:     m,
 	}
 }
 
@@ -250,20 +248,10 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame) xopbase.Line {
 	xoputil.AtomicMaxInt64(&p.Span.provisionalEndTime, t.UnixNano())
 	line := &Line{
-		Builder: Builder{
-			Data: make(map[string]interface{}),
-			Span: p.Span,
-		},
+		builder:   p.builder,
 		Level:     level,
 		Timestamp: t,
 		Stack:     list.Copy(frames),
-	}
-	for k, v := range p.Data {
-		line.Data[k] = v
-	}
-	if len(p.kvText) != 0 {
-		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
-		copy(line.kvText, p.kvText)
 	}
 	line.Message = p.Msg
 	return line
@@ -274,10 +262,6 @@ func (line *Line) Link(m string, v xoptrace.Trace) {
 	line.AsLink = &v
 	line.Message += m
 	text := line.Span.Short + " LINK:" + line.Message + " " + v.String()
-	if len(line.kvText) > 0 {
-		text += " " + strings.Join(line.kvText, " ")
-		line.kvText = nil
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -288,10 +272,6 @@ func (line *Line) Model(m string, v xopbase.ModelArg) {
 	line.Message += m
 	enc, _ := json.Marshal(v.Model)
 	text := line.Span.Short + " MODEL:" + line.Message + " " + string(enc)
-	if len(line.kvText) > 0 {
-		text += " " + strings.Join(line.kvText, " ")
-		line.kvText = nil
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -300,10 +280,6 @@ func (line *Line) Model(m string, v xopbase.ModelArg) {
 func (line *Line) Msg(m string) {
 	line.Message += m
 	text := line.Span.Short + ": " + line.Message
-	if len(line.kvText) > 0 {
-		text += " " + strings.Join(line.kvText, " ")
-		line.kvText = nil
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -314,16 +290,8 @@ var templateRE = regexp.MustCompile(`\{.+?\}`)
 func (line *Line) Template(m string) {
 	line.Tmpl = line.Message + m
 	used := make(map[string]struct{})
-	msg := templateRE.ReplaceAllStringFunc(line.Tmpl, func(k string) string {
-		k = k[1 : len(k)-1]
-		if v, ok := line.Data[k]; ok {
-			used[k] = struct{}{}
-			return fmt.Sprint(v)
-		}
-		return "''"
-	})
-	line.Message = msg
-	text := universalPrefix + line.Timestamp.UTC().Format(timeFormat) + "-" + line.Level + "-" + line.Span.Short + ": " + msg
+	line.Message = m
+	text := universalPrefix + line.Timestamp.UTC().Format(timeFormat) + "-" + line.Level.String() + "-" + line.Span.Short + ": " + m
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
 			text += " " + safe(k) + "=" + fmt.Sprint(v)
@@ -337,24 +305,9 @@ func (line Line) send(text string) {
 	line.Span.logger.output(text)
 }
 
-// excluded:
-//   - used for ints
-//     / - used in enum
-//     () - used for type signatures and lengths
-//     " - used for quoted strings
-//     space - used to separate attributes
-var punct = "`" + `_~!@#$%^&*\[\]{}:;'<>,.?]+$/`
-var safeString = regexp.MustCompile(`/^[` + punct + `\p{L}][-` + punct + `\w]*$`)
-
-func (b *Builder) addString(s string) {
-	if safeRE.MatchString(s) && s != "t" && s != "f" {
-		b.B = append(b.B, []byte(s))
-	}
-	b.B = strconv.AppendQuote(b.B, s)
-}
-
 func (b *Builder) addKey(k string) {
-	b.addString(k)
+	b.B = append(b.B, ' ')
+	b.AddConsoleString(k)
 	b.B = append(b.B, '=')
 }
 
@@ -372,19 +325,19 @@ func (b *Builder) Duration(k string, v time.Duration) {
 
 func (b *Builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.addKey(k)
-	b.B = strconv.AppendFloat(b.B, v, 'f', -1, 64)
+	b.AddFloat(v)
 	b.addType(xopbase.DataTypeToString[t])
 }
 
-func (b *builder) String(k string, v string, t xopbase.DataType) {
+func (b *Builder) String(k string, v string, t xopbase.DataType) {
 	b.addKey(k)
-	b.addString(v)
+	b.AddConsoleString(v)
 	if t != xopbase.StringDataType {
 		b.addType(xopbase.DataTypeToString[t])
 	}
 }
 
-func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
+func (b *Builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.addKey(k)
 	b.B = strconv.AppendInt(b.B, v, 64)
 	if t != xopbase.IntDataType {
@@ -392,13 +345,13 @@ func (b *builder) Int64(k string, v int64, t xopbase.DataType) {
 	}
 }
 
-func (b *builder) Uint64(k string, v uint64, t xopbase.DataType) {
+func (b *Builder) Uint64(k string, v uint64, t xopbase.DataType) {
 	b.addKey(k)
-	b.B = strconv.AppendUint(b.B, v, 64)
+	b.B = b.AddUint64(v)
 	b.addType(xopbase.DataTypeToString[t])
 }
 
-func (b *builder) Bool(k string, v bool) {
+func (b *Builder) Bool(k string, v bool) {
 	b.addKey(k)
 	if v {
 		b.B = append(b.B, 't')
@@ -408,26 +361,26 @@ func (b *builder) Bool(k string, v bool) {
 	b.addType(xopbase.BoolDataTypeAbbr)
 }
 
-func (b *builder) Time(k string, t time.Time) {
+func (b *Builder) Time(k string, t time.Time) {
 	b.addKey(k)
 	b.B = t.AppendFormat(b.B, time.RFC3339Nano)
 	b.addType(xopbase.TimeDataTypeAbbr)
 }
 
 // Enum doesn't need a type indicator
-func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
+func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.addKey(k)
-	b.B = strconv.AppendInt(b.B, v.Int64(), 64)
+	b.AddInt64(v.Int64())
 	b.B = append(b.B, '/')
-	b.addString(v.String())
+	b.AddConsoleString(v.String())
 }
 
-func (b *builder) Any(k string, v xopbase.ModelArg) {
+func (b *Builder) Any(k string, v xopbase.ModelArg) {
 	b.addKey(k)
 	v.Encode()
-	v.addString(strconv.Quote(string(v.Encoded)))
+	v.AddConsoleString(strconv.Quote(string(v.Encoded)))
 	b.B = append(b.B, '/')
-	v.addString(v.Encoding.ToString())
+	v.AddConsoleString(v.Encoding.ToString())
 }
 
 // MACRO BaseAttribute

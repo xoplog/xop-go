@@ -29,6 +29,7 @@ type Attribute struct {
 	version       string
 	properties    Make
 	jsonKey       JSONKey
+	consoleKey    []byte
 	exampleValue  interface{}
 	reflectType   reflect.Type
 	typeName      string
@@ -137,6 +138,10 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 	}
 	jsonKey = append(jsonKey, ':')
 
+	ck := xoputil.JBuilder{}
+	ck.AddConsoleString(s.Key)
+	ck.AppendByte('=')
+
 	namespace, sver, err := version.SplitVersionWithError(namespace)
 	if err != nil {
 		return Attribute{}, err
@@ -154,9 +159,10 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 			b: jsonKey,
 			s: string(jsonKey),
 		},
-		defSize: int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
-		semver:  sver,
-		number:  atomic.AddInt32(&attributeCount, 1),
+		consoleKey: ck.B,
+		defSize:    int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
+		semver:     sver,
+		number:     atomic.AddInt32(&attributeCount, 1),
 	}
 	ra.jsonDef = jsonAttributeDefinition(&ra)
 	ra.jsonDefString = string(ra.jsonDef)
@@ -183,6 +189,7 @@ func (r Attribute) JSONKey() JSONKey { return r.jsonKey }
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
 
 func (r Attribute) Key() string                       { return r.properties.Key }
+func (r Attribute) ConsoleKey() []byte                { return r.consoleKey }
 func (r Attribute) Description() string               { return r.properties.Description }
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
@@ -207,6 +214,7 @@ var _ AttributeInterface = &Attribute{}
 
 type AttributeInterface interface {
 	JSONKey() JSONKey
+	ConsoleKey() []byte
 	ReflectType() reflect.Type
 	Key() string
 	Description() string

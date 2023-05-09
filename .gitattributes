@@ -9,9 +9,12 @@ span.go linguist-generated
 sub.go linguist-generated
 internal/enumer_test.go linguist-generated
 xopat/attributes.go linguist-generated
+xopbase/abbr.go linguist-generated
 xopbase/base.go linguist-generated
 xopbase/skip.go linguist-generated
 xopcon/console.go linguist-generated
+xopconsole/attributes.go linguist-generated
+xopconsole/console.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
 xopjson/replay.go linguist-generated
 xopotel/buffered.go linguist-generated

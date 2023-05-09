@@ -55,7 +55,7 @@ xop Request 2009-11-10T23:00:00.032832823Z
    - Def
    - Trace/Debug/Info/Warn/Error/Alert
 
-## Parsing attributes
+## Line attributes
 
 The general form for attributes is 
 
@@ -105,4 +105,9 @@ Values(type) can be one of the following:
 
 - (11){"a":"foo"}/JSON
   An "any", a model, encoding specified, length first in parens
+
+## Metadata attributes
+
+Mostly uses the same encodings as line attributes. Lists are in the form of
+[value,value,value].
 

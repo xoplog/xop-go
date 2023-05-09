@@ -2,6 +2,7 @@ package xoputil
 
 import (
 	"io"
+	"regexp"
 	"strconv"
 )
 
@@ -64,6 +65,28 @@ func (b *JBuilder) AddString(v string) {
 	b.B = append(b.B, '"')
 	b.AddStringBody(v)
 	b.B = append(b.B, '"')
+}
+
+var punct = "`" + `_~!@#$%^&*\[\]{}:;'<>,.?]+$/`
+var safeRE = regexp.MustCompile(`/^[` + punct + `\p{L}][-` + punct + `\w]*$`)
+
+// excluded:
+//   - used for ints
+//     / - used in enum
+//     () - used for type signatures and lengths
+//     " - used for quoted strings
+//     space - used to separate attributes
+
+// AddConsoleString adds a string that may or may not be quoted. Unquoted
+// strings are not "t", "f", or have any "/", "(", ")", quotes ("), or spaces.
+// These strings are used as both keys and values in xopconsole.
+//
+// If quoted, quoting is done by strconv.AppendQuote
+func (b *JBuilder) AddConsoleString(s string) {
+	if safeRE.MatchString(s) && s != "t" && s != "f" {
+		b.B = append(b.B, []byte(s)...)
+	}
+	b.B = strconv.AppendQuote(b.B, s)
 }
 
 func (b *JBuilder) AddUint64(i uint64) {

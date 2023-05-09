@@ -18,7 +18,7 @@ var encodingBytes = func() map[Encoding][]byte {
 }()
 
 func (x Encoding) ToString() string {
-	if s, ok := Encoding_name[x]; ok {
+	if s, ok := Encoding_name[int32(x)]; ok {
 		return s
 	}
 	return strconv.Itoa(int(x))

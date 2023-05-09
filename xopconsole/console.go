@@ -1,10 +1,12 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
 /*
-Package xopcon provides a xopbase.Logger that is meant human consumption.
-It does not support replay. Data is omitted to increase readability.
+Package xopconsole provides a xopbase.Logger that is partially meant for human consumption.
+It fully suppors replay without data loss and that requires all details to be
+output. Since console loggers exist in situations with other writers, all lines
+are prefixed so that lines that did not come from xopconsole can be ignored.
 */
-package xopcon
+package xopconsole
 
 import (
 	"context"
@@ -14,7 +16,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -35,6 +37,11 @@ var (
 	_ xopbase.Prefilling = &Prefilling{}
 	_ xopbase.Prefilled  = &Prefilled{}
 	_ xopbase.Line       = &Line{}
+)
+
+const (
+	universalPrefix = "xop"
+	timeFormat      = "2006-01-02 15:04:05.00000000"
 )
 
 type Opt func(*Logger)
@@ -91,24 +98,21 @@ type Span struct {
 }
 
 type Prefilling struct {
-	Builder
+	builder
 }
 
-type Builder struct {
-	Data   map[string]interface{}
-	Span   *Span
-	kvText []string
+type builder struct {
+	Builder
+	Span *Span
 }
 
 type Prefilled struct {
-	Data   map[string]interface{}
-	Span   *Span
-	Msg    string
-	kvText []string
+	builder
+	Msg string
 }
 
 type Line struct {
-	Builder
+	builder
 	Level     xopnum.Level
 	Timestamp time.Time
 	Message   string // Prefill text + line text (template evaluated)
@@ -216,15 +220,16 @@ func (span *Span) ParentRequest() *Span {
 // NoPrefill is a required method for xopbase.Span
 func (span *Span) NoPrefill() xopbase.Prefilled {
 	return &Prefilled{
-		Span: span,
+		builder: builder{
+			Span: span,
+		},
 	}
 }
 
 // StartPrefill is a required method for xopbase.Span
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
-		Builder: Builder{
-			Data: make(map[string]interface{}),
+		builder: builder{
 			Span: span,
 		},
 	}
@@ -233,10 +238,8 @@ func (span *Span) StartPrefill() xopbase.Prefilling {
 // PrefillComplete is a required method for xopbase.Prefilling
 func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 	return &Prefilled{
-		Data:   p.Data,
-		Span:   p.Span,
-		kvText: p.kvText,
-		Msg:    m,
+		builder: p.builder,
+		Msg:     m,
 	}
 }
 
@@ -244,20 +247,10 @@ func (p *Prefilling) PrefillComplete(m string) xopbase.Prefilled {
 func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame) xopbase.Line {
 	xoputil.AtomicMaxInt64(&p.Span.provisionalEndTime, t.UnixNano())
 	line := &Line{
-		Builder: Builder{
-			Data: make(map[string]interface{}),
-			Span: p.Span,
-		},
+		builder:   p.builder,
 		Level:     level,
 		Timestamp: t,
 		Stack:     list.Copy(frames),
-	}
-	for k, v := range p.Data {
-		line.Data[k] = v
-	}
-	if len(p.kvText) != 0 {
-		line.kvText = make([]string, len(p.kvText), len(p.kvText)+5)
-		copy(line.kvText, p.kvText)
 	}
 	line.Message = p.Msg
 	return line
@@ -268,10 +261,6 @@ func (line *Line) Link(m string, v xoptrace.Trace) {
 	line.AsLink = &v
 	line.Message += m
 	text := line.Span.Short + " LINK:" + line.Message + " " + v.String()
-	if len(line.kvText) > 0 {
-		text += " " + strings.Join(line.kvText, " ")
-		line.kvText = nil
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -282,10 +271,6 @@ func (line *Line) Model(m string, v xopbase.ModelArg) {
 	line.Message += m
 	enc, _ := json.Marshal(v.Model)
 	text := line.Span.Short + " MODEL:" + line.Message + " " + string(enc)
-	if len(line.kvText) > 0 {
-		text += " " + strings.Join(line.kvText, " ")
-		line.kvText = nil
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -294,10 +279,6 @@ func (line *Line) Model(m string, v xopbase.ModelArg) {
 func (line *Line) Msg(m string) {
 	line.Message += m
 	text := line.Span.Short + ": " + line.Message
-	if len(line.kvText) > 0 {
-		text += " " + strings.Join(line.kvText, " ")
-		line.kvText = nil
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -308,19 +289,11 @@ var templateRE = regexp.MustCompile(`\{.+?\}`)
 func (line *Line) Template(m string) {
 	line.Tmpl = line.Message + m
 	used := make(map[string]struct{})
-	msg := templateRE.ReplaceAllStringFunc(line.Tmpl, func(k string) string {
-		k = k[1 : len(k)-1]
-		if v, ok := line.Data[k]; ok {
-			used[k] = struct{}{}
-			return fmt.Sprint(v)
-		}
-		return "''"
-	})
-	line.Message = msg
-	text := line.Span.Short + ": " + msg
+	line.Message = m
+	text := universalPrefix + line.Timestamp.UTC().Format(timeFormat) + "-" + line.Level.String() + "-" + line.Span.Short + ": " + m
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
-			text += " " + k + "=" + fmt.Sprint(v)
+			text += " " + safe(k) + "=" + fmt.Sprint(v)
 		}
 	}
 	line.Text = text
@@ -331,38 +304,120 @@ func (line Line) send(text string) {
 	line.Span.logger.output(text)
 }
 
-func (b *Builder) any(k string, v interface{}) {
-	b.Data[k] = v
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
+func (b *Builder) addKey(k string) {
+	b.B = append(b.B, ' ')
+	b.AddConsoleString(k)
+	b.B = append(b.B, '=')
 }
 
-// Enum is a required method for xopbase.ObjectParts
+func (b *Builder) addType(t string) {
+	b.B = append(b.B, '(')
+	b.B = append(b.B, []byte(t))
+	b.B = append(b.B, ')')
+}
+
+func (b *Builder) Duration(k string, v time.Duration) {
+	b.addKey(k)
+	b.B = append(b.B, []byte(v.String()))
+	b.addType(xopbase.DurationDataTypeAbbr)
+}
+
+func (b *Builder) Float64(k string, v float64, t xopbase.DataType) {
+	b.addKey(k)
+	b.AddFloat(v)
+	b.addType(xopbase.DataTypeToString[t])
+}
+
+func (b *Builder) String(k string, v string, t xopbase.DataType) {
+	b.addKey(k)
+	b.AddConsoleString(v)
+	if t != xopbase.StringDataType {
+		b.addType(xopbase.DataTypeToString[t])
+	}
+}
+
+func (b *Builder) Int64(k string, v int64, t xopbase.DataType) {
+	b.addKey(k)
+	b.B = strconv.AppendInt(b.B, v, 64)
+	if t != xopbase.IntDataType {
+		b.addType(xopbase.DataTypeToString[t])
+	}
+}
+
+func (b *Builder) Uint64(k string, v uint64, t xopbase.DataType) {
+	b.addKey(k)
+	b.B = b.AddUint64(v)
+	b.addType(xopbase.DataTypeToString[t])
+}
+
+func (b *Builder) Bool(k string, v bool) {
+	b.addKey(k)
+	if v {
+		b.B = append(b.B, 't')
+	} else {
+		b.B = append(b.B, 'f')
+	}
+	b.addType(xopbase.BoolDataTypeAbbr)
+}
+
+func (b *Builder) Time(k string, t time.Time) {
+	b.addKey(k)
+	b.B = t.AppendFormat(b.B, time.RFC3339Nano)
+	b.addType(xopbase.TimeDataTypeAbbr)
+}
+
+// Enum doesn't need a type indicator
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	ks := k.Key()
-	b.Data[ks] = v
-	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
+	b.addKey(k)
+	b.AddInt64(v.Int64())
+	b.B = append(b.B, '/')
+	b.AddConsoleString(v.String())
 }
 
-// Any is a required method for xopbase.ObjectParts
-func (b *Builder) Any(k string, v xopbase.ModelArg) { b.any(k, v) }
+func (b *Builder) Any(k string, v xopbase.ModelArg) {
+	b.addKey(k)
+	v.Encode()
+	v.AddConsoleString(strconv.Quote(string(v.Encoded)))
+	b.B = append(b.B, '/')
+	v.AddConsoleString(v.Encoding.ToString())
+}
 
-// Bool is a required method for xopbase.ObjectParts
-func (b *Builder) Bool(k string, v bool) { b.any(k, v) }
+// MetadataAny is a required method for xopbase.Span
+func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
+	s.SpanMetadata.MetadataAny(k, v)
+}
 
-// Duration is a required method for xopbase.ObjectParts
-func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v) }
+// MetadataBool is a required method for xopbase.Span
+func (s *Span) MetadataBool(k *xopat.BoolAttribute, v bool) {
+	s.SpanMetadata.MetadataBool(k, v)
+}
 
-// Time is a required method for xopbase.ObjectParts
-func (b *Builder) Time(k string, v time.Time) { b.any(k, v) }
+// MetadataEnum is a required method for xopbase.Span
+func (s *Span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
+	s.SpanMetadata.MetadataEnum(k, v)
+}
 
-// Float64 is a required method for xopbase.ObjectParts
-func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v) }
+// MetadataFloat64 is a required method for xopbase.Span
+func (s *Span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
+	s.SpanMetadata.MetadataFloat64(k, v)
+}
 
-// Int64 is a required method for xopbase.ObjectParts
-func (b *Builder) Int64(k string, v int64, dt xopbase.DataType) { b.any(k, v) }
+// MetadataInt64 is a required method for xopbase.Span
+func (s *Span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
+	s.SpanMetadata.MetadataInt64(k, v)
+}
 
-// String is a required method for xopbase.ObjectParts
-func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v) }
+// MetadataLink is a required method for xopbase.Span
+func (s *Span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
+	s.SpanMetadata.MetadataLink(k, v)
+}
 
-// Uint64 is a required method for xopbase.ObjectParts
-func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v) }
+// MetadataString is a required method for xopbase.Span
+func (s *Span) MetadataString(k *xopat.StringAttribute, v string) {
+	s.SpanMetadata.MetadataString(k, v)
+}
+
+// MetadataTime is a required method for xopbase.Span
+func (s *Span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
+	s.SpanMetadata.MetadataTime(k, v)
+}
