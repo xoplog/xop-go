@@ -288,14 +288,8 @@ var templateRE = regexp.MustCompile(`\{.+?\}`)
 // Template is a required method for xopbase.Line
 func (line *Line) Template(m string) {
 	line.Tmpl = line.Message + m
-	used := make(map[string]struct{})
 	line.Message = m
 	text := universalPrefix + line.Timestamp.UTC().Format(timeFormat) + "-" + line.Level.String() + "-" + line.Span.Short + ": " + m
-	for k, v := range line.Data {
-		if _, ok := used[k]; !ok {
-			text += " " + safe(k) + "=" + fmt.Sprint(v)
-		}
-	}
 	line.Text = text
 	line.send(text)
 }
@@ -312,19 +306,19 @@ func (b *Builder) addKey(k string) {
 
 func (b *Builder) addType(t string) {
 	b.B = append(b.B, '(')
-	b.B = append(b.B, []byte(t))
+	b.B = append(b.B, []byte(t)...)
 	b.B = append(b.B, ')')
 }
 
 func (b *Builder) Duration(k string, v time.Duration) {
 	b.addKey(k)
-	b.B = append(b.B, []byte(v.String()))
+	b.B = append(b.B, []byte(v.String())...)
 	b.addType(xopbase.DurationDataTypeAbbr)
 }
 
 func (b *Builder) Float64(k string, v float64, t xopbase.DataType) {
 	b.addKey(k)
-	b.AddFloat(v)
+	b.AddFloat64(v)
 	b.addType(xopbase.DataTypeToString[t])
 }
 
@@ -346,7 +340,7 @@ func (b *Builder) Int64(k string, v int64, t xopbase.DataType) {
 
 func (b *Builder) Uint64(k string, v uint64, t xopbase.DataType) {
 	b.addKey(k)
-	b.B = b.AddUint64(v)
+	b.AddUint64(v)
 	b.addType(xopbase.DataTypeToString[t])
 }
 
@@ -368,7 +362,8 @@ func (b *Builder) Time(k string, t time.Time) {
 
 // Enum doesn't need a type indicator
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	b.addKey(k)
+	b.AppendBytes(k.ConsoleKey())
+	b.B = append(b.B, '=')
 	b.AddInt64(v.Int64())
 	b.B = append(b.B, '/')
 	b.AddConsoleString(v.String())
@@ -377,9 +372,9 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 func (b *Builder) Any(k string, v xopbase.ModelArg) {
 	b.addKey(k)
 	v.Encode()
-	v.AddConsoleString(strconv.Quote(string(v.Encoded)))
+	b.AddConsoleString(strconv.Quote(string(v.Encoded)))
 	b.B = append(b.B, '/')
-	v.AddConsoleString(v.Encoding.ToString())
+	b.AddConsoleString(v.Encoding.ToString())
 }
 
 // MetadataAny is a required method for xopbase.Span
