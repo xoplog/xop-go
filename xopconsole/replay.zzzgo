@@ -1,0 +1,43 @@
+package xopconsole
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/xoplog/xop-go/xopbase"
+)
+
+type replayData struct {
+	lineCount int
+}
+
+func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
+	scanner := bufio.NewScanner(inputStream)
+	var x replayData
+	for scanner.Scan() {
+		x.lineCount++
+		t := scanner.Text()
+		if !bytes.HasPrefix(t, "xop ") {
+			continue
+		}
+		t = t[len("xop "):]
+		i := strings.IndexByte(t, ' ')
+		if i == -1 {
+			return fmt.Errorf("invalid input, line %d", lineCount)
+		}
+		typ := t[0:i]
+		switch typ {
+		case "Request":
+		case "Span":
+		case "Def":
+		//MACRO LogLevel
+		case "ZZZ":
+			replayLine(ctx, ZZZLevel, t[i+1:])
+
+		}
+	}
+}

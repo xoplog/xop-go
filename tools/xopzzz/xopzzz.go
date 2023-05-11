@@ -248,6 +248,14 @@ var macros = map[string]map[string]string{
 		"enum":     "Enum",
 		"error":    "Error",
 	},
+	"LogLevel": {
+		"Trace": "",
+		"Debug": "",
+		"Info":  "",
+		"Warn":  "",
+		"Error": "",
+		"Alert": "",
+	},
 }
 
 var allLines []string
