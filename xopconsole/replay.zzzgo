@@ -6,13 +6,19 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xoplog/xop-go/xopbase"
+
+	"github.com/pkg/errors"
 )
 
 type replayData struct {
-	lineCount int
+	lineCount   int
+	currentLine string
+	errors      []error
 }
 
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
@@ -24,20 +30,75 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 		if !bytes.HasPrefix(t, "xop ") {
 			continue
 		}
+		x.currentLine = t
 		t = t[len("xop "):]
-		i := strings.IndexByte(t, ' ')
-		if i == -1 {
-			return fmt.Errorf("invalid input, line %d", lineCount)
-		}
-		typ := t[0:i]
-		switch typ {
+		kind, _, t := oneWord(t, " ")
+		var err error
+		switch kind {
 		case "Request":
+			err = x.replayRequest1(ctx, t[i+1:])
 		case "Span":
+			err = x.replaySpan1(ctx, t[i+1:])
 		case "Def":
+			err = x.replayDef(ctx, t[i+1:])
 		//MACRO LogLevel
 		case "ZZZ":
-			replayLine(ctx, ZZZLevel, t[i+1:])
+			err = x.replayLine1(ctx, ZZZLevel, t[i+1:])
 
+			// prior line must be blank
+		default:
+			err = fmt.Errorf("invalid kind designator '%s'", kind)
+		}
+		if err != nil {
+			x.errors = append(x.errors, errors.Wrapf(err, "line %d: %s", lineCount, x.currentLine))
 		}
 	}
+	if len(x.errors) != 0 {
+		// TODO: use a multi-error
+		return x.errors[0]
+	}
+	return nil
+}
+
+func (x replayData) replayRequest1(ctx context.Context, t string) error {
+	ts, t, err := oneTime(t)
+	if err != nil {
+		return err
+	}
+	n, t := oneWord(t, " ")
+	switch n {
+	case "":
+		return errors.Errorf("invalid request")
+	case "Start1":
+		return x.replayRequestStart(ctx, ts, t)
+	default:
+		if !strings.HasPrefix(t, "v") {
+			return errors.Errorf("invalid request")
+		}
+		v, err := strconv.ParseInt(t[1:], 10, 64)
+		if err != nil {
+			return errors.Wrap(err, "invalid request, invalid version number")
+		}
+		return x.replayRequestUpdate(ctx, ts, v, t)
+	}
+}
+
+func (x replayData) replayRequestStart(ctx context.Context, t string) error {
+}
+
+func oneTime(t string) (time.Time, string, error) {
+	w, t := oneWord(t, " ")
+	ts, err := time.Parse(time.RFC3339, t)
+	return ts, t, err
+}
+
+func oneWord(t string, boundary string) (string, byte, string) {
+	i := strings.IndexAny(t, boundary)
+	switch i {
+	case -1:
+		return "", '\000', t
+	case 0:
+		return "", t[0], t[1:]
+	}
+	return t[:i], t[i], t[i+1:]
 }
