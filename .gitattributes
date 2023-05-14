@@ -15,6 +15,7 @@ xopbase/skip.go linguist-generated
 xopcon/console.go linguist-generated
 xopconsole/attributes.go linguist-generated
 xopconsole/console.go linguist-generated
+xopconsole/replay.go linguist-generated
 xopjson/jsonlogger.go linguist-generated
 xopjson/replay.go linguist-generated
 xopotel/buffered.go linguist-generated

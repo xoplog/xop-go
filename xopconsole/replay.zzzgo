@@ -1,8 +1,9 @@
+// TEMPLATE-FILE
+// TEMPLATE-FILE
 package xopconsole
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go/xopbase"
+	"github.com/xoplog/xop-go/xoptrace"
 
 	"github.com/pkg/errors"
 )
@@ -21,43 +23,11 @@ type replayData struct {
 	errors      []error
 }
 
-func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
-	scanner := bufio.NewScanner(inputStream)
-	var x replayData
-	for scanner.Scan() {
-		x.lineCount++
-		t := scanner.Text()
-		if !bytes.HasPrefix(t, "xop ") {
-			continue
-		}
-		x.currentLine = t
-		t = t[len("xop "):]
-		kind, _, t := oneWord(t, " ")
-		var err error
-		switch kind {
-		case "Request":
-			err = x.replayRequest1(ctx, t[i+1:])
-		case "Span":
-			err = x.replaySpan1(ctx, t[i+1:])
-		case "Def":
-			err = x.replayDef(ctx, t[i+1:])
-		//MACRO LogLevel
-		case "ZZZ":
-			err = x.replayLine1(ctx, ZZZLevel, t[i+1:])
-
-			// prior line must be blank
-		default:
-			err = fmt.Errorf("invalid kind designator '%s'", kind)
-		}
-		if err != nil {
-			x.errors = append(x.errors, errors.Wrapf(err, "line %d: %s", lineCount, x.currentLine))
-		}
-	}
-	if len(x.errors) != 0 {
-		// TODO: use a multi-error
-		return x.errors[0]
-	}
-	return nil
+type replayRequest struct {
+	replayData
+	ts      time.Time
+	trace   xoptrace.Trace
+	version int64
 }
 
 func (x replayData) replayRequest1(ctx context.Context, t string) error {
@@ -65,12 +35,15 @@ func (x replayData) replayRequest1(ctx context.Context, t string) error {
 	if err != nil {
 		return err
 	}
-	n, t := oneWord(t, " ")
+	n, _, t := oneWord(t, " ")
 	switch n {
 	case "":
 		return errors.Errorf("invalid request")
 	case "Start1":
-		return x.replayRequestStart(ctx, ts, t)
+		return replayRequest{
+			replayData: x,
+			ts:         ts,
+		}.replayRequestStart(ctx, t)
 	default:
 		if !strings.HasPrefix(t, "v") {
 			return errors.Errorf("invalid request")
@@ -79,11 +52,55 @@ func (x replayData) replayRequest1(ctx context.Context, t string) error {
 		if err != nil {
 			return errors.Wrap(err, "invalid request, invalid version number")
 		}
-		return x.replayRequestUpdate(ctx, ts, v, t)
+		return replayRequest{
+			replayData: x,
+			ts:         ts,
+			version:    v,
+		}.replayRequestUpdate(ctx, t)
 	}
 }
 
-func (x replayData) replayRequestStart(ctx context.Context, t string) error {
+func (x replayRequest) replayRequestUpdate(ctx context.Context, t string) error { return nil } // XXX
+
+func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
+	th, _, t := oneWord(t, " ")
+	if th == "" {
+		return errors.Errorf("missing trace header")
+	}
+	var ok bool
+	x.trace, ok = xoptrace.TraceFromString(th)
+	if !ok {
+		return errors.Errorf("invalid trace header")
+	}
+	return nil // XXX
+}
+
+// oneString reads a possibly-quoted string
+func oneString(t string) (string, string) {
+	if len(t) == 0 {
+		return "", ""
+	}
+	if t[0] == '"' {
+		for i := 0; i < len(t); i++ {
+			switch t[i] {
+			case '\\':
+				if i < len(t) {
+					i++
+				}
+			case '"':
+				one, err := strconv.Unquote(t[1:i])
+				if err != nil {
+					return "", t
+				}
+				return one, t[i+1:]
+			}
+		}
+	}
+	one := xoputil.UnquotedConsoleStringRE.FindString(t)
+	if one != "" {
+		return one, t[len(one):]
+	}
+	return "", t
 }
 
 func oneTime(t string) (time.Time, string, error) {
@@ -101,4 +118,43 @@ func oneWord(t string, boundary string) (string, byte, string) {
 		return "", t[0], t[1:]
 	}
 	return t[:i], t[i], t[i+1:]
+}
+
+func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
+	scanner := bufio.NewScanner(inputStream)
+	var x replayData
+	for scanner.Scan() {
+		x.lineCount++
+		t := scanner.Text()
+		if !strings.HasPrefix(t, "xop ") {
+			continue
+		}
+		x.currentLine = t
+		t = t[len("xop "):]
+		kind, _, t := oneWord(t, " ")
+		var err error
+		switch kind {
+		case "Request":
+			err = x.replayRequest1(ctx, t)
+		case "Span":
+			err = x.replaySpan1(ctx, t)
+		case "Def":
+			err = x.replayDef(ctx, t)
+		//MACRO LogLevel
+		case "ZZZ":
+			err = x.replayLine1(ctx, ZZZLevel, t)
+
+			// prior line must be blank
+		default:
+			err = fmt.Errorf("invalid kind designator '%s'", kind)
+		}
+		if err != nil {
+			x.errors = append(x.errors, errors.Wrapf(err, "line %d: %s", lineCount, x.currentLine))
+		}
+	}
+	if len(x.errors) != 0 {
+		// TODO: use a multi-error
+		return x.errors[0]
+	}
+	return nil
 }
