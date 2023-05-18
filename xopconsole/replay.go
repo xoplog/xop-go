@@ -1,5 +1,5 @@
-// TEMPLATE-FILE
-// TEMPLATE-FILE
+// This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
+
 package xopconsole
 
 import (
@@ -146,9 +146,18 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 			err = x.replaySpan1(ctx, t)
 		case "Def":
 			err = x.replayDef(ctx, t)
-		//MACRO LogLevel
-		case "ZZZ":
-			err = x.replayLine1(ctx, xopnum.ZZZLevel, t)
+		case "Alert":
+			err = x.replayLine1(ctx, xopnum.AlertLevel, t)
+		case "Debug":
+			err = x.replayLine1(ctx, xopnum.DebugLevel, t)
+		case "Error":
+			err = x.replayLine1(ctx, xopnum.ErrorLevel, t)
+		case "Info":
+			err = x.replayLine1(ctx, xopnum.InfoLevel, t)
+		case "Trace":
+			err = x.replayLine1(ctx, xopnum.TraceLevel, t)
+		case "Warn":
+			err = x.replayLine1(ctx, xopnum.WarnLevel, t)
 
 			// prior line must be blank
 		default:
