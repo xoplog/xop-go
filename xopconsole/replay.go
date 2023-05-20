@@ -27,15 +27,20 @@ type replayData struct {
 
 type replayRequest struct {
 	replayData
-	ts      time.Time
-	trace   xoptrace.Trace
-	version int64
+	ts                  time.Time
+	trace               xoptrace.Trace
+	version             int64
+	name                string
+	sourceAndVersion    string
+	namespaceAndVersion string
 }
 
 func (x replayData) replayLine1(ctx context.Context, level xopnum.Level, t string) error { return nil }
 func (x replayData) replaySpan1(ctx context.Context, t string) error                     { return nil }
 func (x replayData) replayDef(ctx context.Context, t string) error                       { return nil }
 
+// so far: xop Request
+// this func: timestamp "Start1" or "vNNN"
 func (x replayData) replayRequest1(ctx context.Context, t string) error {
 	ts, t, err := oneTime(t)
 	if err != nil {
@@ -68,6 +73,8 @@ func (x replayData) replayRequest1(ctx context.Context, t string) error {
 
 func (x replayRequest) replayRequestUpdate(ctx context.Context, t string) error { return nil } // XXX
 
+// so far: xop Request timestamp Start1
+// this func: trace-headder request-name source+version namespace+version
 func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	th, _, t := oneWord(t, " ")
 	if th == "" {
@@ -78,7 +85,20 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	if !ok {
 		return errors.Errorf("invalid trace header")
 	}
-	return nil // XXX
+	x.name, t = oneString(t)
+	if x.name == "" {
+		return errors.Errorf("missing request name")
+	}
+	x.sourceAndVersion, t = oneString(t)
+	if x.sourceAndVersion == "" {
+		return errors.Errorf("missing source+version")
+	}
+	x.namespaceAndVersion, t = oneString(t)
+	if x.namespaceAndVersion == "" {
+		return errors.Errorf("missing namespace+version")
+	}
+	// XXX
+	return nil
 }
 
 // oneString reads a possibly-quoted string
