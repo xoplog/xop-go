@@ -39,7 +39,11 @@ xop Request 2009-11-10T23:00:00.032832823Z
           1. a record version number that increments each time the request is printed
           1. A space
           1. spanID
-          1. A space
+          1. Repeating:
+             1. A space
+             1. A quoted-if-needed key
+             1. "="
+             1. A quoted-if-needed value
    - Span
      1. "Start" or "v" + a version number
         - "Start"

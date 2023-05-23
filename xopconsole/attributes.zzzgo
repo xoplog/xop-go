@@ -93,7 +93,7 @@ func (m *multiAttribute) init(a *AttributeBuilder, k xopat.AttributeInterface) {
 	m.Builder.B = m.Buf[:0]
 	m.Builder.Reset()
 	m.Builder.AppendBytes(k.ConsoleKey())
-	m.Builder.AppendBytes([]byte("=["))
+	m.Builder.AppendByte('=')
 	m.Distinct = nil
 }
 
