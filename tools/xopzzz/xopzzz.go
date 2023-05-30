@@ -16,7 +16,7 @@ import (
 var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+(SKIP|ONLY):(\S+))?\s*$`)
 var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
-var zzzRE = regexp.MustCompile(`(zzz|Zzz|ZZZ)`)
+var zzzRE = regexp.MustCompile(`(zzz|Zzz|ZZZ|zZZ)`)
 var packageRE = regexp.MustCompile(`^package (\w+)`)
 var conditionalRE = regexp.MustCompile(`^\s*//\s?CONDITIONAL (?:(?:ONLY:(\S+))|(?:SKIP:(\S+)))\s*$`)
 var endConditionalRE = regexp.MustCompile(`^\s*//\s?END CONDITIONAL\s*$`)
@@ -353,6 +353,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 			"ZZZ": name,
 			"zzz": typ,
 			"Zzz": toTitle.String(typ),
+			"zZZ": strings.ToLower(name),
 		}
 		var skipping bool
 		for _, line := range lines {

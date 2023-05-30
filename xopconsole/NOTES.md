@@ -12,8 +12,9 @@ xop Request 2009-11-10T23:00:00.032832823Z
    - Def
    - Trace/Debug/Info/Warn/Error/Alert
 1. A space
-1. a timestamp in RFC3339Nano format. 
-1. A space
+1. For all but Def:
+   1. a timestamp in RFC3339Nano format. 
+   1. A space
 1. Details, which vary based on what kind of thing it is
    - Request
      1. "Start" or "v"
@@ -54,12 +55,37 @@ xop Request 2009-11-10T23:00:00.032832823Z
           1. A space
           1. The span sequence abbreviation or "" if none
         - "v"
-          1. a record version number that inrements each time the span record is printed
-          1. A space
-          1. The SpanID (hex)
+          1. same as request version updates
      1. A space
    - Def
+     1. A space
+     1. JSON-encoded attribute definition
    - Trace/Debug/Info/Warn/Error/Alert
+     1. A space
+     1. The SpanID (hex)
+     1. A space
+     1. Optional kind indicator
+        - Model:
+          1. " MODEL:"
+        - Link:
+          1. " LINK:"
+        - Message:
+          1. Optional format indicator:
+             - Template:
+               1. "TMPL:"
+             - No template:
+     1. quoted-if-needed line message (or template)
+     1. Repeating:
+        1. A space
+        1. a line attribute (see below)
+     1. Optional stack:
+        1. A space
+        1. " STACK:"
+        1. Repeating frames
+           1. A space
+           1. Line
+           1. ":"
+           1. Number
 
 ## Line attributes
 
@@ -114,6 +140,5 @@ Values(type) can be one of the following:
 
 ## Metadata attributes
 
-Mostly uses the same encodings as line attributes. Lists are in the form of
-[value,value,value].
+key=value, no type indicators
 

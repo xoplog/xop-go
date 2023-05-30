@@ -56,10 +56,10 @@ func (x replayData) replayRequest1(ctx context.Context, t string) error {
 			ts:         ts,
 		}.replayRequestStart(ctx, t)
 	default:
-		if !strings.HasPrefix(t, "v") {
-			return errors.Errorf("invalid request")
+		if !strings.HasPrefix(n, "v") {
+			return errors.Errorf("invalid request with %s", t)
 		}
-		v, err := strconv.ParseInt(t[1:], 10, 64)
+		v, err := strconv.ParseInt(n[1:], 10, 64)
 		if err != nil {
 			return errors.Wrap(err, "invalid request, invalid version number")
 		}
@@ -178,7 +178,7 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 		case "Def":
 			err = x.replayDef(ctx, t)
 		//MACRO LogLevel
-		case "ZZZ":
+		case "zZZ":
 			err = x.replayLine1(ctx, xopnum.ZZZLevel, t)
 
 			// prior line must be blank
