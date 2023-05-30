@@ -111,7 +111,6 @@ func (a *AttributeBuilder) addMulti(k xopat.AttributeInterface) *multiAttribute 
 		a.multiMap[k.Key()] = m
 	}
 	m.Changed = true
-	m.Builder.Comma()
 	return m
 }
 
@@ -120,7 +119,6 @@ func (s *singleAttribute) init(k xopat.AttributeInterface) {
 		B: s.Buf[:0],
 	}
 	b.AppendBytes(k.ConsoleKey())
-	b.AppendByte('=')
 	s.Changed = true
 	s.KeyValue = b.B
 }
@@ -184,16 +182,22 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
 	//END CONDITIONAL
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeZZZ(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}

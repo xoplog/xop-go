@@ -33,8 +33,8 @@ xop Request 2009-11-10T23:00:00.032832823Z
              1. state header, quoted if needed
           1. Optional:
              1. A space
-             1. "bundle:"
-             1. bundle header, quoted if needed
+             1. "baggage:"
+             1. baggage header, quoted if needed
         - "v"
           1. a record version number that increments each time the request is printed
           1. A space

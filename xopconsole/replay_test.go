@@ -1,59 +1,53 @@
-package xopconsole
+package xopconsole_test
 
 import (
-	"strconv"
+	"bytes"
+	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopconsole"
+	"github.com/xoplog/xop-go/xoptest"
+	"github.com/xoplog/xop-go/xoptest/xoptestutil"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestOneString(t *testing.T) {
-	cases := []struct {
-		name string
-		input string
-		want  string
-		remainder string
-	}{
-		{
-			input: "",
-			want:  "",
-		},
-		{
-			input: "foo=bar xyz",
-			want:  "foo",
-		},
-		{
-			input: "foo-bar=bar xyz",
-			want:  "foo-bar",
-		},
-		{
-			name: "oddchars",
-			input: "foo-'$#@[]bar=bar xyz",
-			want:  "foo-'$#@[]bar",
-		},
-		{
-			name: "quoted",
-			input: strconv.Quote(`f"oo-'$#\@[]bar`) + "=bar xyz",
-			want:  `f"oo-'$#\@[]bar`,
-			remainder: "=bar xyz",
-		},
-	}
-	for _, tc := range cases {
-		name := tc.name
-		if name == "" {
-			name = tc.input
-		}
-		t.Run(name, func(t *testing.T) {
-			got, gotRemainder := oneString(tc.input)
-			var wantRemainder string
-			if tc.remainder == "" {
-				wantRemainder = tc.input[len(tc.want):]
-			} else {
-				wantRemainder = tc.remainder
+type buffer struct {
+	t   *testing.T
+	buf []byte
+}
+
+func (buf *buffer) Write(b []byte) (int, error) {
+	buf.t.Log(string(b))
+	buf.buf = append(buf.buf, b...)
+	return len(b), nil
+}
+
+func TestReplayConsole(t *testing.T) {
+	for _, mc := range xoptestutil.MessageCases {
+		mc := mc
+		t.Run(mc.Name, func(t *testing.T) {
+			tLog := xoptest.New(t)
+			buf := &buffer{t: t}
+			cLog := xopconsole.New(xopconsole.WithWriter(buf))
+			seed := xop.NewSeed(
+				xop.WithBase(cLog),
+				xop.WithBase(tLog),
+			)
+			if len(mc.SeedMods) != 0 {
+				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
+				seed = seed.Copy(mc.SeedMods...)
 			}
-			if assert.Equal(t, tc.want, got, "string") {
-				assert.Equal(t, wantRemainder, gotRemainder, "remainder")
-			}
+			log := seed.Request(t.Name())
+			mc.Do(t, log, tLog)
+			t.Log("Replay")
+			rLog := xoptest.New(t)
+			err := xopconsole.Replay(context.Background(), bytes.NewBuffer(buf.buf), rLog)
+			require.NoError(t, err, "replay")
+
+			t.Log("verify replay equals original")
+			xoptestutil.VerifyTestReplay(t, tLog, rLog)
 		})
 	}
 }

@@ -93,7 +93,7 @@ func (m *multiAttribute) init(a *AttributeBuilder, k xopat.AttributeInterface) {
 	m.Builder.B = m.Buf[:0]
 	m.Builder.Reset()
 	m.Builder.AppendBytes(k.ConsoleKey())
-	m.Builder.AppendBytes([]byte("=["))
+	m.Builder.AppendByte('=')
 	m.Distinct = nil
 }
 
@@ -111,7 +111,6 @@ func (a *AttributeBuilder) addMulti(k xopat.AttributeInterface) *multiAttribute 
 		a.multiMap[k.Key()] = m
 	}
 	m.Changed = true
-	m.Builder.Comma()
 	return m
 }
 
@@ -120,7 +119,6 @@ func (s *singleAttribute) init(k xopat.AttributeInterface) {
 		B: s.Buf[:0],
 	}
 	b.AppendBytes(k.ConsoleKey())
-	b.AppendByte('=')
 	s.Changed = true
 	s.KeyValue = b.B
 }
@@ -175,16 +173,22 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 	m.Type = xopbase.AnyDataType
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeAny(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -222,16 +226,22 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.BoolDataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeBool(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -269,16 +279,22 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.EnumDataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeEnum(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -316,16 +332,22 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.Float64DataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeFloat64(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -363,16 +385,22 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.Int64DataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeInt64(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -410,16 +438,22 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.LinkDataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeLink(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -457,16 +491,22 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.StringDataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeString(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}
@@ -504,16 +544,22 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	}
 	m := a.addMulti(k)
 	m.Type = xopbase.TimeDataType
-	lenBefore := len(m.Builder.B)
+	lenBeforeKey := len(m.Builder.B)
+	if len(m.Builder.B) != 0 {
+		m.Builder.AppendByte(' ')
+	}
+	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
+	m.Builder.AppendBytes(k.ConsoleKey())
+	lenBeforeData := len(m.Builder.B)
 	m.Builder.AttributeTime(v)
 	if k.Distinct() {
-		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])
+		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 		if m.Distinct == nil {
 			m.Distinct = make(map[string]struct{})
 			m.Distinct[sk] = struct{}{}
 		} else {
 			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBefore]
+				m.Builder.B = m.Builder.B[:lenBeforeKey]
 				if m.Builder.B[len(m.Builder.B)-1] == ',' {
 					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
 				}

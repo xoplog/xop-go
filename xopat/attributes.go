@@ -195,8 +195,9 @@ func (r Attribute) JSONKey() JSONKey { return r.jsonKey }
 // ReflectType can be nil if the example value was nil
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
 
-func (r Attribute) Key() string                       { return r.properties.Key }
+// ConsoleKey includes an =
 func (r Attribute) ConsoleKey() []byte                { return r.consoleKey }
+func (r Attribute) Key() string                       { return r.properties.Key }
 func (r Attribute) Description() string               { return r.properties.Description }
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
@@ -221,7 +222,7 @@ var _ AttributeInterface = &Attribute{}
 
 type AttributeInterface interface {
 	JSONKey() JSONKey
-	ConsoleKey() []byte
+	ConsoleKey() []byte // includes an '='
 	ReflectType() reflect.Type
 	Key() string
 	Description() string

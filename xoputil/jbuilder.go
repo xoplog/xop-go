@@ -87,6 +87,7 @@ var UnquotedConsoleStringRE = regexp.MustCompile(safe)
 func (b *JBuilder) AddConsoleString(s string) {
 	if safeRE.MatchString(s) && s != "t" && s != "f" {
 		b.B = append(b.B, []byte(s)...)
+		return
 	}
 	b.B = strconv.AppendQuote(b.B, s)
 }

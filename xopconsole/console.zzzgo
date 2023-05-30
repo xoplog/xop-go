@@ -163,13 +163,42 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 		Short:      fmt.Sprintf("T%d.%d", traceNum, requestNum),
 	}
 	s.Parent = s
-	s.logger.output("Start request " + s.Short + "=" + bundle.Trace.String() + " " + name)
+	var buf [200]byte
+	b := xoputil.JBuilder{
+		B: buf[:0],
+	}
+	b.AppendBytes([]byte("xop Request "))
+	b.B = DefaultTimeFormatter(b.B, ts)
+	b.AppendBytes([]byte(" Start1 "))
+	b.AppendString(bundle.Trace.String())
+	b.AppendByte(' ')
+	b.AddConsoleString(name)
+	b.AppendByte(' ')
+	b.AddConsoleString(sourceInfo.Source + "-" + sourceInfo.SourceVersion.String())
+	b.AppendByte(' ')
+	b.AddConsoleString(sourceInfo.Namespace + "-" + sourceInfo.NamespaceVersion.String())
+	if !bundle.State.IsZero() {
+		b.AppendBytes([]byte(" state:"))
+		b.AppendBytes(bundle.State.Bytes())
+	}
+	if !bundle.Baggage.IsZero() {
+		b.AppendBytes([]byte(" baggage:"))
+		b.AppendBytes(bundle.Baggage.Bytes())
+	}
+	b.AppendByte('\n')
+	_, err := log.out.Write(b.B)
+	if err != nil {
+		log.errorReporter(err)
+	}
 	return s
 }
 
 // Done is a required method for xopbase.Span
 func (span *Span) Done(t time.Time, final bool) {
 	xoputil.AtomicMaxInt64(&span.EndTime, xoputil.AtomicMaxInt64(&span.provisionalEndTime, t.UnixNano()))
+	if span.IsRequest {
+	} else {
+	}
 }
 
 // Flush is a required method for xopbase.Request
@@ -201,7 +230,23 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 		TraceNum:     span.Parent.TraceNum,
 	}
 	n.Short = fmt.Sprintf("T%d.%d%s", n.TraceNum, n.RequestNum, n.SequenceCode)
-	span.logger.output("Start span " + n.Short + "=" + bundle.Trace.String() + " " + n.Name)
+	var buf [200]byte
+	b := xoputil.JBuilder{
+		B: buf[:0],
+	}
+	b.AppendBytes([]byte("xop Span "))
+	b.B = DefaultTimeFormatter(b.B, ts)
+	b.AppendBytes([]byte(" Start "))
+	b.AppendBytes(bundle.Trace.SpanID().HexBytes())
+	b.AppendByte(' ')
+	b.AddConsoleString(name)
+	b.AppendByte(' ')
+	b.AppendString(n.Short)
+	b.AppendByte('\n')
+	_, err := span.logger.out.Write(b.B)
+	if err != nil {
+		span.logger.errorReporter(err)
+	}
 	return n
 }
 
@@ -332,7 +377,7 @@ func (b *Builder) String(k string, v string, t xopbase.DataType) {
 
 func (b *Builder) Int64(k string, v int64, t xopbase.DataType) {
 	b.addKey(k)
-	b.B = strconv.AppendInt(b.B, v, 64)
+	b.B = strconv.AppendInt(b.B, v, 10)
 	if t != xopbase.IntDataType {
 		b.addType(xopbase.DataTypeToString[t])
 	}

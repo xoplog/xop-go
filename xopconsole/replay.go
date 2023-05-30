@@ -85,20 +85,31 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	if !ok {
 		return errors.Errorf("invalid trace header")
 	}
-	x.name, t = oneString(t)
+	x.name, t = oneStringAndSpace(t)
 	if x.name == "" {
 		return errors.Errorf("missing request name")
 	}
-	x.sourceAndVersion, t = oneString(t)
+	x.sourceAndVersion, t = oneStringAndSpace(t)
 	if x.sourceAndVersion == "" {
-		return errors.Errorf("missing source+version")
+		return errors.Errorf("missing source+version, trace is %s/%s, name is %s, remaining is %s", th, x.trace, x.name, t)
 	}
-	x.namespaceAndVersion, t = oneString(t)
+	x.namespaceAndVersion, t = oneStringAndSpace(t)
 	if x.namespaceAndVersion == "" {
-		return errors.Errorf("missing namespace+version")
+		return errors.Errorf("missing namespace+version, remaining is %s", t)
 	}
 	// XXX
 	return nil
+}
+
+func oneStringAndSpace(t string) (string, string) {
+	a, b := oneString(t)
+	if a == "" {
+		return a, b
+	}
+	if len(b) > 0 && b[0] == ' ' {
+		return a, b[1:]
+	}
+	return a, b
 }
 
 // oneString reads a possibly-quoted string

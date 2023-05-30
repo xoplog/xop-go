@@ -50,7 +50,9 @@ func (b *Builder) AttributeEnum(v xopat.Enum) {
 }
 
 func (b *Builder) AttributeTime(t time.Time) {
+	b.B = append(b.B, '"')
 	b.B = DefaultTimeFormatter(b.B, t)
+	b.B = append(b.B, '"')
 }
 
 func (b *Builder) AttributeBool(v bool) {
@@ -79,16 +81,12 @@ func (b *Builder) AttributeLink(v xoptrace.Trace) {
 
 /* TODO
 func DefaultTimeFormatter2(b []byte, t time.Time) []byte {
-	b = append(b, '"')
 	b = fasttime.AppendStrftime(b, fasttime.RFC3339Nano, t)
-	b = append(b, '"')
 	return b
 }
 */
 
 func DefaultTimeFormatter(b []byte, t time.Time) []byte {
-	b = append(b, '"')
 	b = append(b, []byte(t.Format(time.RFC3339Nano))...)
-	b = append(b, '"')
 	return b
 }
