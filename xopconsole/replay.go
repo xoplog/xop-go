@@ -35,9 +35,17 @@ type replayRequest struct {
 	namespaceAndVersion string
 }
 
-func (x replayData) replayLine1(ctx context.Context, level xopnum.Level, t string) error { return nil }
-func (x replayData) replaySpan1(ctx context.Context, t string) error                     { return nil }
-func (x replayData) replayDef(ctx context.Context, t string) error                       { return nil }
+// xop alert 2023-05-31T22:20:09.200456-07:00 72b09846e8ed0099 "like a rock\"\\<'\n\r\t\b\x00" frightening=stuff STACK: /Users/sharnoff/src/github.com/muir/xop-go/xoptest/xoptestutil/cases.go:39 /Users/sharnoff/src/github.com/muir/xop-go/xopconsole/replay_test.go:43 /usr/local/Cellar/go/1.20.1/libexec/src/testing/testing.go:1576
+func (x replayData) replayLine1(ctx context.Context, level xopnum.Level, t string) error {
+	ts, t, err := oneTime(t)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (x replayData) replaySpan1(ctx context.Context, t string) error { return nil }
+func (x replayData) replayDef(ctx context.Context, t string) error   { return nil }
 
 // so far: xop Request
 // this func: timestamp "Start1" or "vNNN"

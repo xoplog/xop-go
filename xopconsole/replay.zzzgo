@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -35,9 +36,135 @@ type replayRequest struct {
 	namespaceAndVersion string
 }
 
-func (x replayData) replayLine1(ctx context.Context, level xopnum.Level, t string) error { return nil }
-func (x replayData) replaySpan1(ctx context.Context, t string) error                     { return nil }
-func (x replayData) replayDef(ctx context.Context, t string) error                       { return nil }
+type replayLine struct {
+	replayData
+	ts         time.Time
+	spanID     xoptrace.HexBytes8
+	level      xopnum.Level
+	message    string
+	stack      []runtime.Frame
+	line       xopbase.Line
+	attributes []func(xopbase.Line)
+}
+
+// xop alert 2023-05-31T22:20:09.200456-07:00 72b09846e8ed0099 "like a rock\"\\<'\n\r\t\b\x00" frightening=stuff STACK: /Users/sharnoff/src/github.com/muir/xop-go/xoptest/xoptestutil/cases.go:39 /Users/sharnoff/src/github.com/muir/xop-go/xopconsole/replay_test.go:43 /usr/local/Cellar/go/1.20.1/libexec/src/testing/testing.go:1576
+func (x replayLine) replayLine(ctx context.Context, t string) error {
+	var err error
+	x.ts, t, err = oneTime(t)
+	if err != nil {
+		return err
+	}
+	spanIDString, _, t := oneWord(t, " ")
+	if spanIDString == "" {
+		return fmt.Errorf("missing idString")
+	}
+
+	message, t := oneStringAndSpace(t)
+	for {
+		key, sep, t := oneWord(t, "=:")
+		switch sep {
+		case ":":
+			if key != "STACK" {
+				return fmt.Errorf("invalid stack indicator")
+			}
+			for {
+				file, _, t := oneWord(t, ":")
+				if file == "" {
+					return fmt.Errorf("invalid stack frame")
+				}
+				lineNum, sep, t := oneWordMaybeDone(t, " ")
+				if line == "" {
+					return fmt.Errorf("invalid stack frame, line")
+				}
+				num, err := strconv.ParseInt(lineNum, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid stack frame, line num: %w", err)
+				}
+				x.stack = append(x.stack, runtime.Frame{
+					File: file,
+					Line: num,
+				})
+				if sep == "" {
+					break
+				}
+			}
+			break
+		case "=":
+			if len(t) == 0 {
+				return fmt.Errorf("empty value")
+			}
+			if t[0] == '(' {
+				// model
+			}
+			value, sep, t := oneWordMaybeDone(t, " (/") // )
+			switch sep {
+			case "(":
+				i := strings.IndexByte(t, ')')
+				if i == -1 {
+					return fmt.Errorf("invalid type specifier")
+				}
+				typ := t[:i]
+				t = t[i+1:]
+				switch typ {
+				case "dur":
+					dur, err := time.ParseDuration(value)
+					if err != nil {
+						return fmt.Error("invalid duration: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Duration(key, dur) })
+				case "f32":
+					f, err := strconv.ParseFloat(value, 32)
+					if err != nil {
+						return fmt.Error("invalid float: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float(key, f, xopbase.Float32DataType) })
+				case "f64":
+					f, err := strconv.ParseFloat(value, 64)
+					if err != nil {
+						return fmt.Error("invalid float: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float(key, f, xopbase.Float64DataType) })
+				case "stringer":
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringerDataType) })
+				case "i8", "i16", "i32", "i64":
+					i, err := strconv.ParseInt(value, 10, 64)
+					if err != nil {
+						return fmt.Error("invalid int: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.StringToDataType[typ]) })
+				case "u8", "u16", "u32", "u64", "uint", "uintptr":
+					i, err := strconv.ParseUInt(value, 10, 64)
+					if err != nil {
+						return fmt.Error("invalid uint: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Uint64(key, i, xopbase.StringToDataType[typ]) })
+				case "time":
+					t, err := time.ParseTime(time.RFC3339Nano, value)
+					if err != nil {
+						return fmt.Error("invalid time: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Time(key, t) })
+				default:
+					return fmt.Errorf("invalid type: %s", typ)
+				}
+			case " ":
+				// type from first char
+			case "":
+				// type from first char, nothing follows
+			case "/":
+				// enum: int/text
+			default:
+				// error
+			}
+		default:
+			return fmt.Errorf("invalid input")
+		}
+	}
+	return nil
+}
+
+func (x replayData) replaySpan1(ctx context.Context, t string) error { return nil }
+func (x replayData) replayDef(ctx context.Context, t string) error   { return nil }
 
 // so far: xop Request
 // this func: timestamp "Start1" or "vNNN"
@@ -179,7 +306,11 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 			err = x.replayDef(ctx, t)
 		//MACRO LogLevel
 		case "zZZ":
-			err = x.replayLine1(ctx, xopnum.ZZZLevel, t)
+			err = replayLine{
+				replayData: x,
+				ts:         t,
+				level:      xopnum.ZZZLevel,
+			}.replayLine(ctx, t)
 
 			// prior line must be blank
 		default:

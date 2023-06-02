@@ -246,6 +246,8 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 	b.AppendBytes([]byte(" Start "))
 	b.AppendBytes(bundle.Trace.SpanID().HexBytes())
 	b.AppendByte(' ')
+	b.AppendBytes(span.Bundle.Trace.SpanID().HexBytes())
+	b.AppendByte(' ')
 	b.AddConsoleString(name)
 	b.AppendByte(' ')
 	b.AppendString(n.Short)
@@ -335,6 +337,8 @@ func (line Line) send(prefix []byte, text string, postfix []byte) {
 	}
 	b.AppendBytes([]byte("xop "))
 	b.AppendString(line.Level.String())
+	b.AppendByte(' ')
+	b.B = DefaultTimeFormatter(b.B, line.Timestamp)
 	b.AppendByte(' ')
 	b.AppendBytes(line.Span.Bundle.Trace.SpanID().HexBytes())
 	b.AppendByte(' ')
