@@ -15,6 +15,7 @@ import (
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
@@ -102,9 +103,47 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				return fmt.Errorf("empty value")
 			}
 			if t[0] == '(' {
-				// XXX model
+				var length string
+				lengthString, _, t = oneWord(t, ")")
+				length, err := strconv.ParseUint(lengthString, 10, 64)
+				if err != nil {
+					return fmt.Errorf("parse model length: %w", err)
+				}
+				if len(t) < int(length)+2 {
+					return fmt.Errorf("expected remaining string to be at least %d bytes", length+2)
+				}
+				encoded := t[:length]
+				if t[length] != '/' {
+					return fmt.Errorf("malformed model")
+				}
+				t = t[length+1:]
+				var typ string
+				var sep byte
+				encoding, sep, t = oneWord(t, "/")
+				if typ == "" {
+					return fmt.Errorf("missing model type")
+				}
+				ma := xopbase.ModelArg{
+					Encoded: []byte(encoded),
+				}
+				if en, ok := xopproto.Encoding_value[encoding]; ok {
+					ma.Encoding = xopproto.Encoding(en)
+				} else {
+					return errors.Errorf("invalid encoding (%s) when decoding attribute", encoding)
+				}
+				ma.ModelType, sep, t = oneWord(t, " ")
+				if ma.ModelType == "" {
+					return errors.Errorf("empty model type")
+				}
+				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Any(key, ma) })
+				if sep == '\000' {
+					break
+				}
+				continue
 			}
-			value, sep, t := oneWord(t, " (/") // )
+			var string value
+			var byte sep
+			value, sep, t = oneWord(t, " (/") // )
 			switch sep {
 			case '(':
 				i := strings.IndexByte(t, ')')
@@ -132,9 +171,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 						return fmt.Errorf("invalid float: %w", err)
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(key, f, xopbase.Float64DataType) })
+				case "string":
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
 				case "stringer":
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringerDataType) })
-				case "i8", "i16", "i32", "i64":
+				case "i8", "i16", "i32", "i64", "int":
 					i, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
 						return fmt.Errorf("invalid int: %w", err)
@@ -155,10 +196,31 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				default:
 					return fmt.Errorf("invalid type: %s", typ)
 				}
-			case ' ':
-				// XXX type from first char
-			case '\000':
-				// XXX type from first char, nothing follows
+			case ' ', '\000':
+				if value == "" {
+					return errors.Errorf("invalid value")
+				}
+				switch value[0] {
+				case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+					i, err := strconv.ParseInt(value, 10, 64)
+					if err != nil {
+						return fmt.Errorf("invalid int: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.IntDataType) })
+				default:
+					switch value {
+					case "t":
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, true) })
+					case "f":
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, false) })
+					default:
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
+					}
+				}
+				if sep == '\000' {
+					break
+				}
+				continue
 			case '/':
 				// XXX enum: int/text
 			default:
@@ -179,8 +241,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	return nil
 }
 
+// XXX
 func (x replayData) replaySpan1(ctx context.Context, t string) error { return nil }
-func (x replayData) replayDef(ctx context.Context, t string) error   { return nil }
+
+// XXX
+func (x replayData) replayDef(ctx context.Context, t string) error { return nil }
 
 // so far: xop Request
 // this func: timestamp "Start1" or "vNNN"

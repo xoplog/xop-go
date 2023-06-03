@@ -118,7 +118,7 @@ Values(type) can be one of the following:
   start with a number, parenthesis, or slash.
 
 - 82392
-  An integer, type `int`
+  An integer, type `int`.  Negative too.
 
 - -328204(i32)
   An integer, any type other than `int`
@@ -135,7 +135,7 @@ Values(type) can be one of the following:
 - 1/JSON
   An enum, numeric and string values provided
 
-- (11){"a":"foo"}/JSON
+- (11){"a":"foo"}/JSON/foobarType
   An "any", a model, encoding specified, length first in parens
 
 ## Metadata attributes
