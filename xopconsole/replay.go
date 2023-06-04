@@ -18,6 +18,7 @@ import (
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
+	"github.com/xoplog/xop-go/xoputil/replayutil"
 
 	"github.com/pkg/errors"
 )
@@ -26,9 +27,10 @@ type replayData struct {
 	lineCount   int
 	currentLine string
 	errors      []error
-	spans       map[xoptrace.HexBytes8]xopbase.Span
+	spans       map[xoptrace.HexBytes8]*replaySpan
 	requests    map[xoptrace.HexBytes8]*replayRequest
 	dest        xopbase.Logger
+	attributes  *replayutil.GlobalAttributeDefinitions
 }
 
 type replayRequest struct {
@@ -39,6 +41,14 @@ type replayRequest struct {
 	name                string
 	sourceAndVersion    string
 	namespaceAndVersion string
+	request             xopbase.Request // XXX
+	requestAttributes   *replayutil.RequestAttributeDefinitons
+}
+
+type replaySpan struct {
+	replayData
+	request *replayRequest
+	span    xopbase.Span
 }
 
 type replayLine struct {
@@ -64,7 +74,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 		return fmt.Errorf("missing idString")
 	}
 	spanID := xoptrace.NewHexBytes8FromString(spanIDString)
-	span, ok := x.spans[spanID]
+	spanData, ok := x.spans[spanID]
 	if !ok {
 		return fmt.Errorf("missing span %s", spanIDString)
 	}
@@ -231,7 +241,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			return fmt.Errorf("invalid input")
 		}
 	}
-	line := span.NoPrefill().Line(x.level, x.ts, x.stack)
+	line := spanData.span.NoPrefill().Line(x.level, x.ts, x.stack)
 	for _, af := range x.attributes {
 		af(line)
 	}
@@ -243,19 +253,104 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 }
 
 // XXX
-func (x replayData) replaySpan1(ctx context.Context, t string) error { return nil }
+// Example: xop Span 2023-06-03T12:22:47.699766-07:00 Start c253fd02cd66f874 5f23a4838a2c7205 "a fork one span" T1.1.A
+func (x replayData) replaySpan(ctx context.Context, t string) error {
+	var err error
+	var ts time.Time
+	ts, t, err = oneTime(t)
+	if err != nil {
+		return err
+	}
+	var n string
+	n, _, t = oneWord(t, " ")
+	if n == "" {
+		return errors.Errorf("invalid span start")
+	}
+	var spanIDString string
+	var sep byte
+	spanIDString, sep, t = oneWord(t, " ")
+	if spanIDString == "" {
+		return errors.Errorf("invalid span spanID")
+	}
+	spanID := xoptrace.NewHexBytes8FromString(spanIDString)
+	if n == "Start" {
+		var parentIDString string
+		parentIDString, _, t = oneWord(t, " ")
+		if parentIDString == "" {
+			return errors.Errorf("invalid span parentID")
+		}
+		parentID := xoptrace.NewHexBytes8FromString(parentIDString)
+		parentSpan, ok := x.spans[parentID]
+		if !ok {
+			return errors.Errorf("%s span %s is missing parent %s", n, spanIDString, parentIDString)
+		}
+		request, err := x.getRequest(parentSpan)
+		if err != nil {
+			return err
+		}
+		bundle := request.bundle.Copy()
+		bundle.Trace.SpanID().Set(spanID)
+		var name string
+		name, _, t = oneWord(t, " ")
+		var spanSeqCode string
+		spanSeqCode, _, t = oneWord(t, " ")
+		if spanSeqCode == "" {
+			return errors.Errorf("invalid span sequence code")
+		}
+		span := parentSpan.Span(ctx, ts, bundle, name, spanSeqCode)
+		x.spans[spanID] = &spanData{
+			replayData: x,
+			span:       span,
+			request:    request,
+		}
+		return nil
+	}
+	if n[0] != 'v' {
+		return errors.Errorf("invalid span numbering")
+	}
+	v, err := strconv.ParseUint(n[1:], 10, 64)
+	if err != nil {
+		return errors.Errorf("invalid span numbering: %w", err)
+	}
+	spanData, ok := x.spans[spanID]
+	if !ok {
+		return errors.Errof("span id %s not found", spanIDString)
+	}
+	err = x.collectMetadata(spanData, sep, t)
+	if err != nil {
+		return err
+	}
+	spanData.span.Done(ts, false)
+	return nil
+}
 
-// XXX
-func (x replayData) replayDef(ctx context.Context, t string) error { return nil }
+func (x *requestData) collectMetdata(spanData *spanData, sep string, t string) error {
+	var key string
+	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
+		var string value
+		value, sep, t = oneWord(t, " ")
+		def, ok := spanData.request.definitions[key]
+		if !ok {
+			return errors.Errorf("missing definition for %s", key)
+		}
+		switch def.Type {
+		}
+	}
+}
+
+func (x replayData) replayDef(ctx context.Context, t string) error {
+	return nil
+}
 
 // so far: xop Request
 // this func: timestamp "Start1" or "vNNN"
-func (x replayData) replayRequest1(ctx context.Context, t string) error {
+func (x replayData) replayRequest(ctx context.Context, t string) error {
 	ts, t, err := oneTime(t)
 	if err != nil {
 		return err
 	}
-	n, _, t := oneWord(t, " ")
+	var n string
+	n, _, t = oneWord(t, " ")
 	switch n {
 	case "":
 		return errors.Errorf("invalid request")
@@ -272,15 +367,16 @@ func (x replayData) replayRequest1(ctx context.Context, t string) error {
 		if err != nil {
 			return errors.Wrap(err, "invalid request, invalid version number")
 		}
-		return replayRequest{
-			replayData: x,
-			ts:         ts,
-			version:    v,
-		}.replayRequestUpdate(ctx, t)
+		var requestIDString string
+		requestIDString, sep, t = oneWord(t, " ")
+		requestID := xoptrace.NewHexBytes8FromString(parentIDString)
+		y, ok := x.requests[requestID]
+		if !ok {
+			return errors.Errorf("update to request %s that doesn't exist", requestIDString)
+		}
+		// XXX
 	}
 }
-
-func (x replayRequest) replayRequestUpdate(ctx context.Context, t string) error { return nil } // XXX
 
 // so far: xop Request timestamp Start1
 // this func: trace-headder request-name source+version namespace+version
@@ -322,7 +418,13 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 		NamespaceVersion: nsVers,
 	}
 	request := x.dest.Request(ctx, x.ts, bundle, x.name, sourceInfo)
-	x.spans[bundle.Trace.GetSpanID()] = request
+	x.request = request
+	x.requestAttributes = x.attributes.NewRequestAttributeDefinitions(bundle.Trace.SpanID().String())
+	x.spans[bundle.Trace.GetSpanID()] = &spanData{
+		replayData: x.replayData,
+		span:       request,
+		request:    &x,
+	}
 	x.requests[bundle.Trace.GetSpanID()] = &x
 	return nil
 }
@@ -386,9 +488,10 @@ func oneWord(t string, boundary string) (string, byte, string) {
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
 	scanner := bufio.NewScanner(inputStream)
 	x := replayData{
-		dest:     dest,
-		spans:    make(map[xoptrace.HexBytes8]xopbase.Span),
-		requests: make(map[xoptrace.HexBytes8]*replayRequest),
+		dest:       dest,
+		spans:      make(map[xoptrace.HexBytes8]xopbase.Span),
+		requests:   make(map[xoptrace.HexBytes8]*replayRequest),
+		attributes: replayutil.NewGlobalAttributeDefinitions(),
 	}
 	for scanner.Scan() {
 		x.lineCount++
@@ -402,9 +505,9 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 		var err error
 		switch kind {
 		case "Request":
-			err = x.replayRequest1(ctx, t)
+			err = x.replayRequest(ctx, t)
 		case "Span":
-			err = x.replaySpan1(ctx, t)
+			err = x.replaySpan(ctx, t)
 		case "Def":
 			err = x.replayDef(ctx, t)
 		case "alert":

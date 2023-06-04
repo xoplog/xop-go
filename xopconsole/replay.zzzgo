@@ -18,6 +18,7 @@ import (
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
+	"github.com/xoplog/xop-go/xoputil/replayutil"
 
 	"github.com/pkg/errors"
 )
@@ -29,6 +30,7 @@ type replayData struct {
 	spans       map[xoptrace.HexBytes8]*replaySpan
 	requests    map[xoptrace.HexBytes8]*replayRequest
 	dest        xopbase.Logger
+	attributes  *replayutil.GlobalAttributeDefinitions
 }
 
 type replayRequest struct {
@@ -40,6 +42,7 @@ type replayRequest struct {
 	sourceAndVersion    string
 	namespaceAndVersion string
 	request             xopbase.Request // XXX
+	requestAttributes   *replayutil.RequestAttributeDefinitons
 }
 
 type replaySpan struct {
@@ -264,11 +267,12 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		return errors.Errorf("invalid span start")
 	}
 	var spanIDString string
+	var sep byte
 	spanIDString, sep, t = oneWord(t, " ")
 	if spanIDString == "" {
 		return errors.Errorf("invalid span spanID")
 	}
-	spanID := xoptrace.NewHexBytes8FromString(parentIDString)
+	spanID := xoptrace.NewHexBytes8FromString(spanIDString)
 	if n == "Start" {
 		var parentIDString string
 		parentIDString, _, t = oneWord(t, " ")
@@ -276,7 +280,7 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 			return errors.Errorf("invalid span parentID")
 		}
 		parentID := xoptrace.NewHexBytes8FromString(parentIDString)
-		parentSpan, ok := x.spans[spanID]
+		parentSpan, ok := x.spans[parentID]
 		if !ok {
 			return errors.Errorf("%s span %s is missing parent %s", n, spanIDString, parentIDString)
 		}
@@ -340,7 +344,7 @@ func (x replayData) replayDef(ctx context.Context, t string) error {
 
 // so far: xop Request
 // this func: timestamp "Start1" or "vNNN"
-func (x replayData) replayRequest1(ctx context.Context, t string) error {
+func (x replayData) replayRequest(ctx context.Context, t string) error {
 	ts, t, err := oneTime(t)
 	if err != nil {
 		return err
@@ -363,15 +367,16 @@ func (x replayData) replayRequest1(ctx context.Context, t string) error {
 		if err != nil {
 			return errors.Wrap(err, "invalid request, invalid version number")
 		}
-		return replayRequest{
-			replayData: x,
-			ts:         ts,
-			version:    v,
-		}.replayRequestUpdate(ctx, t)
+		var requestIDString string
+		requestIDString, sep, t = oneWord(t, " ")
+		requestID := xoptrace.NewHexBytes8FromString(parentIDString)
+		y, ok := x.requests[requestID]
+		if !ok {
+			return errors.Errorf("update to request %s that doesn't exist", requestIDString)
+		}
+		// XXX
 	}
 }
-
-func (x replayRequest) replayRequestUpdate(ctx context.Context, t string) error { return nil } // XXX
 
 // so far: xop Request timestamp Start1
 // this func: trace-headder request-name source+version namespace+version
@@ -414,6 +419,7 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	}
 	request := x.dest.Request(ctx, x.ts, bundle, x.name, sourceInfo)
 	x.request = request
+	x.requestAttributes = x.attributes.NewRequestAttributeDefinitions(bundle.Trace.SpanID().String())
 	x.spans[bundle.Trace.GetSpanID()] = &spanData{
 		replayData: x.replayData,
 		span:       request,
@@ -482,9 +488,10 @@ func oneWord(t string, boundary string) (string, byte, string) {
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
 	scanner := bufio.NewScanner(inputStream)
 	x := replayData{
-		dest:     dest,
-		spans:    make(map[xoptrace.HexBytes8]xopbase.Span),
-		requests: make(map[xoptrace.HexBytes8]*replayRequest),
+		dest:       dest,
+		spans:      make(map[xoptrace.HexBytes8]xopbase.Span),
+		requests:   make(map[xoptrace.HexBytes8]*replayRequest),
+		attributes: replayutil.NewGlobalAttributeDefinitions(),
 	}
 	for scanner.Scan() {
 		x.lineCount++
@@ -498,7 +505,7 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 		var err error
 		switch kind {
 		case "Request":
-			err = x.replayRequest1(ctx, t)
+			err = x.replayRequest(ctx, t)
 		case "Span":
 			err = x.replaySpan(ctx, t)
 		case "Def":

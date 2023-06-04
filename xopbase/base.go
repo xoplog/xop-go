@@ -111,6 +111,10 @@ type Request interface {
 type Span interface {
 	// Span creates a new Span that should inherit prefil but not data.  Calls
 	// to Span can be made in parallel.
+	//
+	// Note: in the Bundle, the only fields that are expected to be set are
+	// span.Trace.SpanID and span.Parent.SpanID. The Bundle type was used for
+	// convenience.
 	Span(ctx context.Context, ts time.Time, span xoptrace.Bundle, descriptionOrName string, spanSequenceCode string) Span
 
 	// MetadataAny adds a key/value pair to describe the span.  Calls to
