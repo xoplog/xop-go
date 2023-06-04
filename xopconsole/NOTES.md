@@ -51,6 +51,8 @@ xop Request 2009-11-10T23:00:00.032832823Z
           1. A space
           1. The SpanID (hex)
           1. A space
+          1. The parent SpanID (hex)
+          1. A space
           1. A quoted-if-needed "name" for the span
           1. A space
           1. The span sequence abbreviation or "" if none

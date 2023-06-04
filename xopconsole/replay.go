@@ -12,8 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
+	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
@@ -25,6 +27,8 @@ type replayData struct {
 	currentLine string
 	errors      []error
 	spans       map[xoptrace.HexBytes8]xopbase.Span
+	requests    map[xoptrace.HexBytes8]*replayRequest
+	dest        xopbase.Logger
 }
 
 type replayRequest struct {
@@ -99,9 +103,48 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				return fmt.Errorf("empty value")
 			}
 			if t[0] == '(' {
-				// model
+				var lengthString string
+				lengthString, _, t = oneWord(t, ")")
+				length, err := strconv.ParseUint(lengthString, 10, 64)
+				if err != nil {
+					return fmt.Errorf("parse model length: %w", err)
+				}
+				if len(t) < int(length)+2 {
+					return fmt.Errorf("expected remaining string to be at least %d bytes", length+2)
+				}
+				encoded := t[:length]
+				if t[length] != '/' {
+					return fmt.Errorf("malformed model")
+				}
+				t = t[length+1:]
+				var typ string
+				var sep byte
+				var encoding string
+				encoding, sep, t = oneWord(t, "/")
+				if typ == "" {
+					return fmt.Errorf("missing model type")
+				}
+				ma := xopbase.ModelArg{
+					Encoded: []byte(encoded),
+				}
+				if en, ok := xopproto.Encoding_value[encoding]; ok {
+					ma.Encoding = xopproto.Encoding(en)
+				} else {
+					return errors.Errorf("invalid encoding (%s) when decoding attribute", encoding)
+				}
+				ma.ModelType, sep, t = oneWord(t, " ")
+				if ma.ModelType == "" {
+					return errors.Errorf("empty model type")
+				}
+				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Any(key, ma) })
+				if sep == '\000' {
+					break
+				}
+				continue
 			}
-			value, sep, t := oneWord(t, " (/") // )
+			var value string
+			var sep byte
+			value, sep, t = oneWord(t, " (/") // )
 			switch sep {
 			case '(':
 				i := strings.IndexByte(t, ')')
@@ -129,9 +172,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 						return fmt.Errorf("invalid float: %w", err)
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(key, f, xopbase.Float64DataType) })
+				case "string":
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
 				case "stringer":
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringerDataType) })
-				case "i8", "i16", "i32", "i64":
+				case "i8", "i16", "i32", "i64", "int":
 					i, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
 						return fmt.Errorf("invalid int: %w", err)
@@ -152,12 +197,33 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				default:
 					return fmt.Errorf("invalid type: %s", typ)
 				}
-			case ' ':
-				// type from first char
-			case '\000':
-				// type from first char, nothing follows
+			case ' ', '\000':
+				if value == "" {
+					return errors.Errorf("invalid value")
+				}
+				switch value[0] {
+				case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+					i, err := strconv.ParseInt(value, 10, 64)
+					if err != nil {
+						return fmt.Errorf("invalid int: %w", err)
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.IntDataType) })
+				default:
+					switch value {
+					case "t":
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, true) })
+					case "f":
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, false) })
+					default:
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
+					}
+				}
+				if sep == '\000' {
+					break
+				}
+				continue
 			case '/':
-				// enum: int/text
+				// XXX enum: int/text
 			default:
 				// error
 			}
@@ -169,12 +235,18 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	for _, af := range x.attributes {
 		af(line)
 	}
+	// XXX Model
+	// XXX Link
+	// XXX Template
 	line.Msg(message)
 	return nil
 }
 
+// XXX
 func (x replayData) replaySpan1(ctx context.Context, t string) error { return nil }
-func (x replayData) replayDef(ctx context.Context, t string) error   { return nil }
+
+// XXX
+func (x replayData) replayDef(ctx context.Context, t string) error { return nil }
 
 // so far: xop Request
 // this func: timestamp "Start1" or "vNNN"
@@ -212,6 +284,7 @@ func (x replayRequest) replayRequestUpdate(ctx context.Context, t string) error 
 
 // so far: xop Request timestamp Start1
 // this func: trace-headder request-name source+version namespace+version
+// xop Request 2023-06-02T22:35:26.81344-07:00 Start1 00-d456604ffc88ac5f4f971afbfce39cda-8fd4b01b0c7684a5-01 TestReplayConsole/one-span xopconsole.test-0.0.0 xopconsole.test-0.0.0
 func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	th, _, t := oneWord(t, " ")
 	if th == "" {
@@ -234,7 +307,23 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	if x.namespaceAndVersion == "" {
 		return errors.Errorf("missing namespace+version, remaining is %s", t)
 	}
-	// XXX
+	// XXX baggage
+	// XXX span
+	// XXX parent
+	bundle := xoptrace.Bundle{
+		Trace: x.trace,
+	}
+	ns, nsVers := version.SplitVersion(x.namespaceAndVersion)
+	so, soVers := version.SplitVersion(x.sourceAndVersion)
+	sourceInfo := xopbase.SourceInfo{
+		Source:           so,
+		SourceVersion:    soVers,
+		Namespace:        ns,
+		NamespaceVersion: nsVers,
+	}
+	request := x.dest.Request(ctx, x.ts, bundle, x.name, sourceInfo)
+	x.spans[bundle.Trace.GetSpanID()] = request
+	x.requests[bundle.Trace.GetSpanID()] = &x
 	return nil
 }
 
@@ -296,7 +385,11 @@ func oneWord(t string, boundary string) (string, byte, string) {
 
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
 	scanner := bufio.NewScanner(inputStream)
-	var x replayData
+	x := replayData{
+		dest:     dest,
+		spans:    make(map[xoptrace.HexBytes8]xopbase.Span),
+		requests: make(map[xoptrace.HexBytes8]*replayRequest),
+	}
 	for scanner.Scan() {
 		x.lineCount++
 		t := scanner.Text()
