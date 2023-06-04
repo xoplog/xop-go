@@ -1,3 +1,5 @@
+// TEMPLATE-FILE
+
 package xopjson
 
 import (
@@ -17,6 +19,7 @@ import (
 	"github.com/xoplog/xop-go/xoptest/xoptestutil"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
+	"github.com/xoplog/xop-go/xoputil/replayutil"
 
 	"github.com/pkg/errors"
 )
@@ -115,12 +118,6 @@ type decodeRequestExclusive struct {
 	Source        string `json:"source"`
 }
 
-type decodeAttributeDefinition struct {
-	xopat.Make
-	AttributeType xopproto.AttributeType `json:"vtype"`
-	SpanID        string                 `json:"span.id"`
-}
-
 func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logger) error {
 	data, ok := input.(string)
 	if ok {
@@ -130,30 +127,28 @@ func (logger *Logger) Replay(ctx context.Context, input any, output xopbase.Logg
 }
 
 type baseReplay struct {
-	logger                        xopbase.Logger
-	spans                         map[string]xopbase.Span
-	lines                         []decodedLine
-	request                       xopbase.Request
-	requestID                     string
-	spanMap                       map[string]*decodedSpan
-	traceID                       xoptrace.HexBytes16
-	aDefs                         map[string]decodeAttributeDefinition
-	perRequestAttributeDefintions map[string]map[string]*decodeAttributeDefinition
-	attributeDefinitions          map[string]*decodeAttributeDefinition
-	attributeRegistry             *xopat.Registry
+	logger               xopbase.Logger
+	spans                map[string]xopbase.Span
+	lines                []decodedLine
+	request              xopbase.Request
+	requestID            string
+	spanMap              map[string]*decodedSpan
+	traceID              xoptrace.HexBytes16
+	attributeRegistry    *xopat.Registry
+	attributeDefinitions *replayutil.GlobalAttributeDefinitions
 }
 
 func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) error {
 	var requests []*decodedRequest
 	var spans []*decodedSpan
 	x := baseReplay{
-		logger:                        logger,
-		spans:                         make(map[string]xopbase.Span),
-		spanMap:                       make(map[string]*decodedSpan),
-		attributeRegistry:             xopat.NewRegistry(false),
-		attributeDefinitions:          make(map[string]*decodeAttributeDefinition),
-		perRequestAttributeDefintions: make(map[string]map[string]*decodeAttributeDefinition),
+		logger:               logger,
+		spans:                make(map[string]xopbase.Span),
+		spanMap:              make(map[string]*decodedSpan),
+		attributeRegistry:    xopat.NewRegistry(false),
+		attributeDefinitions: replayutil.NewGlobalAttributeDefinitions(),
 	}
+	var defineKeys []string
 	for _, inputText := range strings.Split(data, "\n") {
 		if inputText == "" {
 			continue
@@ -188,6 +183,9 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 				},
 				// decodeSpanExclusive: &super.decodeSpanExclusive,
 			}
+			if _, ok := x.spanMap[super.SpanID]; !ok {
+				_ = x.attributeDefinitions.NewRequestAttributeDefinitions(super.SpanID)
+			}
 			x.spanMap[super.SpanID] = dc // this may overwrite previous versions
 		case "span":
 			dc := &decodedSpan{
@@ -200,21 +198,15 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			x.spanMap[super.SpanID] = dc // this may overwrite previous versions
 			spans = append(spans, dc)
 		case "defineKey":
-			var aDef decodeAttributeDefinition
-			err := json.Unmarshal([]byte(inputText), &aDef)
-			if err != nil {
-				return errors.Wrapf(err, "decode attribute defintion (%s)", inputText)
-			}
-			if aDef.SpanID != "" {
-				if x.perRequestAttributeDefintions[aDef.SpanID] == nil {
-					x.perRequestAttributeDefintions[aDef.SpanID] = make(map[string]*decodeAttributeDefinition)
-				}
-				x.perRequestAttributeDefintions[aDef.SpanID][aDef.Key] = &aDef
-			} else {
-				x.attributeDefinitions[aDef.Key] = &aDef
-			}
+			defineKeys = append(defineKeys, inputText)
 		default:
 			return errors.Errorf("unknown line type (%s) for input (%s)", super.Type, inputText)
+		}
+	}
+	for _, inputText := range defineKeys {
+		err := x.attributeDefinitions.Decode(inputText)
+		if err != nil {
+			return err
 		}
 	}
 	// Attach child spans to parent spans so that they can be processed in order
@@ -276,9 +268,6 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 			return errors.Errorf("invalid namespace (%s) in request (%s)", requestInput.Namespace, requestInput.unparsed)
 		}
 
-		if len(x.perRequestAttributeDefintions) != 0 {
-			x.attributeDefinitions = make(map[string]*decodeAttributeDefinition)
-		}
 		x.requestID = requestInput.SpanID
 		x.request = x.logger.Request(ctx,
 			requestInput.Timestamp.Time,
@@ -329,18 +318,6 @@ func (x spanReplayData) Replay(ctx context.Context) (err error) {
 		}
 	}()
 	attributes := x.spanInput.Attributes
-	/*
-		// tentative support for when attribues are not a sub-object
-		if attributes == nil {
-			err := json.Unmarshal([]byte(x.spanInput.unparsed), &attributes)
-			if err != nil {
-				return errors.Errorf("cannot unmarshal to generic for span %s", x.spanInput.SpanID)
-			}
-			for _, k := range knownKeys {
-				delete(attributes, k)
-			}
-		}
-	*/
 	for k, v := range attributes {
 		err := replaySpanAttribute{
 			spanReplayData: x,
@@ -392,12 +369,7 @@ type replaySpanAttribute struct {
 }
 
 func (x replaySpanAttribute) Replay(k string, v []byte) error {
-	var aDef *decodeAttributeDefinition
-	if m, ok := x.perRequestAttributeDefintions[x.requestID]; ok {
-		aDef = m[k]
-	} else {
-		aDef = x.attributeDefinitions[k]
-	}
+	aDef := x.attributeDefinitions.Lookup(x.requestID, k)
 	if aDef == nil {
 		return errors.Errorf("No attribute definition in span (%s) for key (%s)", x.spanInput.SpanID, k)
 	}
