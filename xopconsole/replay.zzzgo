@@ -43,12 +43,14 @@ type replayRequest struct {
 	namespaceAndVersion string
 	request             xopbase.Request // XXX
 	requestAttributes   *replayutil.RequestAttributeDefinitons
+	bundle              xoptrace.Bundle
 }
 
 type replaySpan struct {
 	replayData
 	request *replayRequest
 	span    xopbase.Span
+	version int
 }
 
 type replayLine struct {
@@ -284,11 +286,7 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		if !ok {
 			return errors.Errorf("%s span %s is missing parent %s", n, spanIDString, parentIDString)
 		}
-		request, err := x.getRequest(parentSpan)
-		if err != nil {
-			return err
-		}
-		bundle := request.bundle.Copy()
+		bundle := parentSpan.request.bundle.Copy()
 		bundle.Trace.SpanID().Set(spanID)
 		var name string
 		name, _, t = oneWord(t, " ")
@@ -297,11 +295,11 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		if spanSeqCode == "" {
 			return errors.Errorf("invalid span sequence code")
 		}
-		span := parentSpan.Span(ctx, ts, bundle, name, spanSeqCode)
-		x.spans[spanID] = &spanData{
+		span := parentSpan.span.Span(ctx, ts, bundle, name, spanSeqCode)
+		x.spans[spanID] = &replaySpan{
 			replayData: x,
 			span:       span,
-			request:    request,
+			request:    parentSpan.request,
 		}
 		return nil
 	}
@@ -314,8 +312,9 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 	}
 	spanData, ok := x.spans[spanID]
 	if !ok {
-		return errors.Errof("span id %s not found", spanIDString)
+		return errors.Errorf("span id %s not found", spanIDString)
 	}
+	spanData.version = int(v)
 	err = x.collectMetadata(spanData, sep, t)
 	if err != nil {
 		return err
@@ -406,7 +405,7 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	// XXX baggage
 	// XXX span
 	// XXX parent
-	bundle := xoptrace.Bundle{
+	x.bundle = xoptrace.Bundle{
 		Trace: x.trace,
 	}
 	ns, nsVers := version.SplitVersion(x.namespaceAndVersion)
@@ -417,7 +416,7 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 		Namespace:        ns,
 		NamespaceVersion: nsVers,
 	}
-	request := x.dest.Request(ctx, x.ts, bundle, x.name, sourceInfo)
+	request := x.dest.Request(ctx, x.ts, x.bundle, x.name, sourceInfo)
 	x.request = request
 	x.requestAttributes = x.attributes.NewRequestAttributeDefinitions(bundle.Trace.SpanID().String())
 	x.spans[bundle.Trace.GetSpanID()] = &spanData{
