@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go/internal/util/version"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
@@ -33,24 +34,25 @@ type replayData struct {
 	attributes  *replayutil.GlobalAttributeDefinitions
 }
 
-type replayRequest struct {
+type replaySpan struct {
 	replayData
+	request *replayRequest
+	span    xopbase.Span
+	version int
+}
+
+type replayRequest struct {
+	replaySpan
 	ts                  time.Time
 	trace               xoptrace.Trace
 	version             int64
 	name                string
 	sourceAndVersion    string
 	namespaceAndVersion string
-	request             xopbase.Request // XXX
+	baseRequest         xopbase.Request // XXX
 	requestAttributes   *replayutil.RequestAttributeDefinitons
 	bundle              xoptrace.Bundle
-}
-
-type replaySpan struct {
-	replayData
-	request *replayRequest
-	span    xopbase.Span
-	version int
+	attributeRegistry   *xopat.Registry
 }
 
 type replayLine struct {
@@ -315,26 +317,12 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		return errors.Errorf("span id %s not found", spanIDString)
 	}
 	spanData.version = int(v)
-	err = x.collectMetadata(spanData, sep, t)
+	err = spanData.collectMetadata(sep, t)
 	if err != nil {
 		return err
 	}
 	spanData.span.Done(ts, false)
 	return nil
-}
-
-func (x *requestData) collectMetdata(spanData *spanData, sep string, t string) error {
-	var key string
-	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
-		var string value
-		value, sep, t = oneWord(t, " ")
-		def, ok := spanData.request.definitions[key]
-		if !ok {
-			return errors.Errorf("missing definition for %s", key)
-		}
-		switch def.Type {
-		}
-	}
 }
 
 func (x replayData) replayDef(ctx context.Context, t string) error {
@@ -355,8 +343,10 @@ func (x replayData) replayRequest(ctx context.Context, t string) error {
 		return errors.Errorf("invalid request")
 	case "Start1":
 		return replayRequest{
-			replayData: x,
-			ts:         ts,
+			replaySpan: replaySpan{
+				replayData: x,
+			},
+			ts: ts,
 		}.replayRequestStart(ctx, t)
 	default:
 		if !strings.HasPrefix(n, "v") {
@@ -367,14 +357,21 @@ func (x replayData) replayRequest(ctx context.Context, t string) error {
 			return errors.Wrap(err, "invalid request, invalid version number")
 		}
 		var requestIDString string
+		var sep byte
 		requestIDString, sep, t = oneWord(t, " ")
-		requestID := xoptrace.NewHexBytes8FromString(parentIDString)
+		requestID := xoptrace.NewHexBytes8FromString(requestIDString)
 		y, ok := x.requests[requestID]
 		if !ok {
 			return errors.Errorf("update to request %s that doesn't exist", requestIDString)
 		}
-		// XXX
+		y.version = v
+		err = y.collectMetadata(sep, t)
+		if err != nil {
+			return err
+		}
+		y.span.Done(ts, false)
 	}
+	return nil
 }
 
 // so far: xop Request timestamp Start1
@@ -417,14 +414,13 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 		NamespaceVersion: nsVers,
 	}
 	request := x.dest.Request(ctx, x.ts, x.bundle, x.name, sourceInfo)
-	x.request = request
-	x.requestAttributes = x.attributes.NewRequestAttributeDefinitions(bundle.Trace.SpanID().String())
-	x.spans[bundle.Trace.GetSpanID()] = &spanData{
-		replayData: x.replayData,
-		span:       request,
-		request:    &x,
-	}
-	x.requests[bundle.Trace.GetSpanID()] = &x
+	x.baseRequest = request
+	x.span = request
+	x.request = &x
+	x.attributeRegistry = xopat.NewRegistry(false)
+	x.requestAttributes = x.attributes.NewRequestAttributeDefinitions(x.bundle.Trace.SpanID().String())
+	x.spans[x.bundle.Trace.GetSpanID()] = &x.replaySpan
+	x.requests[x.bundle.Trace.GetSpanID()] = &x
 	return nil
 }
 
@@ -482,6 +478,63 @@ func oneWord(t string, boundary string) (string, byte, string) {
 		return "", t[0], t[1:]
 	}
 	return t[:i], t[i], t[i+1:]
+}
+
+func (x *replaySpan) collectMetadata(sep byte, t string) error {
+	var key string
+	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
+		var value string
+		value, sep, t = oneWord(t, " ")
+		aDef := x.request.requestAttributes.Lookup(key)
+		if aDef == nil {
+			return errors.Errorf("missing definition for %s", key)
+		}
+		switch aDef.AttributeType {
+		// MACRO ZZZAttribute
+		case xopproto.AttributeType_ZZZ:
+			registeredAttribute, err := x.request.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+			if err != nil {
+				return err
+			}
+			// CONDITIONAL ONLY:Enum
+			ra := &registeredAttribute.EnumAttribute
+			// ELSE CONDITIONAL
+			ra := registeredAttribute
+			// END CONDITIONAL
+			// {
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64
+			v, err := strconv.ParseInt(value, 10, 64)
+			// CONDITIONAL ONLY:Bool
+			v = value == "t"
+			// CONDITIONAL ONLY:String
+			v = value
+			// CONDITIONAL ONLY:Time
+			v, err = time.Parse(time.RFC3339Nano, value)
+			// CONDITIONAL ONLY:Duration
+			v, err = time.ParseDuration(value)
+			// CONDITIONAL ONLY:Float64
+			v, err := strconv.ParseFloat(value, 64)
+			// CONDITIONAL ONLY:Link
+			// CONDITIONAL ONLY:Enum
+			// CONDITIONAL ONLY:Any
+			// END CONDITIONAL
+			// }
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Time,Duration,Float64
+			if err != nil {
+				return err
+			}
+			// END CONDITIONAL
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Duration
+			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
+			// ELSE CONDITIONAL
+			x.span.MetadataZZZ(ra, v)
+			// END CONDITIONAL
+
+		// preceding blank line required
+		default:
+			return errors.Errorf("unexpected attribute type (%s)", aDef.AttributeType)
+		}
+	}
 }
 
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
