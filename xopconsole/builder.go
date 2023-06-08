@@ -23,30 +23,23 @@ func (b *Builder) Init() {
 
 func (b *Builder) AnyCommon(v xopbase.ModelArg) {
 	v.Encode()
-	if v.Encoding == xopproto.Encoding_JSON {
-		b.AppendBytes(v.Encoded)
-	} else {
-		b.AddString(string(v.Encoded))
-		b.AppendBytes([]byte(`,"encoding":`))
-		b.AddSafeString(v.Encoding.String())
-	}
-	b.AppendBytes([]byte(`,"modelType":`))
+	b.AppendByte('(')
+	b.AddInt64(int64(len(v.Encoded)))
+	b.AppendByte(')')
+	b.AppendBytes(v.Encoded)
+	b.AddSafeString(v.Encoding.String())
+	b.AppendByte('/')
 	b.AddString(v.ModelType)
 }
 
 func (b *Builder) AttributeAny(v xopbase.ModelArg) {
-	b.AppendBytes([]byte(`{"v":`)) // }
 	b.AnyCommon(v)
-	// {
-	b.AppendByte('}')
 }
 
 func (b *Builder) AttributeEnum(v xopat.Enum) {
-	b.AppendBytes([]byte(`{"s":`))
-	b.AddString(v.String())
-	b.AppendBytes([]byte(`,"i":`))
 	b.AddInt64(v.Int64())
-	b.AppendByte('}')
+	b.B = append(b.B, '/')
+	b.AddConsoleString(v.String())
 }
 
 func (b *Builder) AttributeTime(t time.Time) {

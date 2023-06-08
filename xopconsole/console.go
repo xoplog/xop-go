@@ -434,15 +434,10 @@ func (b *Builder) Time(k string, t time.Time) {
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.AppendBytes(k.ConsoleKey())
 	b.B = append(b.B, '=')
-	b.AddInt64(v.Int64())
-	b.B = append(b.B, '/')
-	b.AddConsoleString(v.String())
+	b.Attributeenum(v)
 }
 
 func (b *Builder) Any(k string, v xopbase.ModelArg) {
 	b.addKey(k)
-	v.Encode()
-	b.AddConsoleString(strconv.Quote(string(v.Encoded)))
-	b.B = append(b.B, '/')
-	b.AddConsoleString(v.Encoding.ToString())
+	b.AnyCommon(v)
 }

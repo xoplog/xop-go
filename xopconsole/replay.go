@@ -237,7 +237,21 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				}
 				continue
 			case '/':
-				// XXX enum: int/text
+				i, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid enum int: %w", err)
+				}
+				var s string
+				s, sep, t = oneWord(t)
+				m := xopat.Make{
+					Key: key,
+				}
+				ea, err := x.attributeRegistry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
+				if err != nil {
+					return errors.Wrap(err, "build enum attribute")
+				}
+				enum := ea.Add64(i, s)
+				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Enum(&ea.EnumAttribute, enum) })
 			default:
 				// error
 			}
@@ -480,11 +494,40 @@ func oneWord(t string, boundary string) (string, byte, string) {
 	return t[:i], t[i], t[i+1:]
 }
 
+func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte, string, error) {
+	var ma xopbase.ModelArg
+	if sep != '(' {
+		return ma, ' ', "", errors.Errorf("expected sep to be (") //)
+	}
+	if value != "" {
+		return ma, ' ', "", errors.Errorf("expected empty value")
+	}
+	// (
+	sizeString, t := oneWord(t, ")")
+	size, err := strconv.ParseInt(sizeString, 10, 64)
+	if err != nil {
+		return ma, ' ', "", errors.Wrap(err, "parse size")
+	}
+	if len(t) <= size {
+		return ma, ' ', "", errors.Errorf("invalid model size, not enough left")
+	}
+	ma.Encoded = []byte(t[:size])
+	t = t[size:]
+	encodingString, sep, t := oneWord(t, "/")
+	if en, ok := xopproto.Encoding_value[encodingString]; ok {
+		ma.Encoding = xopproto.Encoding(en)
+	} else {
+		return ma, ' ', "", errors.Errorf("invalid encoding (%s) when decoding attribute", encodingString)
+	}
+	ma.ModelType, sep, t = oneWord(t, " ")
+	return ma, sep, t, nil
+}
+
 func (x *replaySpan) collectMetadata(sep byte, t string) error {
 	var key string
 	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
 		var value string
-		value, sep, t = oneWord(t, " ")
+		value, sep, t = oneWord(t, " /(")
 		aDef := x.request.requestAttributes.Lookup(key)
 		if aDef == nil {
 			return errors.Errorf("missing definition for %s", key)
@@ -496,8 +539,12 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
-			// }
+			// //////// {
+			v, sep, t, err := readAttributeAny(sep, t)
+			// //////// }
+			if err != nil {
+				return errors.Wrap(err, "invalid Any")
+			}
 			x.span.MetadataAny(ra, v)
 		case xopproto.AttributeType_Bool:
 			registeredAttribute, err := x.request.attributeRegistry.ConstructBoolAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -505,9 +552,9 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v = value == "t"
-			// }
+			// //////// }
 			x.span.MetadataBool(ra, v)
 		case xopproto.AttributeType_Duration:
 			registeredAttribute, err := x.request.attributeRegistry.ConstructDurationAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -515,11 +562,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err = time.ParseDuration(value)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Duration")
 			}
 			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 		case xopproto.AttributeType_Enum:
@@ -528,8 +575,20 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := &registeredAttribute.EnumAttribute
-			// {
-			// }
+			// //////// {
+			if sep != '/' {
+				return errors.Errorf("invalid enum")
+			}
+			var v xoputil.DecodeEnum
+			v.I, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "parse int for enum")
+			}
+			v.S, sep, t = oneWord(' ')
+			if v.S == "" {
+				return errors.Errorf("invalid enum")
+			}
+			// //////// }
 			x.span.MetadataEnum(ra, v)
 		case xopproto.AttributeType_Float64:
 			registeredAttribute, err := x.request.attributeRegistry.ConstructFloat64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -537,11 +596,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err := strconv.ParseFloat(value, 64)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Float64")
 			}
 			x.span.MetadataFloat64(ra, v)
 		case xopproto.AttributeType_Int:
@@ -550,11 +609,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err := strconv.ParseInt(value, 10, 64)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Int")
 			}
 			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 		case xopproto.AttributeType_Int16:
@@ -563,11 +622,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err := strconv.ParseInt(value, 10, 64)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Int16")
 			}
 			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 		case xopproto.AttributeType_Int32:
@@ -576,11 +635,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err := strconv.ParseInt(value, 10, 64)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Int32")
 			}
 			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 		case xopproto.AttributeType_Int64:
@@ -589,11 +648,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err := strconv.ParseInt(value, 10, 64)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Int64")
 			}
 			x.span.MetadataInt64(ra, v)
 		case xopproto.AttributeType_Int8:
@@ -602,11 +661,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err := strconv.ParseInt(value, 10, 64)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Int8")
 			}
 			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 		case xopproto.AttributeType_Link:
@@ -615,8 +674,12 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
-			// }
+			// //////// {
+			v, ok := xoptrace.TraceFromString(th)
+			if !ok {
+				return errors.Errorf("invalid trace")
+			}
+			// //////// }
 			x.span.MetadataLink(ra, v)
 		case xopproto.AttributeType_String:
 			registeredAttribute, err := x.request.attributeRegistry.ConstructStringAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -624,9 +687,9 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v = value
-			// }
+			// //////// }
 			x.span.MetadataString(ra, v)
 		case xopproto.AttributeType_Time:
 			registeredAttribute, err := x.request.attributeRegistry.ConstructTimeAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
@@ -634,11 +697,11 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 				return err
 			}
 			ra := registeredAttribute
-			// {
+			// //////// {
 			v, err = time.Parse(time.RFC3339Nano, value)
-			// }
+			// //////// }
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid Time")
 			}
 			x.span.MetadataTime(ra, v)
 

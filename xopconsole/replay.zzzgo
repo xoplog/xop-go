@@ -237,7 +237,21 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				}
 				continue
 			case '/':
-				// XXX enum: int/text
+				i, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid enum int: %w", err)
+				}
+				var s string
+				s, sep, t = oneWord(t)
+				m := xopat.Make{
+					Key: key,
+				}
+				ea, err := x.attributeRegistry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
+				if err != nil {
+					return errors.Wrap(err, "build enum attribute")
+				}
+				enum := ea.Add64(i, s)
+				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Enum(&ea.EnumAttribute, enum) })
 			default:
 				// error
 			}
@@ -480,11 +494,40 @@ func oneWord(t string, boundary string) (string, byte, string) {
 	return t[:i], t[i], t[i+1:]
 }
 
+func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte, string, error) {
+	var ma xopbase.ModelArg
+	if sep != '(' {
+		return ma, ' ', "", errors.Errorf("expected sep to be (") //)
+	}
+	if value != "" {
+		return ma, ' ', "", errors.Errorf("expected empty value")
+	}
+	// (
+	sizeString, t := oneWord(t, ")")
+	size, err := strconv.ParseInt(sizeString, 10, 64)
+	if err != nil {
+		return ma, ' ', "", errors.Wrap(err, "parse size")
+	}
+	if len(t) <= size {
+		return ma, ' ', "", errors.Errorf("invalid model size, not enough left")
+	}
+	ma.Encoded = []byte(t[:size])
+	t = t[size:]
+	encodingString, sep, t := oneWord(t, "/")
+	if en, ok := xopproto.Encoding_value[encodingString]; ok {
+		ma.Encoding = xopproto.Encoding(en)
+	} else {
+		return ma, ' ', "", errors.Errorf("invalid encoding (%s) when decoding attribute", encodingString)
+	}
+	ma.ModelType, sep, t = oneWord(t, " ")
+	return ma, sep, t, nil
+}
+
 func (x *replaySpan) collectMetadata(sep byte, t string) error {
 	var key string
 	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
 		var value string
-		value, sep, t = oneWord(t, " ")
+		value, sep, t = oneWord(t, " /(")
 		aDef := x.request.requestAttributes.Lookup(key)
 		if aDef == nil {
 			return errors.Errorf("missing definition for %s", key)
@@ -501,9 +544,22 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			// ELSE CONDITIONAL
 			ra := registeredAttribute
 			// END CONDITIONAL
-			// {
+			// //////// {
 			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64
 			v, err := strconv.ParseInt(value, 10, 64)
+			// CONDITIONAL ONLY:Enum
+			if sep != '/' {
+				return errors.Errorf("invalid enum")
+			}
+			var v xoputil.DecodeEnum
+			v.I, err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "parse int for enum")
+			}
+			v.S, sep, t = oneWord(' ')
+			if v.S == "" {
+				return errors.Errorf("invalid enum")
+			}
 			// CONDITIONAL ONLY:Bool
 			v = value == "t"
 			// CONDITIONAL ONLY:String
@@ -515,13 +571,17 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			// CONDITIONAL ONLY:Float64
 			v, err := strconv.ParseFloat(value, 64)
 			// CONDITIONAL ONLY:Link
-			// CONDITIONAL ONLY:Enum
+			v, ok := xoptrace.TraceFromString(th)
+			if !ok {
+				return errors.Errorf("invalid trace")
+			}
 			// CONDITIONAL ONLY:Any
+			v, sep, t, err := readAttributeAny(sep, t)
 			// END CONDITIONAL
-			// }
-			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Time,Duration,Float64
+			// //////// }
+			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Time,Duration,Float64,Any
 			if err != nil {
-				return err
+				return errors.Wrap(err, "invalid ZZZ")
 			}
 			// END CONDITIONAL
 			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Duration
