@@ -242,11 +242,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					return fmt.Errorf("invalid enum int: %w", err)
 				}
 				var s string
-				s, sep, t = oneWord(t)
+				s, sep, t = oneWord(t, " ")
 				m := xopat.Make{
 					Key: key,
 				}
-				ea, err := x.attributeRegistry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
+				ea, err := spanData.request.attributeRegistry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
 				if err != nil {
 					return errors.Wrap(err, "build enum attribute")
 				}
@@ -503,12 +503,12 @@ func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte,
 		return ma, ' ', "", errors.Errorf("expected empty value")
 	}
 	// (
-	sizeString, t := oneWord(t, ")")
+	sizeString, sep, t := oneWord(t, ")")
 	size, err := strconv.ParseInt(sizeString, 10, 64)
 	if err != nil {
 		return ma, ' ', "", errors.Wrap(err, "parse size")
 	}
-	if len(t) <= size {
+	if len(t) <= int(size) {
 		return ma, ' ', "", errors.Errorf("invalid model size, not enough left")
 	}
 	ma.Encoded = []byte(t[:size])
@@ -540,7 +540,8 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			}
 			ra := registeredAttribute
 			// //////// {
-			v, sep, t, err := readAttributeAny(sep, t)
+			var v xopbase.ModelArg
+			v, sep, t, err = readAttributeAny(sep, value, t)
 			// //////// }
 			if err != nil {
 				return errors.Wrap(err, "invalid Any")
@@ -553,7 +554,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			}
 			ra := registeredAttribute
 			// //////// {
-			v = value == "t"
+			v := value == "t"
 			// //////// }
 			x.span.MetadataBool(ra, v)
 		case xopproto.AttributeType_Duration:
@@ -563,7 +564,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			}
 			ra := registeredAttribute
 			// //////// {
-			v, err = time.ParseDuration(value)
+			v, err := time.ParseDuration(value)
 			// //////// }
 			if err != nil {
 				return errors.Wrap(err, "invalid Duration")
@@ -584,7 +585,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			if err != nil {
 				return errors.Wrap(err, "parse int for enum")
 			}
-			v.S, sep, t = oneWord(' ')
+			v.S, sep, t = oneWord(t, " ")
 			if v.S == "" {
 				return errors.Errorf("invalid enum")
 			}
@@ -675,7 +676,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			}
 			ra := registeredAttribute
 			// //////// {
-			v, ok := xoptrace.TraceFromString(th)
+			v, ok := xoptrace.TraceFromString(value)
 			if !ok {
 				return errors.Errorf("invalid trace")
 			}
@@ -688,7 +689,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			}
 			ra := registeredAttribute
 			// //////// {
-			v = value
+			v := value
 			// //////// }
 			x.span.MetadataString(ra, v)
 		case xopproto.AttributeType_Time:
@@ -698,7 +699,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			}
 			ra := registeredAttribute
 			// //////// {
-			v, err = time.Parse(time.RFC3339Nano, value)
+			v, err := time.Parse(time.RFC3339Nano, value)
 			// //////// }
 			if err != nil {
 				return errors.Wrap(err, "invalid Time")
@@ -710,13 +711,14 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 			return errors.Errorf("unexpected attribute type (%s)", aDef.AttributeType)
 		}
 	}
+	return nil
 }
 
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
 	scanner := bufio.NewScanner(inputStream)
 	x := replayData{
 		dest:       dest,
-		spans:      make(map[xoptrace.HexBytes8]xopbase.Span),
+		spans:      make(map[xoptrace.HexBytes8]*replaySpan),
 		requests:   make(map[xoptrace.HexBytes8]*replayRequest),
 		attributes: replayutil.NewGlobalAttributeDefinitions(),
 	}
