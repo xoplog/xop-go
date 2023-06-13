@@ -362,6 +362,7 @@ func (line Line) send(prefix []byte, text string, postfix []byte) {
 			b.AddInt64(int64(frame.Line))
 		}
 	}
+	b.AppendByte('\n')
 	_, err := line.Span.logger.out.Write(b.B)
 	if err != nil {
 		line.Span.logger.errorReporter(err)

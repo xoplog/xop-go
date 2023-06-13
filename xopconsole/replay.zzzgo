@@ -67,6 +67,7 @@ type replayLine struct {
 }
 
 // xop alert 2023-05-31T22:20:09.200456-07:00 72b09846e8ed0099 "like a rock\"\\<'\n\r\t\b\x00" frightening=stuff STACK: /Users/sharnoff/src/github.com/muir/xop-go/xoptest/xoptestutil/cases.go:39 /Users/sharnoff/src/github.com/muir/xop-go/xopconsole/replay_test.go:43 /usr/local/Cellar/go/1.20.1/libexec/src/testing/testing.go:1576
+
 func (x replayLine) replayLine(ctx context.Context, t string) error {
 	var err error
 	x.ts, t, err = oneTime(t)
@@ -75,27 +76,37 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	}
 	spanIDString, _, t := oneWord(t, " ")
 	if spanIDString == "" {
-		return fmt.Errorf("missing idString")
+		return errors.Errorf("missing idString")
 	}
 	spanID := xoptrace.NewHexBytes8FromString(spanIDString)
 	spanData, ok := x.spans[spanID]
 	if !ok {
-		return fmt.Errorf("missing span %s", spanIDString)
+		return errors.Errorf("missing span %s", spanIDString)
 	}
 	message, t := oneStringAndSpace(t)
 	for {
+		fmt.Println("xx", t)
 		key, sep, t := oneWord(t, "=:")
 		switch sep {
 		case ':':
 			if key != "STACK" {
 				return fmt.Errorf("invalid stack indicator")
 			}
+			if len(t) == 0 {
+				return errors.Errorf("invalid stack: empty")
+			}
+			if t[0] != ' ' {
+				return errors.Errorf("invalid stack: missing leading space")
+			}
+			t = t[1:]
 			for {
-				file, _, t := oneWord(t, ":")
-				if file == "" {
+				var file string
+				file, sep, t = oneWord(t, ":")
+				if sep == '\000' || file == "" {
 					return fmt.Errorf("invalid stack frame")
 				}
-				lineNum, sep, t := oneWord(t, " ")
+				var lineNum string
+				lineNum, sep, t = oneWord(t, " ")
 				if lineNum == "" {
 					return fmt.Errorf("invalid stack frame, line")
 				}
@@ -324,7 +335,7 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 	}
 	v, err := strconv.ParseUint(n[1:], 10, 64)
 	if err != nil {
-		return errors.Errorf("invalid span numbering: %w", err)
+		return errors.Wrapf(err, "invalid span numbering")
 	}
 	spanData, ok := x.spans[spanID]
 	if !ok {
@@ -526,77 +537,86 @@ func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte,
 func (x *replaySpan) collectMetadata(sep byte, t string) error {
 	var key string
 	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
-		var value string
-		value, sep, t = oneWord(t, " /(")
-		aDef := x.request.requestAttributes.Lookup(key)
-		if aDef == nil {
-			return errors.Errorf("missing definition for %s", key)
-		}
-		switch aDef.AttributeType {
-		// MACRO ZZZAttribute
-		case xopproto.AttributeType_ZZZ:
-			registeredAttribute, err := x.request.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
-			if err != nil {
-				return err
-			}
-			// CONDITIONAL ONLY:Enum
-			ra := &registeredAttribute.EnumAttribute
-			// ELSE CONDITIONAL
-			ra := registeredAttribute
-			// END CONDITIONAL
-			// //////// {
-			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64
-			v, err := strconv.ParseInt(value, 10, 64)
-			// CONDITIONAL ONLY:Enum
-			if sep != '/' {
-				return errors.Errorf("invalid enum")
-			}
-			var v xoputil.DecodeEnum
-			v.I, err = strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				return errors.Wrap(err, "parse int for enum")
-			}
-			v.S, sep, t = oneWord(t, " ")
-			if v.S == "" {
-				return errors.Errorf("invalid enum")
-			}
-			// CONDITIONAL ONLY:Bool
-			v := value == "t"
-			// CONDITIONAL ONLY:String
-			v := value
-			// CONDITIONAL ONLY:Time
-			v, err := time.Parse(time.RFC3339Nano, value)
-			// CONDITIONAL ONLY:Duration
-			v, err := time.ParseDuration(value)
-			// CONDITIONAL ONLY:Float64
-			v, err := strconv.ParseFloat(value, 64)
-			// CONDITIONAL ONLY:Link
-			v, ok := xoptrace.TraceFromString(value)
-			if !ok {
-				return errors.Errorf("invalid trace")
-			}
-			// CONDITIONAL ONLY:Any
-			var v xopbase.ModelArg
-			v, sep, t, err = readAttributeAny(sep, value, t)
-			// END CONDITIONAL
-			// //////// }
-			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Time,Duration,Float64,Any
-			if err != nil {
-				return errors.Wrap(err, "invalid ZZZ")
-			}
-			// END CONDITIONAL
-			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Duration
-			x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
-			// ELSE CONDITIONAL
-			x.span.MetadataZZZ(ra, v)
-			// END CONDITIONAL
-
-		// preceding blank line required
-		default:
-			return errors.Errorf("unexpected attribute type (%s)", aDef.AttributeType)
+		var err error
+		t, sep, err = x.oneMetadataKey(sep, t, key)
+		if err != nil {
+			return errors.Wrapf(err, "for metadata key %s", key)
 		}
 	}
 	return nil
+}
+
+func (x *replaySpan) oneMetadataKey(sep byte, t string, key string) (string, byte, error) {
+	var value string
+	value, sep, t = oneWord(t, " /(")
+	aDef := x.request.requestAttributes.Lookup(key)
+	if aDef == nil {
+		return "", '\000', errors.Errorf("missing definition for %s", key)
+	}
+	switch aDef.AttributeType {
+	// MACRO ZZZAttribute
+	case xopproto.AttributeType_ZZZ:
+		registeredAttribute, err := x.request.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
+		if err != nil {
+			return "", '\000', err
+		}
+		// CONDITIONAL ONLY:Enum
+		ra := &registeredAttribute.EnumAttribute
+		// ELSE CONDITIONAL
+		ra := registeredAttribute
+		// END CONDITIONAL
+		// //////// {
+		// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64
+		v, err := strconv.ParseInt(value, 10, 64)
+		// CONDITIONAL ONLY:Enum
+		if sep != '/' {
+			return "", '\000', errors.Errorf("invalid enum")
+		}
+		var v xoputil.DecodeEnum
+		v.I, err = strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return "", '\000', errors.Wrap(err, "parse int for enum")
+		}
+		v.S, sep, t = oneWord(t, " ")
+		if v.S == "" {
+			return "", '\000', errors.Errorf("invalid enum")
+		}
+		// CONDITIONAL ONLY:Bool
+		v := value == "t"
+		// CONDITIONAL ONLY:String
+		v := value
+		// CONDITIONAL ONLY:Time
+		v, err := time.Parse(time.RFC3339Nano, value)
+		// CONDITIONAL ONLY:Duration
+		v, err := time.ParseDuration(value)
+		// CONDITIONAL ONLY:Float64
+		v, err := strconv.ParseFloat(value, 64)
+		// CONDITIONAL ONLY:Link
+		v, ok := xoptrace.TraceFromString(value)
+		if !ok {
+			return "", '\000', errors.Errorf("invalid trace")
+		}
+		// CONDITIONAL ONLY:Any
+		var v xopbase.ModelArg
+		v, sep, t, err = readAttributeAny(sep, value, t)
+		// END CONDITIONAL
+		// //////// }
+		// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Time,Duration,Float64,Any
+		if err != nil {
+			return "", '\000', errors.Wrap(err, "invalid ZZZ")
+		}
+		// END CONDITIONAL
+		// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Duration
+		x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
+		// ELSE CONDITIONAL
+		x.span.MetadataZZZ(ra, v)
+		// END CONDITIONAL
+
+	// preceding blank line required
+	default:
+		return "", '\000', errors.Errorf("unexpected attribute type (%s)", aDef.AttributeType)
+	}
+	return t, sep, nil
 }
 
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
