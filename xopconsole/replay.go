@@ -85,8 +85,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	}
 	message, t := oneStringAndSpace(t)
 	for {
-		fmt.Println("xx", t)
-		key, sep, t := oneWord(t, "=:")
+		fmt.Println("xa", t)
+		var key string
+		var sep byte
+		key, sep, t = oneWord(t, "=:")
+		fmt.Println("xx", t, "key<", key, ">")
 		switch sep {
 		case ':':
 			if key != "STACK" {
@@ -124,10 +127,12 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			}
 			break
 		case '=':
+			fmt.Println("x=", t)
 			if len(t) == 0 {
 				return fmt.Errorf("empty value")
 			}
 			if t[0] == '(' {
+				// length indicator for encoded model
 				var lengthString string
 				lengthString, _, t = oneWord(t, ")")
 				length, err := strconv.ParseUint(lengthString, 10, 64)
@@ -169,7 +174,20 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			}
 			var value string
 			var sep byte
-			value, sep, t = oneWord(t, " (/") // )
+			if len(t) == 0 {
+				return fmt.Errorf("invalid value string, empty")
+			}
+			if t[0] == '"' {
+				value, t = oneString(t)
+				if len(t) == 0 {
+					// valid for a terminal string value
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
+					break
+				}
+				sep, t = t[0], t[1:]
+			} else {
+				value, sep, t = oneWord(t, " (/") // )
+			}
 			switch sep {
 			case '(':
 				i := strings.IndexByte(t, ')')
@@ -267,7 +285,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				// error
 			}
 		default:
-			return fmt.Errorf("invalid input")
+			return fmt.Errorf("invalid input (%s %c %s)", key, sep, t)
 		}
 	}
 	line := spanData.span.NoPrefill().Line(x.level, x.ts, x.stack)
@@ -494,6 +512,8 @@ func oneTime(t string) (time.Time, string, error) {
 	return ts, t, err
 }
 
+// oneWord is low-level and simply looks for the provided
+// boundary character(s)
 func oneWord(t string, boundary string) (string, byte, string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {
@@ -745,6 +765,7 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 	for scanner.Scan() {
 		x.lineCount++
 		t := scanner.Text()
+		fmt.Println("REPLAY", t)
 		if !strings.HasPrefix(t, "xop ") {
 			continue
 		}

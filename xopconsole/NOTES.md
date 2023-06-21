@@ -137,7 +137,7 @@ Values(type) can be one of the following:
 - 1/JSON
   An enum, numeric and string values provided
 
-- (11){"a":"foo"}/JSON/foobarType
+- (11){"a":"foo"}JSON/foobarType
   An "any", a model, encoding specified, length first in parens
 
 ## Metadata attributes
