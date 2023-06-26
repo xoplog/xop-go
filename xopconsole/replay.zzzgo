@@ -85,6 +85,9 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	}
 	message, t := oneStringAndSpace(t)
 	for {
+		if t == "" {
+			break
+		}
 		fmt.Println("xa", t)
 		var key string
 		var sep byte
@@ -93,7 +96,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 		switch sep {
 		case ':':
 			if key != "STACK" {
-				return fmt.Errorf("invalid stack indicator")
+				return errors.Errorf("invalid stack indicator")
 			}
 			if len(t) == 0 {
 				return errors.Errorf("invalid stack: empty")
@@ -104,18 +107,20 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			t = t[1:]
 			for {
 				var file string
+				fmt.Println("xs1", t)
 				file, sep, t = oneWord(t, ":")
 				if sep == '\000' || file == "" {
-					return fmt.Errorf("invalid stack frame")
+					return errors.Errorf("invalid stack frame")
 				}
 				var lineNum string
-				lineNum, sep, t = oneWord(t, " ")
+				fmt.Println("xs2", t)
+				lineNum, sep, t = oneWordTerminal(t, " ")
 				if lineNum == "" {
-					return fmt.Errorf("invalid stack frame, line")
+					return errors.Errorf("invalid stack frame, line #")
 				}
 				num, err := strconv.ParseInt(lineNum, 10, 64)
 				if err != nil {
-					return fmt.Errorf("invalid stack frame, line num: %w", err)
+					return errors.Wrap(err, "invalid stack frame, line num")
 				}
 				x.stack = append(x.stack, runtime.Frame{
 					File: file,
@@ -129,7 +134,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 		case '=':
 			fmt.Println("x=", t)
 			if len(t) == 0 {
-				return fmt.Errorf("empty value")
+				return errors.Errorf("empty value")
 			}
 			if t[0] == '(' {
 				// length indicator for encoded model
@@ -137,14 +142,14 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				lengthString, _, t = oneWord(t, ")")
 				length, err := strconv.ParseUint(lengthString, 10, 64)
 				if err != nil {
-					return fmt.Errorf("parse model length: %w", err)
+					return errors.Wrap(err, "parse model length")
 				}
 				if len(t) < int(length)+2 {
-					return fmt.Errorf("expected remaining string to be at least %d bytes", length+2)
+					return errors.Errorf("expected remaining string to be at least %d bytes", length+2)
 				}
 				encoded := t[:length]
 				if t[length] != '/' {
-					return fmt.Errorf("malformed model")
+					return errors.Errorf("malformed model")
 				}
 				t = t[length+1:]
 				var typ string
@@ -152,7 +157,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				var encoding string
 				encoding, sep, t = oneWord(t, "/")
 				if typ == "" {
-					return fmt.Errorf("missing model type")
+					return errors.Errorf("missing model type")
 				}
 				ma := xopbase.ModelArg{
 					Encoded: []byte(encoded),
@@ -162,7 +167,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				} else {
 					return errors.Errorf("invalid encoding (%s) when decoding attribute", encoding)
 				}
-				ma.ModelType, sep, t = oneWord(t, " ")
+				ma.ModelType, sep, t = oneWordTerminal(t, " ")
 				if ma.ModelType == "" {
 					return errors.Errorf("empty model type")
 				}
@@ -175,7 +180,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			var value string
 			var sep byte
 			if len(t) == 0 {
-				return fmt.Errorf("invalid value string, empty")
+				return errors.Errorf("invalid value string, empty")
 			}
 			if t[0] == '"' {
 				value, t = oneString(t)
@@ -186,13 +191,13 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				}
 				sep, t = t[0], t[1:]
 			} else {
-				value, sep, t = oneWord(t, " (/") // )
+				value, sep, t = oneWordTerminal(t, " (/") // )
 			}
 			switch sep {
 			case '(':
 				i := strings.IndexByte(t, ')')
 				if i == -1 {
-					return fmt.Errorf("invalid type specifier")
+					return errors.Errorf("invalid type specifier")
 				}
 				typ := t[:i]
 				t = t[i+1:]
@@ -200,19 +205,19 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				case "dur":
 					dur, err := time.ParseDuration(value)
 					if err != nil {
-						return fmt.Errorf("invalid duration: %w", err)
+						return errors.Wrap(err, "invalid duration")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Duration(key, dur) })
 				case "f32":
 					f, err := strconv.ParseFloat(value, 32)
 					if err != nil {
-						return fmt.Errorf("invalid float: %w", err)
+						return errors.Wrap(err, "invalid float")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(key, f, xopbase.Float32DataType) })
 				case "f64":
 					f, err := strconv.ParseFloat(value, 64)
 					if err != nil {
-						return fmt.Errorf("invalid float: %w", err)
+						return errors.Wrap(err, "invalid float")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(key, f, xopbase.Float64DataType) })
 				case "string":
@@ -222,23 +227,23 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				case "i8", "i16", "i32", "i64", "int":
 					i, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
-						return fmt.Errorf("invalid int: %w", err)
+						return errors.Wrap(err, "invalid int")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.StringToDataType[typ]) })
 				case "u8", "u16", "u32", "u64", "uint", "uintptr":
 					i, err := strconv.ParseUint(value, 10, 64)
 					if err != nil {
-						return fmt.Errorf("invalid uint: %w", err)
+						return errors.Wrap(err, "invalid uint")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Uint64(key, i, xopbase.StringToDataType[typ]) })
 				case "time":
 					ts, err := time.Parse(time.RFC3339Nano, value)
 					if err != nil {
-						return fmt.Errorf("invalid time: %w", err)
+						return errors.Wrap(err, "invalid time")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Time(key, ts) })
 				default:
-					return fmt.Errorf("invalid type: %s", typ)
+					return errors.Errorf("invalid type: %s", typ)
 				}
 			case ' ', '\000':
 				if value == "" {
@@ -248,7 +253,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 					i, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
-						return fmt.Errorf("invalid int: %w", err)
+						return errors.Wrap(err, "invalid int")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.IntDataType) })
 				default:
@@ -268,10 +273,10 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			case '/':
 				i, err := strconv.ParseInt(value, 10, 64)
 				if err != nil {
-					return fmt.Errorf("invalid enum int: %w", err)
+					return errors.Wrap(err, "invalid enum int")
 				}
 				var s string
-				s, sep, t = oneWord(t, " ")
+				s, sep, t = oneWordTerminal(t, " ")
 				m := xopat.Make{
 					Key: key,
 				}
@@ -281,11 +286,14 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				}
 				enum := ea.Add64(i, s)
 				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Enum(&ea.EnumAttribute, enum) })
+				if sep == '\000' {
+					break
+				}
 			default:
 				// error
 			}
 		default:
-			return fmt.Errorf("invalid input (%s %c %s)", key, sep, t)
+			return errors.Errorf("invalid input (%s %c %s)", key, sep, t)
 		}
 	}
 	line := spanData.span.NoPrefill().Line(x.level, x.ts, x.stack)
@@ -336,7 +344,7 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		var name string
 		name, _, t = oneWord(t, " ")
 		var spanSeqCode string
-		spanSeqCode, _, t = oneWord(t, " ")
+		spanSeqCode, _, t = oneWordTerminal(t, " ")
 		if spanSeqCode == "" {
 			return errors.Errorf("invalid span sequence code")
 		}
@@ -514,6 +522,19 @@ func oneTime(t string) (time.Time, string, error) {
 
 // oneWord is low-level and simply looks for the provided
 // boundary character(s)
+func oneWordTerminal(t string, boundary string) (string, byte, string) {
+	i := strings.IndexAny(t, boundary)
+	switch i {
+	case -1:
+		return t, '\000', ""
+	case 0:
+		return "", t[0], t[1:]
+	}
+	return t[:i], t[i], t[i+1:]
+}
+
+// oneWord is low-level and simply looks for the provided
+// boundary character(s)
 func oneWord(t string, boundary string) (string, byte, string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {
@@ -550,7 +571,7 @@ func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte,
 	} else {
 		return ma, ' ', "", errors.Errorf("invalid encoding (%s) when decoding attribute", encodingString)
 	}
-	ma.ModelType, sep, t = oneWord(t, " ")
+	ma.ModelType, sep, t = oneWordTerminal(t, " ")
 	return ma, sep, t, nil
 }
 
@@ -674,7 +695,7 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 
 			// prior line must be blank
 		default:
-			err = fmt.Errorf("invalid kind designator '%s'", kind)
+			err = errors.Errorf("invalid kind designator '%s'", kind)
 		}
 		if err != nil {
 			x.errors = append(x.errors, errors.Wrapf(err, "line %d: %s", x.lineCount, x.currentLine))
