@@ -323,9 +323,9 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 	}
 	var spanIDString string
 	var sep byte
-	spanIDString, sep, t = oneWord(t, " ")
+	spanIDString, sep, t = oneWordTerminal(t, " ")
 	if spanIDString == "" {
-		return errors.Errorf("invalid span spanID")
+		return errors.Errorf("invalid span spanID (empty)")
 	}
 	spanID := xoptrace.NewHexBytes8FromString(spanIDString)
 	if n == "Start" {
@@ -409,7 +409,7 @@ func (x replayData) replayRequest(ctx context.Context, t string) error {
 		}
 		var requestIDString string
 		var sep byte
-		requestIDString, sep, t = oneWord(t, " ")
+		requestIDString, sep, t = oneWordTerminal(t, " ")
 		requestID := xoptrace.NewHexBytes8FromString(requestIDString)
 		y, ok := x.requests[requestID]
 		if !ok {
