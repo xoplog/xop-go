@@ -307,6 +307,8 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	return nil
 }
 
+var shortCodeRE = regexp.MustCompile(`^T\d+\.\d+(\.\S+)?`)
+
 // XXX
 // Example: xop Span 2023-06-03T12:22:47.699766-07:00 Start c253fd02cd66f874 5f23a4838a2c7205 "a fork one span" T1.1.A
 func (x replayData) replaySpan(ctx context.Context, t string) error {
@@ -340,15 +342,28 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 			return errors.Errorf("%s span %s is missing parent %s", n, spanIDString, parentIDString)
 		}
 		bundle := parentSpan.request.bundle.Copy()
+		bundle.Parent.Set(bundle.Trace)
 		bundle.Trace.SpanID().Set(spanID)
 		var name string
-		name, _, t = oneWord(t, " ")
-		var spanSeqCode string
-		spanSeqCode, _, t = oneWordTerminal(t, " ")
-		if spanSeqCode == "" {
+		name, t = oneString(t)
+		if len(t) > 0 && t[0] == ' ' {
+			t = t[1:]
+		}
+		fmt.Println("XXX SPAN BEFORE SSQ", t)
+		var shortCode string
+		shortCode, _, t = oneWordTerminal(t, " ")
+		if shortCode == "" {
 			return errors.Errorf("invalid span sequence code")
 		}
-		span := parentSpan.span.Span(ctx, ts, bundle, name, spanSeqCode)
+		m := shortCodeRE.FindStringSubmatch(shortCode)
+		if m == nil {
+			return errors.Errorf("invalid span sequence code")
+		}
+		var spanSequenceCode string
+		if len(m) > 1 {
+			spanSequenceCode = m[1]
+		}
+		span := parentSpan.span.Span(ctx, ts, bundle, name, spanSequenceCode)
 		x.spans[spanID] = &replaySpan{
 			replayData: x,
 			span:       span,

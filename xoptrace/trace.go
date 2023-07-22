@@ -80,6 +80,10 @@ func TraceFromString(s string) (Trace, bool) {
 	return trace, ok
 }
 
+func (t *Trace) Set(v Trace) {
+	*t = v
+}
+
 func (t *Trace) SetString(s string) bool {
 	m := traceRE.FindStringSubmatch(s)
 	if m == nil {

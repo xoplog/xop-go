@@ -166,6 +166,15 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 	b.AddConsoleString(sourceInfo.Source + "-" + sourceInfo.SourceVersion.String())
 	b.AppendByte(' ')
 	b.AddConsoleString(sourceInfo.Namespace + "-" + sourceInfo.NamespaceVersion.String())
+	if !bundle.Parent.IsZero() {
+		b.AppendBytes([]byte(" parent:"))
+		if bundle.Parent.GetTraceID() != bundle.Trace.GetTraceID() {
+			b.AppendString(bundle.Parent.String())
+		} else {
+			b.AppendBytes(bundle.Parent.GetSpanID().HexBytes())
+		}
+	}
+
 	if !bundle.State.IsZero() {
 		b.AppendBytes([]byte(" state:"))
 		b.AppendBytes(bundle.State.Bytes())

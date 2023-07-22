@@ -30,6 +30,10 @@ xop Request 2009-11-10T23:00:00.032832823Z
           1. A quoted-if-needed Namespace+version
           1. Optional:
              1. A space
+             1. "parent:"
+             1. parent trace header OR parent span id
+          1. Optional:
+             1. A space
              1. "state:"
              1. state header, quoted if needed
           1. Optional:
