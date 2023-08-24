@@ -4,6 +4,7 @@ package xopconsole
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ type AttributeBuilder struct {
 	anyChanged   bool
 	encodeTarget *[]byte
 	encoder      *json.Encoder
+	request      *Span
 }
 
 type singleAttribute struct {
@@ -57,12 +59,13 @@ type attribute struct {
 	Type    xopbase.DataType
 }
 
-func (a *AttributeBuilder) Init() {
+func (a *AttributeBuilder) Init(request *Span) {
 	a.singles = a.singlesBuf[:0]
 	a.multis = a.multiBuf[:0]
 	a.singleMap = make(map[string]*singleAttribute)
 	a.multiMap = make(map[string]*multiAttribute)
 	a.anyChanged = false
+	a.request = request
 }
 
 // Append will only add data if there is any unflushed data to add.
@@ -82,11 +85,15 @@ func (a *AttributeBuilder) Append(b *Builder, onlyChanged bool, attributesObject
 	}
 	for _, s := range a.singleMap {
 		if s.Changed || !onlyChanged {
+			fmt.Println("XXX CHANGED", string(s.KeyValue))
 			b.AppendByte(' ')
 			b.AppendBytes(s.KeyValue)
 			s.Changed = false
+		} else {
+			fmt.Println("XXX NOT CHANGED", s.KeyValue)
 		}
 	}
+	fmt.Println("XXX after append", string(b.B))
 }
 
 func (m *multiAttribute) init(a *AttributeBuilder, k xopat.AttributeInterface) {
@@ -97,7 +104,7 @@ func (m *multiAttribute) init(a *AttributeBuilder, k xopat.AttributeInterface) {
 	m.Distinct = nil
 }
 
-func (a *AttributeBuilder) addMulti(k xopat.AttributeInterface) *multiAttribute {
+func (a *AttributeBuilder) addMulti(k xopat.AttributeInterface) (*multiAttribute, bool) {
 	var m *multiAttribute
 	var ok bool
 	m, ok = a.multiMap[k.Key()]
@@ -111,7 +118,7 @@ func (a *AttributeBuilder) addMulti(k xopat.AttributeInterface) *multiAttribute 
 		a.multiMap[k.Key()] = m
 	}
 	m.Changed = true
-	return m
+	return m, ok
 }
 
 func (s *singleAttribute) init(k xopat.AttributeInterface) {
@@ -132,10 +139,26 @@ func (a *AttributeBuilder) addSingle(k xopat.AttributeInterface) (*singleAttribu
 		a.singles = a.singles[:len(a.singles)+1]
 		s = &a.singles[len(a.singles)-1]
 		s.init(k)
+		fmt.Println("XXX add to singlemap", k.Key())
 		a.singleMap[k.Key()] = s
 	}
 	s.Changed = true
 	return s, ok
+}
+
+func (a *AttributeBuilder) defineKey(k xopat.AttributeInterface) {
+	b := xoputil.JBuilder{
+		B: make([]byte, 0, len(k.DefinitionJSONBytes())+24),
+	}
+	b.AppendBytes([]byte("xop Def "))
+	b.B = DefaultTimeFormatter(b.B, a.request.StartTime)
+	b.AppendByte(' ')
+	b.AppendBytes(k.DefinitionJSONBytes())
+	b.AppendByte('\n')
+	_, err := a.request.logger.out.Write(b.B)
+	if err != nil {
+		a.request.logger.errorReporter(err)
+	}
 }
 
 func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
@@ -156,8 +179,10 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.AnyDataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -169,7 +194,10 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.AnyDataType
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
@@ -213,8 +241,10 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.BoolDataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -224,7 +254,10 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.BoolDataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {
@@ -266,8 +299,10 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.EnumDataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -277,7 +312,10 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.EnumDataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {
@@ -319,8 +357,10 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.Float64DataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -330,7 +370,10 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.Float64DataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {
@@ -372,8 +415,10 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.Int64DataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -383,7 +428,10 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.Int64DataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {
@@ -425,8 +473,10 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.LinkDataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -436,7 +486,10 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.LinkDataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {
@@ -478,8 +531,10 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.StringDataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -489,7 +544,10 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.StringDataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {
@@ -531,8 +589,10 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			}
 		} else {
 			s.keyLen = len(s.KeyValue)
+			a.defineKey(k)
 		}
 		s.Type = xopbase.TimeDataType
+		// TODO: reuse or pool the builder
 		b := Builder{
 			JBuilder: xoputil.JBuilder{
 				B: s.KeyValue,
@@ -542,7 +602,10 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k)
+	m, preExisting := a.addMulti(k)
+	if !preExisting {
+		a.defineKey(k)
+	}
 	m.Type = xopbase.TimeDataType
 	lenBeforeKey := len(m.Builder.B)
 	if len(m.Builder.B) != 0 {

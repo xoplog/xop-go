@@ -536,30 +536,32 @@ func oneTime(t string) (time.Time, string, error) {
 	return ts, t, err
 }
 
-// oneWord is low-level and simply looks for the provided
+// oneWordTerminal is low-level and simply looks for the provided
 // boundary character(s)
-func oneWordTerminal(t string, boundary string) (string, byte, string) {
+func oneWordTerminal(t string, boundary string) (found string, sep byte, newT string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {
 	case -1:
 		return t, '\000', ""
 	case 0:
 		return "", t[0], t[1:]
+	default:
+		return t[:i], t[i], t[i+1:]
 	}
-	return t[:i], t[i], t[i+1:]
 }
 
 // oneWord is low-level and simply looks for the provided
 // boundary character(s)
-func oneWord(t string, boundary string) (string, byte, string) {
+func oneWord(t string, boundary string) (found string, sep byte, newT string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {
 	case -1:
 		return "", '\000', t
 	case 0:
 		return "", t[0], t[1:]
+	default:
+		return t[:i], t[i], t[i+1:]
 	}
-	return t[:i], t[i], t[i+1:]
 }
 
 func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte, string, error) {
@@ -593,14 +595,19 @@ func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte,
 
 func (x *replaySpan) collectMetadata(sep byte, t string) error {
 	var key string
-	for ; sep != '\000'; key, sep, t = oneWord(t, "=") {
+	fmt.Println("XXX collectMetadata start, t=", t)
+	for {
+		key, sep, t = oneWord(t, "=")
+		if sep == '\000' {
+			return nil
+		}
+		fmt.Println("XXX collectMetadata inner, t=", t, "key=", key)
 		var err error
 		t, sep, err = x.oneMetadataKey(sep, t, key)
 		if err != nil {
 			return errors.Wrapf(err, "for metadata key %s", key)
 		}
 	}
-	return nil
 }
 
 func (x *replaySpan) oneMetadataKey(sep byte, t string, key string) (string, byte, error) {

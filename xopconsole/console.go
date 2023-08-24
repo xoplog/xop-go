@@ -87,6 +87,7 @@ type Span struct {
 	Ctx                context.Context
 	SourceInfo         *xopbase.SourceInfo
 	VersionNumber      int32
+	Request            *Span
 }
 
 type Prefilling struct {
@@ -151,7 +152,7 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 		Short:      fmt.Sprintf("T%d.%d", traceNum, requestNum),
 	}
 	s.Parent = s
-	s.AttributeBuilder.Init()
+	s.AttributeBuilder.Init(s)
 	var buf [200]byte
 	b := xoputil.JBuilder{
 		B: buf[:0],
@@ -195,9 +196,12 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 func (span *Span) Done(ts time.Time, final bool) {
 	xoputil.AtomicMaxInt64(&span.EndTime, xoputil.AtomicMaxInt64(&span.provisionalEndTime, ts.UnixNano()))
 	var buf [200]byte
-	b := xoputil.JBuilder{
-		B: buf[:0],
-	}
+	b := &Builder{
+		JBuilder: xoputil.JBuilder{
+			B: buf[:0],
+		},
+	} // TODO: pull from pool
+	b.Init()
 	if span.IsRequest {
 		b.AppendBytes([]byte("xop Request "))
 	} else {
@@ -209,6 +213,8 @@ func (span *Span) Done(ts time.Time, final bool) {
 	b.B = strconv.AppendInt(b.B, int64(span.VersionNumber), 10)
 	b.AppendByte(' ')
 	b.AppendBytes(span.Bundle.Trace.SpanID().HexBytes())
+	span.AttributeBuilder.Append(b, false, false)
+	fmt.Println("XXX done with append:", string(b.B))
 	b.AppendByte('\n')
 	_, err := span.logger.out.Write(b.B)
 	if err != nil {
@@ -245,7 +251,7 @@ func (span *Span) Span(ctx context.Context, ts time.Time, bundle xoptrace.Bundle
 		TraceNum:     span.Parent.TraceNum,
 	}
 	n.Short = fmt.Sprintf("T%d.%d%s", n.TraceNum, n.RequestNum, n.SequenceCode)
-	n.AttributeBuilder.Init()
+	n.AttributeBuilder.Init(span.request)
 	var buf [200]byte
 	b := xoputil.JBuilder{
 		B: buf[:0],
