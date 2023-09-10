@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -26,13 +27,13 @@ import (
 )
 
 type replayData struct {
-	lineCount   int
-	currentLine string
-	errors      []error
-	spans       map[xoptrace.HexBytes8]*replaySpan
-	requests    map[xoptrace.HexBytes8]*replayRequest
-	dest        xopbase.Logger
-	attributes  *replayutil.GlobalAttributeDefinitions
+	lineCount            int
+	currentLine          string
+	errors               []error
+	spans                map[xoptrace.HexBytes8]*replaySpan
+	requests             map[xoptrace.HexBytes8]*replayRequest
+	dest                 xopbase.Logger
+	attributeDefinitions *replayutil.GlobalAttributeDefinitions
 }
 
 type replaySpan struct {
@@ -392,7 +393,20 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 	return nil
 }
 
+// xop Def 2023-09-10T09:15:27.76661-07:00 {"type":"defineKey","key":"http.route","desc":"HTTP handler route used to handle the request. If there are path parameters in the route their generic names should be used, eg \u0027/invoice/{number}\u0027 or \u0027/invoice/:number\u0027 depending on the router used","ns":"xop 0.0.0","indexed":true,"prom":10,"vtype":"String"}
 func (x replayData) replayDef(ctx context.Context, t string) error {
+	// skip timestamp
+	_, _, t = oneWord(t, " ")
+	if t == "" {
+		return errors.Errorf("unexpected missing key definition")
+	}
+	if t[0] != '{' { // }
+		return errors.Errorf("unexpected invalid key definition")
+	}
+	err := x.attributeDefinitions.Decode(t)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -485,7 +499,7 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	x.span = request
 	x.request = &x
 	x.attributeRegistry = xopat.NewRegistry(false)
-	x.requestAttributes = x.attributes.NewRequestAttributeDefinitions(x.bundle.Trace.SpanID().String())
+	x.requestAttributes = x.attributeDefinitions.NewRequestAttributeDefinitions(x.bundle.Trace.SpanID().String())
 	x.spans[x.bundle.Trace.GetSpanID()] = &x.replaySpan
 	x.requests[x.bundle.Trace.GetSpanID()] = &x
 	return nil
@@ -686,10 +700,10 @@ func (x *replaySpan) oneMetadataKey(sep byte, t string, key string) (string, byt
 func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) error {
 	scanner := bufio.NewScanner(inputStream)
 	x := replayData{
-		dest:       dest,
-		spans:      make(map[xoptrace.HexBytes8]*replaySpan),
-		requests:   make(map[xoptrace.HexBytes8]*replayRequest),
-		attributes: replayutil.NewGlobalAttributeDefinitions(),
+		dest:                 dest,
+		spans:                make(map[xoptrace.HexBytes8]*replaySpan),
+		requests:             make(map[xoptrace.HexBytes8]*replayRequest),
+		attributeDefinitions: replayutil.NewGlobalAttributeDefinitions(),
 	}
 	for scanner.Scan() {
 		x.lineCount++
