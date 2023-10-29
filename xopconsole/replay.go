@@ -311,7 +311,10 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 var shortCodeRE = regexp.MustCompile(`^T\d+\.\d+(\.\S+)?`)
 
 // XXX
-// Example: xop Span 2023-06-03T12:22:47.699766-07:00 Start c253fd02cd66f874 5f23a4838a2c7205 "a fork one span" T1.1.A
+// Example:
+//
+//	xop Span 2023-06-03T12:22:47.699766-07:00 Start c253fd02cd66f874 5f23a4838a2c7205 "a fork one span" T1.1.A
+//	xop Span 2023-09-19T21:08:15.545908-07:00 v1 ed738448be5cde53 http.route="/some/thing"
 func (x replayData) replaySpan(ctx context.Context, t string) error {
 	var err error
 	var ts time.Time
@@ -504,6 +507,14 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	return nil
 }
 
+func oneStringAndSep(t string) (string, byte, string) {
+	s, t := oneString(t)
+	if t == "" {
+		return s, '\000', t
+	}
+	return s, t[0], t[1:]
+}
+
 func oneStringAndSpace(t string) (string, string) {
 	a, b := oneString(t)
 	if a == "" {
@@ -625,7 +636,8 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 
 func (x *replaySpan) oneMetadataKey(sep byte, t string, key string) (string, byte, error) {
 	var value string
-	value, sep, t = oneWord(t, " /(")
+	value, sep, t = oneStringAndSep(t)
+	fmt.Println("XXX one metadata key=", key, "got:", value, "remaining:", t)
 	aDef := x.request.requestAttributes.Lookup(key)
 	if aDef == nil {
 		return "", '\000', errors.Errorf("missing definition for %s", key)
