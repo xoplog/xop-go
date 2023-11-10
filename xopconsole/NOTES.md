@@ -78,7 +78,7 @@ xop Request 2009-11-10T23:00:00.032832823Z
         - Message:
           1. Optional format indicator:
              - Template:
-               1. "TMPL:"
+               1. "TEMPLATE:"
              - No template:
      1. quoted-if-needed line message (or template)
      1. Repeating:

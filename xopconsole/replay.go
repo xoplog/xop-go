@@ -69,6 +69,15 @@ type replayLine struct {
 
 // xop alert 2023-05-31T22:20:09.200456-07:00 72b09846e8ed0099 "like a rock\"\\<'\n\r\t\b\x00" frightening=stuff STACK: /Users/sharnoff/src/github.com/muir/xop-go/xoptest/xoptestutil/cases.go:39 /Users/sharnoff/src/github.com/muir/xop-go/xopconsole/replay_test.go:43 /usr/local/Cellar/go/1.20.1/libexec/src/testing/testing.go:1576
 
+type lineType int
+
+const (
+	lineTypeLine lineType = iota
+	lineTypeTemplate
+	lineTypeModel
+	lineTypeLink
+)
+
 func (x replayLine) replayLine(ctx context.Context, t string) error {
 	var err error
 	x.ts, t, err = oneTime(t)
@@ -84,7 +93,29 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	if !ok {
 		return errors.Errorf("missing span %s", spanIDString)
 	}
-	message, t := oneStringAndSpace(t)
+	var lineType lineType
+	message, t := oneString(t)
+	if t != "" {
+		switch t[0] {
+		case ' ':
+			t = t[1:]
+		case ':':
+			switch message {
+			case "TEMPLATE":
+				lineType = lineTypeTemplate
+				message, t = oneStringAndSpace(t[1:])
+				fmt.Println("xTEMPL", message, "remain", t)
+			case "MODEL":
+				lineType = lineTypeModel
+			case "LINK":
+				lineType = lineTypeLink
+			default:
+				return errors.Errorf("invalid line, invalid prefix (%s)", message)
+			}
+		default:
+			return errors.Errorf("invalid line, message is word (%s) that isn't space-terminated (%c)", message, t[0])
+		}
+	}
 	for {
 		if t == "" {
 			break
@@ -97,7 +128,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 		switch sep {
 		case ':':
 			if key != "STACK" {
-				return errors.Errorf("invalid stack indicator")
+				return errors.Errorf("invalid stack indicator (key=%s, remaining=%s)", key, t)
 			}
 			if len(t) == 0 {
 				return errors.Errorf("invalid stack: empty")
@@ -301,10 +332,20 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	for _, af := range x.attributes {
 		af(line)
 	}
-	// XXX Model
-	// XXX Link
-	// XXX Template
-	line.Msg(message)
+	switch lineType {
+	case lineTypeLine:
+		line.Msg(message)
+	case lineTypeTemplate:
+		line.Template(message)
+	case lineTypeModel:
+		// XXX
+		line.Msg(message)
+	case lineTypeLink:
+		// XXX
+		line.Msg(message)
+	default:
+		return errors.Errorf("invalid line type %d", lineType)
+	}
 	return nil
 }
 
@@ -526,7 +567,9 @@ func oneStringAndSpace(t string) (string, string) {
 	return a, b
 }
 
-// oneString reads a possibly-quoted string
+// oneString reads a possibly-quoted string. A quoted
+// string ends with a quote. An un-quoted string ends
+// with something that breaks the simple-word pattern.
 func oneString(t string) (string, string) {
 	if len(t) == 0 {
 		return "", ""

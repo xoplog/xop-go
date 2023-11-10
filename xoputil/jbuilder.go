@@ -67,8 +67,8 @@ func (b *JBuilder) AddString(v string) {
 	b.B = append(b.B, '"')
 }
 
-var punct = "`" + `_~!@#$%^&*\[\]{}:;'<>,.?/`
-var safe = `^[` + punct + `\p{L}][-` + punct + `\w]*`
+var punct = "`" + `_~!@#$%^&*\[\]{};'<>,.?/`
+var safe = `^[` + punct + `\p{L}](?:[-:` + punct + `\w]*[-` + punct + `\w])?`
 var safeRE = regexp.MustCompile(safe + `$`)
 var UnquotedConsoleStringRE = regexp.MustCompile(safe)
 
@@ -78,6 +78,7 @@ var UnquotedConsoleStringRE = regexp.MustCompile(safe)
 //     () - used for type signatures and lengths
 //     " - used for quoted strings
 //     space - used to separate attributes
+//     : cannot end with :
 
 // AddConsoleString adds a string that may or may not be quoted. Unquoted
 // strings are not "t", "f", or have any "/", "(", ")", quotes ("), or spaces.
