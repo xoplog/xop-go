@@ -48,7 +48,11 @@ func (b *Builder) AttributeTime(t time.Time) {
 }
 
 func (b *Builder) AttributeBool(v bool) {
-	b.AddBool(v)
+	if v {
+		b.B = append(b.B, 't')
+	} else {
+		b.B = append(b.B, 'f')
+	}
 }
 
 func (b *Builder) AttributeInt64(v int64) {

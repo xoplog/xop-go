@@ -526,8 +526,10 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	// XXX baggage
 	// XXX span
 	// XXX parent
+	parent := xoptrace.NewTrace()
 	x.bundle = xoptrace.Bundle{
-		Trace: x.trace,
+		Trace:  x.trace,
+		Parent: parent,
 	}
 	ns, nsVers := version.SplitVersion(x.namespaceAndVersion)
 	so, soVers := version.SplitVersion(x.sourceAndVersion)
@@ -679,6 +681,7 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 
 func (x *replaySpan) oneMetadataKey(sep byte, t string, key string) (string, byte, error) {
 	var value string
+	fmt.Println("XXX one metadata t=", t)
 	value, sep, t = oneStringAndSep(t)
 	fmt.Println("XXX one metadata key=", key, "got:", value, "remaining:", t)
 	aDef := x.request.requestAttributes.Lookup(key)

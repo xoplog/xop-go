@@ -68,7 +68,7 @@ func (b *JBuilder) AddString(v string) {
 }
 
 var punct = "`" + `_~!@#$%^&*\[\]{};'<>,.?/`
-var safe = `^[` + punct + `\p{L}](?:[-:` + punct + `\w]*[-` + punct + `\w])?`
+var safe = `^[-` + punct + `\w](?:[-:` + punct + `\w]*[-` + punct + `\w])?`
 var safeRE = regexp.MustCompile(safe + `$`)
 var UnquotedConsoleStringRE = regexp.MustCompile(safe)
 
