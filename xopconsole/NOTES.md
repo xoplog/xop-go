@@ -148,3 +148,7 @@ Values(type) can be one of the following:
 
 key=value, no type indicators
 
+Multi-valued values are done with 
+
+key=value,value,value,value
+

@@ -99,11 +99,11 @@ func (a *AttributeBuilder) Append(b *Builder, onlyChanged bool, attributesObject
 func (m *multiAttribute) init(a *AttributeBuilder, k xopat.AttributeInterface) {
 	m.Builder.B = m.Buf[:0]
 	m.Builder.Reset()
-	m.Builder.AppendBytes(k.ConsoleKey())
-	m.Builder.AppendByte('=')
 	m.Distinct = nil
 }
 
+// addMulti sets up the multiMap entry, it does not populate
+// the value or builder.
 func (a *AttributeBuilder) addMulti(k xopat.AttributeInterface) (*multiAttribute, bool) {
 	var m *multiAttribute
 	var ok bool
@@ -172,66 +172,68 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		a.encoder.SetEscapeHTML(false)
 	}
 	//END CONDITIONAL
-	if !k.Multiple() {
-		s, preExisting := a.addSingle(k)
-		if preExisting {
-			if k.Locked() {
-				return
-			} else {
-				s.KeyValue = s.KeyValue[:s.keyLen]
-			}
-		} else {
-			s.keyLen = len(s.KeyValue)
+	if k.Multiple() {
+		m, preExisting := a.addMulti(k)
+		if !preExisting {
 			a.defineKey(k)
+			m.Builder.AppendBytes(k.ConsoleKey())
 		}
-		s.Type = xopbase.ZZZDataType
-		// TODO: reuse or pool the builder
-		b := Builder{
-			JBuilder: xoputil.JBuilder{
-				B: s.KeyValue,
-			},
-			//CONDITIONAL ONLY:Any
-			encoder: a.encoder,
-			//END CONDITIONAL
-		}
+		m.Type = xopbase.ZZZDataType
 		//CONDITIONAL ONLY:Any
-		a.encodeTarget = &b.B
+		a.encodeTarget = &m.Builder.B
+		m.Builder.encoder = a.encoder
 		//END CONDITIONAL
-		b.AttributeZZZ(v)
-		s.KeyValue = b.B
+		lenAfterKey := len(m.Builder.B)
+		if preExisting {
+			m.Builder.AppendByte(',')
+		}
+		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
+		lenBeforeData := len(m.Builder.B)
+		m.Builder.AttributeZZZ(v)
+		if k.Distinct() {
+			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
+			if m.Distinct == nil {
+				m.Distinct = make(map[string]struct{})
+				m.Distinct[sk] = struct{}{}
+			} else {
+				if _, ok := m.Distinct[sk]; ok {
+					m.Builder.B = m.Builder.B[:lenAfterKey]
+					if m.Builder.B[len(m.Builder.B)-1] == ',' {
+						m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
+					}
+				} else {
+					m.Distinct[sk] = struct{}{}
+				}
+			}
+		}
 		return
 	}
-	m, preExisting := a.addMulti(k)
-	if !preExisting {
+	// Single attribute
+	s, preExisting := a.addSingle(k)
+	if preExisting {
+		if k.Locked() {
+			return
+		} else {
+			s.KeyValue = s.KeyValue[:s.keyLen]
+		}
+	} else {
+		s.keyLen = len(s.KeyValue)
 		a.defineKey(k)
 	}
-	m.Type = xopbase.ZZZDataType
+	s.Type = xopbase.ZZZDataType
+	// TODO: reuse or pool the builder
+	b := Builder{
+		JBuilder: xoputil.JBuilder{
+			B: s.KeyValue,
+		},
+		//CONDITIONAL ONLY:Any
+		encoder: a.encoder,
+		//END CONDITIONAL
+	}
 	//CONDITIONAL ONLY:Any
-	a.encodeTarget = &m.Builder.B
-	m.Builder.encoder = a.encoder
+	a.encodeTarget = &b.B
 	//END CONDITIONAL
-	lenBeforeKey := len(m.Builder.B)
-	if len(m.Builder.B) != 0 {
-		m.Builder.AppendByte(' ')
-	}
-	// we add the new value unconditionally but can retroactively remove it by shortening to lenBeforeKey
-	m.Builder.AppendBytes(k.ConsoleKey())
-	lenBeforeData := len(m.Builder.B)
-	m.Builder.AttributeZZZ(v)
-	if k.Distinct() {
-		sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
-		if m.Distinct == nil {
-			m.Distinct = make(map[string]struct{})
-			m.Distinct[sk] = struct{}{}
-		} else {
-			if _, ok := m.Distinct[sk]; ok {
-				m.Builder.B = m.Builder.B[:lenBeforeKey]
-				if m.Builder.B[len(m.Builder.B)-1] == ',' {
-					m.Builder.B = m.Builder.B[0 : len(m.Builder.B)-1]
-				}
-			} else {
-				m.Distinct[sk] = struct{}{}
-			}
-		}
-	}
+	b.AttributeZZZ(v)
+	s.KeyValue = b.B
+	return
 }
