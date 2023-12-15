@@ -390,6 +390,7 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		}
 		bundle := parentSpan.request.bundle.Copy()
 		bundle.Parent.Set(bundle.Trace)
+		bundle.Parent.SpanID().Set(parentID)
 		bundle.Trace.SpanID().Set(spanID)
 		var name string
 		name, t = oneString(t)
