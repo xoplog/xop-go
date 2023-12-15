@@ -67,7 +67,13 @@ func (b *JBuilder) AddString(v string) {
 	b.B = append(b.B, '"')
 }
 
-var punct = "`" + `_~!@#$%^&*\[\]{};'<>,.?/`
+// Quoting required for:
+//
+//	,	- for separating multiple values in metadata
+//	()	- for type annotations
+//	' '	- for separating key/value pairs
+//	"	- for quoting strings
+var punct = "`" + `_~!@#$%^&*\[\]{};'<>.?/`
 var safe = `^[-` + punct + `\w](?:[-:` + punct + `\w]*[-` + punct + `\w])?`
 var safeRE = regexp.MustCompile(safe + `$`)
 var UnquotedConsoleStringRE = regexp.MustCompile(safe)

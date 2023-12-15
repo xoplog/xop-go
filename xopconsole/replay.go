@@ -672,22 +672,28 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 		}
 		fmt.Println("XXX collectMetadata inner, t=", t, "key=", key)
 		var err error
-		t, sep, err = x.oneMetadataKey(sep, t, key)
-		if err != nil {
-			return errors.Wrapf(err, "for metadata key %s", key)
+		aDef := x.request.requestAttributes.Lookup(key)
+		if aDef == nil {
+			return errors.Errorf("missing definition for '%s'", key)
+		}
+		for {
+			t, sep, err = x.oneMetadataValue(sep, t, aDef)
+			if err != nil {
+				return errors.Wrapf(err, "for metadata key %s", key)
+			}
+			if sep == ',' {
+				continue
+			}
+			break
 		}
 	}
 }
 
-func (x *replaySpan) oneMetadataKey(sep byte, t string, key string) (string, byte, error) {
+func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.DecodeAttributeDefinition) (string, byte, error) {
 	var value string
 	fmt.Println("XXX one metadata t=", t)
 	value, sep, t = oneStringAndSep(t)
-	fmt.Println("XXX one metadata key=", key, "got:", value, "remaining:", t)
-	aDef := x.request.requestAttributes.Lookup(key)
-	if aDef == nil {
-		return "", '\000', errors.Errorf("missing definition for %s", key)
-	}
+	fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
 	switch aDef.AttributeType {
 	case xopproto.AttributeType_Any:
 		registeredAttribute, err := x.request.attributeRegistry.ConstructAnyAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
