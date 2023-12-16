@@ -570,6 +570,19 @@ func oneStringAndSpace(t string) (string, string) {
 	return a, b
 }
 
+func unquote(t string) string {
+	if t == "" {
+		return ""
+	}
+	if t[0] == '"' {
+		u, err := strconv.Unquote(t)
+		if err == nil {
+			return u
+		}
+	}
+	return t
+}
+
 // oneString reads a possibly-quoted string. A quoted
 // string ends with a quote. An un-quoted string ends
 // with something that breaks the simple-word pattern.
@@ -654,6 +667,7 @@ func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte,
 	ma.Encoded = []byte(t[:size])
 	t = t[size:]
 	encodingString, sep, t := oneWord(t, "/")
+	encodingString = unquote(encodingString)
 	if en, ok := xopproto.Encoding_value[encodingString]; ok {
 		ma.Encoding = xopproto.Encoding(en)
 	} else {
