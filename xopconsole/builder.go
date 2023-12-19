@@ -26,7 +26,7 @@ func (b *Builder) AnyCommon(v xopbase.ModelArg) {
 	b.AddInt64(int64(len(v.Encoded)))
 	b.AppendByte(')')
 	b.AppendBytes(v.Encoded)
-	b.AddSafeString(v.Encoding.String())
+	b.AppendString(v.Encoding.String())
 	b.AppendByte('/')
 	b.AddString(v.ModelType)
 }

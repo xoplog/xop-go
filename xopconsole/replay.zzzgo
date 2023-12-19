@@ -647,15 +647,13 @@ func oneWord(t string, boundary string) (found string, sep byte, newT string) {
 	}
 }
 
-func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte, string, error) {
+func readAttributeAny(t string) (xopbase.ModelArg, byte, string, error) {
 	var ma xopbase.ModelArg
-	if sep != '(' {
-		return ma, ' ', "", errors.Errorf("expected sep to be (") //)
-	}
-	if value != "" {
+	if t != "" {
 		return ma, ' ', "", errors.Errorf("expected empty value")
 	}
 	// (
+	var sep byte
 	sizeString, sep, t := oneWord(t, ")")
 	size, err := strconv.ParseInt(sizeString, 10, 64)
 	if err != nil {
@@ -667,7 +665,6 @@ func readAttributeAny(sep byte, value string, t string) (xopbase.ModelArg, byte,
 	ma.Encoded = []byte(t[:size])
 	t = t[size:]
 	encodingString, sep, t := oneWord(t, "/")
-	encodingString = unquote(encodingString)
 	if en, ok := xopproto.Encoding_value[encodingString]; ok {
 		ma.Encoding = xopproto.Encoding(en)
 	} else {
@@ -705,17 +702,22 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 }
 
 func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.DecodeAttributeDefinition) (string, byte, error) {
-	var value string
-	fmt.Println("XXX one metadata t=", t)
-	value, sep, t = oneStringAndSep(t)
-	fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
 	switch aDef.AttributeType {
 	// MACRO ZZZAttribute
 	case xopproto.AttributeType_ZZZ:
+		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructZZZAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
 		}
+		// CONDITIONAL ONLY:Any
+		var v xopbase.ModelArg
+		v, sep, t, err = readAttributeAny(t)
+		// ELSE CONDITIONAL
+		var value string
+		value, sep, t = oneStringAndSep(t)
+		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
+		// END CONDITIONAL
 		// CONDITIONAL ONLY:Enum
 		ra := &registeredAttribute.EnumAttribute
 		// ELSE CONDITIONAL
@@ -752,9 +754,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if !ok {
 			return "", '\000', errors.Errorf("invalid trace")
 		}
-		// CONDITIONAL ONLY:Any
-		var v xopbase.ModelArg
-		v, sep, t, err = readAttributeAny(sep, value, t)
 		// END CONDITIONAL
 		// //////// }
 		// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Time,Duration,Float64,Any
