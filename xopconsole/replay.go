@@ -633,6 +633,33 @@ func oneWordTerminal(t string, boundary string) (found string, sep byte, newT st
 	}
 }
 
+func oneWordMaybeQuoted(t string, boundary string) (found string, sep byte, newT string) {
+	if t == "" {
+		return "", '\000', ""
+	}
+	if t[0] == '"' {
+		for i := 1; i < len(t); i++ {
+			switch t[i] {
+			case '\\':
+				if i < len(t) {
+					i++
+				}
+			case '"':
+				one, err := strconv.Unquote(t[0 : i+1])
+				if err != nil {
+					return "", '\000', t
+				}
+				t = t[i+1:]
+				if t == "" {
+					return one, '\000', ""
+				}
+				return one, t[0], t[1:]
+			}
+		}
+	}
+	return oneWord(t, boundary)
+}
+
 // oneWord is low-level and simply looks for the provided
 // boundary character(s)
 func oneWord(t string, boundary string) (found string, sep byte, newT string) {
@@ -649,12 +676,15 @@ func oneWord(t string, boundary string) (found string, sep byte, newT string) {
 
 func readAttributeAny(t string) (xopbase.ModelArg, byte, string, error) {
 	var ma xopbase.ModelArg
-	if t != "" {
-		return ma, ' ', "", errors.Errorf("expected empty value")
+	if t == "" {
+		return ma, ' ', "", errors.Errorf("expected non-empty value")
 	}
-	// (
+	if t[0] != '(' /*)*/ {
+		return ma, ' ', "", errors.Errorf("expected open-paren")
+	}
+	t = t[1:]
 	var sep byte
-	sizeString, sep, t := oneWord(t, ")")
+	sizeString, sep, t := oneWord(t /*(*/, ")")
 	size, err := strconv.ParseInt(sizeString, 10, 64)
 	if err != nil {
 		return ma, ' ', "", errors.Wrap(err, "parse size")
@@ -670,7 +700,7 @@ func readAttributeAny(t string) (xopbase.ModelArg, byte, string, error) {
 	} else {
 		return ma, ' ', "", errors.Errorf("invalid encoding (%s) when decoding attribute", encodingString)
 	}
-	ma.ModelType, sep, t = oneWordTerminal(t, " ")
+	ma.ModelType, sep, t = oneWordMaybeQuoted(t, " ")
 	return ma, sep, t, nil
 }
 
