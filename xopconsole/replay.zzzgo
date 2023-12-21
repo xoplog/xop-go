@@ -84,7 +84,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	if err != nil {
 		return err
 	}
-	spanIDString, _, t := oneWord(t, " ")
+	spanIDString, _, t := oneWordTerminal(t, " ")
 	if spanIDString == "" {
 		return errors.Errorf("missing idString")
 	}
@@ -124,7 +124,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 		var key string
 		var sep byte
 		key, sep, t = oneWord(t, "=:")
-		fmt.Println("xx", t, "key<", key, ">")
+		fmt.Println("xxw", t, "key<", key, ">")
 		switch sep {
 		case ':':
 			if key != "STACK" {
@@ -164,6 +164,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			}
 			break
 		case '=':
+			key = unquote(key)
 			fmt.Println("x=", t)
 			if len(t) == 0 {
 				return errors.Errorf("empty value")
@@ -231,8 +232,12 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				if i == -1 {
 					return errors.Errorf("invalid type specifier")
 				}
+				fmt.Println("XXX advancing for (): typ=", t[:i], "t=", t[i+1:])
 				typ := t[:i]
 				t = t[i+1:]
+				if t != "" && t[0] == ' ' {
+					t = t[1:]
+				}
 				switch typ {
 				case "dur":
 					dur, err := time.ParseDuration(value)
@@ -647,7 +652,8 @@ func oneWordMaybeQuoted(t string, boundary string) (found string, sep byte, newT
 }
 
 // oneWordTerminal is low-level and simply looks for the provided
-// boundary character(s). It returns t if the boundary character is missing
+// boundary character(s). It returns t if the boundary character is missing. Use
+// this when the word may be the last thing on a line.
 func oneWordTerminal(t string, boundary string) (found string, sep byte, newT string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {
@@ -662,7 +668,7 @@ func oneWordTerminal(t string, boundary string) (found string, sep byte, newT st
 
 // oneWord is low-level and simply looks for the provided
 // boundary character(s). It returns an empty string if the boundary character
-// is missing.
+// is missing. Use this when the word is never the last thing on a line.
 func oneWord(t string, boundary string) (found string, sep byte, newT string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {

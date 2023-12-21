@@ -338,12 +338,12 @@ func (line *Line) Model(m string, v xopbase.ModelArg) {
 
 // Msg is a required method for xopbase.Line
 func (line *Line) Msg(m string) {
-	line.send(nil, m, nil)
+	line.send(nil, line.PrefillMsg+m, nil)
 }
 
 // Template is a required method for xopbase.Line
 func (line *Line) Template(m string) {
-	line.send([]byte("TEMPLATE:"), m, nil)
+	line.send([]byte("TEMPLATE:"), line.PrefillMsg+m, nil)
 }
 
 func (line Line) send(prefix []byte, text string, postfix []byte) {
