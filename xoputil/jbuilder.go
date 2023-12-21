@@ -73,6 +73,7 @@ func (b *JBuilder) AddString(v string) {
 //	()	- for type annotations
 //	' '	- for separating key/value pairs
 //	"	- for quoting strings
+//	/	- for splitting enums
 var punct = "`" + `_~!@#$%^&*\[\]{};'<>.?/`
 var safe = `^[-` + punct + `\w](?:[-:` + punct + `\w]*[-` + punct + `\w])?`
 var safeRE = regexp.MustCompile(safe + `$`)

@@ -619,20 +619,6 @@ func oneTime(t string) (time.Time, string, error) {
 	return ts, t, err
 }
 
-// oneWordTerminal is low-level and simply looks for the provided
-// boundary character(s)
-func oneWordTerminal(t string, boundary string) (found string, sep byte, newT string) {
-	i := strings.IndexAny(t, boundary)
-	switch i {
-	case -1:
-		return t, '\000', ""
-	case 0:
-		return "", t[0], t[1:]
-	default:
-		return t[:i], t[i], t[i+1:]
-	}
-}
-
 func oneWordMaybeQuoted(t string, boundary string) (found string, sep byte, newT string) {
 	if t == "" {
 		return "", '\000', ""
@@ -660,8 +646,23 @@ func oneWordMaybeQuoted(t string, boundary string) (found string, sep byte, newT
 	return oneWord(t, boundary)
 }
 
+// oneWordTerminal is low-level and simply looks for the provided
+// boundary character(s). It returns t if the boundary character is missing
+func oneWordTerminal(t string, boundary string) (found string, sep byte, newT string) {
+	i := strings.IndexAny(t, boundary)
+	switch i {
+	case -1:
+		return t, '\000', ""
+	case 0:
+		return "", t[0], t[1:]
+	default:
+		return t[:i], t[i], t[i+1:]
+	}
+}
+
 // oneWord is low-level and simply looks for the provided
-// boundary character(s)
+// boundary character(s). It returns an empty string if the boundary character
+// is missing.
 func oneWord(t string, boundary string) (found string, sep byte, newT string) {
 	i := strings.IndexAny(t, boundary)
 	switch i {
@@ -700,7 +701,7 @@ func readAttributeAny(t string) (xopbase.ModelArg, byte, string, error) {
 	} else {
 		return ma, ' ', "", errors.Errorf("invalid encoding (%s) when decoding attribute", encodingString)
 	}
-	ma.ModelType, sep, t = oneWordMaybeQuoted(t, " ")
+	ma.ModelType, sep, t = oneWordMaybeQuoted(t, " ,")
 	return ma, sep, t, nil
 }
 
@@ -739,9 +740,11 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var v xopbase.ModelArg
 		v, sep, t, err = readAttributeAny(t)
-		ra := registeredAttribute
+		// //////// }
 		// //////// {
 		// //////// }
 		if err != nil {
@@ -754,10 +757,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v := value == "t"
 		// //////// }
@@ -768,10 +773,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := time.ParseDuration(value)
 		// //////// }
@@ -785,10 +792,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
-		var value string
-		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
+		// //////// {
 		ra := &registeredAttribute.EnumAttribute
+		var value string
+		value, sep, t = oneWord(t, "/")
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		if sep != '/' {
 			return "", '\000', errors.Errorf("invalid enum")
@@ -798,7 +807,7 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', errors.Wrap(err, "parse int for enum")
 		}
-		v.S, sep, t = oneWord(t, " ")
+		v.S, sep, t = oneWordTerminal(t, " ,")
 		if v.S == "" {
 			return "", '\000', errors.Errorf("invalid enum")
 		}
@@ -810,10 +819,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := strconv.ParseFloat(value, 64)
 		// //////// }
@@ -827,10 +838,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
 		// //////// }
@@ -844,10 +857,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
 		// //////// }
@@ -861,10 +876,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
 		// //////// }
@@ -878,10 +895,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
 		// //////// }
@@ -895,10 +914,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
 		// //////// }
@@ -912,10 +933,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, ok := xoptrace.TraceFromString(value)
 		if !ok {
@@ -929,10 +952,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v := value
 		// //////// }
@@ -943,10 +968,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		if err != nil {
 			return "", '\000', err
 		}
+		// //////// {
+		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "got:", value, "remaining:", t)
-		ra := registeredAttribute
+		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
+		// //////// }
 		// //////// {
 		v, err := time.Parse(time.RFC3339Nano, value)
 		// //////// }
