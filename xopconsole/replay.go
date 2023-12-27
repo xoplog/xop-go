@@ -169,53 +169,21 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			if len(t) == 0 {
 				return errors.Errorf("empty value")
 			}
-			if t[0] == '(' {
-				// length indicator for encoded model
-				var lengthString string
-				lengthString, _, t = oneWord(t, ")")
-				length, err := strconv.ParseUint(lengthString, 10, 64)
+			var value string
+			var sep byte
+			switch t[0] {
+			case '(': // )
+				var ma xopbase.ModelArg
+				ma, sep, t, err = readAttributeAny(t)
 				if err != nil {
-					return errors.Wrap(err, "parse model length")
-				}
-				if len(t) < int(length)+2 {
-					return errors.Errorf("expected remaining string to be at least %d bytes", length+2)
-				}
-				encoded := t[:length]
-				if t[length] != '/' {
-					return errors.Errorf("malformed model")
-				}
-				t = t[length+1:]
-				var typ string
-				var sep byte
-				var encoding string
-				encoding, sep, t = oneWord(t, "/")
-				if typ == "" {
-					return errors.Errorf("missing model type")
-				}
-				ma := xopbase.ModelArg{
-					Encoded: []byte(encoded),
-				}
-				if en, ok := xopproto.Encoding_value[encoding]; ok {
-					ma.Encoding = xopproto.Encoding(en)
-				} else {
-					return errors.Errorf("invalid encoding (%s) when decoding attribute", encoding)
-				}
-				ma.ModelType, sep, t = oneWordTerminal(t, " ")
-				if ma.ModelType == "" {
-					return errors.Errorf("empty model type")
+					return errors.Errorf("parse any attribute: %s", err)
 				}
 				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Any(key, ma) })
 				if sep == '\000' {
 					break
 				}
 				continue
-			}
-			var value string
-			var sep byte
-			if len(t) == 0 {
-				return errors.Errorf("invalid value string, empty")
-			}
-			if t[0] == '"' {
+			case '"':
 				value, t = oneString(t)
 				if len(t) == 0 {
 					// valid for a terminal string value
@@ -223,7 +191,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					break
 				}
 				sep, t = t[0], t[1:]
-			} else {
+			default:
 				value, sep, t = oneWordTerminal(t, " (/") // )
 			}
 			switch sep {
@@ -232,6 +200,10 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				if i == -1 {
 					return errors.Errorf("invalid type specifier")
 				}
+				if len(t) < i+1 {
+					// (
+					return errors.Errorf("no data after ): %s", t)
+				}
 				fmt.Println("XXX advancing for (): typ=", t[:i], "t=", t[i+1:])
 				typ := t[:i]
 				t = t[i+1:]
@@ -239,6 +211,12 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					t = t[1:]
 				}
 				switch typ {
+				case "bool":
+					b, err := strconv.ParseBool(value)
+					if err != nil {
+						return errors.Wrap(err, "invalid bool")
+					}
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, b) })
 				case "dur":
 					dur, err := time.ParseDuration(value)
 					if err != nil {
@@ -267,7 +245,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 						return errors.Wrap(err, "invalid int")
 					}
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.StringToDataType[typ]) })
-				case "u8", "u16", "u32", "u64", "uint", "uintptr":
+				case "u", "u8", "u16", "u32", "u64", "uintptr":
 					i, err := strconv.ParseUint(value, 10, 64)
 					if err != nil {
 						return errors.Wrap(err, "invalid uint")
@@ -730,7 +708,7 @@ func readAttributeAny(t string) (xopbase.ModelArg, byte, string, error) {
 	t = t[1:]
 	var sep byte
 	sizeString, sep, t := oneWord(t /*(*/, ")")
-	size, err := strconv.ParseInt(sizeString, 10, 64)
+	size, err := strconv.ParseUint(sizeString, 10, 64)
 	if err != nil {
 		return ma, ' ', "", errors.Wrap(err, "parse size")
 	}

@@ -448,8 +448,8 @@ func (b *Builder) Time(k string, t time.Time) {
 
 // Enum doesn't need a type indicator
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
+	b.B = append(b.B, ' ')
 	b.AppendBytes(k.ConsoleKey())
-	b.B = append(b.B, '=')
 	b.AttributeEnum(v)
 }
 
