@@ -529,13 +529,49 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 	if x.namespaceAndVersion == "" {
 		return errors.Errorf("missing namespace+version, remaining is %s", t)
 	}
-	// XXX baggage
-	// XXX span
-	// XXX parent
-	parent := xoptrace.NewTrace()
 	x.bundle = xoptrace.Bundle{
 		Trace:  x.trace,
-		Parent: parent,
+		Parent: xoptrace.NewTrace(),
+	}
+	for t != "" {
+		var sep byte
+		var word string
+		word, sep, t = oneWordMaybeQuoted(t, " :=")
+		switch sep {
+		case '\000':
+			if word != "" {
+				return errors.Errorf("parse error, got '%s'", word)
+			}
+			break
+		case ':':
+			var value string
+			value, sep, t = oneStringAndSep(t)
+			switch sep {
+			case '\000', ' ':
+				// okay
+			default:
+				return errors.Errorf("unexpected value in request start: %s: '%s'", word, value)
+			}
+			switch word {
+			case "parent":
+				if len(value) == 16 {
+					x.bundle.Parent.TraceID().Set(x.trace.GetTraceID())
+					x.bundle.Parent.SpanID().SetString(value)
+				} else {
+					if !x.bundle.Parent.SetString(value) {
+						return errors.Errorf("invalid parent in request start: '%s'", value)
+					}
+				}
+			case "state":
+				x.bundle.State.SetString(value)
+			case "baggage":
+				x.bundle.Baggage.SetString(value)
+			default:
+				return errors.Errorf("unexpected keyword in request start: '%s'", word)
+			}
+		default:
+			return errors.Errorf("unexpected stuff in request start: '%s'", word)
+		}
 	}
 	ns, nsVers := version.SplitVersion(x.namespaceAndVersion)
 	so, soVers := version.SplitVersion(x.sourceAndVersion)
@@ -564,6 +600,8 @@ func oneStringAndSep(t string) (string, byte, string) {
 	return s, t[0], t[1:]
 }
 
+// oneStringAndSpace grabs a word/quoted string and if
+// a space follows, it eats that space too
 func oneStringAndSpace(t string) (string, string) {
 	a, b := oneString(t)
 	if a == "" {
