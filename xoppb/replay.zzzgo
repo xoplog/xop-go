@@ -206,9 +206,9 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 			return err
 		}
 		for _, v := range attribute.Values {
-			// CONDITIONAL ONLY:Float64,Float32
+			// CONDITIONAL ONLY:Float64
 			x.span.MetadataFloat64(registeredAttribute, zzz)
-			// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Duration
+			// CONDITIONAL ONLY:Int64
 			x.span.MetadataInt64(registeredAttribute, zzz)
 			// CONDITIONAL ONLY:String
 			x.span.MetadataString(registeredAttribute, zzz)

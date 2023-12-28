@@ -476,14 +476,6 @@ func (s *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 					return
 				}
 				distinct.seenInt[dk] = struct{}{}
-				//CONDITIONAL ONLY:Uint64
-				if distinct.seenUint == nil {
-					distinct.seenUint = make(map[uint64]struct{})
-				}
-				if _, ok := distinct.seenUint[v]; ok {
-					return
-				}
-				distinct.seenUint[v] = struct{}{}
 				//CONDITIONAL ONLY:Float64
 				if distinct.seenFloat == nil {
 					distinct.seenFloat = make(map[float64]struct{})

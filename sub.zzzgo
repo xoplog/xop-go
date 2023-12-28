@@ -395,8 +395,6 @@ func (settings *LogSettings) PrefillFloat32(k string, v float32) {
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Log() is called.
-// CONDITIONAL ONLY:String
-// Redaction is not supported.
 // END CONDITIONAL
 func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
 	sub.settings.PrefillZZZ(k, v)

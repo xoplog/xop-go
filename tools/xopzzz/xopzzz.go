@@ -306,7 +306,7 @@ func main() {
 var toTitle = cases.Title(language.Und)
 
 func macroExpand(indent string, macro string, skip bool, skipList string) {
-	m, ok := macros[macro]
+	values, ok := macros[macro]
 	if !ok {
 		panic(fmt.Errorf("'%s' isn't a valid macro, at line %d", macro, index+1))
 	}
@@ -335,8 +335,8 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		}
 	}
 
-	keys := make([]string, 0, len(m))
-	for k := range m {
+	keys := make([]string, 0, len(values))
+	for k := range values {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -345,7 +345,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		if len(skips) > 0 && skip == ok {
 			continue
 		}
-		typ := m[name]
+		typ := values[name]
 		if currentPackage != "" {
 			typ = strings.TrimPrefix(typ, currentPackage+".")
 		}
@@ -362,6 +362,9 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 					// ONLY
 					skipping = true
 					for _, n := range strings.Split(m[1], ",") {
+						if _, ok := values[n]; !ok {
+							panic(fmt.Errorf("value %s is not part of %s", n, macro))
+						}
 						if n == name {
 							skipping = false
 							break
@@ -371,6 +374,9 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 					// SKIP
 					skipping = false
 					for _, n := range strings.Split(m[2], ",") {
+						if _, ok := values[n]; !ok {
+							panic(fmt.Errorf("value %s is not part of %s", n, macro))
+						}
 						if n == name {
 							skipping = true
 							break

@@ -526,8 +526,6 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	value := v.String() + "/" + strconv.FormatInt(v.Int64(), 10)
 	//CONDITIONAL ONLY:Time
 	value := v.Format(time.RFC3339Nano)
-	//CONDITIONAL ONLY:Duration
-	value := int64(v)
 	//CONDITIONAL ONLY:Any
 	enc, err := v.MarshalJSON()
 	var value string
