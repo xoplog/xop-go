@@ -8,7 +8,6 @@ package xopconsole
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -332,8 +331,10 @@ func (line *Line) Link(m string, v xoptrace.Trace) {
 
 // Model is a required method for xopbase.Line
 func (line *Line) Model(m string, v xopbase.ModelArg) {
-	enc, _ := json.Marshal(v.Model)
-	line.send([]byte("MODEL:"), m, enc)
+	var b Builder
+	b.Init()
+	b.AnyCommon(v)
+	line.send([]byte("MODEL:"), m, b.B)
 }
 
 // Msg is a required method for xopbase.Line

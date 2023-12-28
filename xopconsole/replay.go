@@ -93,8 +93,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	if !ok {
 		return errors.Errorf("missing span %s", spanIDString)
 	}
+	var lineLink xoptrace.Trace
+	var lineModel xopbase.ModelArg
 	var lineType lineType
 	message, t := oneString(t)
+	fmt.Println("XXYZA message", message)
 	if t != "" {
 		switch t[0] {
 		case ' ':
@@ -104,11 +107,31 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			case "TEMPLATE":
 				lineType = lineTypeTemplate
 				message, t = oneStringAndSpace(t[1:])
-				fmt.Println("xTEMPL", message, "remain", t)
+				fmt.Println("xTEMPLATE", message, "remain", t)
 			case "MODEL":
 				lineType = lineTypeModel
+				message, t = oneStringAndSpace(t[1:])
+				var sep byte
+				lineModel, sep, t, err = readAttributeAny(t)
+				if err != nil {
+					return err
+				}
+				switch sep {
+				case ' ', '\000':
+					// okay
+				default:
+					return errors.Errorf("invalid data after model, sep is '%s'", string(sep))
+				}
 			case "LINK":
 				lineType = lineTypeLink
+				message, t = oneStringAndSpace(t[1:])
+				var linkString string
+				linkString, t = oneStringAndSpace(t)
+				var ok bool
+				lineLink, ok = xoptrace.TraceFromString(linkString)
+				if !ok {
+					return errors.Errorf("invalid link line")
+				}
 			default:
 				return errors.Errorf("invalid line, invalid prefix (%s)", message)
 			}
@@ -239,6 +262,8 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
 				case "stringer":
 					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringerDataType) })
+				case "error":
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.ErrorDataType) })
 				case "i8", "i16", "i32", "i64", "int":
 					i, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
@@ -321,11 +346,9 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	case lineTypeTemplate:
 		line.Template(message)
 	case lineTypeModel:
-		// XXX
-		line.Msg(message)
+		line.Model(message, lineModel)
 	case lineTypeLink:
-		// XXX
-		line.Msg(message)
+		line.Link(message, lineLink)
 	default:
 		return errors.Errorf("invalid line type %d", lineType)
 	}
