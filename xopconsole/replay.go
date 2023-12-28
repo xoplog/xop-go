@@ -5,7 +5,6 @@ package xopconsole
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"regexp"
 	"runtime"
@@ -97,7 +96,6 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 	var lineModel xopbase.ModelArg
 	var lineType lineType
 	message, t := oneString(t)
-	fmt.Println("XXYZA message", message)
 	if t != "" {
 		switch t[0] {
 		case ' ':
@@ -107,7 +105,6 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			case "TEMPLATE":
 				lineType = lineTypeTemplate
 				message, t = oneStringAndSpace(t[1:])
-				fmt.Println("xTEMPLATE", message, "remain", t)
 			case "MODEL":
 				lineType = lineTypeModel
 				message, t = oneStringAndSpace(t[1:])
@@ -143,11 +140,9 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 		if t == "" {
 			break
 		}
-		fmt.Println("xa", t)
 		var key string
 		var sep byte
 		key, sep, t = oneWord(t, "=:")
-		fmt.Println("xxw", t, "key<", key, ">")
 		switch sep {
 		case ':':
 			if key != "STACK" {
@@ -162,13 +157,11 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			t = t[1:]
 			for {
 				var file string
-				fmt.Println("xs1", t)
 				file, sep, t = oneWord(t, ":")
 				if sep == '\000' || file == "" {
 					return errors.Errorf("invalid stack frame")
 				}
 				var lineNum string
-				fmt.Println("xs2", t)
 				lineNum, sep, t = oneWordTerminal(t, " ")
 				if lineNum == "" {
 					return errors.Errorf("invalid stack frame, line #")
@@ -188,7 +181,6 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			break
 		case '=':
 			key = unquote(key)
-			fmt.Println("x=", t)
 			if len(t) == 0 {
 				return errors.Errorf("empty value")
 			}
@@ -227,7 +219,6 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					// (
 					return errors.Errorf("no data after ): %s", t)
 				}
-				fmt.Println("XXX advancing for (): typ=", t[:i], "t=", t[i+1:])
 				typ := t[:i]
 				t = t[i+1:]
 				if t != "" && t[0] == ' ' {
@@ -401,7 +392,6 @@ func (x replayData) replaySpan(ctx context.Context, t string) error {
 		if len(t) > 0 && t[0] == ' ' {
 			t = t[1:]
 		}
-		fmt.Println("XXX SPAN BEFORE SSQ", t)
 		var shortCode string
 		shortCode, _, t = oneWordTerminal(t, " ")
 		if shortCode == "" {
@@ -752,13 +742,11 @@ func readAttributeAny(t string) (xopbase.ModelArg, byte, string, error) {
 
 func (x *replaySpan) collectMetadata(sep byte, t string) error {
 	var key string
-	fmt.Println("XXX collectMetadata start, t=", t)
 	for {
 		key, sep, t = oneWord(t, "=")
 		if sep == '\000' {
 			return nil
 		}
-		fmt.Println("XXX collectMetadata inner, t=", t, "key=", key)
 		var err error
 		aDef := x.request.requestAttributes.Lookup(key)
 		if aDef == nil {
@@ -780,7 +768,6 @@ func (x *replaySpan) collectMetadata(sep byte, t string) error {
 func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.DecodeAttributeDefinition) (string, byte, error) {
 	switch aDef.AttributeType {
 	case xopproto.AttributeType_Any:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructAnyAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -797,7 +784,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataAny(ra, v)
 	case xopproto.AttributeType_Bool:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructBoolAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -806,14 +792,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v := value == "t"
 		// //////// }
 		x.span.MetadataBool(ra, v)
 	case xopproto.AttributeType_Duration:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructDurationAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -822,7 +806,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := time.ParseDuration(value)
@@ -832,7 +815,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 	case xopproto.AttributeType_Enum:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructEnumAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -841,7 +823,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := &registeredAttribute.EnumAttribute
 		var value string
 		value, sep, t = oneWord(t, "/")
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		if sep != '/' {
@@ -859,7 +840,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		// //////// }
 		x.span.MetadataEnum(ra, v)
 	case xopproto.AttributeType_Float64:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructFloat64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -868,7 +848,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := strconv.ParseFloat(value, 64)
@@ -878,7 +857,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataFloat64(ra, v)
 	case xopproto.AttributeType_Int:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructIntAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -887,7 +865,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
@@ -897,7 +874,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 	case xopproto.AttributeType_Int16:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructInt16Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -906,7 +882,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
@@ -916,7 +891,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 	case xopproto.AttributeType_Int32:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructInt32Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -925,7 +899,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
@@ -935,7 +908,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 	case xopproto.AttributeType_Int64:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructInt64Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -944,7 +916,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
@@ -954,7 +925,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataInt64(ra, v)
 	case xopproto.AttributeType_Int8:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructInt8Attribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -963,7 +933,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := strconv.ParseInt(value, 10, 64)
@@ -973,7 +942,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		}
 		x.span.MetadataInt64(&ra.Int64Attribute, int64(v))
 	case xopproto.AttributeType_Link:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructLinkAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -982,7 +950,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, ok := xoptrace.TraceFromString(value)
@@ -992,7 +959,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		// //////// }
 		x.span.MetadataLink(ra, v)
 	case xopproto.AttributeType_String:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructStringAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -1001,14 +967,12 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v := value
 		// //////// }
 		x.span.MetadataString(ra, v)
 	case xopproto.AttributeType_Time:
-		fmt.Println("XXX one metadata sep=", string(sep), "t=", t)
 		registeredAttribute, err := x.request.attributeRegistry.ConstructTimeAttribute(aDef.Make, xopat.AttributeType(aDef.AttributeType))
 		if err != nil {
 			return "", '\000', err
@@ -1017,7 +981,6 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		ra := registeredAttribute
 		var value string
 		value, sep, t = oneStringAndSep(t)
-		fmt.Println("XXX one metadata key=", aDef.Key, "value=", value, "t=", t, "sep=", string(sep))
 		// //////// }
 		// //////// {
 		v, err := time.Parse(time.RFC3339Nano, value)
@@ -1045,7 +1008,6 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 	for scanner.Scan() {
 		x.lineCount++
 		t := scanner.Text()
-		fmt.Println("REPLAY", t)
 		if !strings.HasPrefix(t, "xop ") {
 			continue
 		}

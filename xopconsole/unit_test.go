@@ -64,22 +64,22 @@ func TestOneString(t *testing.T) {
 	}
 }
 
-/*
 func TestOneWord(t *testing.T) {
 	cases := []struct {
 		name      string
 		input     string
-		breakOn	 string
+		breakOn   string
 		want      string
 		remainder string
-		wantSep	 byte
+		wantSep   byte
 	}{
 		{
-			name: "regression",
-			input: `"a test {foo} with {num}" foo=bar num=38`
-			breakOn: " ",
-			want: `"a test {foo} with {num}"`,
-			wantSep: ' ',
+			name:      "regression",
+			input:     `"a test {foo} with {num}" foo=bar num=38`,
+			breakOn:   " ",
+			want:      "a test {foo} with {num}",
+			wantSep:   ' ',
+			remainder: "foo=bar num=38",
 		},
 	}
 	for _, tc := range cases {
@@ -88,7 +88,7 @@ func TestOneWord(t *testing.T) {
 			name = tc.input
 		}
 		t.Run(name, func(t *testing.T) {
-			got, gotRemainder := oneWord(tc.input)
+			got, sep, gotRemainder := oneWordMaybeQuoted(tc.input, tc.breakOn)
 			var wantRemainder string
 			if tc.remainder == "" {
 				wantRemainder = tc.input[len(tc.want):]
@@ -98,9 +98,7 @@ func TestOneWord(t *testing.T) {
 			if assert.Equal(t, tc.want, got, "string") {
 				assert.Equal(t, wantRemainder, gotRemainder, "remainder")
 			}
+			assert.Equal(t, string(tc.wantSep), string(sep), "sep")
 		})
 	}
 }
-
-XXX
-*/

@@ -4,7 +4,6 @@ package xopconsole
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -85,15 +84,11 @@ func (a *AttributeBuilder) Append(b *Builder, onlyChanged bool, attributesObject
 	}
 	for _, s := range a.singleMap {
 		if s.Changed || !onlyChanged {
-			fmt.Println("XXX CHANGED", string(s.KeyValue))
 			b.AppendByte(' ')
 			b.AppendBytes(s.KeyValue)
 			s.Changed = false
-		} else {
-			fmt.Println("XXX NOT CHANGED", s.KeyValue)
 		}
 	}
-	fmt.Println("XXX after append", string(b.B))
 }
 
 func (m *multiAttribute) init(a *AttributeBuilder, k xopat.AttributeInterface) {
@@ -139,7 +134,6 @@ func (a *AttributeBuilder) addSingle(k xopat.AttributeInterface) (*singleAttribu
 		a.singles = a.singles[:len(a.singles)+1]
 		s = &a.singles[len(a.singles)-1]
 		s.init(k)
-		fmt.Println("XXX add to singlemap", k.Key())
 		a.singleMap[k.Key()] = s
 	}
 	s.Changed = true

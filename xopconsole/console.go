@@ -213,7 +213,6 @@ func (span *Span) Done(ts time.Time, final bool) {
 	b.AppendByte(' ')
 	b.AppendBytes(span.Bundle.Trace.SpanID().HexBytes())
 	span.AttributeBuilder.Append(b, false, false)
-	fmt.Println("XXX done with append:", string(b.B))
 	b.AppendByte('\n')
 	_, err := span.logger.out.Write(b.B)
 	if err != nil {
