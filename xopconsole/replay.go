@@ -49,7 +49,7 @@ type replayRequest struct {
 	name                string
 	sourceAndVersion    string
 	namespaceAndVersion string
-	baseRequest         xopbase.Request // XXX
+	baseRequest         xopbase.Request
 	requestAttributes   *replayutil.RequestAttributeDefinitons
 	bundle              xoptrace.Bundle
 	attributeRegistry   *xopat.Registry
@@ -349,7 +349,6 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 
 var shortCodeRE = regexp.MustCompile(`^T\d+\.\d+(\.\S+)?`)
 
-// XXX
 // Example:
 //
 //	xop Span 2023-06-03T12:22:47.699766-07:00 Start c253fd02cd66f874 5f23a4838a2c7205 "a fork one span" T1.1.A
