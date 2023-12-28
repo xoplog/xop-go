@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/pkg/errors"
 )
 
 var attributeCount int32 = 1
@@ -141,7 +141,7 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 
 	jsonKey, err := json.Marshal(s.Key)
 	if err != nil {
-		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
+		return Attribute{}, errors.Wrapf(err, "cannot marshal attribute name '%s'", s.Key)
 	}
 	jsonKey = append(jsonKey, ':')
 

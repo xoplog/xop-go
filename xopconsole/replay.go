@@ -191,7 +191,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				var ma xopbase.ModelArg
 				ma, sep, t, err = readAttributeAny(t)
 				if err != nil {
-					return errors.Errorf("parse any attribute: %s", err)
+					return errors.Wrap(err, "parse any attribute")
 				}
 				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Any(key, ma) })
 				if sep == '\000' {
