@@ -157,13 +157,14 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 			}
 			t = t[1:]
 			for {
-				var file string
-				file, sep, t = oneWord(t, ":")
-				if sep == '\000' || file == "" {
-					return errors.Errorf("invalid stack frame")
+				var fileAndNumber string
+				fileAndNumber, sep, t = oneWordTerminal(t, " ")
+				i := strings.LastIndexByte(fileAndNumber, ':')
+				if i == -1 {
+					return errors.Errorf("invalid stack frame (%s), no colon", fileAndNumber)
 				}
-				var lineNum string
-				lineNum, sep, t = oneWordTerminal(t, " ")
+				file := fileAndNumber[:i]
+				lineNum := fileAndNumber[i+1:]
 				if lineNum == "" {
 					return errors.Errorf("invalid stack frame, line #")
 				}
