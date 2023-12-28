@@ -68,7 +68,7 @@ func (b *Builder) AttributeFloat64(f float64) {
 }
 
 func (b *Builder) AttributeDuration(v time.Duration) {
-	b.AddInt64(int64(v / time.Nanosecond))
+	b.AppendString(v.String())
 }
 
 func (b *Builder) AttributeLink(v xoptrace.Trace) {

@@ -809,7 +809,7 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		value, sep, t = oneStringAndSep(t)
 		// //////// }
 		// //////// {
-		v, err := time.ParseDuration(value)
+		v, err := strconv.ParseInt(value, 10, 64)
 		// //////// }
 		if err != nil {
 			return "", '\000', errors.Wrap(err, "invalid Duration")
