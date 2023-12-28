@@ -727,7 +727,11 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			}
 			span.hasPrior[key] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.Int64(key, value))
+		if k.SubType() == xopat.AttributeTypeDuration {
+			span.otelSpan.SetAttributes(attribute.String(key, time.Duration(value).String()))
+		} else {
+			span.otelSpan.SetAttributes(attribute.Int64(key, value))
+		}
 		return
 	}
 	span.lock.Lock()
@@ -749,13 +753,23 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			seen[value] = struct{}{}
 		}
 	}
-	if span.priorInt64Slices == nil {
-		span.priorInt64Slices = make(map[string][]int64)
+	if k.SubType() == xopat.AttributeTypeDuration {
+		if span.priorStringSlices == nil {
+			span.priorStringSlices = make(map[string][]string)
+		}
+		s := span.priorStringSlices[key]
+		s = append(s, time.Duration(value).String())
+		span.priorStringSlices[key] = s
+		span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	} else {
+		if span.priorInt64Slices == nil {
+			span.priorInt64Slices = make(map[string][]int64)
+		}
+		s := span.priorInt64Slices[key]
+		s = append(s, value)
+		span.priorInt64Slices[key] = s
+		span.otelSpan.SetAttributes(attribute.Int64Slice(key, s))
 	}
-	s := span.priorInt64Slices[key]
-	s = append(s, value)
-	span.priorInt64Slices[key] = s
-	span.otelSpan.SetAttributes(attribute.Int64Slice(key, s))
 }
 
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {

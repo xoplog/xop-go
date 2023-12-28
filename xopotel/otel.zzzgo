@@ -551,7 +551,13 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		}
 		//CONDITIONAL ONLY:Enum,Time,String,Any,Link
 		span.otelSpan.SetAttributes(attribute.String(key, value))
-		//ELSE CONDITIONAL
+		//CONDITIONAL ONLY:Int64
+		if k.SubType() == xopat.AttributeTypeDuration {
+			span.otelSpan.SetAttributes(attribute.String(key, time.Duration(value).String()))
+		} else {
+			span.otelSpan.SetAttributes(attribute.ZZZ(key, value))
+		}
+		//CONDITIONAL SKIP:Enum,Time,String,Any,Link,Int64
 		span.otelSpan.SetAttributes(attribute.ZZZ(key, value))
 		//END CONDITIONAL
 		return
@@ -591,7 +597,25 @@ func (span *span) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	s = append(s, value)
 	span.priorStringSlices[key] = s
 	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
-	//ELSE CONDITIONAL
+	//CONDITIONAL ONLY:Int64
+	if k.SubType() == xopat.AttributeTypeDuration {
+		if span.priorStringSlices == nil {
+			span.priorStringSlices = make(map[string][]string)
+		}
+		s := span.priorStringSlices[key]
+		s = append(s, time.Duration(value).String())
+		span.priorStringSlices[key] = s
+		span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	} else {
+		if span.priorZZZSlices == nil {
+			span.priorZZZSlices = make(map[string][]zzz)
+		}
+		s := span.priorZZZSlices[key]
+		s = append(s, value)
+		span.priorZZZSlices[key] = s
+		span.otelSpan.SetAttributes(attribute.ZZZSlice(key, s))
+	}
+	//CONDITIONAL SKIP:Enum,Time,String,Any,Link,Int64
 	if span.priorZZZSlices == nil {
 		span.priorZZZSlices = make(map[string][]zzz)
 	}
