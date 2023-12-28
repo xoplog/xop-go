@@ -511,6 +511,14 @@ var MessageCases = []struct {
 				Msg("no foobar")
 			log.Trace().Stringer("do", sc).Msg("yes, foobar")
 			assert.Equal(t, 1, callCount, "stringer called once")
+			noSkip := log.Sub().MinLevel(xopnum.DebugLevel).Log()
+			noSkip.Debug().
+				Stringer("stringer", sc).
+				String("string", "blaf").
+				Any("null", nil).
+				Error("yes", fmt.Errorf("blaf")).
+				Msg("yes foobar")
+			assert.Equal(t, 2, callCount, "stringer called twice")
 			MicroNap()
 			log.Done()
 		},
