@@ -177,11 +177,11 @@ func (log *Logger) Request(ctx context.Context, ts time.Time, bundle xoptrace.Bu
 
 	if !bundle.State.IsZero() {
 		b.AppendBytes([]byte(" state:"))
-		b.AppendBytes(bundle.State.Bytes())
+		b.AddConsoleString(bundle.State.String())
 	}
 	if !bundle.Baggage.IsZero() {
 		b.AppendBytes([]byte(" baggage:"))
-		b.AppendBytes(bundle.Baggage.Bytes())
+		b.AddConsoleString(bundle.Baggage.String())
 	}
 	b.AppendByte('\n')
 	_, err := log.out.Write(b.B)
