@@ -24,7 +24,6 @@ type ModelArg struct {
 	Encoded   []byte            `json:"v"`
 	ModelType string            `json:"modelType"`
 	Model     interface{}       `json:"-"`
-	// TODO: extra fields for redacted models
 }
 
 func (m ModelArg) Copy() ModelArg {

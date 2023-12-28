@@ -1,10 +1,10 @@
 package version
 
 import (
-	"fmt"
 	"regexp"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/pkg/errors"
 )
 
 var namespaceVersionRE = regexp.MustCompile(`^(.+)[- ]v?(\d+\.\d+\.\d+(?:-\S+)?)$`)
@@ -19,7 +19,7 @@ func SplitVersionWithError(namespace string) (string, *semver.Version, error) {
 	}
 	sver, err := semver.StrictNewVersion(version)
 	if err != nil {
-		return "", nil, fmt.Errorf("semver '%s' is not valid: %w", version, err)
+		return "", nil, errors.Wrapf(err, "semver '%s' is not valid", version)
 	}
 	return namespace, sver, nil
 }

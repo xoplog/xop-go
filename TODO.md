@@ -1,6 +1,10 @@
 
 # Big picture
 
+- TIMES
+  - drop precision to microsecond?
+  - add timezone offset?
+
 - rip out current redaction functions.  They aren't right but it's not time
   to fix them
 
@@ -24,6 +28,7 @@
 - Rebuild server to ingest the new xopproto
 
 # Just do it (build ready)
+
 
 - check for unchecked casts 
 
@@ -231,6 +236,9 @@
     copies of the original.  One that is redacted and one that is not?
 
 # Ideas to ponder
+
+- new "LeveledLog" type that combines Log & Line, pre-baking the level, defined as
+  interface so that documentation isn't crazy
 
 - would it be okay to have a dependency on OTEL?  It would help for TraceState and it
   would also be nice to directly reference SpanKind()

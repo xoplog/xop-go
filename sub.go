@@ -273,14 +273,14 @@ func (settings *LogSettings) TagLinesWithSpanSequence(b bool) {
 	settings.tagLinesWithSpanSequence = b
 }
 
-// PrefillText is prepended to any eventual Line.Msg() or Line.Tempalte().
+// PrefillText is prepended to any eventual Line.Msg() or Line.Template().
 // PrefillText will be ignored for Line.Model() and Line.Link().
 func (sub *Sub) PrefillText(m string) *Sub {
 	sub.settings.PrefillText(m)
 	return sub
 }
 
-// PrefillText is prepended to any eventual Line.Msg() or Line.Tempalte()
+// PrefillText is prepended to any eventual Line.Msg() or Line.Template()
 // PrefillText will be ignored for Line.Model() and Line.Link().
 func (settings *LogSettings) PrefillText(m string) {
 	settings.prefillMsg = m

@@ -2,7 +2,8 @@
 
 /*
 Package xopcon provides a xopbase.Logger that is meant human consumption.
-It does not support replay. Data is omitted to increase readability.
+It does not support replay. Data is omitted to increase readability. The format
+is not versioned and can change to improve human readability.
 */
 package xopcon
 

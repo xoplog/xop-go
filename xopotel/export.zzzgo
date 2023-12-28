@@ -893,7 +893,7 @@ func (x baseSpanReplay) AddXopMetadataAttribute(ctx context.Context, a attribute
 		expectedSingleType, expectedMultiType := attribute.INT64, attribute.INT64SLICE
 		// CONDITIONAL ONLY:Bool
 		expectedSingleType, expectedMultiType := attribute.BOOL, attribute.BOOLSLICE
-		// CONDITIONAL ONLY:Float64,Float32
+		// CONDITIONAL ONLY:Float64
 		expectedSingleType, expectedMultiType := attribute.FLOAT64, attribute.FLOAT64SLICE
 		// END CONDITIONAL
 		expectedType := expectedSingleType

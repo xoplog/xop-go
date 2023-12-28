@@ -12,12 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/pkg/errors"
 )
 
 var attributeCount int32 = 1
@@ -33,6 +34,7 @@ type Attribute struct {
 	version       string
 	properties    Make
 	jsonKey       JSONKey
+	consoleKey    []byte
 	exampleValue  interface{}
 	reflectType   reflect.Type
 	typeName      string
@@ -139,9 +141,13 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 
 	jsonKey, err := json.Marshal(s.Key)
 	if err != nil {
-		return Attribute{}, fmt.Errorf("cannot marshal attribute name '%s': %w", s.Key, err)
+		return Attribute{}, errors.Wrapf(err, "cannot marshal attribute name '%s'", s.Key)
 	}
 	jsonKey = append(jsonKey, ':')
+
+	ck := xoputil.JBuilder{}
+	ck.AddConsoleString(s.Key)
+	ck.AppendByte('=')
 
 	namespace, sver, err := version.SplitVersionWithError(namespace)
 	if err != nil {
@@ -160,9 +166,10 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 			b: jsonKey,
 			s: string(jsonKey),
 		},
-		defSize: int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
-		semver:  sver,
-		number:  atomic.AddInt32(&attributeCount, 1),
+		consoleKey: ck.B,
+		defSize:    int32(len(namespace) + len(s.Key) + len(s.Description) + len(sver.String())),
+		semver:     sver,
+		number:     atomic.AddInt32(&attributeCount, 1),
 	}
 	ra.jsonDef = jsonAttributeDefinition(&ra)
 	ra.jsonDefString = string(ra.jsonDef)
@@ -188,6 +195,8 @@ func (r Attribute) JSONKey() JSONKey { return r.jsonKey }
 // ReflectType can be nil if the example value was nil
 func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
 
+// ConsoleKey includes an =
+func (r Attribute) ConsoleKey() []byte                { return r.consoleKey }
 func (r Attribute) Key() string                       { return r.properties.Key }
 func (r Attribute) Description() string               { return r.properties.Description }
 func (r Attribute) Namespace() string                 { return r.namespace }
@@ -213,6 +222,7 @@ var _ AttributeInterface = &Attribute{}
 
 type AttributeInterface interface {
 	JSONKey() JSONKey
+	ConsoleKey() []byte // includes an '='
 	ReflectType() reflect.Type
 	Key() string
 	Description() string

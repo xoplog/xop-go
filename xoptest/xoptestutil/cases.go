@@ -75,6 +75,7 @@ var MessageCases = []struct {
 			log.Span().Int16(ExampleMetadataSingleInt16, 29)
 			log.Span().Int32(ExampleMetadataSingleInt32, -32)
 			log.Span().Int64(ExampleMetadataSingleInt64, -3232)
+			log.Span().Duration(ExampleMetadataSingleDuration, 3*time.Second)
 			MicroNap()
 			log.Done()
 		},
@@ -136,6 +137,25 @@ var MessageCases = []struct {
 		},
 	},
 	{
+		Name: "metadata-duration",
+		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+			d1 := time.Millisecond
+			d2 := time.Millisecond * 5
+			log.Span().Duration(ExampleMetadataSingleDuration, d1)
+			log.Span().Duration(ExampleMetadataSingleDuration, d2)
+			log.Span().Duration(ExampleMetadataLockedDuration, d1)
+			log.Span().Duration(ExampleMetadataLockedDuration, d2)
+			log.Span().Duration(ExampleMetadataMultipleDuration, d1)
+			log.Span().Duration(ExampleMetadataMultipleDuration, d2)
+			log.Span().Duration(ExampleMetadataMultipleDuration, d2)
+			log.Span().Duration(ExampleMetadataDistinctDuration, d1)
+			log.Span().Duration(ExampleMetadataDistinctDuration, d2)
+			log.Span().Duration(ExampleMetadataDistinctDuration, d2)
+			MicroNap()
+			log.Done()
+		},
+	},
+	{
 		Name: "metadata-singles-in-span",
 		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
 			ss := log.Sub().Fork("spoon")
@@ -183,6 +203,7 @@ var MessageCases = []struct {
 			ss.Span().Int16(ExampleMetadataSingleInt16, 29)
 			ss.Span().Int32(ExampleMetadataSingleInt32, -32)
 			ss.Span().Int64(ExampleMetadataSingleInt64, -3232)
+			ss.Span().Duration(ExampleMetadataSingleDuration, time.Millisecond)
 			MicroNap()
 			log.Done()
 		},
@@ -490,6 +511,14 @@ var MessageCases = []struct {
 				Msg("no foobar")
 			log.Trace().Stringer("do", sc).Msg("yes, foobar")
 			assert.Equal(t, 1, callCount, "stringer called once")
+			noSkip := log.Sub().MinLevel(xopnum.DebugLevel).Log()
+			noSkip.Debug().
+				Stringer("stringer", sc).
+				String("string", "blaf").
+				Any("null", nil).
+				Error("yes", fmt.Errorf("blaf")).
+				Msg("yes foobar")
+			assert.Equal(t, 2, callCount, "stringer called twice")
 			MicroNap()
 			log.Done()
 		},

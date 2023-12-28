@@ -1,0 +1,17 @@
+package xopbase
+
+// DataTypeToString provides mapping from DataType to short,
+// human-readable type strings.
+var DataTypeToString = map[DataType]string{
+	// MACRO DataTypeAbbreviationsExact
+	zzzDataType: "ZZZ",
+}
+
+// StringToDataType reverses DataTypeToString
+var StringToDataType = map[string]DataType{
+	// MACRO DataTypeAbbreviationsExact
+	"ZZZ": zzzDataType,
+}
+
+// MACRO DataTypeAbbreviationsExact
+const zzzDataTypeAbbr = "ZZZ"

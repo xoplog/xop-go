@@ -2,6 +2,7 @@ package xoputil
 
 import (
 	"io"
+	"regexp"
 	"strconv"
 )
 
@@ -64,6 +65,39 @@ func (b *JBuilder) AddString(v string) {
 	b.B = append(b.B, '"')
 	b.AddStringBody(v)
 	b.B = append(b.B, '"')
+}
+
+// Quoting required for:
+//
+//	,	- for separating multiple values in metadata
+//	()	- for type annotations
+//	' '	- for separating key/value pairs
+//	"	- for quoting strings
+//	/	- for splitting enums
+var punct = "`" + `_~!@#$%^&*\[\]{};'<>.?/`
+var safe = `^[-` + punct + `\w](?:[-:` + punct + `\w]*[-` + punct + `\w])?`
+var safeRE = regexp.MustCompile(safe + `$`)
+var UnquotedConsoleStringRE = regexp.MustCompile(safe)
+
+// excluded:
+//   - used for ints
+//     / - used in enum
+//     () - used for type signatures and lengths
+//     " - used for quoted strings
+//     space - used to separate attributes
+//     : cannot end with :
+
+// AddConsoleString adds a string that may or may not be quoted. Unquoted
+// strings are not "t", "f", or have any "/", "(", ")", quotes ("), or spaces.
+// These strings are used as both keys and values in xopconsole.
+//
+// If quoted, quoting is done by strconv.AppendQuote
+func (b *JBuilder) AddConsoleString(s string) {
+	if safeRE.MatchString(s) && s != "t" && s != "f" {
+		b.B = append(b.B, []byte(s)...)
+		return
+	}
+	b.B = strconv.AppendQuote(b.B, s)
 }
 
 func (b *JBuilder) AddUint64(i uint64) {

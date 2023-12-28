@@ -16,7 +16,7 @@ import (
 var macroRE = regexp.MustCompile(`^(\s*)//\s?MACRO (\w+)(?:\s+(SKIP|ONLY):(\S+))?\s*$`)
 var errorRE = regexp.MustCompile(`^(\s*)//MACRO/`)
 var indentRE = regexp.MustCompile(`^(\s*)(?:\S|$)`)
-var zzzRE = regexp.MustCompile(`(zzz|Zzz|ZZZ)`)
+var zzzRE = regexp.MustCompile(`(zzz|Zzz|ZZZ|zZZ)`)
 var packageRE = regexp.MustCompile(`^package (\w+)`)
 var conditionalRE = regexp.MustCompile(`^\s*//\s?CONDITIONAL (?:(?:ONLY:(\S+))|(?:SKIP:(\S+)))\s*$`)
 var endConditionalRE = regexp.MustCompile(`^\s*//\s?END CONDITIONAL\s*$`)
@@ -201,7 +201,7 @@ var macros = map[string]map[string]string{
 		"SpanKindConsumer": "true",
 	},
 	// Note: these map to base types, not exact types.  Exact types
-	// can be found in xopbase.StringToDataType
+	// are next.
 	"DataTypeAbbreviations": {
 		"i":        "Int64",
 		"i8":       "Int64",
@@ -224,6 +224,37 @@ var macros = map[string]map[string]string{
 		"stringer": "String",
 		"enum":     "Enum",
 		"error":    "String",
+	},
+	"DataTypeAbbreviationsExact": {
+		"i":        "Int",
+		"i8":       "Int8",
+		"i16":      "Int16",
+		"i32":      "Int32",
+		"i64":      "Int64",
+		"u":        "Uint",
+		"u8":       "Uint8",
+		"u16":      "Uint16",
+		"u32":      "Uint32",
+		"u64":      "Uint64",
+		"uintptr":  "Uintptr",
+		"f32":      "Float32",
+		"f64":      "Float64",
+		"any":      "Any",
+		"bool":     "Bool",
+		"dur":      "Duration",
+		"time":     "Time",
+		"s":        "String",
+		"stringer": "Stringer",
+		"enum":     "Enum",
+		"error":    "Error",
+	},
+	"LogLevel": {
+		"Trace": "",
+		"Debug": "",
+		"Info":  "",
+		"Warn":  "",
+		"Error": "",
+		"Alert": "",
 	},
 }
 
@@ -275,7 +306,7 @@ func main() {
 var toTitle = cases.Title(language.Und)
 
 func macroExpand(indent string, macro string, skip bool, skipList string) {
-	m, ok := macros[macro]
+	values, ok := macros[macro]
 	if !ok {
 		panic(fmt.Errorf("'%s' isn't a valid macro, at line %d", macro, index+1))
 	}
@@ -304,8 +335,8 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		}
 	}
 
-	keys := make([]string, 0, len(m))
-	for k := range m {
+	keys := make([]string, 0, len(values))
+	for k := range values {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -314,7 +345,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 		if len(skips) > 0 && skip == ok {
 			continue
 		}
-		typ := m[name]
+		typ := values[name]
 		if currentPackage != "" {
 			typ = strings.TrimPrefix(typ, currentPackage+".")
 		}
@@ -322,6 +353,7 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 			"ZZZ": name,
 			"zzz": typ,
 			"Zzz": toTitle.String(typ),
+			"zZZ": strings.ToLower(name),
 		}
 		var skipping bool
 		for _, line := range lines {
@@ -330,6 +362,9 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 					// ONLY
 					skipping = true
 					for _, n := range strings.Split(m[1], ",") {
+						if _, ok := values[n]; !ok {
+							panic(fmt.Errorf("value %s is not part of %s", n, macro))
+						}
 						if n == name {
 							skipping = false
 							break
@@ -339,6 +374,9 @@ func macroExpand(indent string, macro string, skip bool, skipList string) {
 					// SKIP
 					skipping = false
 					for _, n := range strings.Split(m[2], ",") {
+						if _, ok := values[n]; !ok {
+							panic(fmt.Errorf("value %s is not part of %s", n, macro))
+						}
 						if n == name {
 							skipping = true
 							break

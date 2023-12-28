@@ -188,6 +188,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	m.Builder.encoder = a.encoder
 	//END CONDITIONAL
 	lenBefore := len(m.Builder.B)
+	// we add the new value unconditionally but can remove it by shortening to lenBefore
 	m.Builder.AttributeZZZ(v)
 	if k.Distinct() {
 		sk := string(m.Builder.B[lenBefore:len(m.Builder.B)])

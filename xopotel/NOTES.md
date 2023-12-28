@@ -1,4 +1,6 @@
 
+TODO/XXX: test changing OTEL Span name
+
 ## Doc notes
 
 In this doc, we'll use the names of contants, like `xopVersion` 
