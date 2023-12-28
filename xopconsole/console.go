@@ -32,8 +32,6 @@ var _ xopbase.Prefilling = &Prefilling{}
 var _ xopbase.Prefilled = &Prefilled{}
 var _ xopbase.Line = &Line{}
 
-const timeFormat = "2006-01-02 15:04:05.00000000"
-
 type Opt func(*Logger)
 
 func WithWriter(w io.Writer) Opt {
@@ -62,7 +60,6 @@ func New(opts ...Opt) *Logger {
 
 type Logger struct {
 	out            io.Writer
-	traceCount     int
 	id             string
 	linePrefix     string
 	requestCounter *xoputil.RequestCounter
@@ -113,14 +110,6 @@ type Line struct {
 
 func (log *Logger) SetPrefix(p string) {
 	log.linePrefix = p
-}
-
-func (log *Logger) output(s string) {
-	s += "\n"
-	_, err := log.out.Write([]byte(log.linePrefix + s))
-	if err != nil {
-		log.errorReporter(err)
-	}
 }
 
 // ID is a required method for xopbase.Logger
