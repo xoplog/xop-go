@@ -791,7 +791,7 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		// END CONDITIONAL
 		// //////// }
 		// //////// {
-		// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64,Duration
+		// CONDITIONAL ONLY:Int,Int8,Int16,Int32,Int64
 		v, err := strconv.ParseInt(value, 10, 64)
 		// CONDITIONAL ONLY:Enum
 		if sep != '/' {
@@ -810,6 +810,8 @@ func (x *replaySpan) oneMetadataValue(sep byte, t string, aDef *replayutil.Decod
 		v := value == "t"
 		// CONDITIONAL ONLY:String
 		v := value
+		// CONDITIONAL ONLY:Duration
+		v, err := time.ParseDuration(value)
 		// CONDITIONAL ONLY:Time
 		v, err := time.Parse(time.RFC3339Nano, value)
 		// CONDITIONAL ONLY:Float64

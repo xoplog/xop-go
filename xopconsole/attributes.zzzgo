@@ -167,6 +167,17 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		a.encoder.SetEscapeHTML(false)
 	}
 	//END CONDITIONAL
+	addAttribute := func(b *Builder) {
+		//CONDITIONAL ONLY:Int64
+		if k.SubType() == xopat.AttributeTypeDuration {
+			b.AttributeDuration(time.Duration(v))
+		} else {
+			b.AttributeZZZ(v)
+		}
+		//ELSE CONDITIONAL
+		b.AttributeZZZ(v)
+		//END CONDITIONAL
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -184,7 +195,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeZZZ(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -228,7 +239,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	//CONDITIONAL ONLY:Any
 	a.encodeTarget = &b.B
 	//END CONDITIONAL
-	b.AttributeZZZ(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }

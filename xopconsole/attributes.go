@@ -163,6 +163,9 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 		a.encoder = json.NewEncoder(a)
 		a.encoder.SetEscapeHTML(false)
 	}
+	addAttribute := func(b *Builder) {
+		b.AttributeAny(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -178,7 +181,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeAny(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -218,7 +221,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 		encoder: a.encoder,
 	}
 	a.encodeTarget = &b.B
-	b.AttributeAny(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -227,6 +230,9 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		b.AttributeBool(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -240,7 +246,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeBool(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -278,7 +284,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeBool(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -287,6 +293,9 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		b.AttributeEnum(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -300,7 +309,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeEnum(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -338,7 +347,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeEnum(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -347,6 +356,9 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		b.AttributeFloat64(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -360,7 +372,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeFloat64(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -398,7 +410,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeFloat64(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -407,6 +419,13 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		if k.SubType() == xopat.AttributeTypeDuration {
+			b.AttributeDuration(time.Duration(v))
+		} else {
+			b.AttributeInt64(v)
+		}
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -420,7 +439,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeInt64(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -458,7 +477,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeInt64(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -467,6 +486,9 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		b.AttributeLink(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -480,7 +502,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeLink(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -518,7 +540,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeLink(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -527,6 +549,9 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		b.AttributeString(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -540,7 +565,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeString(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -578,7 +603,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeString(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
@@ -587,6 +612,9 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.anyChanged = true
+	addAttribute := func(b *Builder) {
+		b.AttributeTime(v)
+	}
 	if k.Multiple() {
 		m, preExisting := a.addMulti(k)
 		if !preExisting {
@@ -600,7 +628,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		}
 		// we add the new value unconditionally but can retroactively remove it by shortening to lenAfterKey
 		lenBeforeData := len(m.Builder.B)
-		m.Builder.AttributeTime(v)
+		addAttribute(&m.Builder)
 		if k.Distinct() {
 			sk := string(m.Builder.B[lenBeforeData:len(m.Builder.B)])
 			if m.Distinct == nil {
@@ -638,7 +666,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			B: s.KeyValue,
 		},
 	}
-	b.AttributeTime(v)
+	addAttribute(&b)
 	s.KeyValue = b.B
 	return
 }
