@@ -70,9 +70,8 @@ func CustomFromContext(getLogFromContext func(context.Context) *Log, adjustSetti
 // the current package) and set the minimum log level according
 // to the value of that environment variable.
 //
-// 	package foo
+//	package foo
 //	var adjustLogger = xop.LevelAdjuster()
-//
 func LevelAdjuster(opts ...AdjusterOption) func(*Log) *Log {
 	level := adjustConfig(opts)
 	if level == 0 {
@@ -95,9 +94,8 @@ func LevelAdjuster(opts ...AdjusterOption) func(*Log) *Log {
 // the passed level is not zero.
 // (3) The level that the logger already has.
 //
-// 	package foo
+//	package foo
 //	var getLogger = xop.AdjustedLevelLoger(xop.FromContextOrPanic)
-//
 func ContextLevelAdjuster(getLogFromContext func(context.Context) *Log, opts ...AdjusterOption) func(context.Context) *Log {
 	level := adjustConfig(opts)
 	if level == 0 {
@@ -132,6 +130,8 @@ func WithEnvironment(environmentVariableName string) AdjusterOption {
 // ContextLevelAdjuster.  If the environment variable is found then
 // that will override this default.  This default will override the
 // existing minimum logging level.
+//
+// The default minimum level comes from DefaultSettings
 func WithDefault(level xopnum.Level) AdjusterOption {
 	return func(o *adjustOptions) {
 		o.level = level

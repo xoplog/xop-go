@@ -8,20 +8,7 @@
 
   - note that `.Table()` will also be an alternative to `.Msg()`
 
-- (Re)define/document output formats
-
-  - xopjs (focuses on human-readability)
-
-- Document the above and also
-
-  - xoptest
-  - xopotel
-
-- Build the above
-
 - Rebuild xopup uploader to use the new xopproto
-
-- Rebuild server to ingest the new xopproto
 
 # Just do it (build ready)
 

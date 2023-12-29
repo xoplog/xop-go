@@ -70,7 +70,7 @@ var cases = []struct {
 			assert.NoError(t, err, "marshal")
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(enc)
-			log.Trace().Msg("sent response")
+			log.Debug().Msg("sent response")
 		},
 		expectedText: []string{
 			`T1.1.1 MODEL:request {"Name":"Joe","Count":38}`,
@@ -87,7 +87,7 @@ func TestXopResty(t *testing.T) {
 			seed := xop.NewSeed(xop.WithBase(tLog))
 			log := seed.Request("client")
 			log.Info().Msg("i am the base log")
-			ctx := log.Sub().MinLevel(xopnum.DebugLevel).Log().IntoContext(context.Background())
+			ctx := log.Sub().MinLevel(xopnum.TraceLevel).Log().IntoContext(context.Background())
 
 			var called bool
 			inbound := xopmiddle.New(seed, func(r *http.Request) string {
