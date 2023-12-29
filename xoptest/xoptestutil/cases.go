@@ -509,7 +509,8 @@ var MessageCases = []struct {
 				Any("null", nil).
 				Error("no", fmt.Errorf("bar")).
 				Msg("no foobar")
-			log.Trace().Stringer("do", sc).Msg("yes, foobar")
+			log.Trace().Stringer("don't", sc).Msg("yes, foobar")
+			log.Debug().Stringer("do", sc).Msg("yes, foobar")
 			assert.Equal(t, 1, callCount, "stringer called once")
 			noSkip := log.Sub().MinLevel(xopnum.DebugLevel).Log()
 			noSkip.Debug().

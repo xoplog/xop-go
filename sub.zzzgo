@@ -104,13 +104,13 @@ func (settings LogSettings) String() string {
 }
 
 // DefaultSettings are the settings that are used if no setting changes
-// are made. Debug logs are excluded. Alert and Error level log lines
+// are made. Trace logs are excluded. Alert and Error level log lines
 // get stack traces.
 var DefaultSettings = func() LogSettings {
 	var settings LogSettings
 	settings.stackFramesWanted[xopnum.AlertLevel] = 20
 	settings.stackFramesWanted[xopnum.ErrorLevel] = 10
-	settings.minimumLogLevel = xopnum.TraceLevel
+	settings.minimumLogLevel = xopnum.DebugLevel
 	settings.synchronousFlushWhenDone = true
 	settings.stackFilenameRewrite = func(s string) string { return s }
 	return settings
@@ -239,14 +239,14 @@ func (settings *LogSettings) SynchronousFlush(b bool) {
 }
 
 // MinLevel sets the minimum logging level below which logs will
-// be discarded.  The default is that no logs are discarded.
+// be discarded. The default minimum level comes from DefaultSettings.
 func (sub *Sub) MinLevel(level xopnum.Level) *Sub {
 	sub.settings.MinLevel(level)
 	return sub
 }
 
 // MinLevel sets the minimum logging level below which logs will
-// be discarded.  The default is that no logs are discarded.
+// be discarded. The default minimum level comes from DefaultSettings.
 func (settings *LogSettings) MinLevel(level xopnum.Level) {
 	settings.minimumLogLevel = level
 }

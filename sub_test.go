@@ -16,9 +16,9 @@ func TestLog_Settings(t *testing.T) {
 
 func TestSub_StackFrames(t *testing.T) {
 	sub := Default.Sub()
-	sub.StackFrames(xopnum.DebugLevel, 100)
+	sub.StackFrames(xopnum.TraceLevel, 100)
 	sub.StackFrames(xopnum.ErrorLevel, 100)
-	sub.StackFrames(xopnum.TraceLevel, 2)
+	sub.StackFrames(xopnum.DebugLevel, 2)
 	assert.Equal(t, 100, sub.settings.stackFramesWanted[xopnum.ErrorLevel])
 	assert.Equal(t, 100, sub.settings.stackFramesWanted[xopnum.AlertLevel])
 	assert.Equal(t, 2, sub.settings.stackFramesWanted[xopnum.TraceLevel])
