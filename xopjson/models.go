@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopjson/xopjsonutil"
@@ -115,9 +114,6 @@ type builder struct {
 	attributesStarted bool
 	attributesWanted  bool
 }
-
-var spanName = xop.Key("span.name")
-var spanParentSpan = xop.Key("span.parent_span")
 
 type DurationOption int
 
