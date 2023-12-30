@@ -12,9 +12,11 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
+type Key = xopat.K
+
 // AnyWithoutRedaction
 // The return value must be consumed for the line to be logged.
-func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
+func (line *Line) AnyWithoutRedaction(k xopat.K, v interface{}) *Line {
 	line.line.Any(k, xopbase.ModelArg{Model: v})
 	return line
 }
@@ -23,7 +25,7 @@ func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
 // The return value must be consumed for the line to be logged.
-func (line *Line) Any(k string, v interface{}) *Line {
+func (line *Line) Any(k xopat.K, v interface{}) *Line {
 	if line.skip {
 		return line
 	}
@@ -40,7 +42,7 @@ func (line *Line) Any(k string, v interface{}) *Line {
 
 // Float32 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Float32(k string, v float32) *Line {
+func (line *Line) Float32(k xopat.K, v float32) *Line {
 	line.line.Float64(k, float64(v), xopbase.Float32DataType)
 	return line
 }
@@ -63,7 +65,7 @@ func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 // The default logging of an error is simply err.Error() to change
 // that, set a redaction function.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Error(k string, v error) *Line {
+func (line *Line) Error(k xopat.K, v error) *Line {
 	if line.skip {
 		return line
 	}
@@ -78,7 +80,7 @@ func (line *Line) Error(k string, v error) *Line {
 // Stringer adds a key/value pair to the current log line.
 // The string can be redacted if a redaction function has been set.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
+func (line *Line) Stringer(k xopat.K, v fmt.Stringer) *Line {
 	if line.skip {
 		return line
 	}
@@ -93,7 +95,7 @@ func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 // String adds a key/value pair to the current log line.
 // The string can be redacted if a redaction function has been set.
 // The return value must be consumed for the line to be logged.
-func (line *Line) String(k string, v string) *Line {
+func (line *Line) String(k xopat.K, v string) *Line {
 	if line.skip {
 		return line
 	}
@@ -107,96 +109,96 @@ func (line *Line) String(k string, v string) *Line {
 
 // Bool adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Bool(k string, v bool) *Line { line.line.Bool(k, v); return line }
+func (line *Line) Bool(k xopat.K, v bool) *Line { line.line.Bool(k, v); return line }
 
 // Duration adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Duration(k string, v time.Duration) *Line { line.line.Duration(k, v); return line }
+func (line *Line) Duration(k xopat.K, v time.Duration) *Line { line.line.Duration(k, v); return line }
 
 // Time adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Time(k string, v time.Time) *Line { line.line.Time(k, v); return line }
+func (line *Line) Time(k xopat.K, v time.Time) *Line { line.line.Time(k, v); return line }
 
 // Float64 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Float64(k string, v float64) *Line {
+func (line *Line) Float64(k xopat.K, v float64) *Line {
 	line.line.Float64(k, v, xopbase.Float64DataType)
 	return line
 }
 
 // Int64 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Int64(k string, v int64) *Line {
+func (line *Line) Int64(k xopat.K, v int64) *Line {
 	line.line.Int64(k, v, xopbase.Int64DataType)
 	return line
 }
 
 // Uint64 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Uint64(k string, v uint64) *Line {
+func (line *Line) Uint64(k xopat.K, v uint64) *Line {
 	line.line.Uint64(k, v, xopbase.Uint64DataType)
 	return line
 }
 
 // Int adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Int(k string, v int) *Line {
+func (line *Line) Int(k xopat.K, v int) *Line {
 	line.line.Int64(k, int64(v), xopbase.IntDataType)
 	return line
 }
 
 // Int16 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Int16(k string, v int16) *Line {
+func (line *Line) Int16(k xopat.K, v int16) *Line {
 	line.line.Int64(k, int64(v), xopbase.Int16DataType)
 	return line
 }
 
 // Int32 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Int32(k string, v int32) *Line {
+func (line *Line) Int32(k xopat.K, v int32) *Line {
 	line.line.Int64(k, int64(v), xopbase.Int32DataType)
 	return line
 }
 
 // Int8 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Int8(k string, v int8) *Line {
+func (line *Line) Int8(k xopat.K, v int8) *Line {
 	line.line.Int64(k, int64(v), xopbase.Int8DataType)
 	return line
 }
 
 // Uint adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Uint(k string, v uint) *Line {
+func (line *Line) Uint(k xopat.K, v uint) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.UintDataType)
 	return line
 }
 
 // Uint16 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Uint16(k string, v uint16) *Line {
+func (line *Line) Uint16(k xopat.K, v uint16) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.Uint16DataType)
 	return line
 }
 
 // Uint32 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Uint32(k string, v uint32) *Line {
+func (line *Line) Uint32(k xopat.K, v uint32) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.Uint32DataType)
 	return line
 }
 
 // Uint8 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Uint8(k string, v uint8) *Line {
+func (line *Line) Uint8(k xopat.K, v uint8) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.Uint8DataType)
 	return line
 }
 
 // Uintptr adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Uintptr(k string, v uintptr) *Line {
+func (line *Line) Uintptr(k xopat.K, v uintptr) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.UintptrDataType)
 	return line
 }

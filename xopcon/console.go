@@ -332,38 +332,38 @@ func (line Line) send(text string) {
 	line.Span.logger.output(text)
 }
 
-func (b *Builder) any(k string, v interface{}) {
-	b.Data[k] = v
+func (b *Builder) any(k xopat.K, v interface{}) {
+	b.Data[k.String()] = v
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
 // Enum is a required method for xopbase.ObjectParts
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	ks := k.Key()
+	ks := k.Key().String()
 	b.Data[ks] = v
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
 // Any is a required method for xopbase.ObjectParts
-func (b *Builder) Any(k string, v xopbase.ModelArg) { b.any(k, v) }
+func (b *Builder) Any(k xopat.K, v xopbase.ModelArg) { b.any(k, v) }
 
 // Bool is a required method for xopbase.ObjectParts
-func (b *Builder) Bool(k string, v bool) { b.any(k, v) }
+func (b *Builder) Bool(k xopat.K, v bool) { b.any(k, v) }
 
 // Duration is a required method for xopbase.ObjectParts
-func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v) }
+func (b *Builder) Duration(k xopat.K, v time.Duration) { b.any(k, v) }
 
 // Time is a required method for xopbase.ObjectParts
-func (b *Builder) Time(k string, v time.Time) { b.any(k, v) }
+func (b *Builder) Time(k xopat.K, v time.Time) { b.any(k, v) }
 
 // Float64 is a required method for xopbase.ObjectParts
-func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v) }
+func (b *Builder) Float64(k xopat.K, v float64, dt xopbase.DataType) { b.any(k, v) }
 
 // Int64 is a required method for xopbase.ObjectParts
-func (b *Builder) Int64(k string, v int64, dt xopbase.DataType) { b.any(k, v) }
+func (b *Builder) Int64(k xopat.K, v int64, dt xopbase.DataType) { b.any(k, v) }
 
 // String is a required method for xopbase.ObjectParts
-func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v) }
+func (b *Builder) String(k xopat.K, v string, dt xopbase.DataType) { b.any(k, v) }
 
 // Uint64 is a required method for xopbase.ObjectParts
-func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v) }
+func (b *Builder) Uint64(k xopat.K, v uint64, dt xopbase.DataType) { b.any(k, v) }

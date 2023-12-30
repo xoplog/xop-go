@@ -1,6 +1,5 @@
 // TEMPLATE-FILE
 // TEMPLATE-FILE
-// TEMPLATE-FILE
 
 package xoprecorder
 
@@ -111,37 +110,37 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 }
 
 func ReplayLineData(source *Line, dest xopbase.Builder) {
-	for k, v := range source.Data {
-		dataType := source.DataType[k]
+	for key, v := range source.Data {
+		dataType := source.DataType[key]
 		switch dataType {
 		//MACRO BaseDataWithoutType
 		case xopbase.ZZZDataType:
-			dest.ZZZ(k, v.(zzz))
+			dest.ZZZ(key, v.(zzz))
 		// next line must be blank to end macro BaseDataWithoutType
 
 		//MACRO BaseDataWithType SKIP:Int64,Uint64
 		case xopbase.ZZZDataType:
-			dest.ZZZ(k, v.(zzz), dataType)
+			dest.ZZZ(key, v.(zzz), dataType)
 		// next line must be blank to end macro BaseDataWithType
 
 		//MACRO Ints
 		case xopbase.ZZZDataType:
-			dest.Int64(k, v.(int64), dataType)
+			dest.Int64(key, v.(int64), dataType)
 		// next line must be blank to end macro Ints
 
 		//MACRO Uints
 		case xopbase.ZZZDataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 
 		case xopbase.ErrorDataType, xopbase.StringerDataType:
-			dest.String(k, v.(string), dataType)
+			dest.String(key, v.(string), dataType)
 		case xopbase.Float32DataType:
-			dest.Float64(k, v.(float64), dataType)
+			dest.Float64(key, v.(float64), dataType)
 		case xopbase.EnumDataType:
-			dest.Enum(source.Enums[k], v.(xopat.Enum))
+			dest.Enum(source.Enums[key], v.(xopat.Enum))
 		default:
-			dest.String(k, fmt.Sprintf("unexpected data type %s in line, with value of type %T: %+v", dataType, v, v), xopbase.ErrorDataType)
+			dest.String(key, fmt.Sprintf("unexpected data type %s in line, with value of type %T: %+v", dataType, v, v), xopbase.ErrorDataType)
 		}
 	}
 }

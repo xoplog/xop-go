@@ -13,6 +13,7 @@ package xopbase
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/xoplog/xop-go/xopat"
@@ -220,13 +221,13 @@ type Builder interface {
 	// ZZZ adds a key/value pair.  Calls to ZZZ are expected to be
 	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
-	ZZZ(string, zzz, DataType)
+	ZZZ(xopat.K, zzz, DataType)
 
 	// MACRO BaseDataWithoutType
 	// ZZZ adds a key/value pair.  Calls to ZZZ are expected to be
 	// sequenced with other calls to add attributes to prefill and/or
 	// lines.
-	ZZZ(string, zzz)
+	ZZZ(xopat.K, zzz)
 
 	// TODO: RedactedString(name string, value string, unredaction string)
 }

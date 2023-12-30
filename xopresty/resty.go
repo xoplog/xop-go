@@ -73,6 +73,11 @@ type config struct {
 
 type ClientOpt func(*config)
 
+var traceResponseHeaderKey = xop.Key("header")
+var requestTimeKey = xop.Key("request_time.total")
+var requestTimeServerKey = xop.Key("request_time.server")
+var requestTimeDNSKey = xop.Key("request_time.dns")
+
 // WithNameGenerate provides a function to convert a request into
 // a description for the span.
 func WithNameGenerate(f func(*resty.Request) string) ClientOpt {
@@ -196,10 +201,10 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 				trace, ok := xoptrace.TraceFromString(tr)
 				if ok {
 					cv.response = true
-					log.Info().Link(trace, xopconst.RemoteTrace.Key())
+					log.Info().Link(trace, xopconst.RemoteTrace.Key().String())
 					log.Span().Link(xopconst.RemoteTrace, trace)
 				} else {
-					log.Warn().String("header", tr).Msg("invalid traceresponse received")
+					log.Warn().String(traceResponseHeaderKey, tr).Msg("invalid traceresponse received")
 				}
 			}
 			if r.Result != nil {
@@ -208,9 +213,9 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			ti := r.TraceInfo()
 			if ti.TotalTime != 0 {
 				log.Info().
-					Duration("request_time.total", ti.TotalTime).
-					Duration("request_time.server", ti.ServerTime).
-					Duration("request_time.dns", ti.DNSLookup).
+					Duration(requestTimeKey, ti.TotalTime).
+					Duration(requestTimeServerKey, ti.ServerTime).
+					Duration(requestTimeDNSKey, ti.DNSLookup).
 					Msg("timings")
 			}
 			return nil

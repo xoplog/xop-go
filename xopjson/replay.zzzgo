@@ -139,6 +139,7 @@ type baseReplay struct {
 }
 
 func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) error {
+	xopat.ResetCachedKeys() // prevent memory exhaustion
 	var requests []*decodedRequest
 	var spans []*decodedSpan
 	x := baseReplay{
@@ -528,7 +529,8 @@ type replayLineAttribute struct {
 	baseReplay
 }
 
-func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k string, enc []byte) error {
+func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, ks string, enc []byte) error {
+	k := xopat.K(ks)
 	var la lineAttribute
 	err := json.Unmarshal(enc, &la)
 	if err != nil {
@@ -545,7 +547,7 @@ func (x replayLineAttribute) Replay(line xopbase.Line, lineInput decodedLine, k 
 			return errors.Errorf("invalid enum string (%T)", la.Value)
 		}
 		m := xopat.Make{
-			Key: k,
+			Key: ks,
 		}
 		ea, err := x.attributeRegistry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
 		if err != nil {

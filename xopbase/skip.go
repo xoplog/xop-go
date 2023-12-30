@@ -17,7 +17,7 @@ type skipLine struct{}
 
 var _ Line = skipLine{}
 
-func (_ skipLine) AnyImmutable(string, interface{})          {}
+func (_ skipLine) AnyImmutable(xopat.K, interface{})         {}
 func (_ skipLine) Enum(k *xopat.EnumAttribute, v xopat.Enum) {}
 
 func (_ skipLine) Msg(string)                  {}
@@ -25,12 +25,12 @@ func (_ skipLine) Link(string, xoptrace.Trace) {}
 func (_ skipLine) Model(string, ModelArg)      {}
 func (_ skipLine) Template(string)             {}
 
-func (_ skipLine) Any(string, ModelArg)           {}
-func (_ skipLine) Bool(string, bool)              {}
-func (_ skipLine) Duration(string, time.Duration) {}
-func (_ skipLine) Time(string, time.Time)         {}
+func (_ skipLine) Any(xopat.K, ModelArg)           {}
+func (_ skipLine) Bool(xopat.K, bool)              {}
+func (_ skipLine) Duration(xopat.K, time.Duration) {}
+func (_ skipLine) Time(xopat.K, time.Time)         {}
 
-func (_ skipLine) Float64(string, float64, DataType) {}
-func (_ skipLine) Int64(string, int64, DataType)     {}
-func (_ skipLine) String(string, string, DataType)   {}
-func (_ skipLine) Uint64(string, uint64, DataType)   {}
+func (_ skipLine) Float64(xopat.K, float64, DataType) {}
+func (_ skipLine) Int64(xopat.K, int64, DataType)     {}
+func (_ skipLine) String(xopat.K, string, DataType)   {}
+func (_ skipLine) Uint64(xopat.K, uint64, DataType)   {}

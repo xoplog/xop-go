@@ -1,15 +1,19 @@
 package xop
 
 import (
+	"fmt"
+
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 
 	"github.com/mohae/deepcopy"
 )
 
+type Key = xopat.K
+
 // AnyWithoutRedaction
 // The return value must be consumed for the line to be logged.
-func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
+func (line *Line) AnyWithoutRedaction(k xopat.K, v interface{}) *Line {
 	line.line.Any(k, xopbase.ModelArg{Model: v})
 	return line
 }
@@ -18,7 +22,7 @@ func (line *Line) AnyWithoutRedaction(k string, v interface{}) *Line {
 // logger does not immediately serialize, then the object will be copied using
 // https://github.com/mohae/deepcopy 's Copy().
 // The return value must be consumed for the line to be logged.
-func (line *Line) Any(k string, v interface{}) *Line {
+func (line *Line) Any(k xopat.K, v interface{}) *Line {
 	if line.skip {
 		return line
 	}
@@ -35,7 +39,7 @@ func (line *Line) Any(k string, v interface{}) *Line {
 
 // Float32 adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Float32(k string, v float32) *Line {
+func (line *Line) Float32(k xopat.K, v float32) *Line {
 	line.line.Float64(k, float64(v), xopbase.Float32DataType)
 	return line
 }
@@ -58,7 +62,7 @@ func (line *Line) Enum(k *xopat.EnumAttribute, v xopat.Enum) *Line {
 // The default logging of an error is simply err.Error() to change
 // that, set a redaction function.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Error(k string, v error) *Line {
+func (line *Line) Error(k xopat.K, v error) *Line {
 	if line.skip {
 		return line
 	}
@@ -73,7 +77,7 @@ func (line *Line) Error(k string, v error) *Line {
 // Stringer adds a key/value pair to the current log line.
 // The string can be redacted if a redaction function has been set.
 // The return value must be consumed for the line to be logged.
-func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
+func (line *Line) Stringer(k xopat.K, v fmt.Stringer) *Line {
 	if line.skip {
 		return line
 	}
@@ -88,7 +92,7 @@ func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 // String adds a key/value pair to the current log line.
 // The string can be redacted if a redaction function has been set.
 // The return value must be consumed for the line to be logged.
-func (line *Line) String(k string, v string) *Line {
+func (line *Line) String(k xopat.K, v string) *Line {
 	if line.skip {
 		return line
 	}
@@ -103,12 +107,12 @@ func (line *Line) String(k string, v string) *Line {
 // MACRO BaseDataWithoutType SKIP:Any
 // ZZZ adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) ZZZ(k string, v zzz) *Line { line.line.ZZZ(k, v); return line }
+func (line *Line) ZZZ(k xopat.K, v zzz) *Line { line.line.ZZZ(k, v); return line }
 
 // MACRO BaseDataWithType SKIP:String
 // ZZZ adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) ZZZ(k string, v zzz) *Line {
+func (line *Line) ZZZ(k xopat.K, v zzz) *Line {
 	line.line.ZZZ(k, v, xopbase.ZZZDataType)
 	return line
 }
@@ -116,7 +120,7 @@ func (line *Line) ZZZ(k string, v zzz) *Line {
 // MACRO Ints SKIP:Int64
 // ZZZ adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) ZZZ(k string, v zzz) *Line {
+func (line *Line) ZZZ(k xopat.K, v zzz) *Line {
 	line.line.Int64(k, int64(v), xopbase.ZZZDataType)
 	return line
 }
@@ -124,7 +128,7 @@ func (line *Line) ZZZ(k string, v zzz) *Line {
 // MACRO Uints SKIP:Uint64
 // ZZZ adds a key/value pair to the current log line.
 // The return value must be consumed for the line to be logged.
-func (line *Line) ZZZ(k string, v zzz) *Line {
+func (line *Line) ZZZ(k xopat.K, v zzz) *Line {
 	line.line.Uint64(k, uint64(v), xopbase.ZZZDataType)
 	return line
 }

@@ -40,7 +40,7 @@ func TestASingleLineJSON(t *testing.T) {
 				})
 			}),
 	).Request(t.Name())
-	log.Alert().String("foo", "bar").Int("blast", 99).Msg("a test line")
+	log.Alert().String(xop.Key("foo"), "bar").Int(xop.Key("blast"), 99).Msg("a test line")
 	log.Done()
 	s := buffer.String()
 	t.Log(s)

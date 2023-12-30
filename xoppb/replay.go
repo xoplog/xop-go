@@ -188,6 +188,86 @@ func (x replaySpan) Replay(ctx context.Context, doDone bool) error {
 	return nil
 }
 
+type replayLine struct {
+	replayRequest
+	lineInput *xopproto.Line
+	span      xopbase.Span
+}
+
+func (x replayLine) Replay(ctx context.Context) error {
+	frames := make([]runtime.Frame, len(x.lineInput.StackFrames))
+	for i, frame := range x.lineInput.StackFrames {
+		frames[i].File = frame.File
+		frames[i].Line = int(frame.LineNumber)
+	}
+	line := x.span.NoPrefill().Line(
+		xopnum.Level(x.lineInput.LogLevel),
+		time.Unix(0, x.lineInput.Timestamp),
+		frames,
+	)
+	for _, attribute := range x.lineInput.Attributes {
+		switch attribute.Type {
+		case xopproto.AttributeType_Enum:
+			m := xopat.Make{
+				Key: attribute.Key,
+			}
+			ea, err := x.registry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
+			if err != nil {
+				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", attribute.Key)
+			}
+			enum := ea.Add64(attribute.Value.IntValue, attribute.Value.StringValue)
+			line.Enum(&ea.EnumAttribute, enum)
+		case xopproto.AttributeType_Float64, xopproto.AttributeType_Float32:
+			line.Float64(xopat.K(attribute.Key), attribute.Value.FloatValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_Int64, xopproto.AttributeType_Int32, xopproto.AttributeType_Int16,
+			xopproto.AttributeType_Int8, xopproto.AttributeType_Int:
+			line.Int64(xopat.K(attribute.Key), attribute.Value.IntValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_String, xopproto.AttributeType_Error, xopproto.AttributeType_Stringer:
+			line.String(xopat.K(attribute.Key), attribute.Value.StringValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_Uint64, xopproto.AttributeType_Uint32, xopproto.AttributeType_Uint16,
+			xopproto.AttributeType_Uint8, xopproto.AttributeType_Uintptr, xopproto.AttributeType_Uint:
+			line.Uint64(xopat.K(attribute.Key), attribute.Value.UintValue, xopbase.DataType(attribute.Type))
+		case xopproto.AttributeType_Any:
+			line.Any(xopat.K(attribute.Key), xopbase.ModelArg{
+				ModelType: attribute.Value.StringValue,
+				Encoded:   attribute.Value.BytesValue,
+				Encoding:  xopproto.Encoding(attribute.Value.IntValue),
+			})
+		case xopproto.AttributeType_Bool:
+			var b bool
+			if attribute.Value.IntValue != 0 {
+				b = true
+			}
+			line.Bool(xopat.K(attribute.Key), b)
+		case xopproto.AttributeType_Duration:
+			line.Duration(xopat.K(attribute.Key), time.Duration(attribute.Value.IntValue))
+		case xopproto.AttributeType_Time:
+			line.Time(xopat.K(attribute.Key), time.Unix(0, attribute.Value.IntValue))
+		default:
+			return errors.Errorf("unknown data type %s", attribute.Type)
+		}
+	}
+	switch {
+	case x.lineInput.Model != nil:
+		line.Model(x.lineInput.Message, xopbase.ModelArg{
+			ModelType: x.lineInput.Model.Type,
+			Encoded:   x.lineInput.Model.Encoded,
+			Encoding:  x.lineInput.Model.Encoding,
+		})
+	case x.lineInput.Link != "":
+		trace, ok := xoptrace.TraceFromString(x.lineInput.Link)
+		if !ok {
+			return errors.Errorf("invalid trace (%s)", x.lineInput.Link)
+		}
+		line.Link(x.lineInput.Message, trace)
+	case x.lineInput.MessageTemplate != "":
+		line.Template(x.lineInput.MessageTemplate)
+	default:
+		line.Msg(x.lineInput.Message)
+	}
+	return nil
+}
+
 func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 	def := x.requestInput.AttributeDefinitions[attribute.AttributeDefinitionSequenceNumber]
 	m := xopat.Make{
@@ -291,84 +371,4 @@ func (x replaySpan) replayAttribute(attribute *xopproto.SpanAttribute) error {
 	default:
 		return errors.Errorf("unexpected attribute type %s", def.Type)
 	}
-}
-
-type replayLine struct {
-	replayRequest
-	lineInput *xopproto.Line
-	span      xopbase.Span
-}
-
-func (x replayLine) Replay(ctx context.Context) error {
-	frames := make([]runtime.Frame, len(x.lineInput.StackFrames))
-	for i, frame := range x.lineInput.StackFrames {
-		frames[i].File = frame.File
-		frames[i].Line = int(frame.LineNumber)
-	}
-	line := x.span.NoPrefill().Line(
-		xopnum.Level(x.lineInput.LogLevel),
-		time.Unix(0, x.lineInput.Timestamp),
-		frames,
-	)
-	for _, attribute := range x.lineInput.Attributes {
-		switch attribute.Type {
-		case xopproto.AttributeType_Enum:
-			m := xopat.Make{
-				Key: attribute.Key,
-			}
-			ea, err := x.registry.ConstructEnumAttribute(m, xopat.AttributeTypeEnum)
-			if err != nil {
-				return errors.Wrapf(err, "build enum attribute for line attribute (%s)", attribute.Key)
-			}
-			enum := ea.Add64(attribute.Value.IntValue, attribute.Value.StringValue)
-			line.Enum(&ea.EnumAttribute, enum)
-		case xopproto.AttributeType_Float64, xopproto.AttributeType_Float32:
-			line.Float64(attribute.Key, attribute.Value.FloatValue, xopbase.DataType(attribute.Type))
-		case xopproto.AttributeType_Int64, xopproto.AttributeType_Int32, xopproto.AttributeType_Int16,
-			xopproto.AttributeType_Int8, xopproto.AttributeType_Int:
-			line.Int64(attribute.Key, attribute.Value.IntValue, xopbase.DataType(attribute.Type))
-		case xopproto.AttributeType_String, xopproto.AttributeType_Error, xopproto.AttributeType_Stringer:
-			line.String(attribute.Key, attribute.Value.StringValue, xopbase.DataType(attribute.Type))
-		case xopproto.AttributeType_Uint64, xopproto.AttributeType_Uint32, xopproto.AttributeType_Uint16,
-			xopproto.AttributeType_Uint8, xopproto.AttributeType_Uintptr, xopproto.AttributeType_Uint:
-			line.Uint64(attribute.Key, attribute.Value.UintValue, xopbase.DataType(attribute.Type))
-		case xopproto.AttributeType_Any:
-			line.Any(attribute.Key, xopbase.ModelArg{
-				ModelType: attribute.Value.StringValue,
-				Encoded:   attribute.Value.BytesValue,
-				Encoding:  xopproto.Encoding(attribute.Value.IntValue),
-			})
-		case xopproto.AttributeType_Bool:
-			var b bool
-			if attribute.Value.IntValue != 0 {
-				b = true
-			}
-			line.Bool(attribute.Key, b)
-		case xopproto.AttributeType_Duration:
-			line.Duration(attribute.Key, time.Duration(attribute.Value.IntValue))
-		case xopproto.AttributeType_Time:
-			line.Time(attribute.Key, time.Unix(0, attribute.Value.IntValue))
-		default:
-			return errors.Errorf("unknown data type %s", attribute.Type)
-		}
-	}
-	switch {
-	case x.lineInput.Model != nil:
-		line.Model(x.lineInput.Message, xopbase.ModelArg{
-			ModelType: x.lineInput.Model.Type,
-			Encoded:   x.lineInput.Model.Encoded,
-			Encoding:  x.lineInput.Model.Encoding,
-		})
-	case x.lineInput.Link != "":
-		trace, ok := xoptrace.TraceFromString(x.lineInput.Link)
-		if !ok {
-			return errors.Errorf("invalid trace (%s)", x.lineInput.Link)
-		}
-		line.Link(x.lineInput.Message, trace)
-	case x.lineInput.MessageTemplate != "":
-		line.Template(x.lineInput.MessageTemplate)
-	default:
-		line.Msg(x.lineInput.Message)
-	}
-	return nil
 }

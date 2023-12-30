@@ -4,14 +4,14 @@ import (
 	"github.com/xoplog/xop-go/xoputil"
 )
 
-var defineAttributeStarter = []byte(`{"type":"defineKey","key":"`) // }
+var defineAttributeStarter = []byte(`{"type":"defineKey","key":`) // }
 
 func jsonAttributeDefinition(k *Attribute) []byte {
 	b := xoputil.JBuilder{}
 	b.B = make([]byte, len(defineAttributeStarter), len(defineAttributeStarter)+100)
 	copy(b.B, defineAttributeStarter)
-	b.AddStringBody(k.Key())
-	b.AppendBytes([]byte(`","desc":"`))
+	b.AppendBytes(k.Key().JSON())
+	b.AppendBytes([]byte(`,"desc":"`))
 	b.AddStringBody(k.Description())
 	b.AppendBytes([]byte(`","ns":"`))
 	b.AddStringBody(k.Namespace())

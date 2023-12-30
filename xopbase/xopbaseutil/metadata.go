@@ -44,13 +44,13 @@ func (s SpanMetadata) Get(k string) *MetadataTracker {
 // MetadataAny is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	v.Encode()
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -96,13 +96,13 @@ func (s *SpanMetadata) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 
 // MetadataBool is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataBool(k *xopat.BoolAttribute, v bool) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -146,13 +146,13 @@ func (s *SpanMetadata) MetadataBool(k *xopat.BoolAttribute, v bool) {
 
 // MetadataEnum is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -196,13 +196,13 @@ func (s *SpanMetadata) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 
 // MetadataFloat64 is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -246,13 +246,13 @@ func (s *SpanMetadata) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 
 // MetadataInt64 is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataInt64(k *xopat.Int64Attribute, v int64) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -296,13 +296,13 @@ func (s *SpanMetadata) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 
 // MetadataLink is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -346,13 +346,13 @@ func (s *SpanMetadata) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 
 // MetadataString is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataString(k *xopat.StringAttribute, v string) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {
@@ -396,13 +396,13 @@ func (s *SpanMetadata) MetadataString(k *xopat.StringAttribute, v string) {
 
 // MetadataTime is a required method for xopbase.Span
 func (s *SpanMetadata) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {

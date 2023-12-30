@@ -158,7 +158,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 		a.encoder.SetEscapeHTML(false)
 	}
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -180,7 +180,7 @@ func (a *AttributeBuilder) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.AnyDataType
 	a.encodeTarget = &m.Builder.B
 	m.Builder.encoder = a.encoder
@@ -210,7 +210,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -230,7 +230,7 @@ func (a *AttributeBuilder) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.BoolDataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore
@@ -258,7 +258,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -278,7 +278,7 @@ func (a *AttributeBuilder) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.EnumDataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore
@@ -306,7 +306,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -326,7 +326,7 @@ func (a *AttributeBuilder) MetadataFloat64(k *xopat.Float64Attribute, v float64)
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.Float64DataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore
@@ -354,7 +354,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -374,7 +374,7 @@ func (a *AttributeBuilder) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.Int64DataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore
@@ -402,7 +402,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -422,7 +422,7 @@ func (a *AttributeBuilder) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.LinkDataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore
@@ -450,7 +450,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -470,7 +470,7 @@ func (a *AttributeBuilder) MetadataString(k *xopat.StringAttribute, v string) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.StringDataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore
@@ -498,7 +498,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	defer a.lock.Unlock()
 	a.anyChanged = true
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -518,7 +518,7 @@ func (a *AttributeBuilder) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.TimeDataType
 	lenBefore := len(m.Builder.B)
 	// we add the new value unconditionally but can remove it by shortening to lenBefore

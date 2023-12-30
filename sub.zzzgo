@@ -1,3 +1,7 @@
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+
 package xop
 
 import (
@@ -42,7 +46,7 @@ type Detaching struct {
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
-type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool)
+type RedactAnyFunc func(baseLine xopbase.Line, k xopat.K, v interface{}, alreadyImmutable bool)
 
 // RedactStringFunc is used to redact strings as they're being logged.
 // It is RedactStringFunc's responsiblity to call
@@ -56,7 +60,7 @@ type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyI
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
-type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
+type RedactStringFunc func(baseLine xopbase.Line, k xopat.K, v string)
 
 // RedactErrorFunc is used to redact or format errors as they're being
 // logged.  It is RedactErrorFunc's responsibility to call
@@ -70,7 +74,7 @@ type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
-type RedactErrorFunc func(baseLine xopbase.Line, k string, v error)
+type RedactErrorFunc func(baseLine xopbase.Line, k xopat.K, v error)
 
 type LogSettings struct {
 	prefillMsg               string
@@ -339,7 +343,7 @@ func (settings *LogSettings) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 // PrefillError is used to set a data element that is included on every log
 // line.  Errors will always be formatted with v.Error().  Redaction is
 // not supported.
-func (sub *Sub) PrefillError(k string, v error) *Sub {
+func (sub *Sub) PrefillError(k xopat.K, v error) *Sub {
 	sub.settings.PrefillError(k, v)
 	return sub
 }
@@ -347,7 +351,7 @@ func (sub *Sub) PrefillError(k string, v error) *Sub {
 // PrefillError is used to set a data element that is included on every log
 // line.  Errors will always be formatted with v.Error().  Redaction is
 // not supported.
-func (settings *LogSettings) PrefillError(k string, v error) {
+func (settings *LogSettings) PrefillError(k xopat.K, v error) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.String(k, v.Error(), xopbase.ErrorDataType)
 	})
@@ -359,7 +363,7 @@ func (settings *LogSettings) PrefillError(k string, v error) {
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
 // Redaction is not supported.
-func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
+func (sub *Sub) PrefillAny(k xopat.K, v interface{}) *Sub {
 	sub.settings.PrefillAny(k, v)
 	return sub
 }
@@ -370,7 +374,7 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
 // Redaction is not supported.
-func (settings *LogSettings) PrefillAny(k string, v interface{}) {
+func (settings *LogSettings) PrefillAny(k xopat.K, v interface{}) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Any(k, xopbase.ModelArg{Model: v})
 	})
@@ -380,11 +384,11 @@ func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 // line.
 // PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
+func (sub *Sub) PrefillFloat32(k xopat.K, v float32) *Sub {
 	sub.settings.PrefillFloat32(k, v)
 	return sub
 }
-func (settings *LogSettings) PrefillFloat32(k string, v float32) {
+func (settings *LogSettings) PrefillFloat32(k xopat.K, v float32) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Float64(k, float64(v), xopbase.Float32DataType)
 	})
@@ -395,11 +399,11 @@ func (settings *LogSettings) PrefillFloat32(k string, v float32) {
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+func (sub *Sub) PrefillZZZ(k xopat.K, v zzz) *Sub {
 	sub.settings.PrefillZZZ(k, v)
 	return sub
 }
-func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+func (settings *LogSettings) PrefillZZZ(k xopat.K, v zzz) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.ZZZ(k, v)
 	})
@@ -410,11 +414,11 @@ func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+func (sub *Sub) PrefillZZZ(k xopat.K, v zzz) *Sub {
 	sub.settings.PrefillZZZ(k, v)
 	return sub
 }
-func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+func (settings *LogSettings) PrefillZZZ(k xopat.K, v zzz) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.ZZZ(k, v, xopbase.ZZZDataType)
 	})
@@ -425,11 +429,11 @@ func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+func (sub *Sub) PrefillZZZ(k xopat.K, v zzz) *Sub {
 	sub.settings.PrefillZZZ(k, v)
 	return sub
 }
-func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+func (settings *LogSettings) PrefillZZZ(k xopat.K, v zzz) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, int64(v), xopbase.ZZZDataType)
 	})
@@ -440,11 +444,11 @@ func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
 // line.
 // PrefillZZZ is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillZZZ(k string, v zzz) *Sub {
+func (sub *Sub) PrefillZZZ(k xopat.K, v zzz) *Sub {
 	sub.settings.PrefillZZZ(k, v)
 	return sub
 }
-func (settings *LogSettings) PrefillZZZ(k string, v zzz) {
+func (settings *LogSettings) PrefillZZZ(k xopat.K, v zzz) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.ZZZDataType)
 	})

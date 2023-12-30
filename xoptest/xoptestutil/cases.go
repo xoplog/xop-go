@@ -32,11 +32,11 @@ var MessageCases = []struct {
 			log.Alert().Msg("basic alert message")
 			log.Debug().Msg("basic debug message")
 			log.Trace().Msg("basic trace message")
-			log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
+			log.Info().String(xop.Key("foo"), "bar").Int(xop.Key("num"), 38).Template("a test {foo} with {num}")
 
 			ss := log.Sub().Detach().Fork("a fork one span")
 			MicroNap()
-			ss.Alert().String("frightening", "stuff").Msg("like a rock" + NeedsEscaping)
+			ss.Alert().String(xop.Key("frightening"), "stuff").Msg("like a rock" + NeedsEscaping)
 			ss.Span().String(xopconst.EndpointRoute, "/some/thing")
 
 			MicroNap()
@@ -404,7 +404,7 @@ var MessageCases = []struct {
 		SkipOTEL:     true,
 		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			s2 := log.Sub().Step("S2")
-			s2.Info().Int8("i8", 9).Msg("a line before done")
+			s2.Info().Int8(xop.Key("i8"), 9).Msg("a line before done")
 			MicroNap()
 			s2.Done()
 			assert.Empty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("XOP: logger was already done, but was used again")), "no err")
@@ -415,7 +415,7 @@ var MessageCases = []struct {
 			s2.Done()
 			assert.NotEmpty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("called on logger object when it was already Done")), "now err")
 			log.Flush()
-			s2.Warn().Int32("i32", 940940).Msg("another post-done line, should trigger an error log")
+			s2.Warn().Int32(xop.Key("i32"), 940940).Msg("another post-done line, should trigger an error log")
 			MicroNap()
 			log.Done()
 		},
@@ -466,8 +466,8 @@ var MessageCases = []struct {
 	{
 		Name: "type-duration",
 		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
-			p := log.Sub().PrefillDuration("1m", time.Minute).Logger()
-			p.Warn().Duration("hour", time.Hour).Msg("duration")
+			p := log.Sub().PrefillDuration(xop.Key("1m"), time.Minute).Logger()
+			p.Warn().Duration(xop.Key("hour"), time.Hour).Msg("duration")
 			MicroNap()
 			log.Done()
 		},
@@ -504,10 +504,10 @@ var MessageCases = []struct {
 			sc := newStringCounter(&callCount, "foobar")
 			skipper := log.Sub().MinLevel(xopnum.InfoLevel).Logger()
 			skipper.Debug().
-				Stringer("avoid", sc).
-				String("avoid", "blaf").
-				Any("null", nil).
-				Error("no", fmt.Errorf("bar")).
+				Stringer(xop.Key("avoid"), sc).
+				String(xop.Key("avoid"), "blaf").
+				Any(xop.Key("null"), nil).
+				Error(xop.Key("no"), fmt.Errorf("bar")).
 				Msg("no foobar")
 			log.Trace().Stringer("don't", sc).Msg("yes, trace")
 			log.Debug().Stringer("do", sc).Msg("yes, debug")

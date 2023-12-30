@@ -31,8 +31,8 @@ type AttributeBuilder struct {
 	singles      []singleAttribute
 	multis       []multiAttribute
 	Type         xopbase.DataType
-	singleMap    map[string]*singleAttribute
-	multiMap     map[string]*multiAttribute
+	singleMap    map[xopat.K]*singleAttribute
+	multiMap     map[xopat.K]*multiAttribute
 	anyChanged   bool
 	encodeTarget *[]byte
 	encoder      *json.Encoder
@@ -61,8 +61,8 @@ type attribute struct {
 func (a *AttributeBuilder) Init(request *Span) {
 	a.singles = a.singlesBuf[:0]
 	a.multis = a.multiBuf[:0]
-	a.singleMap = make(map[string]*singleAttribute)
-	a.multiMap = make(map[string]*multiAttribute)
+	a.singleMap = make(map[xopat.K]*singleAttribute)
+	a.multiMap = make(map[xopat.K]*multiAttribute)
 	a.anyChanged = false
 	a.request = request
 }

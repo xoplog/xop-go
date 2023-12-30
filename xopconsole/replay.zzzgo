@@ -195,7 +195,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				if err != nil {
 					return errors.Wrap(err, "parse any attribute")
 				}
-				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Any(key, ma) })
+				x.attributes = append(x.attributes, func(line xopbase.Line) { line.Any(xopat.K(key), ma) })
 				if sep == '\000' {
 					break
 				}
@@ -204,7 +204,7 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 				value, t = oneString(t)
 				if len(t) == 0 {
 					// valid for a terminal string value
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(xopat.K(key), value, xopbase.StringDataType) })
 					break
 				}
 				sep, t = t[0], t[1:]
@@ -232,49 +232,49 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					if err != nil {
 						return errors.Wrap(err, "invalid bool")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, b) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(xopat.K(key), b) })
 				case "dur":
 					dur, err := time.ParseDuration(value)
 					if err != nil {
 						return errors.Wrap(err, "invalid duration")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Duration(key, dur) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Duration(xopat.K(key), dur) })
 				case "f32":
 					f, err := strconv.ParseFloat(value, 32)
 					if err != nil {
 						return errors.Wrap(err, "invalid float")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(key, f, xopbase.Float32DataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(xopat.K(key), f, xopbase.Float32DataType) })
 				case "f64":
 					f, err := strconv.ParseFloat(value, 64)
 					if err != nil {
 						return errors.Wrap(err, "invalid float")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(key, f, xopbase.Float64DataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Float64(xopat.K(key), f, xopbase.Float64DataType) })
 				case "string":
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(xopat.K(key), value, xopbase.StringDataType) })
 				case "stringer":
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringerDataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(xopat.K(key), value, xopbase.StringerDataType) })
 				case "error":
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.ErrorDataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(xopat.K(key), value, xopbase.ErrorDataType) })
 				case "i8", "i16", "i32", "i64", "int":
 					i, err := strconv.ParseInt(value, 10, 64)
 					if err != nil {
 						return errors.Wrap(err, "invalid int")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.StringToDataType[typ]) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(xopat.K(key), i, xopbase.StringToDataType[typ]) })
 				case "u", "u8", "u16", "u32", "u64", "uintptr":
 					i, err := strconv.ParseUint(value, 10, 64)
 					if err != nil {
 						return errors.Wrap(err, "invalid uint")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Uint64(key, i, xopbase.StringToDataType[typ]) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Uint64(xopat.K(key), i, xopbase.StringToDataType[typ]) })
 				case "time":
 					ts, err := time.Parse(time.RFC3339Nano, value)
 					if err != nil {
 						return errors.Wrap(err, "invalid time")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Time(key, ts) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Time(xopat.K(key), ts) })
 				default:
 					return errors.Errorf("invalid type: %s", typ)
 				}
@@ -288,15 +288,15 @@ func (x replayLine) replayLine(ctx context.Context, t string) error {
 					if err != nil {
 						return errors.Wrap(err, "invalid int")
 					}
-					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(key, i, xopbase.IntDataType) })
+					x.attributes = append(x.attributes, func(line xopbase.Line) { line.Int64(xopat.K(key), i, xopbase.IntDataType) })
 				default:
 					switch value {
 					case "t":
-						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, true) })
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(xopat.K(key), true) })
 					case "f":
-						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(key, false) })
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.Bool(xopat.K(key), false) })
 					default:
-						x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(key, value, xopbase.StringDataType) })
+						x.attributes = append(x.attributes, func(line xopbase.Line) { line.String(xopat.K(key), value, xopbase.StringDataType) })
 					}
 				}
 				if sep == '\000' {

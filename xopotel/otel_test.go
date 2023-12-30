@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbytes"
 	"github.com/xoplog/xop-go/xopjson"
 	"github.com/xoplog/xop-go/xopotel"
@@ -50,7 +51,7 @@ func TestSingleLineOTEL(t *testing.T) {
 
 	ctx, span := tracer.Start(ctx, "test-span")
 	log := xopotel.SpanToLog(ctx, "test-span")
-	log.Alert().String("foo", "bar").Int("blast", 99).Msg("a test line")
+	log.Alert().String(xopat.K("foo"), "bar").Int(xopat.K("blast"), 99).Msg("a test line")
 	log.Done()
 	span.End()
 	tracerProvider.ForceFlush(context.Background())

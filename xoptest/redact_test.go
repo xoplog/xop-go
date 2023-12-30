@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/xoplog/xop-go"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptest"
@@ -37,11 +38,11 @@ func TestRedaction(t *testing.T) {
 	log := xop.NewSeed(
 		xop.WithBase(tLog),
 		xop.WithSettings(func(settings *xop.LogSettings) {
-			settings.SetRedactStringFunc(func(baseLine xopbase.Line, k string, v string) {
+			settings.SetRedactStringFunc(func(baseLine xopbase.Line, k xopat.K, v string) {
 				v = strings.ReplaceAll(v, "sunflower", "daisy")
 				baseLine.String(k, v, xopbase.StringDataType)
 			})
-			settings.SetRedactAnyFunc(func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool) {
+			settings.SetRedactAnyFunc(func(baseLine xopbase.Line, k xopat.K, v interface{}, alreadyImmutable bool) {
 				if !alreadyImmutable {
 					v = deepcopy.Copy(v)
 				}
@@ -55,7 +56,7 @@ func TestRedaction(t *testing.T) {
 					})
 				}
 			})
-			settings.SetRedactErrorFunc(func(baseLine xopbase.Line, k string, v error) {
+			settings.SetRedactErrorFunc(func(baseLine xopbase.Line, k xopat.K, v error) {
 				baseLine.String(k, v.Error()+"(as string)", xopbase.ErrorDataType)
 			})
 		}),
@@ -64,12 +65,12 @@ func TestRedaction(t *testing.T) {
 	a := selfRedactor{V: "I got the contract with a small bribe, just a sunflower cookie"}
 
 	log.Info().
-		String("garden", "nothing in my garden is taller than my sunflower!").
-		Any("story", a).
-		Any("tale", a).
-		AnyWithoutRedaction("raw", a).
-		Stringer("success", a).
-		Error("oops", fmt.Errorf("outer: %w", fmt.Errorf("inner"))).
+		String(xop.Key("garden"), "nothing in my garden is taller than my sunflower!").
+		Any(xop.Key("story"), a).
+		Any(xop.Key("tale"), a).
+		AnyWithoutRedaction(xop.Key("raw"), a).
+		Stringer(xop.Key("success"), a).
+		Error(xop.Key("oops"), fmt.Errorf("outer: %w", fmt.Errorf("inner"))).
 		Msg("foo")
 
 	foos := tLog.Recorder().FindLines(xoprecorder.MessageEquals("foo"))

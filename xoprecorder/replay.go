@@ -131,72 +131,72 @@ func (log *Logger) Replay(ctx context.Context, dest xopbase.Logger) error {
 }
 
 func ReplayLineData(source *Line, dest xopbase.Builder) {
-	for k, v := range source.Data {
-		dataType := source.DataType[k]
+	for key, v := range source.Data {
+		dataType := source.DataType[key]
 		switch dataType {
 		case xopbase.AnyDataType:
-			dest.Any(k, v.(xopbase.ModelArg))
+			dest.Any(key, v.(xopbase.ModelArg))
 		// next line must be blank to end macro BaseDataWithoutType
 		case xopbase.BoolDataType:
-			dest.Bool(k, v.(bool))
+			dest.Bool(key, v.(bool))
 		// next line must be blank to end macro BaseDataWithoutType
 		case xopbase.DurationDataType:
-			dest.Duration(k, v.(time.Duration))
+			dest.Duration(key, v.(time.Duration))
 		// next line must be blank to end macro BaseDataWithoutType
 		case xopbase.TimeDataType:
-			dest.Time(k, v.(time.Time))
+			dest.Time(key, v.(time.Time))
 		// next line must be blank to end macro BaseDataWithoutType
 
 		case xopbase.Float64DataType:
-			dest.Float64(k, v.(float64), dataType)
+			dest.Float64(key, v.(float64), dataType)
 		// next line must be blank to end macro BaseDataWithType
 		case xopbase.StringDataType:
-			dest.String(k, v.(string), dataType)
+			dest.String(key, v.(string), dataType)
 		// next line must be blank to end macro BaseDataWithType
 
 		case xopbase.IntDataType:
-			dest.Int64(k, v.(int64), dataType)
+			dest.Int64(key, v.(int64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Int16DataType:
-			dest.Int64(k, v.(int64), dataType)
+			dest.Int64(key, v.(int64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Int32DataType:
-			dest.Int64(k, v.(int64), dataType)
+			dest.Int64(key, v.(int64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Int64DataType:
-			dest.Int64(k, v.(int64), dataType)
+			dest.Int64(key, v.(int64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Int8DataType:
-			dest.Int64(k, v.(int64), dataType)
+			dest.Int64(key, v.(int64), dataType)
 		// next line must be blank to end macro Ints
 
 		case xopbase.UintDataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Uint16DataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Uint32DataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Uint64DataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.Uint8DataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 		case xopbase.UintptrDataType:
-			dest.Uint64(k, v.(uint64), dataType)
+			dest.Uint64(key, v.(uint64), dataType)
 		// next line must be blank to end macro Ints
 
 		case xopbase.ErrorDataType, xopbase.StringerDataType:
-			dest.String(k, v.(string), dataType)
+			dest.String(key, v.(string), dataType)
 		case xopbase.Float32DataType:
-			dest.Float64(k, v.(float64), dataType)
+			dest.Float64(key, v.(float64), dataType)
 		case xopbase.EnumDataType:
-			dest.Enum(source.Enums[k], v.(xopat.Enum))
+			dest.Enum(source.Enums[key], v.(xopat.Enum))
 		default:
-			dest.String(k, fmt.Sprintf("unexpected data type %s in line, with value of type %T: %+v", dataType, v, v), xopbase.ErrorDataType)
+			dest.String(key, fmt.Sprintf("unexpected data type %s in line, with value of type %T: %+v", dataType, v, v), xopbase.ErrorDataType)
 		}
 	}
 }

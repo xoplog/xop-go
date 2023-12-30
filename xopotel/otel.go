@@ -324,7 +324,7 @@ func (prefilled *prefilled) Line(level xopnum.Level, ts time.Time, frames []runt
 }
 
 func (line *line) Link(k string, v xoptrace.Trace) {
-	if k == xopOTELLinkDetail {
+	if k == xopOTELLinkDetail.String() {
 		// Link will not be called with OTEL->XOP->OTEL so no need to
 		// suppress anything
 		return
@@ -439,56 +439,56 @@ func (line *line) Template(template string) {
 }
 
 func (builder *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k.Key(), []string{v.String(), "enum", strconv.FormatInt(v.Int64(), 10)}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.Key().String(), []string{v.String(), "enum", strconv.FormatInt(v.Int64(), 10)}))
 }
 
-func (builder *builder) Any(k string, v xopbase.ModelArg) {
+func (builder *builder) Any(k xopat.K, v xopbase.ModelArg) {
 	v.Encode()
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{string(v.Encoded), "any", v.Encoding.String(), v.ModelType}))
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{string(v.Encoded), "any", v.Encoding.String(), v.ModelType}))
 }
 
-func (builder *builder) Time(k string, v time.Time) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v.Format(time.RFC3339Nano), "time"}))
+func (builder *builder) Time(k xopat.K, v time.Time) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{v.Format(time.RFC3339Nano), "time"}))
 }
 
-func (builder *builder) Duration(k string, v time.Duration) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v.String(), "dur"}))
+func (builder *builder) Duration(k xopat.K, v time.Duration) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{v.String(), "dur"}))
 }
 
-func (builder *builder) Uint64(k string, v uint64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatUint(v, 10), xopbase.DataTypeToString[dt]}))
+func (builder *builder) Uint64(k xopat.K, v uint64, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{strconv.FormatUint(v, 10), xopbase.DataTypeToString[dt]}))
 }
 
-func (builder *builder) Int64(k string, v int64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatInt(v, 10), xopbase.DataTypeToString[dt]}))
+func (builder *builder) Int64(k xopat.K, v int64, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{strconv.FormatInt(v, 10), xopbase.DataTypeToString[dt]}))
 }
 
-func (builder *builder) Float64(k string, v float64, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString[dt]}))
+func (builder *builder) Float64(k xopat.K, v float64, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{strconv.FormatFloat(v, 'g', -1, 64), xopbase.DataTypeToString[dt]}))
 }
 
-func (builder *builder) String(k string, v string, dt xopbase.DataType) {
-	builder.attributes = append(builder.attributes, attribute.StringSlice(k, []string{v, xopbase.DataTypeToString[dt]}))
+func (builder *builder) String(k xopat.K, v string, dt xopbase.DataType) {
+	builder.attributes = append(builder.attributes, attribute.StringSlice(k.String(), []string{v, xopbase.DataTypeToString[dt]}))
 }
 
-func (builder *builder) Bool(k string, v bool) {
-	builder.attributes = append(builder.attributes, attribute.Bool(k, v))
+func (builder *builder) Bool(k xopat.K, v bool) {
+	builder.attributes = append(builder.attributes, attribute.Bool(k.String(), v))
 }
 
 var skipIfOTEL = map[string]struct{}{
-	otelReplayStuff.Key(): {},
+	otelReplayStuff.Key().String(): {},
 }
 
 func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
-	if k.Key() == otelReplayStuff.Key() {
+	if k.Key().String() == otelReplayStuff.Key().String() {
 		return
 	}
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -506,12 +506,12 @@ func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.String(key, value))
+		span.otelSpan.SetAttributes(attribute.String(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -520,10 +520,10 @@ func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[string]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[string]struct{})
@@ -536,19 +536,19 @@ func (span *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	if span.priorStringSlices == nil {
 		span.priorStringSlices = make(map[string][]string)
 	}
-	s := span.priorStringSlices[key]
+	s := span.priorStringSlices[key.String()]
 	s = append(s, value)
-	span.priorStringSlices[key] = s
-	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	span.priorStringSlices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.StringSlice(key.String(), s))
 }
 
 func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -560,12 +560,12 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.Bool(key, value))
+		span.otelSpan.SetAttributes(attribute.Bool(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -574,10 +574,10 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[bool]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[bool]struct{})
@@ -590,19 +590,19 @@ func (span *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	if span.priorBoolSlices == nil {
 		span.priorBoolSlices = make(map[string][]bool)
 	}
-	s := span.priorBoolSlices[key]
+	s := span.priorBoolSlices[key.String()]
 	s = append(s, value)
-	span.priorBoolSlices[key] = s
-	span.otelSpan.SetAttributes(attribute.BoolSlice(key, s))
+	span.priorBoolSlices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.BoolSlice(key.String(), s))
 }
 
 func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -614,12 +614,12 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.String(key, value))
+		span.otelSpan.SetAttributes(attribute.String(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -628,10 +628,10 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[string]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[string]struct{})
@@ -644,19 +644,19 @@ func (span *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	if span.priorStringSlices == nil {
 		span.priorStringSlices = make(map[string][]string)
 	}
-	s := span.priorStringSlices[key]
+	s := span.priorStringSlices[key.String()]
 	s = append(s, value)
-	span.priorStringSlices[key] = s
-	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	span.priorStringSlices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.StringSlice(key.String(), s))
 }
 
 func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -668,12 +668,12 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.Float64(key, value))
+		span.otelSpan.SetAttributes(attribute.Float64(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -682,10 +682,10 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[float64]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[float64]struct{})
@@ -698,19 +698,19 @@ func (span *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	if span.priorFloat64Slices == nil {
 		span.priorFloat64Slices = make(map[string][]float64)
 	}
-	s := span.priorFloat64Slices[key]
+	s := span.priorFloat64Slices[key.String()]
 	s = append(s, value)
-	span.priorFloat64Slices[key] = s
-	span.otelSpan.SetAttributes(attribute.Float64Slice(key, s))
+	span.priorFloat64Slices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.Float64Slice(key.String(), s))
 }
 
 func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -722,15 +722,15 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
 		if k.SubType() == xopat.AttributeTypeDuration {
-			span.otelSpan.SetAttributes(attribute.String(key, time.Duration(value).String()))
+			span.otelSpan.SetAttributes(attribute.String(key.String(), time.Duration(value).String()))
 		} else {
-			span.otelSpan.SetAttributes(attribute.Int64(key, value))
+			span.otelSpan.SetAttributes(attribute.Int64(key.String(), value))
 		}
 		return
 	}
@@ -740,10 +740,10 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[int64]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[int64]struct{})
@@ -757,37 +757,37 @@ func (span *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 		if span.priorStringSlices == nil {
 			span.priorStringSlices = make(map[string][]string)
 		}
-		s := span.priorStringSlices[key]
+		s := span.priorStringSlices[key.String()]
 		s = append(s, time.Duration(value).String())
-		span.priorStringSlices[key] = s
-		span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+		span.priorStringSlices[key.String()] = s
+		span.otelSpan.SetAttributes(attribute.StringSlice(key.String(), s))
 	} else {
 		if span.priorInt64Slices == nil {
 			span.priorInt64Slices = make(map[string][]int64)
 		}
-		s := span.priorInt64Slices[key]
+		s := span.priorInt64Slices[key.String()]
 		s = append(s, value)
-		span.priorInt64Slices[key] = s
-		span.otelSpan.SetAttributes(attribute.Int64Slice(key, s))
+		span.priorInt64Slices[key.String()] = s
+		span.otelSpan.SetAttributes(attribute.Int64Slice(key.String(), s))
 	}
 }
 
 func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
-	if k.Key() == otelLink.Key() {
+	if k.Key().String() == otelLink.Key().String() {
 		return
 	}
 	value := v.String()
 	if span.logger.bufferedRequest == nil {
-		_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key(),
+		_, tmpSpan := span.logger.tracer.Start(span.ctx, k.Key().String(),
 			oteltrace.WithLinks(
 				oteltrace.Link{
 					SpanContext: oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
@@ -798,7 +798,7 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 						Remote:     true,            // information not available
 					}),
 					Attributes: []attribute.KeyValue{
-						xopLinkMetadataKey.String(key),
+						xopLinkMetadataKey.String(key.String()),
 					},
 				}),
 			oteltrace.WithAttributes(
@@ -815,12 +815,12 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.String(key, value))
+		span.otelSpan.SetAttributes(attribute.String(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -829,10 +829,10 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[string]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[string]struct{})
@@ -845,19 +845,19 @@ func (span *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	if span.priorStringSlices == nil {
 		span.priorStringSlices = make(map[string][]string)
 	}
-	s := span.priorStringSlices[key]
+	s := span.priorStringSlices[key.String()]
 	s = append(s, value)
-	span.priorStringSlices[key] = s
-	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	span.priorStringSlices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.StringSlice(key.String(), s))
 }
 
 func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -869,12 +869,12 @@ func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.String(key, value))
+		span.otelSpan.SetAttributes(attribute.String(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -883,10 +883,10 @@ func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[string]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[string]struct{})
@@ -899,19 +899,19 @@ func (span *span) MetadataString(k *xopat.StringAttribute, v string) {
 	if span.priorStringSlices == nil {
 		span.priorStringSlices = make(map[string][]string)
 	}
-	s := span.priorStringSlices[key]
+	s := span.priorStringSlices[key.String()]
 	s = append(s, value)
-	span.priorStringSlices[key] = s
-	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	span.priorStringSlices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.StringSlice(key.String(), s))
 }
 
 func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	key := k.Key()
 	if span.isXOP {
-		if _, ok := span.request.attributesDefined[key]; !ok {
+		if _, ok := span.request.attributesDefined[key.String()]; !ok {
 			if k.Description() != xopSynthesizedForOTEL {
-				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key, k.DefinitionJSONString()))
-				span.request.attributesDefined[key] = struct{}{}
+				span.request.otelSpan.SetAttributes(attribute.String(attributeDefinitionPrefix+key.String(), k.DefinitionJSONString()))
+				span.request.attributesDefined[key.String()] = struct{}{}
 			}
 		}
 	}
@@ -923,12 +923,12 @@ func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			if span.hasPrior == nil {
 				span.hasPrior = make(map[string]struct{})
 			}
-			if _, ok := span.hasPrior[key]; ok {
+			if _, ok := span.hasPrior[key.String()]; ok {
 				return
 			}
-			span.hasPrior[key] = struct{}{}
+			span.hasPrior[key.String()] = struct{}{}
 		}
-		span.otelSpan.SetAttributes(attribute.String(key, value))
+		span.otelSpan.SetAttributes(attribute.String(key.String(), value))
 		return
 	}
 	span.lock.Lock()
@@ -937,10 +937,10 @@ func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 		if span.metadataSeen == nil {
 			span.metadataSeen = make(map[string]interface{})
 		}
-		seenRaw, ok := span.metadataSeen[key]
+		seenRaw, ok := span.metadataSeen[key.String()]
 		if !ok {
 			seen := make(map[string]struct{})
-			span.metadataSeen[key] = seen
+			span.metadataSeen[key.String()] = seen
 			seen[value] = struct{}{}
 		} else {
 			seen := seenRaw.(map[string]struct{})
@@ -953,10 +953,10 @@ func (span *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	if span.priorStringSlices == nil {
 		span.priorStringSlices = make(map[string][]string)
 	}
-	s := span.priorStringSlices[key]
+	s := span.priorStringSlices[key.String()]
 	s = append(s, value)
-	span.priorStringSlices[key] = s
-	span.otelSpan.SetAttributes(attribute.StringSlice(key, s))
+	span.priorStringSlices[key.String()] = s
+	span.otelSpan.SetAttributes(attribute.StringSlice(key.String(), s))
 }
 
 var spanKindFromString = map[string]oteltrace.SpanKind{
