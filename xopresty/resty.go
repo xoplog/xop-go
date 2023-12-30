@@ -42,7 +42,7 @@ import (
 var _ resty.Logger = restyLogger{}
 
 type restyLogger struct {
-	log *xop.Log
+	log *xop.Logger
 }
 
 func (rl restyLogger) Errorf(format string, v ...interface{}) { rl.log.Error().Msgf(format, v...) }
@@ -61,7 +61,7 @@ type contextValue struct {
 	b3Sent            bool
 	b3Trace           xoptrace.Trace
 	response          bool
-	log               *xop.Log
+	log               *xop.Logger
 	retryCount        int
 	originalStartTime time.Time
 }
@@ -87,7 +87,7 @@ func WithNameGenerate(f func(*resty.Request) string) ClientOpt {
 // ExtraLogging should only be called once but if another resty
 // callback panic's, it is possible ExtraLogging will be called
 // twice.
-type ExtraLogging func(log *xop.Log, originalStartTime time.Time, retryCount int, request *resty.Request, response *resty.Response, err error)
+type ExtraLogging func(log *xop.Logger, originalStartTime time.Time, retryCount int, request *resty.Request, response *resty.Response, err error)
 
 func WithExtraLogging(f ExtraLogging) ClientOpt {
 	return func(config *config) {
@@ -111,7 +111,7 @@ func Client(client *resty.Client, opts ...ClientOpt) *resty.Client {
 			}
 			return r.Method + " " + url
 		},
-		extraLogging: func(log *xop.Log, originalStartTime time.Time, retryCount int, request *resty.Request, response *resty.Response, err error) {
+		extraLogging: func(log *xop.Logger, originalStartTime time.Time, retryCount int, request *resty.Request, response *resty.Response, err error) {
 		},
 	}
 	for _, f := range opts {

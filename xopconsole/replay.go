@@ -1042,6 +1042,11 @@ func Replay(ctx context.Context, inputStream io.Reader, dest xopbase.Logger) err
 				replayData: x,
 				level:      xopnum.InfoLevel,
 			}.replayLine(ctx, t)
+		case "log":
+			err = replayLine{
+				replayData: x,
+				level:      xopnum.LogLevel,
+			}.replayLine(ctx, t)
 		case "trace":
 			err = replayLine{
 				replayData: x,

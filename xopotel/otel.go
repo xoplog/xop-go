@@ -34,7 +34,7 @@ func xopTraceFromSpan(span oteltrace.Span) xoptrace.Trace {
 
 // SpanToLog allows xop to add logs to an existing OTEL span.  log.Done() will be
 // ignored for this span.
-func SpanToLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Log {
+func SpanToLog(ctx context.Context, name string, extraModifiers ...xop.SeedModifier) *xop.Logger {
 	span := oteltrace.SpanFromContext(ctx)
 	xoptrace := xopTraceFromSpan(span)
 	tracer := span.TracerProvider().Tracer("xoputil")

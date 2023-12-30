@@ -24,6 +24,7 @@ func TestRecorderLogMethods(t *testing.T) {
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
 	log.Alert().Msg("basic alert message")
+	log.Log().Msg("basic log message")
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
@@ -35,7 +36,7 @@ func TestRecorderLogMethods(t *testing.T) {
 	}
 	f := log.Sub().Fork("forkie")
 	f.Span().Int(xopconst.HTTPStatusCode, 204)
-	assert.Empty(t, rLog.FindLines(xoprecorder.MessageEquals("basic trace message")), "debug filtered out by log level")
+	assert.Empty(t, rLog.FindLines(xoprecorder.MessageEquals("basic trace message")), "trace filtered out by log level")
 	assert.Equal(t, 1, rLog.CountLines(xoprecorder.MessageEquals("basic alert message")), "count alert")
 	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test")), "count a test")
 	assert.Equal(t, 1, rLog.CountLines(xoprecorder.TextContains("a test bar")), "count a test foo")

@@ -14,39 +14,44 @@ const (
 	_LevelLowerName_0 = "trace"
 	_LevelName_1      = "debug"
 	_LevelLowerName_1 = "debug"
-	_LevelName_2      = "info"
-	_LevelLowerName_2 = "info"
-	_LevelName_3      = "warn"
-	_LevelLowerName_3 = "warn"
-	_LevelName_4      = "error"
-	_LevelLowerName_4 = "error"
-	_LevelName_5      = "alert"
-	_LevelLowerName_5 = "alert"
+	_LevelName_2      = "log"
+	_LevelLowerName_2 = "log"
+	_LevelName_3      = "info"
+	_LevelLowerName_3 = "info"
+	_LevelName_4      = "warn"
+	_LevelLowerName_4 = "warn"
+	_LevelName_5      = "error"
+	_LevelLowerName_5 = "error"
+	_LevelName_6      = "alert"
+	_LevelLowerName_6 = "alert"
 )
 
 var (
 	_LevelIndex_0 = [...]uint8{0, 5}
 	_LevelIndex_1 = [...]uint8{0, 5}
-	_LevelIndex_2 = [...]uint8{0, 4}
+	_LevelIndex_2 = [...]uint8{0, 3}
 	_LevelIndex_3 = [...]uint8{0, 4}
-	_LevelIndex_4 = [...]uint8{0, 5}
+	_LevelIndex_4 = [...]uint8{0, 4}
 	_LevelIndex_5 = [...]uint8{0, 5}
+	_LevelIndex_6 = [...]uint8{0, 5}
 )
 
 func (i Level) String() string {
 	switch {
 	case i == 2:
 		return _LevelName_0
-	case i == 5:
+	case i == 7:
 		return _LevelName_1
 	case i == 9:
 		return _LevelName_2
-	case i == 13:
+	case i == 11:
 		return _LevelName_3
-	case i == 17:
+	case i == 13:
 		return _LevelName_4
-	case i == 20:
+	case i == 17:
 		return _LevelName_5
+	case i == 20:
+		return _LevelName_6
 	default:
 		return fmt.Sprintf("Level(%d)", i)
 	}
@@ -57,37 +62,41 @@ func (i Level) String() string {
 func _LevelNoOp() {
 	var x [1]struct{}
 	_ = x[TraceLevel-(2)]
-	_ = x[DebugLevel-(5)]
-	_ = x[InfoLevel-(9)]
+	_ = x[DebugLevel-(7)]
+	_ = x[LogLevel-(9)]
+	_ = x[InfoLevel-(11)]
 	_ = x[WarnLevel-(13)]
 	_ = x[ErrorLevel-(17)]
 	_ = x[AlertLevel-(20)]
 }
 
-var _LevelValues = []Level{TraceLevel, DebugLevel, InfoLevel, WarnLevel, ErrorLevel, AlertLevel}
+var _LevelValues = []Level{TraceLevel, DebugLevel, LogLevel, InfoLevel, WarnLevel, ErrorLevel, AlertLevel}
 
 var _LevelNameToValueMap = map[string]Level{
 	_LevelName_0[0:5]:      TraceLevel,
 	_LevelLowerName_0[0:5]: TraceLevel,
 	_LevelName_1[0:5]:      DebugLevel,
 	_LevelLowerName_1[0:5]: DebugLevel,
-	_LevelName_2[0:4]:      InfoLevel,
-	_LevelLowerName_2[0:4]: InfoLevel,
-	_LevelName_3[0:4]:      WarnLevel,
-	_LevelLowerName_3[0:4]: WarnLevel,
-	_LevelName_4[0:5]:      ErrorLevel,
-	_LevelLowerName_4[0:5]: ErrorLevel,
-	_LevelName_5[0:5]:      AlertLevel,
-	_LevelLowerName_5[0:5]: AlertLevel,
+	_LevelName_2[0:3]:      LogLevel,
+	_LevelLowerName_2[0:3]: LogLevel,
+	_LevelName_3[0:4]:      InfoLevel,
+	_LevelLowerName_3[0:4]: InfoLevel,
+	_LevelName_4[0:4]:      WarnLevel,
+	_LevelLowerName_4[0:4]: WarnLevel,
+	_LevelName_5[0:5]:      ErrorLevel,
+	_LevelLowerName_5[0:5]: ErrorLevel,
+	_LevelName_6[0:5]:      AlertLevel,
+	_LevelLowerName_6[0:5]: AlertLevel,
 }
 
 var _LevelNames = []string{
 	_LevelName_0[0:5],
 	_LevelName_1[0:5],
-	_LevelName_2[0:4],
+	_LevelName_2[0:3],
 	_LevelName_3[0:4],
-	_LevelName_4[0:5],
+	_LevelName_4[0:4],
 	_LevelName_5[0:5],
+	_LevelName_6[0:5],
 }
 
 // LevelString retrieves an enum value from the enum constants string name.

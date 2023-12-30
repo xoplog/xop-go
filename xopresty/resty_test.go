@@ -33,7 +33,7 @@ var cases = []struct {
 	name         string
 	clientMod    func(*resty.Client) *resty.Client
 	requestMod   func(*resty.Request) *resty.Request
-	handler      func(t *testing.T, log *xop.Log, w http.ResponseWriter, r *http.Request)
+	handler      func(t *testing.T, log *xop.Logger, w http.ResponseWriter, r *http.Request)
 	restyOpts    []xopresty.ClientOpt
 	expectError  bool
 	expectedText []string
@@ -62,7 +62,7 @@ var cases = []struct {
 				SetHeader("Content-Type", "application/json").
 				SetHeader("Accept", "application/json")
 		},
-		handler: func(t *testing.T, log *xop.Log, w http.ResponseWriter, r *http.Request) {
+		handler: func(t *testing.T, log *xop.Logger, w http.ResponseWriter, r *http.Request) {
 			enc, err := json.Marshal(exampleResult{
 				Score:   3.8,
 				Comment: "good progress",
@@ -87,7 +87,7 @@ func TestXopResty(t *testing.T) {
 			seed := xop.NewSeed(xop.WithBase(tLog))
 			log := seed.Request("client")
 			log.Info().Msg("i am the base log")
-			ctx := log.Sub().MinLevel(xopnum.TraceLevel).Log().IntoContext(context.Background())
+			ctx := log.Sub().MinLevel(xopnum.TraceLevel).Logger().IntoContext(context.Background())
 
 			var called bool
 			inbound := xopmiddle.New(seed, func(r *http.Request) string {

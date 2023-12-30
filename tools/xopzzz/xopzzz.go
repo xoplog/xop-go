@@ -252,6 +252,7 @@ var macros = map[string]map[string]string{
 		"Trace": "",
 		"Debug": "",
 		"Info":  "",
+		"Log":   "",
 		"Warn":  "",
 		"Error": "",
 		"Alert": "",

@@ -61,7 +61,7 @@ func New(t testingT) *Logger {
 	}
 }
 
-func (log *Logger) Log() *xop.Log {
+func (log *Logger) Logger() *xop.Logger {
 	return xop.NewSeed(xop.WithBase(log)).Request(log.t.Name())
 }
 

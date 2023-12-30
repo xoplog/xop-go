@@ -14,20 +14,20 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 )
 
-type Log struct {
-	request       *Log        // The ancestor request-level Log
-	span          *span       // span associated with this Log
-	capSpan       *Span       // Span associated with this Log
-	parent        *Log        // immediate parent Log
-	shared        *shared     // shared between logs with same request-level Log
-	settings      LogSettings // settings for this Log
-	nonSpanSubLog bool        // true if created by log.Sub().Log()
+type Logger struct {
+	request       *Logger     // The ancestor request-level Logger
+	span          *span       // span associated with this Logger
+	capSpan       *Span       // Span associated with this Logger
+	parent        *Logger     // immediate parent Logger
+	shared        *shared     // shared between logs with same request-level Logger
+	settings      LogSettings // settings for this Logger
+	nonSpanSubLog bool        // true if created by log.Sub().Logger()
 	prefilled     xopbase.Prefilled
 }
 
 type Span struct {
 	*span
-	log *Log
+	logger *Logger
 }
 
 type span struct {
@@ -42,7 +42,7 @@ type span struct {
 	forkCounter      int32 //nolint:structcheck // false report
 	detached         bool
 	dependentLock    sync.Mutex
-	activeDependents map[int32]*Log
+	activeDependents map[int32]*Logger
 	doneCount        int32
 	knownActive      int32
 	logNumber        int32
@@ -58,20 +58,20 @@ type shared struct {
 	Flushers           map[string]xopbase.Request // key is xopbase.Logger.ID()
 	Description        string
 	LogCount           int32
-	ActiveDetached     map[int32]*Log
+	ActiveDetached     map[int32]*Logger
 	WaitingForDetached bool // true only when request is Done but is not yet flushed due to detached
 }
 
 type singleAllocRequest struct {
-	Log    Log
+	Logger Logger
 	shared shared
 	Span   Span
 	span   span
 }
 
-func (seed Seed) request(descriptionOrName string, now time.Time) *Log {
+func (seed Seed) request(descriptionOrName string, now time.Time) *Logger {
 	alloc := singleAllocRequest{
-		Log: Log{
+		Logger: Logger{
 			settings: seed.settings.Copy(),
 		},
 		span: span{
@@ -83,78 +83,78 @@ func (seed Seed) request(descriptionOrName string, now time.Time) *Log {
 			FlushActive:    1,
 			FlushDelay:     seed.config.FlushDelay,
 			Description:    descriptionOrName,
-			ActiveDetached: make(map[int32]*Log),
+			ActiveDetached: make(map[int32]*Logger),
 		},
 	}
 	alloc.Span.span = &alloc.span
-	alloc.Span.log = &alloc.Log
-	alloc.Log.capSpan = &alloc.Span
-	alloc.Log.span = &alloc.span
-	alloc.Log.request = &alloc.Log
-	alloc.Log.parent = &alloc.Log
-	alloc.Log.shared = &alloc.shared
-	log := &alloc.Log
+	alloc.Span.logger = &alloc.Logger
+	alloc.Logger.capSpan = &alloc.Span
+	alloc.Logger.span = &alloc.span
+	alloc.Logger.request = &alloc.Logger
+	alloc.Logger.parent = &alloc.Logger
+	alloc.Logger.shared = &alloc.shared
+	logger := &alloc.Logger
 
-	combinedBaseRequest, flushers := log.span.seed.loggers.List.startRequests(seed.ctx, now, log.span.seed.traceBundle, descriptionOrName, log.span.seed.sourceInfo)
-	log.shared.Flushers = flushers
+	combinedBaseRequest, flushers := logger.span.seed.loggers.List.startRequests(seed.ctx, now, logger.span.seed.traceBundle, descriptionOrName, logger.span.seed.sourceInfo)
+	logger.shared.Flushers = flushers
 	combinedBaseRequest.SetErrorReporter(seed.config.ErrorReporter)
-	log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
-	log.span.buffered = log.span.seed.loggers.List.Buffered()
-	log.span.base = combinedBaseRequest.(xopbase.Span)
-	log.sendPrefill()
+	logger.span.referencesKept = logger.span.seed.loggers.List.ReferencesKept()
+	logger.span.buffered = logger.span.seed.loggers.List.Buffered()
+	logger.span.base = combinedBaseRequest.(xopbase.Span)
+	logger.sendPrefill()
 	debugPrint("starting timer", seed.config.FlushDelay)
-	log.shared.FlushTimer = time.AfterFunc(seed.config.FlushDelay, log.timerFlush)
+	logger.shared.FlushTimer = time.AfterFunc(seed.config.FlushDelay, logger.timerFlush)
 	runtime.SetFinalizer(&alloc, final)
-	if !log.span.buffered {
+	if !logger.span.buffered {
 		debugPrint("stopping timer")
-		log.shared.FlushTimer.Stop()
-		log.shared.FlushActive = 0
+		logger.shared.FlushTimer.Stop()
+		logger.shared.FlushActive = 0
 	}
-	return log
+	return logger
 }
 
-// Log creates a new Log that does not need to be terminated because
-// it is assumed to be done with the current log is finished.  The new log
-// shares a span with its parent log. It can have different settings from its
-// parent log.
-func (sub *Sub) Log() *Log {
+// Logger creates a new Logger that does not need to be terminated because
+// it is assumed to be done with the current logger is finished.  The new logger
+// shares a span with its parent logger. It can have different settings from its
+// parent logger.
+func (sub *Sub) Logger() *Logger {
 	type singleAlloc struct {
-		Log  Log
-		Span Span
+		Logger Logger
+		Span   Span
 	}
 	alloc := singleAlloc{
-		Log: Log{
-			request:       sub.log.request,
-			span:          sub.log.span,
-			capSpan:       sub.log.capSpan,
-			parent:        sub.log.parent,
-			shared:        sub.log.shared,
+		Logger: Logger{
+			request:       sub.logger.request,
+			span:          sub.logger.span,
+			capSpan:       sub.logger.capSpan,
+			parent:        sub.logger.parent,
+			shared:        sub.logger.shared,
 			settings:      sub.settings,
 			nonSpanSubLog: true,
 		},
 		Span: Span{
-			span: sub.log.span,
+			span: sub.logger.span,
 		},
 	}
-	alloc.Span.log = &alloc.Log
-	alloc.Log.capSpan = &alloc.Span
-	log := &alloc.Log
-	log.sendPrefill()
-	log.hasActivity(false)
-	return log
+	alloc.Span.logger = &alloc.Logger
+	alloc.Logger.capSpan = &alloc.Span
+	logger := &alloc.Logger
+	logger.sendPrefill()
+	logger.hasActivity(false)
+	return logger
 }
 
-func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
+func (old *Logger) newChildLog(seed Seed, description string, detached bool) *Logger {
 	now := time.Now()
 	seed = seed.react(false, description, now)
 
 	type singleAlloc struct {
-		Log  Log
-		Span Span
-		span span
+		Logger Logger
+		Span   Span
+		span   span
 	}
 	alloc := singleAlloc{
-		Log: Log{
+		Logger: Logger{
 			request:  old.request,
 			parent:   old,
 			shared:   old.shared,
@@ -169,24 +169,24 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 		},
 	}
 	alloc.Span.span = &alloc.span
-	alloc.Span.log = &alloc.Log
-	alloc.Log.capSpan = &alloc.Span
-	alloc.Log.span = &alloc.span
-	log := &alloc.Log
+	alloc.Span.logger = &alloc.Logger
+	alloc.Logger.capSpan = &alloc.Span
+	alloc.Logger.span = &alloc.span
+	logger := &alloc.Logger
 
-	log.span.base = old.span.base.Span(seed.ctx, now, seed.traceBundle, description, log.span.seed.spanSequenceCode)
+	logger.span.base = old.span.base.Span(seed.ctx, now, seed.traceBundle, description, logger.span.seed.spanSequenceCode)
 	if len(seed.loggers.Added) == 0 && len(seed.loggers.Removed) == 0 {
-		log.span.buffered = old.span.buffered
-		log.span.referencesKept = old.span.referencesKept
+		logger.span.buffered = old.span.buffered
+		logger.span.referencesKept = old.span.referencesKept
 	} else {
-		debugPrint("adjusting set of flusher", description, log.span.logNumber)
+		debugPrint("adjusting set of flusher", description, logger.span.logNumber)
 		spanSet := make(map[string]xopbase.Span)
-		if baseSpans, ok := log.span.base.(baseSpans); ok {
+		if baseSpans, ok := logger.span.base.(baseSpans); ok {
 			for _, baseSpan := range baseSpans {
 				spanSet[baseSpan.ID()] = baseSpan
 			}
 		} else {
-			spanSet[log.span.base.ID()] = log.span.base
+			spanSet[logger.span.base.ID()] = logger.span.base
 		}
 		for _, removed := range seed.loggers.Removed {
 			id := removed.ID()
@@ -201,239 +201,239 @@ func (old *Log) newChildLog(seed Seed, description string, detached bool) *Log {
 				continue
 			}
 			if func() bool {
-				log.shared.FlusherLock.RLock()
-				defer log.shared.FlusherLock.RUnlock()
-				_, ok := log.shared.Flushers[id]
+				logger.shared.FlusherLock.RLock()
+				defer logger.shared.FlusherLock.RUnlock()
+				_, ok := logger.shared.Flushers[id]
 				return ok
 			}() {
 				debugPrint("ignoring additional flusher, already in flusher set", id)
 				continue
 			}
-			req := added.Request(log.request.span.seed.ctx, ts, log.request.span.seed.traceBundle, log.shared.Description, log.request.span.seed.sourceInfo)
+			req := added.Request(logger.request.span.seed.ctx, ts, logger.request.span.seed.traceBundle, logger.shared.Description, logger.request.span.seed.sourceInfo)
 			spanSet[id] = req
-			req.SetErrorReporter(log.span.seed.config.ErrorReporter)
+			req.SetErrorReporter(logger.span.seed.config.ErrorReporter)
 			debugPrint("adding flusher to flusher set", id)
 			func() {
-				log.shared.FlusherLock.Lock()
-				defer log.shared.FlusherLock.Unlock()
-				log.shared.Flushers[id] = req
+				logger.shared.FlusherLock.Lock()
+				defer logger.shared.FlusherLock.Unlock()
+				logger.shared.Flushers[id] = req
 			}()
 		}
 		if len(spanSet) == 1 {
 			for _, baseSpan := range spanSet {
-				log.span.base = baseSpan
+				logger.span.base = baseSpan
 			}
 		} else {
 			spans := make(baseSpans, 0, len(spanSet))
 			for _, baseSpan := range spanSet {
 				spans = append(spans, baseSpan)
 			}
-			log.span.base = spans
+			logger.span.base = spans
 		}
-		log.span.buffered = log.span.seed.loggers.List.Buffered()
-		log.span.referencesKept = log.span.seed.loggers.List.ReferencesKept()
+		logger.span.buffered = logger.span.seed.loggers.List.Buffered()
+		logger.span.referencesKept = logger.span.seed.loggers.List.ReferencesKept()
 	}
-	log.span.base.Boring(true)
-	log.sendPrefill()
-	log.addMyselfAsDependent()
-	return log
+	logger.span.base.Boring(true)
+	logger.sendPrefill()
+	logger.addMyselfAsDependent()
+	return logger
 }
 
-func (log *Log) addMyselfAsDependent() bool {
-	if log == log.request {
+func (logger *Logger) addMyselfAsDependent() bool {
+	if logger == logger.request {
 		return false
 	}
-	if log.span.detached {
-		log.request.span.dependentLock.Lock()
-		defer log.request.span.dependentLock.Unlock()
-		log.shared.ActiveDetached[log.span.logNumber] = log
+	if logger.span.detached {
+		logger.request.span.dependentLock.Lock()
+		defer logger.request.span.dependentLock.Unlock()
+		logger.shared.ActiveDetached[logger.span.logNumber] = logger
 		return false
 	}
-	log.parent.span.dependentLock.Lock()
-	defer log.parent.span.dependentLock.Unlock()
-	if log.parent.span.activeDependents == nil {
-		log.parent.span.activeDependents = make(map[int32]*Log)
+	logger.parent.span.dependentLock.Lock()
+	defer logger.parent.span.dependentLock.Unlock()
+	if logger.parent.span.activeDependents == nil {
+		logger.parent.span.activeDependents = make(map[int32]*Logger)
 	}
-	debugPrint("add to active deps", log.span.description, ":", log.span.logNumber)
-	log.parent.span.activeDependents[log.span.logNumber] = log
-	return len(log.parent.span.activeDependents) == 1
+	debugPrint("add to active deps", logger.span.description, ":", logger.span.logNumber)
+	logger.parent.span.activeDependents[logger.span.logNumber] = logger
+	return len(logger.parent.span.activeDependents) == 1
 }
 
-func (log *Log) hasActivity(startFlusher bool) {
-	was := atomic.SwapInt32(&log.span.knownActive, 1)
+func (logger *Logger) hasActivity(startFlusher bool) {
+	was := atomic.SwapInt32(&logger.span.knownActive, 1)
 	if was == 0 {
-		debugPrint("now has activity!", log.span.description, log.span.logNumber)
-		if log.addMyselfAsDependent() {
-			log.parent.hasActivity(false)
+		debugPrint("now has activity!", logger.span.description, logger.span.logNumber)
+		if logger.addMyselfAsDependent() {
+			logger.parent.hasActivity(false)
 		}
 		if startFlusher {
-			wasFlushing := atomic.SwapInt32(&log.shared.FlushActive, 1)
+			wasFlushing := atomic.SwapInt32(&logger.shared.FlushActive, 1)
 			if wasFlushing == 0 {
-				debugPrint("restarting timer", log.shared.FlushDelay)
-				log.shared.FlushTimer.Reset(log.shared.FlushDelay)
+				debugPrint("restarting timer", logger.shared.FlushDelay)
+				logger.shared.FlushTimer.Reset(logger.shared.FlushDelay)
 			}
-			if wasDone := atomic.LoadInt32(&log.span.doneCount); wasDone != 0 {
-				log.Error().Msg("XOP: log was already done, but was used again")
+			if wasDone := atomic.LoadInt32(&logger.span.doneCount); wasDone != 0 {
+				logger.Error().Msg("XOP: logger was already done, but was used again")
 			}
-			log.done(false, time.Now())
+			logger.done(false, time.Now())
 		}
 	}
 }
 
-// Done is used to indicate that a log is complete.  Buffered base loggers
+// Done is used to indicate that a logger is complete.  Buffered base loggers
 // (implementing xopbase.Logger) wait for Done to be called before flushing their data.
 //
-// Requests (Log's created by seed.Request()) and detached logs (created by
-// log.Sub().Detach().Fork() or log.Sub().Detah().Step()) are considered
-// top-level logs.  A call to Done() on a top-level log marks all
+// Requests (Logger's created by seed.Request()) and detached logs (created by
+// logger.Sub().Detach().Fork() or logger.Sub().Detah().Step()) are considered
+// top-level logs.  A call to Done() on a top-level logger marks all
 // sub-spans as Done() if they were not already marked done.
 //
-// Calling Done() on a log that is already done generates a logged error
+// Calling Done() on a logger that is already done generates a logged error
 // message.
 //
-// Non-detached sub-spans (created by log.Sub().Fork() and log.Sub().Step())
+// Non-detached sub-spans (created by logger.Sub().Fork() and logger.Sub().Step())
 // are done when either Done is called on the sub-span or when their associated
-// top-level log is done.
+// top-level logger is done.
 //
-// Sub-logs that are not spans (created by log.Sub().Log()) should not use
-// Done().  Any call to Done on such a sub-log will log an error and otherwise
+// Sub-logs that are not spans (created by logger.Sub().Logger()) should not use
+// Done().  Any call to Done on such a sub-logger will log an error and otherwise
 // be ignored.
 //
 // When all the logs associated with a Request are done, the Flush() is
 // automatically triggered.  The Flush() call can be
 // synchronous or asynchronous depending on the SynchronousFlush settings
-// of the request-level Log.
+// of the request-level Logger.
 //
 // Any logging activity after a Done() causes an error to be logged and may
 // trigger a call to Flush().
-func (log *Log) Done() {
-	if log.nonSpanSubLog {
-		log.Error().Msg("XOP: invalid call to Done() in non-span sub-log")
+func (logger *Logger) Done() {
+	if logger.nonSpanSubLog {
+		logger.Error().Msg("XOP: invalid call to Done() in non-span sub-logger")
 		return
 	}
-	debugPrint("starting Done {", log.span.description, log.span.logNumber)
-	log.done(true, time.Now())
-	debugPrint("done with Done }", log.span.description, log.span.logNumber)
+	debugPrint("starting Done {", logger.span.description, logger.span.logNumber)
+	logger.done(true, time.Now())
+	debugPrint("done with Done }", logger.span.description, logger.span.logNumber)
 }
 
-func (log *Log) recursiveDone(done bool, now time.Time) (count int32) {
-	debugPrint("recursive done,", done, ",", log.span.description, log.span.logNumber)
+func (logger *Logger) recursiveDone(done bool, now time.Time) (count int32) {
+	debugPrint("recursive done,", done, ",", logger.span.description, logger.span.logNumber)
 	if done {
-		atomic.StoreInt32(&log.span.knownActive, 0)
-		count = atomic.AddInt32(&log.span.doneCount, 1)
-		log.span.base.Done(time.Now(), true)
+		atomic.StoreInt32(&logger.span.knownActive, 0)
+		count = atomic.AddInt32(&logger.span.doneCount, 1)
+		logger.span.base.Done(time.Now(), true)
 	} else {
-		if atomic.SwapInt32(&log.span.knownActive, 0) == 1 {
-			log.span.base.Done(now, false)
+		if atomic.SwapInt32(&logger.span.knownActive, 0) == 1 {
+			logger.span.base.Done(now, false)
 		}
 	}
-	deps := func() []*Log {
-		log.span.dependentLock.Lock()
-		defer log.span.dependentLock.Unlock()
-		deps := make([]*Log, 0, len(log.span.activeDependents))
-		for _, dep := range log.span.activeDependents {
+	deps := func() []*Logger {
+		logger.span.dependentLock.Lock()
+		defer logger.span.dependentLock.Unlock()
+		deps := make([]*Logger, 0, len(logger.span.activeDependents))
+		for _, dep := range logger.span.activeDependents {
 			deps = append(deps, dep)
 		}
 		return deps
 	}()
 	for _, dep := range deps {
-		debugPrint("dep of", log.span.logNumber, ":", dep.span.description, dep.span.logNumber)
+		debugPrint("dep of", logger.span.logNumber, ":", dep.span.description, dep.span.logNumber)
 		dep.done(done, now)
 	}
 	return
 }
 
-func (log *Log) done(explicit bool, now time.Time) {
-	postCount := log.recursiveDone(true, now)
+func (logger *Logger) done(explicit bool, now time.Time) {
+	postCount := logger.recursiveDone(true, now)
 	if postCount > 1 && explicit {
 		debugPrint("donecount=", postCount, "logging error")
-		log.Error().Msg("XOP: Done() called on log object when it was already Done()")
+		logger.Error().Msg("XOP: Done() called on logger object when it was already Done()")
 	}
-	if log.span.detached {
+	if logger.span.detached {
 		if func() bool {
-			log.request.span.dependentLock.Lock()
-			defer log.request.span.dependentLock.Unlock()
-			delete(log.shared.ActiveDetached, log.span.logNumber)
-			if log.shared.WaitingForDetached &&
-				len(log.shared.ActiveDetached) == 0 &&
-				len(log.request.span.activeDependents) == 0 {
-				log.shared.WaitingForDetached = false
+			logger.request.span.dependentLock.Lock()
+			defer logger.request.span.dependentLock.Unlock()
+			delete(logger.shared.ActiveDetached, logger.span.logNumber)
+			if logger.shared.WaitingForDetached &&
+				len(logger.shared.ActiveDetached) == 0 &&
+				len(logger.request.span.activeDependents) == 0 {
+				logger.shared.WaitingForDetached = false
 				return true
 			}
 			return false
 		}() {
 			debugPrint("request was waiting, now we can flush")
-			log.request.flush()
+			logger.request.flush()
 		}
 		debugPrint("we're detached, finished done")
 		return
 	}
-	if log.parent == log {
+	if logger.parent == logger {
 		debugPrint("in done, we're the request!")
 		if func() bool {
-			log.span.dependentLock.Lock()
-			defer log.span.dependentLock.Unlock()
-			if len(log.span.activeDependents) != 0 {
+			logger.span.dependentLock.Lock()
+			defer logger.span.dependentLock.Unlock()
+			if len(logger.span.activeDependents) != 0 {
 				return false
 			}
-			if len(log.shared.ActiveDetached) != 0 {
+			if len(logger.shared.ActiveDetached) != 0 {
 				debugPrint("we have detached that are not yet done, waiting for them before flushing")
-				log.shared.WaitingForDetached = true
+				logger.shared.WaitingForDetached = true
 				return false
 			}
 			return true
 		}() {
 			debugPrint("...and we're flushing")
-			log.request.flush()
+			logger.request.flush()
 			debugPrint("...done flushing")
 		}
 		return
 	}
-	log.parent.span.dependentLock.Lock()
-	defer log.parent.span.dependentLock.Unlock()
-	debugPrint("delete from active deps", log.span.description, ":", log.span.logNumber)
-	delete(log.parent.span.activeDependents, log.span.logNumber)
+	logger.parent.span.dependentLock.Lock()
+	defer logger.parent.span.dependentLock.Unlock()
+	debugPrint("delete from active deps", logger.span.description, ":", logger.span.logNumber)
+	delete(logger.parent.span.activeDependents, logger.span.logNumber)
 }
 
-// timerFlush is only called by log.shared.FlushTimer
-func (log *Log) timerFlush() {
+// timerFlush is only called by logger.shared.FlushTimer
+func (logger *Logger) timerFlush() {
 	debugPrint("timer flush!")
-	log.Flush()
+	logger.Flush()
 }
 
-func (log *Log) flush() {
-	if log.settings.synchronousFlushWhenDone {
-		log.Flush()
+func (logger *Logger) flush() {
+	if logger.settings.synchronousFlushWhenDone {
+		logger.Flush()
 	} else {
 		debugPrint("doing async flush")
 		go func() {
 			smallSleepForTesting()
-			log.Flush()
+			logger.Flush()
 		}()
 	}
 }
 
-func (log *Log) getFlushers() []xopbase.Request {
-	log.shared.FlusherLock.RLock()
-	defer log.shared.FlusherLock.RUnlock()
-	requests := make([]xopbase.Request, 0, len(log.shared.Flushers))
-	for _, req := range log.shared.Flushers {
+func (logger *Logger) getFlushers() []xopbase.Request {
+	logger.shared.FlusherLock.RLock()
+	defer logger.shared.FlusherLock.RUnlock()
+	requests := make([]xopbase.Request, 0, len(logger.shared.Flushers))
+	for _, req := range logger.shared.Flushers {
 		requests = append(requests, req)
 	}
 	return requests
 }
 
-func (log *Log) Flush() {
+func (logger *Logger) Flush() {
 	debugPrint("begin flush {", stack())
 	now := time.Now()
-	log.request.detachedDone(now)
-	log.request.recursiveDone(false, now)
-	flushers := log.getFlushers()
-	log.shared.FlushLock.Lock()
-	defer log.shared.FlushLock.Unlock()
+	logger.request.detachedDone(now)
+	logger.request.recursiveDone(false, now)
+	flushers := logger.getFlushers()
+	logger.shared.FlushLock.Lock()
+	defer logger.shared.FlushLock.Unlock()
 	// Stop is is not thread-safe with respect to other calls to Stop
-	log.shared.FlushTimer.Stop()
-	atomic.StoreInt32(&log.shared.FlushActive, 0)
+	logger.shared.FlushTimer.Stop()
+	atomic.StoreInt32(&logger.shared.FlushActive, 0)
 	var wg sync.WaitGroup
 	wg.Add(len(flushers))
 	for _, flusher := range flushers {
@@ -448,17 +448,17 @@ func (log *Log) Flush() {
 }
 
 func final(alloc *singleAllocRequest) {
-	for _, flusher := range alloc.Log.getFlushers() {
+	for _, flusher := range alloc.Logger.getFlushers() {
 		flusher.Final()
 	}
 }
 
-func (log *Log) detachedDone(now time.Time) {
-	deps := func() []*Log {
-		log.request.span.dependentLock.Lock()
-		defer log.request.span.dependentLock.Unlock()
-		deps := make([]*Log, 0, len(log.shared.ActiveDetached))
-		for _, dep := range log.shared.ActiveDetached {
+func (logger *Logger) detachedDone(now time.Time) {
+	deps := func() []*Logger {
+		logger.request.span.dependentLock.Lock()
+		defer logger.request.span.dependentLock.Unlock()
+		deps := make([]*Logger, 0, len(logger.shared.ActiveDetached))
+		for _, dep := range logger.shared.ActiveDetached {
 			deps = append(deps, dep)
 		}
 		return deps
@@ -468,35 +468,35 @@ func (log *Log) detachedDone(now time.Time) {
 	}
 }
 
-// Marks this request as boring.  Any log at the Alert or
+// Marks this request as boring.  Any logger at the Alert or
 // Error level will mark this request as not boring.
-func (log *Log) Boring() {
-	requestBoring := atomic.LoadInt32(&log.request.span.boring)
+func (logger *Logger) Boring() {
+	requestBoring := atomic.LoadInt32(&logger.request.span.boring)
 	if requestBoring != 0 {
 		return
 	}
-	log.request.span.base.Boring(true)
+	logger.request.span.base.Boring(true)
 	// There is chance that in the time we were sending that
 	// boring=true, the the request became un-boring. If that
 	// happened, we can't tell if we're currently marked as
 	// boring, so let's make sure we're not boring by sending
 	// a false
-	requestStillBoring := atomic.LoadInt32(&log.request.span.boring)
+	requestStillBoring := atomic.LoadInt32(&logger.request.span.boring)
 	if requestStillBoring != 0 {
-		log.request.span.base.Boring(false)
+		logger.request.span.base.Boring(false)
 	}
-	log.hasActivity(true)
+	logger.hasActivity(true)
 }
 
-func (log *Log) notBoring() {
-	spanBoring := atomic.AddInt32(&log.span.boring, 1)
+func (logger *Logger) notBoring() {
+	spanBoring := atomic.AddInt32(&logger.span.boring, 1)
 	if spanBoring == 1 {
-		log.span.base.Boring(false)
-		requestBoring := atomic.AddInt32(&log.request.span.boring, 1)
+		logger.span.base.Boring(false)
+		requestBoring := atomic.AddInt32(&logger.request.span.boring, 1)
 		if requestBoring == 1 {
-			log.request.span.base.Boring(false)
+			logger.request.span.base.Boring(false)
 		}
-		log.hasActivity(true)
+		logger.hasActivity(true)
 	}
 }
 
@@ -509,11 +509,11 @@ func (log *Log) notBoring() {
 // after Msg() probably won't panic, but will definitely open the
 // door to confusing inconsistent logs and race conditions.
 type Line struct {
-	log   *Log
-	line  xopbase.Line
-	pc    []uintptr
-	stack []runtime.Frame
-	skip  bool
+	logger *Logger
+	line   xopbase.Line
+	pc     []uintptr
+	stack  []runtime.Frame
+	skip   bool
 }
 
 const stackFramesToExclude = 4
@@ -521,9 +521,9 @@ const stackFramesToExclude = 4
 // logLine returns *Line, not Line.  Returning Line (and
 // changing all the *Line methods to Line methods) is
 // faster for some operations but overall it's slower.
-func (log *Log) logLine(level xopnum.Level) *Line {
-	skip := level < log.settings.minimumLogLevel
-	recycled := log.span.linePool.Get()
+func (logger *Logger) logLine(level xopnum.Level) *Line {
+	skip := level < logger.settings.minimumLogLevel
+	recycled := logger.span.linePool.Get()
 	var ll *Line
 	if recycled != nil {
 		ll = recycled.(*Line)
@@ -533,15 +533,15 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 		}
 	} else {
 		ll = &Line{
-			log: log,
+			logger: logger,
 		}
 	}
-	if !skip && log.settings.stackFramesWanted[level] != 0 {
+	if !skip && logger.settings.stackFramesWanted[level] != 0 {
 		// collect program counters
-		if ll.pc == nil || cap(ll.pc) < log.settings.stackFramesWanted[level] {
+		if ll.pc == nil || cap(ll.pc) < logger.settings.stackFramesWanted[level] {
 			ll.pc = make([]uintptr,
-				log.settings.stackFramesWanted[level],
-				log.settings.stackFramesWanted[xopnum.AlertLevel])
+				logger.settings.stackFramesWanted[level],
+				logger.settings.stackFramesWanted[xopnum.AlertLevel])
 		} else {
 			ll.pc = ll.pc[:cap(ll.pc)]
 		}
@@ -557,7 +557,7 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 			if strings.Contains(frame.File, "/runtime/") {
 				break
 			}
-			frame.File = log.settings.stackFilenameRewrite(frame.File)
+			frame.File = logger.settings.stackFilenameRewrite(frame.File)
 			if frame.File == "" {
 				break
 			}
@@ -571,7 +571,7 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 	if ll.skip {
 		ll.line = xopbase.SkipLine
 	} else {
-		ll.line = log.prefilled.Line(level, time.Now(), ll.stack)
+		ll.line = logger.prefilled.Line(level, time.Now(), ll.stack)
 	}
 	return ll
 }
@@ -595,8 +595,8 @@ func (log *Log) logLine(level xopnum.Level) *Line {
 // Prefilled text (PrefillText()) will be prepended to the template.
 func (line *Line) Template(template string) {
 	line.line.Template(template)
-	line.log.span.linePool.Put(line)
-	line.log.hasActivity(true)
+	line.logger.span.linePool.Put(line)
+	line.logger.hasActivity(true)
 }
 
 // Msg sends a log line.  After Msg(), no further use of the *Line
@@ -604,8 +604,8 @@ func (line *Line) Template(template string) {
 // or Link(), Linkf(), Modelf() or Model(), the log line will not be sent or output.
 func (line *Line) Msg(msg string) {
 	line.line.Msg(msg)
-	line.log.span.linePool.Put(line)
-	line.log.hasActivity(true)
+	line.logger.span.linePool.Put(line)
+	line.logger.hasActivity(true)
 }
 
 // Msgf sends a log line, using fmt.Sprintf()-style formatting.
@@ -627,7 +627,7 @@ func (line *Line) Model(obj interface{}, msg string) {
 		line.Msg("")
 		return
 	}
-	if line.log.span.referencesKept {
+	if line.logger.span.referencesKept {
 		// TODO: make copy function configurable
 		obj = deepcopy.Copy(obj)
 	}
@@ -644,8 +644,8 @@ func (line *Line) ModelImmutable(obj interface{}, msg string) { // TODO: documen
 	line.line.Model(msg, xopbase.ModelArg{
 		Model: obj,
 	})
-	line.log.span.linePool.Put(line)
-	line.log.hasActivity(true)
+	line.logger.span.linePool.Put(line)
+	line.logger.hasActivity(true)
 }
 
 func (line *Line) Modelf(obj interface{}, msg string, v ...interface{}) { // TODO: document
@@ -673,24 +673,25 @@ func (line *Line) Linkf(link xoptrace.Trace, msg string, v ...interface{}) {
 }
 func (line *Line) Link(link xoptrace.Trace, msg string) {
 	line.line.Link(msg, link)
-	line.log.span.linePool.Put(line)
-	line.log.hasActivity(true)
+	line.logger.span.linePool.Put(line)
+	line.logger.hasActivity(true)
 }
 
 // Line starts a log line at the specified log level.  If the log level
 // is below the minimum log level, the line will be discarded.
-func (log *Log) Line(level xopnum.Level) *Line { return log.logLine(level) }
-func (log *Log) Debug() *Line                  { return log.Line(xopnum.DebugLevel) }
-func (log *Log) Trace() *Line                  { return log.Line(xopnum.TraceLevel) }
-func (log *Log) Info() *Line                   { return log.Line(xopnum.InfoLevel) }
-func (log *Log) Warn() *Line                   { return log.Line(xopnum.WarnLevel) }
-func (log *Log) Error() *Line {
-	log.notBoring()
-	return log.Line(xopnum.ErrorLevel)
+func (logger *Logger) Line(level xopnum.Level) *Line { return logger.logLine(level) }
+func (logger *Logger) Debug() *Line                  { return logger.Line(xopnum.DebugLevel) }
+func (logger *Logger) Trace() *Line                  { return logger.Line(xopnum.TraceLevel) }
+func (logger *Logger) Log() *Line                    { return logger.Line(xopnum.LogLevel) }
+func (logger *Logger) Info() *Line                   { return logger.Line(xopnum.InfoLevel) }
+func (logger *Logger) Warn() *Line                   { return logger.Line(xopnum.WarnLevel) }
+func (logger *Logger) Error() *Line {
+	logger.notBoring()
+	return logger.Line(xopnum.ErrorLevel)
 }
-func (log *Log) Alert() *Line {
-	log.notBoring()
-	return log.Line(xopnum.AlertLevel)
+func (logger *Logger) Alert() *Line {
+	logger.notBoring()
+	return logger.Line(xopnum.AlertLevel)
 }
 
 func (line *Line) Msgs(v ...interface{}) { line.Msg(fmt.Sprint(v...)) }

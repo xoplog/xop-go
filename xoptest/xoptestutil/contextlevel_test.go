@@ -81,11 +81,11 @@ func TestAdjusterLevel(t *testing.T) {
 
 type foo []xop.AdjusterOption
 
-func (f foo) Context() func(context.Context) *xop.Log {
+func (f foo) Context() func(context.Context) *xop.Logger {
 	return xop.ContextLevelAdjuster(xop.FromContextOrDefault, f...)
 }
 
-func (f foo) Logger() func(*xop.Log) *xop.Log {
+func (f foo) Logger() func(*xop.Logger) *xop.Logger {
 	return xop.LevelAdjuster(f...)
 }
 

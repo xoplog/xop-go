@@ -19,32 +19,32 @@ var contextKey = contextKeyType{}
 // does not find a logger.  Unless modified, it discards all logs.
 var Default = NewSeed().Request("discard")
 
-func (log *Log) IntoContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, contextKey, log)
+func (logger *Logger) IntoContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextKey, logger)
 }
 
-func FromContext(ctx context.Context) (*Log, bool) {
+func FromContext(ctx context.Context) (*Logger, bool) {
 	v := ctx.Value(contextKey)
 	if v == nil {
 		return nil, false
 	}
-	return v.(*Log), true
+	return v.(*Logger), true
 }
 
-func FromContextOrDefault(ctx context.Context) *Log {
-	log, ok := FromContext(ctx)
+func FromContextOrDefault(ctx context.Context) *Logger {
+	logger, ok := FromContext(ctx)
 	if ok {
-		return log
+		return logger
 	}
 	return Default
 }
 
-func FromContextOrPanic(ctx context.Context) *Log {
-	log, ok := FromContext(ctx)
+func FromContextOrPanic(ctx context.Context) *Logger {
+	logger, ok := FromContext(ctx)
 	if !ok {
 		panic("Could not find logger in context")
 	}
-	return log
+	return logger
 }
 
 // CustomFromContext returns a convenience function: it calls either
@@ -53,10 +53,10 @@ func FromContextOrPanic(ctx context.Context) *Log {
 //
 // Pass FromContextOrPanic or FromContextOrDefault as the first argument
 // and a function to adjust settings as the second argument.
-func CustomFromContext(getLogFromContext func(context.Context) *Log, adjustSettings func(*Sub) *Sub) func(context.Context) *Log {
-	return func(ctx context.Context) *Log {
-		log := getLogFromContext(ctx)
-		return adjustSettings(log.Sub()).Log()
+func CustomFromContext(getLogFromContext func(context.Context) *Logger, adjustSettings func(*Sub) *Sub) func(context.Context) *Logger {
+	return func(ctx context.Context) *Logger {
+		logger := getLogFromContext(ctx)
+		return adjustSettings(logger.Sub()).Logger()
 	}
 }
 
@@ -72,19 +72,19 @@ func CustomFromContext(getLogFromContext func(context.Context) *Log, adjustSetti
 //
 //	package foo
 //	var adjustLogger = xop.LevelAdjuster()
-func LevelAdjuster(opts ...AdjusterOption) func(*Log) *Log {
+func LevelAdjuster(opts ...AdjusterOption) func(*Logger) *Logger {
 	level := adjustConfig(opts)
 	if level == 0 {
-		return func(log *Log) *Log { return log }
+		return func(logger *Logger) *Logger { return logger }
 	}
-	return func(log *Log) *Log {
-		return log.Sub().MinLevel(level).Log()
+	return func(logger *Logger) *Logger {
+		return logger.Sub().MinLevel(level).Logger()
 	}
 }
 
 // ContextLevelAdjuster returns a function that gets a logger from
 // context.  The logger it returns will have a minimum logging level
-// that is specific for the calling package. If starting from a log
+// that is specific for the calling package. If starting from a logger
 // instead of a context, use LevelAdjuster
 //
 // The level used will be the level set in this order:
@@ -96,7 +96,7 @@ func LevelAdjuster(opts ...AdjusterOption) func(*Log) *Log {
 //
 //	package foo
 //	var getLogger = xop.AdjustedLevelLoger(xop.FromContextOrPanic)
-func ContextLevelAdjuster(getLogFromContext func(context.Context) *Log, opts ...AdjusterOption) func(context.Context) *Log {
+func ContextLevelAdjuster(getLogFromContext func(context.Context) *Logger, opts ...AdjusterOption) func(context.Context) *Logger {
 	level := adjustConfig(opts)
 	if level == 0 {
 		return getLogFromContext

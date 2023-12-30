@@ -12,16 +12,16 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 )
 
-// Seed is used to create a Log. Seed contains
+// Seed is used to create a Logger. Seed contains
 // the context of the log (trace parent, current trace, etc);
 // the set of base loggers to use;
 // and log settings (like minimum log level).
 //
 // Seed is used to bridge between parent logs and their
-// sub-spans. The functions that turn Seeds into Logs are:
-// Request(), which is used when the new Log is a "request"
+// sub-spans. The functions that turn Seeds into Loggers are:
+// Request(), which is used when the new logger is a "request"
 // which is a top-level indexed span; and
-// SubSpan(), which is used when the new Log is just a
+// SubSpan(), which is used when the new logger is just a
 // component of a parent Request().
 //
 // Use Request() for incoming requests from other servers and
@@ -58,7 +58,7 @@ func (seed Seed) Copy(mods ...SeedModifier) Seed {
 func (span *Span) SubSeed(mods ...SeedModifier) Seed {
 	n := Seed{
 		spanSeed: span.seed.copy(false),
-		settings: span.log.settings.Copy(),
+		settings: span.logger.settings.Copy(),
 	}
 	n.traceBundle.Parent = n.traceBundle.Trace
 	if !span.seed.spanSet {
@@ -165,7 +165,7 @@ func (seed Seed) applyMods(mods []SeedModifier) Seed {
 // Request creates a new top-level span (a request).  Use when
 // starting something new, like receiving an http request or
 // starting a cron job.
-func (seed Seed) Request(descriptionOrName string) *Log {
+func (seed Seed) Request(descriptionOrName string) *Logger {
 	now := time.Now()
 	seed = seed.react(true, descriptionOrName, now)
 	return seed.request(descriptionOrName, now)
@@ -175,7 +175,7 @@ func (seed Seed) Request(descriptionOrName string) *Log {
 // initializes the span/trace data as if it were a subspan.
 // The traceID must already be set.  Use this with caution,
 // it is meant for handing off from spans created elsewhere.
-func (seed Seed) SubSpan(descriptionOrName string) *Log {
+func (seed Seed) SubSpan(descriptionOrName string) *Logger {
 	now := time.Now()
 	seed = seed.react(false, descriptionOrName, now)
 	return seed.request(descriptionOrName, now)
