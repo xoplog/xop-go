@@ -45,7 +45,7 @@ type Detaching struct {
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
-type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyImmutable bool)
+type RedactAnyFunc func(baseLine xopbase.Line, k xopat.K, v interface{}, alreadyImmutable bool)
 
 // RedactStringFunc is used to redact strings as they're being logged.
 // It is RedactStringFunc's responsiblity to call
@@ -59,7 +59,7 @@ type RedactAnyFunc func(baseLine xopbase.Line, k string, v interface{}, alreadyI
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
-type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
+type RedactStringFunc func(baseLine xopbase.Line, k xopat.K, v string)
 
 // RedactErrorFunc is used to redact or format errors as they're being
 // logged.  It is RedactErrorFunc's responsibility to call
@@ -73,7 +73,7 @@ type RedactStringFunc func(baseLine xopbase.Line, k string, v string)
 //
 // The provided xopbase.Line may not be retained beyond the duration of
 // the function call.
-type RedactErrorFunc func(baseLine xopbase.Line, k string, v error)
+type RedactErrorFunc func(baseLine xopbase.Line, k xopat.K, v error)
 
 type LogSettings struct {
 	prefillMsg               string
@@ -344,7 +344,7 @@ func (settings *LogSettings) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 // PrefillError is used to set a data element that is included on every log
 // line.  Errors will always be formatted with v.Error().  Redaction is
 // not supported.
-func (sub *Sub) PrefillError(k string, v error) *Sub {
+func (sub *Sub) PrefillError(k xopat.K, v error) *Sub {
 	sub.settings.PrefillError(k, v)
 	return sub
 }
@@ -352,7 +352,7 @@ func (sub *Sub) PrefillError(k string, v error) *Sub {
 // PrefillError is used to set a data element that is included on every log
 // line.  Errors will always be formatted with v.Error().  Redaction is
 // not supported.
-func (settings *LogSettings) PrefillError(k string, v error) {
+func (settings *LogSettings) PrefillError(k xopat.K, v error) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.String(k, v.Error(), xopbase.ErrorDataType)
 	})
@@ -364,7 +364,7 @@ func (settings *LogSettings) PrefillError(k string, v error) {
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
 // Redaction is not supported.
-func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
+func (sub *Sub) PrefillAny(k xopat.K, v interface{}) *Sub {
 	sub.settings.PrefillAny(k, v)
 	return sub
 }
@@ -375,7 +375,7 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
 // Redaction is not supported.
-func (settings *LogSettings) PrefillAny(k string, v interface{}) {
+func (settings *LogSettings) PrefillAny(k xopat.K, v interface{}) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Any(k, xopbase.ModelArg{Model: v})
 	})
@@ -385,12 +385,12 @@ func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 // line.
 // PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
+func (sub *Sub) PrefillFloat32(k xopat.K, v float32) *Sub {
 	sub.settings.PrefillFloat32(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillFloat32(k string, v float32) {
+func (settings *LogSettings) PrefillFloat32(k xopat.K, v float32) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Float64(k, float64(v), xopbase.Float32DataType)
 	})
@@ -400,12 +400,12 @@ func (settings *LogSettings) PrefillFloat32(k string, v float32) {
 // line.
 // PrefillBool is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillBool(k string, v bool) *Sub {
+func (sub *Sub) PrefillBool(k xopat.K, v bool) *Sub {
 	sub.settings.PrefillBool(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillBool(k string, v bool) {
+func (settings *LogSettings) PrefillBool(k xopat.K, v bool) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Bool(k, v)
 	})
@@ -415,12 +415,12 @@ func (settings *LogSettings) PrefillBool(k string, v bool) {
 // line.
 // PrefillDuration is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillDuration(k string, v time.Duration) *Sub {
+func (sub *Sub) PrefillDuration(k xopat.K, v time.Duration) *Sub {
 	sub.settings.PrefillDuration(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillDuration(k string, v time.Duration) {
+func (settings *LogSettings) PrefillDuration(k xopat.K, v time.Duration) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Duration(k, v)
 	})
@@ -430,12 +430,12 @@ func (settings *LogSettings) PrefillDuration(k string, v time.Duration) {
 // line.
 // PrefillTime is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillTime(k string, v time.Time) *Sub {
+func (sub *Sub) PrefillTime(k xopat.K, v time.Time) *Sub {
 	sub.settings.PrefillTime(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillTime(k string, v time.Time) {
+func (settings *LogSettings) PrefillTime(k xopat.K, v time.Time) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Time(k, v)
 	})
@@ -445,12 +445,12 @@ func (settings *LogSettings) PrefillTime(k string, v time.Time) {
 // line.
 // PrefillFloat64 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillFloat64(k string, v float64) *Sub {
+func (sub *Sub) PrefillFloat64(k xopat.K, v float64) *Sub {
 	sub.settings.PrefillFloat64(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillFloat64(k string, v float64) {
+func (settings *LogSettings) PrefillFloat64(k xopat.K, v float64) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Float64(k, v, xopbase.Float64DataType)
 	})
@@ -460,12 +460,12 @@ func (settings *LogSettings) PrefillFloat64(k string, v float64) {
 // line.
 // PrefillInt64 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillInt64(k string, v int64) *Sub {
+func (sub *Sub) PrefillInt64(k xopat.K, v int64) *Sub {
 	sub.settings.PrefillInt64(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillInt64(k string, v int64) {
+func (settings *LogSettings) PrefillInt64(k xopat.K, v int64) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, v, xopbase.Int64DataType)
 	})
@@ -475,12 +475,12 @@ func (settings *LogSettings) PrefillInt64(k string, v int64) {
 // line.
 // PrefillString is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillString(k string, v string) *Sub {
+func (sub *Sub) PrefillString(k xopat.K, v string) *Sub {
 	sub.settings.PrefillString(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillString(k string, v string) {
+func (settings *LogSettings) PrefillString(k xopat.K, v string) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.String(k, v, xopbase.StringDataType)
 	})
@@ -490,12 +490,12 @@ func (settings *LogSettings) PrefillString(k string, v string) {
 // line.
 // PrefillUint64 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillUint64(k string, v uint64) *Sub {
+func (sub *Sub) PrefillUint64(k xopat.K, v uint64) *Sub {
 	sub.settings.PrefillUint64(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillUint64(k string, v uint64) {
+func (settings *LogSettings) PrefillUint64(k xopat.K, v uint64) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, v, xopbase.Uint64DataType)
 	})
@@ -505,12 +505,12 @@ func (settings *LogSettings) PrefillUint64(k string, v uint64) {
 // line.
 // PrefillInt is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillInt(k string, v int) *Sub {
+func (sub *Sub) PrefillInt(k xopat.K, v int) *Sub {
 	sub.settings.PrefillInt(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillInt(k string, v int) {
+func (settings *LogSettings) PrefillInt(k xopat.K, v int) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, int64(v), xopbase.IntDataType)
 	})
@@ -520,12 +520,12 @@ func (settings *LogSettings) PrefillInt(k string, v int) {
 // line.
 // PrefillInt16 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillInt16(k string, v int16) *Sub {
+func (sub *Sub) PrefillInt16(k xopat.K, v int16) *Sub {
 	sub.settings.PrefillInt16(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillInt16(k string, v int16) {
+func (settings *LogSettings) PrefillInt16(k xopat.K, v int16) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, int64(v), xopbase.Int16DataType)
 	})
@@ -535,12 +535,12 @@ func (settings *LogSettings) PrefillInt16(k string, v int16) {
 // line.
 // PrefillInt32 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillInt32(k string, v int32) *Sub {
+func (sub *Sub) PrefillInt32(k xopat.K, v int32) *Sub {
 	sub.settings.PrefillInt32(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillInt32(k string, v int32) {
+func (settings *LogSettings) PrefillInt32(k xopat.K, v int32) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, int64(v), xopbase.Int32DataType)
 	})
@@ -550,12 +550,12 @@ func (settings *LogSettings) PrefillInt32(k string, v int32) {
 // line.
 // PrefillInt8 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillInt8(k string, v int8) *Sub {
+func (sub *Sub) PrefillInt8(k xopat.K, v int8) *Sub {
 	sub.settings.PrefillInt8(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillInt8(k string, v int8) {
+func (settings *LogSettings) PrefillInt8(k xopat.K, v int8) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Int64(k, int64(v), xopbase.Int8DataType)
 	})
@@ -565,12 +565,12 @@ func (settings *LogSettings) PrefillInt8(k string, v int8) {
 // line.
 // PrefillUint is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillUint(k string, v uint) *Sub {
+func (sub *Sub) PrefillUint(k xopat.K, v uint) *Sub {
 	sub.settings.PrefillUint(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillUint(k string, v uint) {
+func (settings *LogSettings) PrefillUint(k xopat.K, v uint) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.UintDataType)
 	})
@@ -580,12 +580,12 @@ func (settings *LogSettings) PrefillUint(k string, v uint) {
 // line.
 // PrefillUint16 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillUint16(k string, v uint16) *Sub {
+func (sub *Sub) PrefillUint16(k xopat.K, v uint16) *Sub {
 	sub.settings.PrefillUint16(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillUint16(k string, v uint16) {
+func (settings *LogSettings) PrefillUint16(k xopat.K, v uint16) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.Uint16DataType)
 	})
@@ -595,12 +595,12 @@ func (settings *LogSettings) PrefillUint16(k string, v uint16) {
 // line.
 // PrefillUint32 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillUint32(k string, v uint32) *Sub {
+func (sub *Sub) PrefillUint32(k xopat.K, v uint32) *Sub {
 	sub.settings.PrefillUint32(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillUint32(k string, v uint32) {
+func (settings *LogSettings) PrefillUint32(k xopat.K, v uint32) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.Uint32DataType)
 	})
@@ -610,12 +610,12 @@ func (settings *LogSettings) PrefillUint32(k string, v uint32) {
 // line.
 // PrefillUint8 is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillUint8(k string, v uint8) *Sub {
+func (sub *Sub) PrefillUint8(k xopat.K, v uint8) *Sub {
 	sub.settings.PrefillUint8(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillUint8(k string, v uint8) {
+func (settings *LogSettings) PrefillUint8(k xopat.K, v uint8) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.Uint8DataType)
 	})
@@ -625,12 +625,12 @@ func (settings *LogSettings) PrefillUint8(k string, v uint8) {
 // line.
 // PrefillUintptr is not threadsafe with respect to other calls on the same *Sub.
 // Should not be used after Step(), Fork(), or Logger() is called.
-func (sub *Sub) PrefillUintptr(k string, v uintptr) *Sub {
+func (sub *Sub) PrefillUintptr(k xopat.K, v uintptr) *Sub {
 	sub.settings.PrefillUintptr(k, v)
 	return sub
 }
 
-func (settings *LogSettings) PrefillUintptr(k string, v uintptr) {
+func (settings *LogSettings) PrefillUintptr(k xopat.K, v uintptr) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
 		line.Uint64(k, uint64(v), xopbase.UintptrDataType)
 	})

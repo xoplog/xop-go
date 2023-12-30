@@ -93,7 +93,9 @@ type wrappedReadOnlySpan struct {
 // originally using xoputil, then the exported data should almost
 // exactly match the original inputs.
 func ExportToXOP(base xopbase.Logger) sdktrace.SpanExporter {
-	return &spanExporter{base: base}
+	return &spanExporter{
+		base: base,
+	}
 }
 
 func (e *spanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) (err error) {
@@ -307,7 +309,7 @@ func (x spanReplay) Replay(ctx context.Context, span sdktrace.ReadOnlySpan, data
 				line.Int64(xopOTELLinkDroppedAttributeCount, int64(link.DroppedAttributeCount), xopbase.IntDataType)
 			}
 
-			err = z.finishLine(ctx, "link", xopOTELLinkDetail, line)
+			err = z.finishLine(ctx, "link", xopOTELLinkDetail.String(), line)
 			if err != nil {
 				return func() {}, err
 			}
@@ -687,7 +689,6 @@ func defaulted[T comparable](a, b T) T {
 }
 
 func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, a attribute.KeyValue, line xopbase.Line) error {
-	key := string(a.Key)
 	switch a.Value.Type() {
 	case attribute.STRINGSLICE:
 		slice := a.Value.AsStringSlice()
@@ -697,7 +698,7 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, a attribute.Ke
 		switch slice[1] {
 		case "any":
 			if len(slice) != 4 {
-				return errors.Errorf("key %s invalid any encoding, slice too short", key)
+				return errors.Errorf("key %s invalid any encoding, slice too short", a.Key)
 			}
 			var ma xopbase.ModelArg
 			ma.Encoded = []byte(slice[0])
@@ -707,125 +708,125 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, a attribute.Ke
 			}
 			ma.Encoding = xopproto.Encoding(e)
 			ma.ModelType = slice[3]
-			line.Any(key, ma)
+			line.Any(xopat.K(a.Key), ma)
 		case "bool":
 		case "dur":
 			dur, err := time.ParseDuration(slice[0])
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Duration(key, dur)
+			line.Duration(xopat.K(a.Key), dur)
 		case "enum":
 			if len(slice) != 3 {
-				return errors.Errorf("key %s invalid enum encoding, slice too short", key)
+				return errors.Errorf("key %s invalid enum encoding, slice too short", a.Key)
 			}
 			ea, err := x.registry.ConstructEnumAttribute(xopat.Make{
-				Key: key,
+				Key: string(a.Key),
 			}, xopat.AttributeTypeEnum)
 			if err != nil {
-				return errors.Errorf("could not turn key %s into an enum", key)
+				return errors.Errorf("could not turn key %s into an enum", a.Key)
 			}
 			i, err := strconv.ParseInt(slice[2], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "could not turn key %s into an enum", key)
+				return errors.Wrapf(err, "could not turn key %s into an enum", a.Key)
 			}
 			enum := ea.Add64(i, slice[0])
 			line.Enum(&ea.EnumAttribute, enum)
 		case "error":
-			line.String(key, slice[0], xopbase.StringToDataType["error"])
+			line.String(xopat.K(a.Key), slice[0], xopbase.StringToDataType["error"])
 		case "f32":
 			f, err := strconv.ParseFloat(slice[0], 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Float64(key, f, xopbase.StringToDataType["f32"])
+			line.Float64(xopat.K(a.Key), f, xopbase.StringToDataType["f32"])
 		case "f64":
 			f, err := strconv.ParseFloat(slice[0], 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Float64(key, f, xopbase.StringToDataType["f64"])
+			line.Float64(xopat.K(a.Key), f, xopbase.StringToDataType["f64"])
 		case "i":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Int64(key, i, xopbase.StringToDataType["i"])
+			line.Int64(xopat.K(a.Key), i, xopbase.StringToDataType["i"])
 		case "i16":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Int64(key, i, xopbase.StringToDataType["i16"])
+			line.Int64(xopat.K(a.Key), i, xopbase.StringToDataType["i16"])
 		case "i32":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Int64(key, i, xopbase.StringToDataType["i32"])
+			line.Int64(xopat.K(a.Key), i, xopbase.StringToDataType["i32"])
 		case "i64":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Int64(key, i, xopbase.StringToDataType["i64"])
+			line.Int64(xopat.K(a.Key), i, xopbase.StringToDataType["i64"])
 		case "i8":
 			i, err := strconv.ParseInt(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Int64(key, i, xopbase.StringToDataType["i8"])
+			line.Int64(xopat.K(a.Key), i, xopbase.StringToDataType["i8"])
 		case "s":
-			line.String(key, slice[0], xopbase.StringToDataType["s"])
+			line.String(xopat.K(a.Key), slice[0], xopbase.StringToDataType["s"])
 		case "stringer":
-			line.String(key, slice[0], xopbase.StringToDataType["stringer"])
+			line.String(xopat.K(a.Key), slice[0], xopbase.StringToDataType["stringer"])
 		case "time":
 			ts, err := time.Parse(time.RFC3339Nano, slice[0])
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Time(key, ts)
+			line.Time(xopat.K(a.Key), ts)
 		case "u":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Uint64(key, i, xopbase.StringToDataType["u"])
+			line.Uint64(xopat.K(a.Key), i, xopbase.StringToDataType["u"])
 		case "u16":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Uint64(key, i, xopbase.StringToDataType["u16"])
+			line.Uint64(xopat.K(a.Key), i, xopbase.StringToDataType["u16"])
 		case "u32":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Uint64(key, i, xopbase.StringToDataType["u32"])
+			line.Uint64(xopat.K(a.Key), i, xopbase.StringToDataType["u32"])
 		case "u64":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Uint64(key, i, xopbase.StringToDataType["u64"])
+			line.Uint64(xopat.K(a.Key), i, xopbase.StringToDataType["u64"])
 		case "u8":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Uint64(key, i, xopbase.StringToDataType["u8"])
+			line.Uint64(xopat.K(a.Key), i, xopbase.StringToDataType["u8"])
 		case "uintptr":
 			i, err := strconv.ParseUint(slice[0], 10, 64)
 			if err != nil {
-				return errors.Wrapf(err, "key %s invalid %s", key, slice[1])
+				return errors.Wrapf(err, "key %s invalid %s", a.Key, slice[1])
 			}
-			line.Uint64(key, i, xopbase.StringToDataType["uintptr"])
+			line.Uint64(xopat.K(a.Key), i, xopbase.StringToDataType["uintptr"])
 
 		}
 
 	case attribute.BOOL:
-		line.Bool(key, a.Value.AsBool())
+		line.Bool(xopat.K(a.Key), a.Value.AsBool())
 	default:
 		return errors.Errorf("unexpected event attribute type %s for xop-encoded line", a.Value.Type())
 	}
@@ -835,33 +836,33 @@ func (x baseSpanReplay) AddXopEventAttribute(ctx context.Context, a attribute.Ke
 func (x baseSpanReplay) AddEventAttribute(ctx context.Context, a attribute.KeyValue, line xopbase.Line) error {
 	switch a.Value.Type() {
 	case attribute.BOOL:
-		line.Bool(string(a.Key), a.Value.AsBool())
+		line.Bool(xopat.K(a.Key), a.Value.AsBool())
 	case attribute.BOOLSLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsBoolSlice()
 		ma.ModelType = toTypeSliceName["BOOL"]
-		line.Any(string(a.Key), ma)
+		line.Any(xopat.K(a.Key), ma)
 	case attribute.FLOAT64:
-		line.Float64(string(a.Key), a.Value.AsFloat64(), xopbase.Float64DataType)
+		line.Float64(xopat.K(a.Key), a.Value.AsFloat64(), xopbase.Float64DataType)
 	case attribute.FLOAT64SLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsFloat64Slice()
 		ma.ModelType = toTypeSliceName["FLOAT64"]
-		line.Any(string(a.Key), ma)
+		line.Any(xopat.K(a.Key), ma)
 	case attribute.INT64:
-		line.Int64(string(a.Key), a.Value.AsInt64(), xopbase.Int64DataType)
+		line.Int64(xopat.K(a.Key), a.Value.AsInt64(), xopbase.Int64DataType)
 	case attribute.INT64SLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsInt64Slice()
 		ma.ModelType = toTypeSliceName["INT64"]
-		line.Any(string(a.Key), ma)
+		line.Any(xopat.K(a.Key), ma)
 	case attribute.STRING:
-		line.String(string(a.Key), a.Value.AsString(), xopbase.StringDataType)
+		line.String(xopat.K(a.Key), a.Value.AsString(), xopbase.StringDataType)
 	case attribute.STRINGSLICE:
 		var ma xopbase.ModelArg
 		ma.Model = a.Value.AsStringSlice()
 		ma.ModelType = toTypeSliceName["STRING"]
-		line.Any(string(a.Key), ma)
+		line.Any(xopat.K(a.Key), ma)
 
 	case attribute.INVALID:
 		fallthrough

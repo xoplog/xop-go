@@ -11,6 +11,7 @@ import (
 
 	"github.com/muir/gwrap"
 	"github.com/xoplog/xop-go/internal/util/pointer"
+	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
 	"github.com/xoplog/xop-go/xoprecorder"
@@ -255,17 +256,17 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, augment bool) (stuf
 		}
 
 		if failure := func() string {
-			md := span.SpanMetadata.Get(otelReplayStuff.Key())
+			md := span.SpanMetadata.Get(otelReplayStuff.Key().String())
 			if md == nil {
-				return "span metdata missing replay key expected for BufferedReplayLogger " + string(otelReplayStuff.Key())
+				return "span metdata missing replay key expected for BufferedReplayLogger " + otelReplayStuff.Key().String()
 			}
 			ma, ok := md.Value.(xopbase.ModelArg)
 			if !ok {
-				return fmt.Sprintf("cast of %s data to ModelArg failed, is %T", string(otelReplayStuff.Key()), md.Value)
+				return fmt.Sprintf("cast of %s data to ModelArg failed, is %T", otelReplayStuff.Key(), md.Value)
 			}
 			err := ma.DecodeTo(&otelStuff)
 			if err != nil {
-				return fmt.Sprintf("failed to decode encoded data in %s: %s", string(otelReplayStuff.Key()), err)
+				return fmt.Sprintf("failed to decode encoded data in %s: %s", otelReplayStuff.Key(), err)
 			}
 			return ""
 		}(); failure != "" {
@@ -284,7 +285,7 @@ func (req *bufferedRequest) getStuff(bundle xoptrace.Bundle, augment bool) (stuf
 	return
 }
 
-func extractValue[T any](linkLine *xoprecorder.Line, name string, dataType xopbase.DataType, errorKey string) (T, bool) {
+func extractValue[T any](linkLine *xoprecorder.Line, name xopat.K, dataType xopbase.DataType, errorKey xopat.K) (T, bool) {
 	var zero T
 	if raw, ok := linkLine.Data[name]; ok {
 		if linkLine.DataType[name] == dataType {

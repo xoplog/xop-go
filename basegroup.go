@@ -230,97 +230,97 @@ func (l lines) Model(k string, v xopbase.ModelArg) {
 	}
 }
 
-func (p prefillings) Any(k string, v xopbase.ModelArg) {
+func (p prefillings) Any(k xopat.K, v xopbase.ModelArg) {
 	for _, prefilling := range p {
 		prefilling.Any(k, v)
 	}
 }
 
-func (p prefillings) Bool(k string, v bool) {
+func (p prefillings) Bool(k xopat.K, v bool) {
 	for _, prefilling := range p {
 		prefilling.Bool(k, v)
 	}
 }
 
-func (p prefillings) Duration(k string, v time.Duration) {
+func (p prefillings) Duration(k xopat.K, v time.Duration) {
 	for _, prefilling := range p {
 		prefilling.Duration(k, v)
 	}
 }
 
-func (p prefillings) Time(k string, v time.Time) {
+func (p prefillings) Time(k xopat.K, v time.Time) {
 	for _, prefilling := range p {
 		prefilling.Time(k, v)
 	}
 }
 
-func (p prefillings) Float64(k string, v float64, dt xopbase.DataType) {
+func (p prefillings) Float64(k xopat.K, v float64, dt xopbase.DataType) {
 	for _, prefilling := range p {
 		prefilling.Float64(k, v, dt)
 	}
 }
 
-func (p prefillings) Int64(k string, v int64, dt xopbase.DataType) {
+func (p prefillings) Int64(k xopat.K, v int64, dt xopbase.DataType) {
 	for _, prefilling := range p {
 		prefilling.Int64(k, v, dt)
 	}
 }
 
-func (p prefillings) String(k string, v string, dt xopbase.DataType) {
+func (p prefillings) String(k xopat.K, v string, dt xopbase.DataType) {
 	for _, prefilling := range p {
 		prefilling.String(k, v, dt)
 	}
 }
 
-func (p prefillings) Uint64(k string, v uint64, dt xopbase.DataType) {
+func (p prefillings) Uint64(k xopat.K, v uint64, dt xopbase.DataType) {
 	for _, prefilling := range p {
 		prefilling.Uint64(k, v, dt)
 	}
 }
 
-func (l lines) Any(k string, v xopbase.ModelArg) {
+func (l lines) Any(k xopat.K, v xopbase.ModelArg) {
 	for _, line := range l {
 		line.Any(k, v)
 	}
 }
 
-func (l lines) Bool(k string, v bool) {
+func (l lines) Bool(k xopat.K, v bool) {
 	for _, line := range l {
 		line.Bool(k, v)
 	}
 }
 
-func (l lines) Duration(k string, v time.Duration) {
+func (l lines) Duration(k xopat.K, v time.Duration) {
 	for _, line := range l {
 		line.Duration(k, v)
 	}
 }
 
-func (l lines) Time(k string, v time.Time) {
+func (l lines) Time(k xopat.K, v time.Time) {
 	for _, line := range l {
 		line.Time(k, v)
 	}
 }
 
-func (l lines) Float64(k string, v float64, dt xopbase.DataType) {
+func (l lines) Float64(k xopat.K, v float64, dt xopbase.DataType) {
 	for _, line := range l {
 		line.Float64(k, v, dt)
 	}
 }
 
-func (l lines) Int64(k string, v int64, dt xopbase.DataType) {
+func (l lines) Int64(k xopat.K, v int64, dt xopbase.DataType) {
 	for _, line := range l {
 		line.Int64(k, v, dt)
 	}
 }
 
-func (l lines) String(k string, v string, dt xopbase.DataType) {
+func (l lines) String(k xopat.K, v string, dt xopbase.DataType) {
 	for _, line := range l {
 		line.String(k, v, dt)
 	}
 }
 
-func (l lines) Uint64(k string, v uint64, dt xopbase.DataType) {
+func (l lines) Uint64(k xopat.K, v uint64, dt xopbase.DataType) {
 	for _, line := range l {
 		line.Uint64(k, v, dt)
 	}

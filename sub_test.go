@@ -58,7 +58,7 @@ func TestSub_NoPrefill(t *testing.T) {
 	sub := Default.Sub()
 	assert.Nil(t, sub.settings.prefillData)
 	assert.Empty(t, sub.settings.prefillMsg)
-	sub.PrefillAny("foo", "bar")
+	sub.PrefillAny(Key("foo"), "bar")
 	sub.PrefillText("text")
 	assert.NotNil(t, sub.settings.prefillData)
 	assert.NotEmpty(t, sub.settings.prefillMsg)
@@ -69,24 +69,24 @@ func TestSub_NoPrefill(t *testing.T) {
 
 func TestSub_PrefillBool(t *testing.T) {
 	sub := Default.Sub()
-	sub.PrefillBool("key", true)
+	sub.PrefillBool(Key("key"), true)
 	assert.Len(t, sub.settings.prefillData, 1)
 }
 
 func TestSub_PrefillDuration(t *testing.T) {
 	sub := Default.Sub()
-	sub.PrefillDuration("key", 1*time.Second)
+	sub.PrefillDuration(Key("key"), 1*time.Second)
 	assert.Len(t, sub.settings.prefillData, 1)
 }
 
 func TestSub_PrefillError(t *testing.T) {
 	sub := Default.Sub()
-	sub.PrefillError("key", errors.New("error"))
+	sub.PrefillError(Key("key"), errors.New("error"))
 	assert.Len(t, sub.settings.prefillData, 1)
 }
 
 func TestSub_PrefillFloat64(t *testing.T) {
 	sub := Default.Sub()
-	sub.PrefillFloat64("key", 64)
+	sub.PrefillFloat64(Key("key"), 64)
 	assert.Len(t, sub.settings.prefillData, 1)
 }

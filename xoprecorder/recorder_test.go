@@ -26,7 +26,6 @@ func TestRecorderLogMethods(t *testing.T) {
 	log.Alert().Msg("basic alert message")
 	log.Log().Msg("basic log message")
 	log.Debug().Msg("basic debug message")
-	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
 	lines := rLog.FindLines(xoprecorder.MessageEquals("basic debug message"))
 	if assert.NotEmpty(t, lines, "found some") {

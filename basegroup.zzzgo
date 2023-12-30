@@ -1,3 +1,7 @@
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+// TEMPLATE-FILE
+
 package xop
 
 import (
@@ -213,28 +217,28 @@ func (l lines) ZZZ(k string, v zzz) {
 }
 
 // MACRO BaseDataWithoutType
-func (p prefillings) ZZZ(k string, v zzz) {
+func (p prefillings) ZZZ(k xopat.K, v zzz) {
 	for _, prefilling := range p {
 		prefilling.ZZZ(k, v)
 	}
 }
 
 // MACRO BaseDataWithType
-func (p prefillings) ZZZ(k string, v zzz, dt xopbase.DataType) {
+func (p prefillings) ZZZ(k xopat.K, v zzz, dt xopbase.DataType) {
 	for _, prefilling := range p {
 		prefilling.ZZZ(k, v, dt)
 	}
 }
 
 // MACRO BaseDataWithoutType
-func (l lines) ZZZ(k string, v zzz) {
+func (l lines) ZZZ(k xopat.K, v zzz) {
 	for _, line := range l {
 		line.ZZZ(k, v)
 	}
 }
 
 // MACRO BaseDataWithType
-func (l lines) ZZZ(k string, v zzz, dt xopbase.DataType) {
+func (l lines) ZZZ(k xopat.K, v zzz, dt xopbase.DataType) {
 	for _, line := range l {
 		line.ZZZ(k, v, dt)
 	}

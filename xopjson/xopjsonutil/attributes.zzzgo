@@ -155,7 +155,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	}
 	//END CONDITIONAL
 	if !k.Multiple() {
-		s, preExisting := a.addSingle(k.Key(), k.JSONKey())
+		s, preExisting := a.addSingle(k.Key().String(), k.JSONKey())
 		if preExisting {
 			if k.Locked() {
 				return
@@ -181,7 +181,7 @@ func (a *AttributeBuilder) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 		s.KeyValue = b.B
 		return
 	}
-	m := a.addMulti(k.Key(), k.JSONKey())
+	m := a.addMulti(k.Key().String(), k.JSONKey())
 	m.Type = xopbase.ZZZDataType
 	//CONDITIONAL ONLY:Any
 	a.encodeTarget = &m.Builder.B

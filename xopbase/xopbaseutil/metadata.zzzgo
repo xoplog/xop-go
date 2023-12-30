@@ -43,13 +43,13 @@ func (s *SpanMetadata) MetadataZZZ(k *xopat.ZZZAttribute, v zzz) {
 	//CONDITIONAL ONLY:Any
 	v.Encode()
 	//END CONDITIONAL
-	tracker, loaded := s.Map.Load(k.Key())
+	tracker, loaded := s.Map.Load(k.Key().String())
 	if loaded {
 		tracker.Mu.Lock()
 	} else {
 		n := &MetadataTracker{}
 		n.Mu.Lock()
-		tracker, loaded = s.Map.LoadOrStore(k.Key(), n)
+		tracker, loaded = s.Map.LoadOrStore(k.Key().String(), n)
 		if loaded {
 			tracker.Mu.Lock()
 		} else {

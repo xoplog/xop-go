@@ -13,7 +13,7 @@ type skipLine struct{}
 
 var _ Line = skipLine{}
 
-func (_ skipLine) AnyImmutable(string, interface{})          {}
+func (_ skipLine) AnyImmutable(xopat.K, interface{})         {}
 func (_ skipLine) Enum(k *xopat.EnumAttribute, v xopat.Enum) {}
 
 func (_ skipLine) Msg(string)                  {}
@@ -22,7 +22,7 @@ func (_ skipLine) Model(string, ModelArg)      {}
 func (_ skipLine) Template(string)             {}
 
 // MACRO BaseDataWithoutType
-func (_ skipLine) ZZZ(string, zzz) {}
+func (_ skipLine) ZZZ(xopat.K, zzz) {}
 
 // MACRO BaseDataWithType
-func (_ skipLine) ZZZ(string, zzz, DataType) {}
+func (_ skipLine) ZZZ(xopat.K, zzz, DataType) {}

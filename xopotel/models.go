@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/xoplog/xop-go"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopconst"
@@ -134,13 +135,13 @@ var otelLink = xopat.Make{Key: "span.otelLinks", Namespace: "XOP", Indexed: fals
 	Description: "Data origin is OTEL, span links w/o attributes; links also sent as Link()"}.LinkAttribute()
 var xopLinkMetadataKey = attribute.Key("xop.linkMetadataKey")
 
-const xopLinkTraceStateError = "xop.linkTraceStateError"
-const xopOTELLinkTranceState = "xop.otelLinkTraceState"
-const xopOTELLinkIsRemote = "xop.otelLinkIsRemote"
-const xopOTELLinkDetail = "xop.otelLinkDetail"
-const xopLinkRemoteError = "xop.otelLinkRemoteError"
-const xopOTELLinkDroppedAttributeCount = "xop.otelLinkDroppedAttributeCount"
-const xopLinkeDroppedError = "xop.otelLinkDroppedError"
+var xopLinkTraceStateError = xop.Key("xop.linkTraceStateError")
+var xopOTELLinkTranceState = xop.Key("xop.otelLinkTraceState")
+var xopOTELLinkIsRemote = xop.Key("xop.otelLinkIsRemote")
+var xopOTELLinkDetail = xop.Key("xop.otelLinkDetail")
+var xopLinkRemoteError = xop.Key("xop.otelLinkRemoteError")
+var xopOTELLinkDroppedAttributeCount = xop.Key("xop.otelLinkDroppedAttributeCount")
+var xopLinkeDroppedError = xop.Key("xop.otelLinkDroppedError")
 
 var otelReplayStuff = xopat.Make{Key: "span.replayedFromOTEL", Namespace: "XOP", Indexed: false, Prominence: 300,
 	Description: "Data origin is OTEL, translated through xopotel.ExportToXOP, bundle of span config"}.AnyAttribute(&otelStuff{})

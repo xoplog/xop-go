@@ -373,9 +373,9 @@ func (line Line) send(prefix []byte, text string, postfix []byte) {
 	}
 }
 
-func (b *Builder) addKey(k string) {
+func (b *Builder) addKey(k xopat.K) {
 	b.B = append(b.B, ' ')
-	b.AddConsoleString(k)
+	b.AddConsoleString(string(k))
 	b.B = append(b.B, '=')
 }
 
@@ -385,19 +385,19 @@ func (b *Builder) addType(t string) {
 	b.B = append(b.B, ')')
 }
 
-func (b *Builder) Duration(k string, v time.Duration) {
+func (b *Builder) Duration(k xopat.K, v time.Duration) {
 	b.addKey(k)
 	b.B = append(b.B, []byte(v.String())...)
 	b.addType(xopbase.DurationDataTypeAbbr)
 }
 
-func (b *Builder) Float64(k string, v float64, t xopbase.DataType) {
+func (b *Builder) Float64(k xopat.K, v float64, t xopbase.DataType) {
 	b.addKey(k)
 	b.AddFloat64(v)
 	b.addType(xopbase.DataTypeToString[t])
 }
 
-func (b *Builder) String(k string, v string, t xopbase.DataType) {
+func (b *Builder) String(k xopat.K, v string, t xopbase.DataType) {
 	b.addKey(k)
 	b.AddConsoleString(v)
 	if t != xopbase.StringDataType {
@@ -405,7 +405,7 @@ func (b *Builder) String(k string, v string, t xopbase.DataType) {
 	}
 }
 
-func (b *Builder) Int64(k string, v int64, t xopbase.DataType) {
+func (b *Builder) Int64(k xopat.K, v int64, t xopbase.DataType) {
 	b.addKey(k)
 	b.B = strconv.AppendInt(b.B, v, 10)
 	if t != xopbase.IntDataType {
@@ -413,13 +413,13 @@ func (b *Builder) Int64(k string, v int64, t xopbase.DataType) {
 	}
 }
 
-func (b *Builder) Uint64(k string, v uint64, t xopbase.DataType) {
+func (b *Builder) Uint64(k xopat.K, v uint64, t xopbase.DataType) {
 	b.addKey(k)
 	b.AddUint64(v)
 	b.addType(xopbase.DataTypeToString[t])
 }
 
-func (b *Builder) Bool(k string, v bool) {
+func (b *Builder) Bool(k xopat.K, v bool) {
 	b.addKey(k)
 	if v {
 		b.B = append(b.B, 't')
@@ -429,7 +429,7 @@ func (b *Builder) Bool(k string, v bool) {
 	b.addType(xopbase.BoolDataTypeAbbr)
 }
 
-func (b *Builder) Time(k string, t time.Time) {
+func (b *Builder) Time(k xopat.K, t time.Time) {
 	b.addKey(k)
 	b.B = t.AppendFormat(b.B, time.RFC3339Nano)
 	b.addType(xopbase.TimeDataTypeAbbr)
@@ -442,7 +442,7 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.AttributeEnum(v)
 }
 
-func (b *Builder) Any(k string, v xopbase.ModelArg) {
+func (b *Builder) Any(k xopat.K, v xopbase.ModelArg) {
 	b.addKey(k)
 	b.AnyCommon(v)
 }

@@ -33,6 +33,7 @@ type Attribute struct {
 	namespace     string
 	version       string
 	properties    Make
+	key           K
 	jsonKey       JSONKey
 	consoleKey    []byte
 	exampleValue  interface{}
@@ -155,6 +156,7 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 	}
 
 	ra := Attribute{
+		key:          K(s.Key),
 		namespace:    namespace,
 		version:      sver.String(),
 		properties:   s,
@@ -197,7 +199,7 @@ func (r Attribute) ReflectType() reflect.Type { return r.reflectType }
 
 // ConsoleKey includes an =
 func (r Attribute) ConsoleKey() []byte                { return r.consoleKey }
-func (r Attribute) Key() string                       { return r.properties.Key }
+func (r Attribute) Key() K                            { return r.key }
 func (r Attribute) Description() string               { return r.properties.Description }
 func (r Attribute) Namespace() string                 { return r.namespace }
 func (r Attribute) Indexed() bool                     { return r.properties.Indexed }
@@ -224,7 +226,7 @@ type AttributeInterface interface {
 	JSONKey() JSONKey
 	ConsoleKey() []byte // includes an '='
 	ReflectType() reflect.Type
-	Key() string
+	Key() K
 	Description() string
 	Namespace() string
 	Indexed() bool

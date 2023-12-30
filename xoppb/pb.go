@@ -136,7 +136,7 @@ func (r *request) defineAttribute(k xopat.AttributeInterface) uint32 {
 	i := uint32(len(r.attributeDefinitions))
 	r.attributeIndex[n] = i
 	r.attributeDefinitions = append(r.attributeDefinitions, &xopproto.AttributeDefinition{
-		Key:             k.Key(),
+		Key:             k.Key().String(),
 		Description:     k.Description(),
 		Namespace:       k.Namespace(),
 		NamespaceSemver: k.SemverString(),
@@ -295,10 +295,10 @@ func (l *line) GetTime() time.Time            { return time.Unix(0, l.protoLine.
 
 func (l *line) ReclaimMemory() {}
 
-func (b *builder) Any(k string, v xopbase.ModelArg) {
+func (b *builder) Any(k xopat.K, v xopbase.ModelArg) {
 	v.Encode()
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType_Any,
 		Value: &xopproto.AttributeValue{
 			StringValue: v.ModelType,
@@ -310,7 +310,7 @@ func (b *builder) Any(k string, v xopbase.ModelArg) {
 
 func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k.Key(),
+		Key:  k.Key().String(),
 		Type: xopproto.AttributeType_Enum,
 		Value: &xopproto.AttributeValue{
 			StringValue: v.String(),
@@ -319,9 +319,9 @@ func (b *builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 	})
 }
 
-func (b *builder) Time(k string, t time.Time) {
+func (b *builder) Time(k xopat.K, t time.Time) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType_Time,
 		Value: &xopproto.AttributeValue{
 			IntValue: t.UnixNano(),
@@ -329,9 +329,9 @@ func (b *builder) Time(k string, t time.Time) {
 	})
 }
 
-func (b *builder) Bool(k string, v bool) {
+func (b *builder) Bool(k xopat.K, v bool) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType_Bool,
 		Value: &xopproto.AttributeValue{
 			IntValue: boolToInt64(v),
@@ -346,9 +346,9 @@ func boolToInt64(b bool) int64 {
 	return 0
 }
 
-func (b *builder) Int64(k string, v int64, dataType xopbase.DataType) {
+func (b *builder) Int64(k xopat.K, v int64, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			IntValue: v,
@@ -356,9 +356,9 @@ func (b *builder) Int64(k string, v int64, dataType xopbase.DataType) {
 	})
 }
 
-func (b *builder) Uint64(k string, v uint64, dataType xopbase.DataType) {
+func (b *builder) Uint64(k xopat.K, v uint64, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			UintValue: v,
@@ -366,9 +366,9 @@ func (b *builder) Uint64(k string, v uint64, dataType xopbase.DataType) {
 	})
 }
 
-func (b *builder) String(k string, v string, dataType xopbase.DataType) {
+func (b *builder) String(k xopat.K, v string, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			StringValue: v,
@@ -376,9 +376,9 @@ func (b *builder) String(k string, v string, dataType xopbase.DataType) {
 	})
 }
 
-func (b *builder) Float64(k string, v float64, dataType xopbase.DataType) {
+func (b *builder) Float64(k xopat.K, v float64, dataType xopbase.DataType) {
 	b.attributes = append(b.attributes, &xopproto.Attribute{
-		Key:  k,
+		Key:  k.String(),
 		Type: xopproto.AttributeType(dataType),
 		Value: &xopproto.AttributeValue{
 			FloatValue: v,
@@ -386,7 +386,7 @@ func (b *builder) Float64(k string, v float64, dataType xopbase.DataType) {
 	})
 }
 
-func (b *builder) Duration(k string, v time.Duration) {
+func (b *builder) Duration(k xopat.K, v time.Duration) {
 	b.Int64(k, int64(v), xopbase.DurationDataType)
 }
 
@@ -394,7 +394,7 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -410,7 +410,7 @@ func (s *span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	v.Encode()
@@ -453,7 +453,7 @@ func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -469,7 +469,7 @@ func (s *span) MetadataBool(k *xopat.BoolAttribute, v bool) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
@@ -516,7 +516,7 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -532,7 +532,7 @@ func (s *span) MetadataEnum(k *xopat.EnumAttribute, v xopat.Enum) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
@@ -565,7 +565,7 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -581,7 +581,7 @@ func (s *span) MetadataFloat64(k *xopat.Float64Attribute, v float64) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
@@ -620,7 +620,7 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -636,7 +636,7 @@ func (s *span) MetadataInt64(k *xopat.Int64Attribute, v int64) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
@@ -676,7 +676,7 @@ func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -692,7 +692,7 @@ func (s *span) MetadataLink(k *xopat.LinkAttribute, v xoptrace.Trace) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
@@ -732,7 +732,7 @@ func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -748,7 +748,7 @@ func (s *span) MetadataString(k *xopat.StringAttribute, v string) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {
@@ -788,7 +788,7 @@ func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 	var distinct *distinction
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	attribute, existingAttribute := s.attributeMap[k.Key()]
+	attribute, existingAttribute := s.attributeMap[k.Key().String()]
 	if !existingAttribute {
 		var c int
 		if !k.Multiple() {
@@ -804,7 +804,7 @@ func (s *span) MetadataTime(k *xopat.TimeAttribute, v time.Time) {
 			if s.distinctMaps == nil {
 				s.distinctMaps = make(map[string]*distinction)
 			}
-			s.distinctMaps[k.Key()] = distinct
+			s.distinctMaps[k.Key().String()] = distinct
 		}
 	}
 	setValue := func(value *xopproto.AttributeValue) {

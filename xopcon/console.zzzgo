@@ -332,22 +332,22 @@ func (line Line) send(text string) {
 	line.Span.logger.output(text)
 }
 
-func (b *Builder) any(k string, v interface{}) {
-	b.Data[k] = v
+func (b *Builder) any(k xopat.K, v interface{}) {
+	b.Data[k.String()] = v
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%+v", k, v))
 }
 
 // Enum is a required method for xopbase.ObjectParts
 func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
-	ks := k.Key()
+	ks := k.Key().String()
 	b.Data[ks] = v
 	b.kvText = append(b.kvText, fmt.Sprintf("%s=%s(%d)", ks, v.String(), v.Int64()))
 }
 
 // MACRO BaseDataWithoutType
 // ZZZ is a required method for xopbase.ObjectParts
-func (b *Builder) ZZZ(k string, v zzz) { b.any(k, v) }
+func (b *Builder) ZZZ(k xopat.K, v zzz) { b.any(k, v) }
 
 // MACRO BaseDataWithType
 // ZZZ is a required method for xopbase.ObjectParts
-func (b *Builder) ZZZ(k string, v zzz, dt xopbase.DataType) { b.any(k, v) }
+func (b *Builder) ZZZ(k xopat.K, v zzz, dt xopbase.DataType) { b.any(k, v) }

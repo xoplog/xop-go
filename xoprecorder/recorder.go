@@ -116,16 +116,16 @@ type Prefilling struct {
 }
 
 type Builder struct {
-	Enums    map[string]*xopat.EnumAttribute
-	Data     map[string]interface{}
-	DataType map[string]xopbase.DataType
+	Enums    map[xopat.K]*xopat.EnumAttribute
+	Data     map[xopat.K]interface{}
+	DataType map[xopat.K]xopbase.DataType
 	Span     *Span
 }
 
 type Prefilled struct {
-	Enums    map[string]*xopat.EnumAttribute
-	Data     map[string]interface{}
-	DataType map[string]xopbase.DataType
+	Enums    map[xopat.K]*xopat.EnumAttribute
+	Data     map[xopat.K]interface{}
+	DataType map[xopat.K]xopbase.DataType
 	Span     *Span
 	Msg      string
 }
@@ -316,9 +316,9 @@ func (span *Span) NoPrefill() xopbase.Prefilled {
 func (span *Span) StartPrefill() xopbase.Prefilling {
 	return &Prefilling{
 		Builder: Builder{
-			Enums:    make(map[string]*xopat.EnumAttribute),
-			Data:     make(map[string]interface{}),
-			DataType: make(map[string]xopbase.DataType),
+			Enums:    make(map[xopat.K]*xopat.EnumAttribute),
+			Data:     make(map[xopat.K]interface{}),
+			DataType: make(map[xopat.K]xopbase.DataType),
 			Span:     span,
 		},
 	}
@@ -340,9 +340,9 @@ func (p *Prefilled) Line(level xopnum.Level, t time.Time, frames []runtime.Frame
 	xoputil.AtomicMaxInt64(&p.Span.provisionalEndTime, t.UnixNano())
 	line := &Line{
 		Builder: Builder{
-			Enums:    make(map[string]*xopat.EnumAttribute),
-			Data:     make(map[string]interface{}),
-			DataType: make(map[string]xopbase.DataType),
+			Enums:    make(map[xopat.K]*xopat.EnumAttribute),
+			Data:     make(map[xopat.K]interface{}),
+			DataType: make(map[xopat.K]xopbase.DataType),
 			Span:     p.Span,
 		},
 		Level:     level,
@@ -385,11 +385,11 @@ var templateRE = regexp.MustCompile(`\{.+?\}`)
 // Template is a required method for xopbase.Line
 func (line *Line) Template(m string) {
 	line.Tmpl = line.Message + m
-	used := make(map[string]struct{})
+	used := make(map[xopat.K]struct{})
 	msg := templateRE.ReplaceAllStringFunc(line.Tmpl, func(k string) string {
 		k = k[1 : len(k)-1]
-		if v, ok := line.Data[k]; ok {
-			used[k] = struct{}{}
+		if v, ok := line.Data[xopat.K(k)]; ok {
+			used[xopat.K(k)] = struct{}{}
 			return fmt.Sprint(v)
 		}
 		return "''"
@@ -418,7 +418,7 @@ func (line *Line) Text() string {
 	var start string
 	var end string
 	msg := line.Message
-	used := make(map[string]struct{})
+	used := make(map[xopat.K]struct{})
 	switch {
 	case line.AsLink != nil:
 		start = "LINK:"
@@ -428,11 +428,11 @@ func (line *Line) Text() string {
 		start = "MODEL:"
 		end = string(line.AsModel.Encoded)
 	case line.Tmpl != "":
-		used := make(map[string]struct{})
+		used := make(map[xopat.K]struct{})
 		msg = templateRE.ReplaceAllStringFunc(line.Tmpl, func(k string) string {
 			k = k[1 : len(k)-1]
-			if v, ok := line.Data[k]; ok {
-				used[k] = struct{}{}
+			if v, ok := line.Data[xopat.K(k)]; ok {
+				used[xopat.K(k)] = struct{}{}
 				return fmt.Sprint(v)
 			}
 			return "''"
@@ -443,7 +443,7 @@ func (line *Line) Text() string {
 	text := line.Span.Short() + " " + start + msg
 	for k, v := range line.Data {
 		if _, ok := used[k]; !ok {
-			text += " " + k + "=" + fmt.Sprint(v)
+			text += " " + string(k) + "=" + fmt.Sprint(v)
 		}
 	}
 	if end != "" {
@@ -461,7 +461,7 @@ func (line *Line) TemplateOrMessage() string {
 	return line.Message
 }
 
-func (b *Builder) any(k string, v interface{}, dt xopbase.DataType) {
+func (b *Builder) any(k xopat.K, v interface{}, dt xopbase.DataType) {
 	b.Data[k] = v
 	b.DataType[k] = dt
 }
@@ -475,28 +475,28 @@ func (b *Builder) Enum(k *xopat.EnumAttribute, v xopat.Enum) {
 }
 
 // Any is a required method for xopbase.ObjectParts
-func (b *Builder) Any(k string, v xopbase.ModelArg) { b.any(k, v, xopbase.AnyDataType) }
+func (b *Builder) Any(k xopat.K, v xopbase.ModelArg) { b.any(k, v, xopbase.AnyDataType) }
 
 // Bool is a required method for xopbase.ObjectParts
-func (b *Builder) Bool(k string, v bool) { b.any(k, v, xopbase.BoolDataType) }
+func (b *Builder) Bool(k xopat.K, v bool) { b.any(k, v, xopbase.BoolDataType) }
 
 // Duration is a required method for xopbase.ObjectParts
-func (b *Builder) Duration(k string, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
+func (b *Builder) Duration(k xopat.K, v time.Duration) { b.any(k, v, xopbase.DurationDataType) }
 
 // Time is a required method for xopbase.ObjectParts
-func (b *Builder) Time(k string, v time.Time) { b.any(k, v, xopbase.TimeDataType) }
+func (b *Builder) Time(k xopat.K, v time.Time) { b.any(k, v, xopbase.TimeDataType) }
 
 // Float64 is a required method for xopbase.ObjectParts
-func (b *Builder) Float64(k string, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Float64(k xopat.K, v float64, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // Int64 is a required method for xopbase.ObjectParts
-func (b *Builder) Int64(k string, v int64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Int64(k xopat.K, v int64, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // String is a required method for xopbase.ObjectParts
-func (b *Builder) String(k string, v string, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) String(k xopat.K, v string, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // Uint64 is a required method for xopbase.ObjectParts
-func (b *Builder) Uint64(k string, v uint64, dt xopbase.DataType) { b.any(k, v, dt) }
+func (b *Builder) Uint64(k xopat.K, v uint64, dt xopbase.DataType) { b.any(k, v, dt) }
 
 // MetadataAny is a required method for xopbase.Span
 func (s *Span) MetadataAny(k *xopat.AnyAttribute, v xopbase.ModelArg) {
