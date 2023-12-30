@@ -43,10 +43,10 @@ func (i Inbound) HandlerMiddleware() func(http.Handler) http.Handler {
 }
 
 // InjectorWithContext is compatible with https://github.com/muir/nject/nvelope and
-// provides a *xop.Log to the injection chain.  It also puts the log in
+// provides a *xop.Logger to the injection chain.  It also puts the log in
 // the request context.
-func (i Inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request), w http.ResponseWriter, r *http.Request) {
-	return func(inner func(*xop.Log, *http.Request), w http.ResponseWriter, r *http.Request) {
+func (i Inbound) InjectorWithContext() func(inner func(*xop.Logger, *http.Request), w http.ResponseWriter, r *http.Request) {
+	return func(inner func(*xop.Logger, *http.Request), w http.ResponseWriter, r *http.Request) {
 		log, ctx := i.makeChildSpan(w, r)
 		defer log.Done()
 		r = r.WithContext(log.IntoContext(ctx))
@@ -55,16 +55,16 @@ func (i Inbound) InjectorWithContext() func(inner func(*xop.Log, *http.Request),
 }
 
 // InjectorWithContext is compatible with https://github.com/muir/nject/nvelope and
-// provides a *xop.Log to the injection chain.
-func (i Inbound) Injector() func(inner func(*xop.Log), w http.ResponseWriter, r *http.Request) {
-	return func(inner func(*xop.Log), w http.ResponseWriter, r *http.Request) {
+// provides a *xop.Logger to the injection chain.
+func (i Inbound) Injector() func(inner func(*xop.Logger), w http.ResponseWriter, r *http.Request) {
+	return func(inner func(*xop.Logger), w http.ResponseWriter, r *http.Request) {
 		log, _ := i.makeChildSpan(w, r)
 		defer log.Done()
 		inner(log)
 	}
 }
 
-func (i Inbound) makeChildSpan(w http.ResponseWriter, r *http.Request) (*xop.Log, context.Context) {
+func (i Inbound) makeChildSpan(w http.ResponseWriter, r *http.Request) (*xop.Logger, context.Context) {
 	name := i.requestToName(r)
 	if name == "" {
 		name = r.URL.String()

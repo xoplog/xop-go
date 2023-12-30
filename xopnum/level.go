@@ -10,11 +10,19 @@ const (
 	// https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/logs/v1/logs.proto
 	// Most of the levels correspond to OTEl's levels, but
 	//   TraceLevel is OTEL's "Trace2"
+	//   DebugLevel is OTEL's "Debug3"
+	//   LogLevel is OTEL's "Info"
+	//   InfoLevel is OTEL's "Info3"
+	//   WarnLevel is OTEL's "Warn"
+	//   ErrorLevel is OTEL's "Error"
 	//   AlertLevel is OTEL's "Error4"
-	// There is no fatal level.
+	// At this time, there is no fatal level in XOP.
+	//
+	// LogLevel is the expected default level to use for most logs.
 	TraceLevel Level = 2  // trace
-	DebugLevel Level = 5  // debug
-	InfoLevel  Level = 9  // info
+	DebugLevel Level = 7  // debug
+	LogLevel   Level = 9  // log
+	InfoLevel  Level = 11 // info
 	WarnLevel  Level = 13 // warn
 	ErrorLevel Level = 17 // error
 	AlertLevel Level = 20 // alert

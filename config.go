@@ -59,6 +59,6 @@ func WithConfigChanges(mods ...ConfigModifier) SeedModifier {
 	}
 }
 
-func (log *Log) Config() Config {
-	return log.span.seed.config
+func (logger *Logger) Config() Config {
+	return logger.span.seed.config
 }

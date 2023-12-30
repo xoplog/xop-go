@@ -17,15 +17,15 @@ import (
 type Sub struct {
 	detached bool
 	settings LogSettings
-	log      *Log
+	logger   *Logger
 }
 
 // Detaching is a ephemeral type used in the chain
 //
-//	child := log.Sub().Detach().Fork()
-//	child := log.Sub().Detach().Step()
+//	child := logger.Sub().Detach().Fork()
+//	child := logger.Sub().Detach().Step()
 //
-// to indicate that the new log/span has an independent lifetime
+// to indicate that the new logger/span has an independent lifetime
 // from it's parent so a call to Done() on the parent does not imply
 // the child is done.
 type Detaching struct {
@@ -128,26 +128,26 @@ func (settings LogSettings) Copy() LogSettings {
 	return settings
 }
 
-func (log *Log) Settings() LogSettings {
-	return log.settings.Copy()
+func (logger *Logger) Settings() LogSettings {
+	return logger.settings.Copy()
 }
 
-// Sub is a first step in creating a sub-Log from the current log.
+// Sub is a first step in creating a sub-Log from the current logger.
 // Sub allows log settings to be modified.  The returned value must
-// be used.  It is used by a call to sub.Log(), sub.Fork(), or
+// be used.  It is used by a call to sub.Logger(), sub.Fork(), or
 // sub.Step().
 //
 // Logs created from Sub() are done when their parent is done.
-func (log *Log) Sub() *Sub {
+func (logger *Logger) Sub() *Sub {
 	return &Sub{
-		settings: log.settings.Copy(),
-		log:      log,
+		settings: logger.settings.Copy(),
+		logger:   logger,
 	}
 }
 
-// Detach followed by Fork() or Step() creates a sub-span/log that is detached from
+// Detach followed by Fork() or Step() creates a sub-span/logger that is detached from
 // it's parent.  A Done() on the parent does not imply Done() on the detached
-// log.
+// logger.
 func (sub Sub) Detach() *Detaching {
 	sub.detached = true
 	return &Detaching{
@@ -155,31 +155,31 @@ func (sub Sub) Detach() *Detaching {
 	}
 }
 
-func (d *Detaching) Step(msg string, mods ...SeedModifier) *Log { return d.sub.Step(msg, mods...) }
-func (d *Detaching) Fork(msg string, mods ...SeedModifier) *Log { return d.sub.Fork(msg, mods...) }
+func (d *Detaching) Step(msg string, mods ...SeedModifier) *Logger { return d.sub.Step(msg, mods...) }
+func (d *Detaching) Fork(msg string, mods ...SeedModifier) *Logger { return d.sub.Fork(msg, mods...) }
 
-// Fork creates a new Log that does not need to be terminated because
-// it is assumed to be done with the current log is finished.  The new log
+// Fork creates a new logger that does not need to be terminated because
+// it is assumed to be done with the current logger is finished.  The new logger
 // has its own span.
-func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.capSpan.SubSeed(mods...)
-	counter := int(atomic.AddInt32(&sub.log.span.forkCounter, 1))
+func (sub *Sub) Fork(msg string, mods ...SeedModifier) *Logger {
+	seed := sub.logger.capSpan.SubSeed(mods...)
+	counter := int(atomic.AddInt32(&sub.logger.span.forkCounter, 1))
 	seed.spanSequenceCode += "." + base26(counter-1)
 	seed.settings = sub.settings
-	return sub.log.newChildLog(seed, msg, sub.detached)
+	return sub.logger.newChildLog(seed, msg, sub.detached)
 }
 
-// Step creates a new log that does not need to be terminated -- it
-// represents the continued execution of the current log but doing
+// Step creates a new logger that does not need to be terminated -- it
+// represents the continued execution of the current logger but doing
 // something that is different and should be in a fresh span. The expectation
-// is that there is a parent log that is creating various sub-logs using
+// is that there is a parent logger that is creating various sub-logs using
 // Step over and over as it does different things.
-func (sub *Sub) Step(msg string, mods ...SeedModifier) *Log {
-	seed := sub.log.capSpan.SubSeed(mods...)
-	counter := int(atomic.AddInt32(&sub.log.span.stepCounter, 1))
+func (sub *Sub) Step(msg string, mods ...SeedModifier) *Logger {
+	seed := sub.logger.capSpan.SubSeed(mods...)
+	counter := int(atomic.AddInt32(&sub.logger.span.stepCounter, 1))
 	seed.spanSequenceCode += "." + strconv.Itoa(counter)
 	seed.settings = sub.settings
-	return sub.log.newChildLog(seed, msg, sub.detached)
+	return sub.logger.newChildLog(seed, msg, sub.detached)
 }
 
 // StackFrames sets the number of stack frames to include at
@@ -296,25 +296,25 @@ func (settings *LogSettings) NoPrefill() {
 	settings.prefillMsg = ""
 }
 
-func (log *Log) sendPrefill() {
-	if log.settings.prefillData == nil && log.settings.prefillMsg == "" && !log.settings.tagLinesWithSpanSequence {
-		log.prefilled = log.span.base.NoPrefill()
+func (logger *Logger) sendPrefill() {
+	if logger.settings.prefillData == nil && logger.settings.prefillMsg == "" && !logger.settings.tagLinesWithSpanSequence {
+		logger.prefilled = logger.span.base.NoPrefill()
 		return
 	}
-	prefilling := log.span.base.StartPrefill()
-	for _, f := range log.settings.prefillData {
+	prefilling := logger.span.base.StartPrefill()
+	for _, f := range logger.settings.prefillData {
 		f(prefilling)
 	}
-	if log.settings.tagLinesWithSpanSequence {
-		prefilling.String(xopconst.SpanSequenceCode.Key(), log.span.seed.spanSequenceCode, xopbase.StringDataType)
+	if logger.settings.tagLinesWithSpanSequence {
+		prefilling.String(xopconst.SpanSequenceCode.Key(), logger.span.seed.spanSequenceCode, xopbase.StringDataType)
 	}
-	log.prefilled = prefilling.PrefillComplete(log.settings.prefillMsg)
+	logger.prefilled = prefilling.PrefillComplete(logger.settings.prefillMsg)
 }
 
 // PrefillEmbeddedEnum is used to set a data element that is included on every log
 // line.
 // PrefillEmbeddedEnum is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillEmbeddedEnum(k xopat.EmbeddedEnum) *Sub {
 	sub.settings.PrefillEmbeddedEnum(k)
 	return sub
@@ -329,7 +329,7 @@ func (settings *LogSettings) PrefillEmbeddedEnum(k xopat.EmbeddedEnum) {
 // PrefillEnum is used to set a data element that is included on every log
 // line.
 // PrefillEnum is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillEnum(k *xopat.EnumAttribute, v xopat.Enum) *Sub {
 	sub.settings.PrefillEnum(k, v)
 	return sub
@@ -362,7 +362,7 @@ func (settings *LogSettings) PrefillError(k string, v error) {
 // line.  Values provided with PrefillAny will be copied
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 // Redaction is not supported.
 func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 	sub.settings.PrefillAny(k, v)
@@ -373,7 +373,7 @@ func (sub *Sub) PrefillAny(k string, v interface{}) *Sub {
 // line.  Values provided with PrefillAny will be copied
 // using https://github.com/mohae/deepcopy 's Copy().
 // PrefillAny is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 // Redaction is not supported.
 func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 	settings.prefillData = append(settings.prefillData, func(line xopbase.Prefilling) {
@@ -384,7 +384,7 @@ func (settings *LogSettings) PrefillAny(k string, v interface{}) {
 // PrefillFloat32 is used to set a data element that is included on every log
 // line.
 // PrefillFloat32 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillFloat32(k string, v float32) *Sub {
 	sub.settings.PrefillFloat32(k, v)
 	return sub
@@ -399,7 +399,7 @@ func (settings *LogSettings) PrefillFloat32(k string, v float32) {
 // PrefillBool is used to set a data element that is included on every log
 // line.
 // PrefillBool is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillBool(k string, v bool) *Sub {
 	sub.settings.PrefillBool(k, v)
 	return sub
@@ -414,7 +414,7 @@ func (settings *LogSettings) PrefillBool(k string, v bool) {
 // PrefillDuration is used to set a data element that is included on every log
 // line.
 // PrefillDuration is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillDuration(k string, v time.Duration) *Sub {
 	sub.settings.PrefillDuration(k, v)
 	return sub
@@ -429,7 +429,7 @@ func (settings *LogSettings) PrefillDuration(k string, v time.Duration) {
 // PrefillTime is used to set a data element that is included on every log
 // line.
 // PrefillTime is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillTime(k string, v time.Time) *Sub {
 	sub.settings.PrefillTime(k, v)
 	return sub
@@ -444,7 +444,7 @@ func (settings *LogSettings) PrefillTime(k string, v time.Time) {
 // PrefillFloat64 is used to set a data element that is included on every log
 // line.
 // PrefillFloat64 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillFloat64(k string, v float64) *Sub {
 	sub.settings.PrefillFloat64(k, v)
 	return sub
@@ -459,7 +459,7 @@ func (settings *LogSettings) PrefillFloat64(k string, v float64) {
 // PrefillInt64 is used to set a data element that is included on every log
 // line.
 // PrefillInt64 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillInt64(k string, v int64) *Sub {
 	sub.settings.PrefillInt64(k, v)
 	return sub
@@ -474,7 +474,7 @@ func (settings *LogSettings) PrefillInt64(k string, v int64) {
 // PrefillString is used to set a data element that is included on every log
 // line.
 // PrefillString is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillString(k string, v string) *Sub {
 	sub.settings.PrefillString(k, v)
 	return sub
@@ -489,7 +489,7 @@ func (settings *LogSettings) PrefillString(k string, v string) {
 // PrefillUint64 is used to set a data element that is included on every log
 // line.
 // PrefillUint64 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillUint64(k string, v uint64) *Sub {
 	sub.settings.PrefillUint64(k, v)
 	return sub
@@ -504,7 +504,7 @@ func (settings *LogSettings) PrefillUint64(k string, v uint64) {
 // PrefillInt is used to set a data element that is included on every log
 // line.
 // PrefillInt is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillInt(k string, v int) *Sub {
 	sub.settings.PrefillInt(k, v)
 	return sub
@@ -519,7 +519,7 @@ func (settings *LogSettings) PrefillInt(k string, v int) {
 // PrefillInt16 is used to set a data element that is included on every log
 // line.
 // PrefillInt16 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillInt16(k string, v int16) *Sub {
 	sub.settings.PrefillInt16(k, v)
 	return sub
@@ -534,7 +534,7 @@ func (settings *LogSettings) PrefillInt16(k string, v int16) {
 // PrefillInt32 is used to set a data element that is included on every log
 // line.
 // PrefillInt32 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillInt32(k string, v int32) *Sub {
 	sub.settings.PrefillInt32(k, v)
 	return sub
@@ -549,7 +549,7 @@ func (settings *LogSettings) PrefillInt32(k string, v int32) {
 // PrefillInt8 is used to set a data element that is included on every log
 // line.
 // PrefillInt8 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillInt8(k string, v int8) *Sub {
 	sub.settings.PrefillInt8(k, v)
 	return sub
@@ -564,7 +564,7 @@ func (settings *LogSettings) PrefillInt8(k string, v int8) {
 // PrefillUint is used to set a data element that is included on every log
 // line.
 // PrefillUint is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillUint(k string, v uint) *Sub {
 	sub.settings.PrefillUint(k, v)
 	return sub
@@ -579,7 +579,7 @@ func (settings *LogSettings) PrefillUint(k string, v uint) {
 // PrefillUint16 is used to set a data element that is included on every log
 // line.
 // PrefillUint16 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillUint16(k string, v uint16) *Sub {
 	sub.settings.PrefillUint16(k, v)
 	return sub
@@ -594,7 +594,7 @@ func (settings *LogSettings) PrefillUint16(k string, v uint16) {
 // PrefillUint32 is used to set a data element that is included on every log
 // line.
 // PrefillUint32 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillUint32(k string, v uint32) *Sub {
 	sub.settings.PrefillUint32(k, v)
 	return sub
@@ -609,7 +609,7 @@ func (settings *LogSettings) PrefillUint32(k string, v uint32) {
 // PrefillUint8 is used to set a data element that is included on every log
 // line.
 // PrefillUint8 is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillUint8(k string, v uint8) *Sub {
 	sub.settings.PrefillUint8(k, v)
 	return sub
@@ -624,7 +624,7 @@ func (settings *LogSettings) PrefillUint8(k string, v uint8) {
 // PrefillUintptr is used to set a data element that is included on every log
 // line.
 // PrefillUintptr is not threadsafe with respect to other calls on the same *Sub.
-// Should not be used after Step(), Fork(), or Log() is called.
+// Should not be used after Step(), Fork(), or Logger() is called.
 func (sub *Sub) PrefillUintptr(k string, v uintptr) *Sub {
 	sub.settings.PrefillUintptr(k, v)
 	return sub

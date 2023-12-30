@@ -20,13 +20,13 @@ const NeedsEscaping = `"\<'` + "\n\r\t\b\x00"
 var MessageCases = []struct {
 	Name         string
 	ExtraFlushes int
-	Do           func(t *testing.T, log *xop.Log, tlog *xoptest.Logger)
+	Do           func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger)
 	SkipOTEL     bool
 	SeedMods     []xop.SeedModifier
 }{
 	{
 		Name: "one-span",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			log.Info().Msg("basic info message")
 			log.Error().Msg("basic error message")
 			log.Alert().Msg("basic alert message")
@@ -52,7 +52,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-singles-in-request",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			log.Span().Bool(ExampleMetadataSingleBool, false)
 			log.Span().Bool(ExampleMetadataSingleBool, true)
 			log.Span().Bool(ExampleMetadataLockedBool, true)
@@ -83,7 +83,7 @@ var MessageCases = []struct {
 	{
 		Name:     "metadata-traces",
 		SkipOTEL: true,
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			s2 := log.Sub().Fork("S2")
 			s3 := s2.Sub().Fork("S3")
 			log.Span().Link(ExampleMetadataSingleLink, s2.Span().Bundle().Trace)
@@ -102,7 +102,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-float64",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			log.Span().Float64(ExampleMetadataSingleFloat64, 40.3)
 			log.Span().Float64(ExampleMetadataSingleFloat64, 40.4)
 			log.Span().Float64(ExampleMetadataLockedFloat64, 30.5)
@@ -119,7 +119,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-time",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			t1 := time.Now().Round(time.Second)
 			t2 := t1.Add(time.Minute)
 			log.Span().Time(ExampleMetadataSingleTime, t1)
@@ -138,7 +138,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-duration",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			d1 := time.Millisecond
 			d2 := time.Millisecond * 5
 			log.Span().Duration(ExampleMetadataSingleDuration, d1)
@@ -157,7 +157,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-singles-in-span",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			ss := log.Sub().Fork("spoon")
 			ss.Span().Bool(ExampleMetadataSingleBool, false)
 			ss.Span().Bool(ExampleMetadataSingleBool, true)
@@ -210,7 +210,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-any",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			ss := log.Sub().Fork("knife")
 			a := map[string]interface{}{
 				"foo":   "bar",
@@ -246,7 +246,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-iota-enum",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			ss := log.Sub().Step("stool")
 			ss.Span().EmbeddedEnum(SingleEnumTwo)
 			ss.Span().EmbeddedEnum(SingleEnumTwo)
@@ -266,7 +266,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-embedded-enum",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			ss := log.Sub().Step("stool")
 			ss.Span().EmbeddedEnum(SingleEEnumTwo)
 			ss.Span().EmbeddedEnum(SingleEEnumTwo)
@@ -286,7 +286,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-enum",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			ss := log.Sub().Step("stool")
 			ss.Span().Enum(ExampleMetadataSingleXEnum, xopconst.SpanKindServer)
 			ss.Span().Enum(ExampleMetadataSingleXEnum, xopconst.SpanKindClient)
@@ -306,7 +306,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-multiples",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			// ss := log.Sub().Fork("a fork metadata multiples")
 			log.Span().Bool(ExampleMetadataMultipleBool, true)
 			log.Span().Bool(ExampleMetadataMultipleBool, true)
@@ -319,7 +319,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "metadata-distinct",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			// ss := log.Sub().Fork("a fork metadata distinct")
 			log.Span().Bool(ExampleMetadataDistinctBool, true)
 			log.Span().Bool(ExampleMetadataDistinctBool, true)
@@ -342,7 +342,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "one-done",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			_ = log.Sub().Fork("a fork one done")
 			MicroNap()
 			log.Done()
@@ -350,8 +350,8 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "prefill",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
-			p := log.Sub().PrefillFloat64("f", 23).PrefillText("pre!").Log()
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
+			p := log.Sub().PrefillFloat64("f", 23).PrefillText("pre!").Logger()
 			p.Error().Int16("i16", int16(7)).Msg("pf")
 			log.Alert().Int32("i32", int32(77)).Msgf("pf %s", "bar")
 			MicroNap()
@@ -361,7 +361,7 @@ var MessageCases = []struct {
 	{
 		Name:         "manipulate-seed",
 		ExtraFlushes: 1,
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			l2 := log.Span().SubSeed().Request("L2")
 			l2.Info().Msg("in the new log")
 			MicroNap()
@@ -372,7 +372,7 @@ var MessageCases = []struct {
 	{
 		Name:         "add-and-remove-loggers-with-a-seed",
 		ExtraFlushes: 2,
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			tlog2 := xoptest.New(t)
 			r2 := log.Span().SubSeed(xop.WithBase(tlog2)).Request("R2")
 			r3 := r2.Span().SubSeed(xop.WithoutBase(tlog2)).Request("R3")
@@ -386,7 +386,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "add-and-remove-loggers-with-a-span",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			tlog2 := xoptest.New(t)
 			s2 := log.Sub().Step("S2", xop.WithBase(tlog2))
 			s3 := s2.Sub().Detach().Fork("S3", xop.WithoutBase(tlog2))
@@ -402,18 +402,18 @@ var MessageCases = []struct {
 		Name:         "log-after-done",
 		ExtraFlushes: 1,
 		SkipOTEL:     true,
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			s2 := log.Sub().Step("S2")
 			s2.Info().Int8("i8", 9).Msg("a line before done")
 			MicroNap()
 			s2.Done()
-			assert.Empty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("XOP: log was already done, but was used again")), "no err")
+			assert.Empty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("XOP: logger was already done, but was used again")), "no err")
 			s2.Info().Int16("i16", 940).Msg("a post-done line, should trigger an error log")
-			assert.NotEmpty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("XOP: log was already done, but was used again")), "no err")
-			assert.Empty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("called on log object when it was already Done")), "no err")
+			assert.NotEmpty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("XOP: logger was already done, but was used again")), "no err")
+			assert.Empty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("called on logger object when it was already Done")), "no err")
 			MicroNap()
 			s2.Done()
-			assert.NotEmpty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("called on log object when it was already Done")), "now err")
+			assert.NotEmpty(t, tlog.Recorder().FindLines(xoprecorder.TextContains("called on logger object when it was already Done")), "now err")
 			log.Flush()
 			s2.Warn().Int32("i32", 940940).Msg("another post-done line, should trigger an error log")
 			MicroNap()
@@ -422,7 +422,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "lots-of-types",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			p := log.Sub().PrefillInt("pfint", 439).PrefillInt8("pfint8", 82).PrefillInt16("pfint16", 829).
 				PrefillInt32("pfint32", 4328).PrefillInt64("pfint64", -2382).
 				PrefillUint("pfuint", 439).PrefillUint8("pfuint8", 82).PrefillUint16("pfuint16", 829).
@@ -435,7 +435,7 @@ var MessageCases = []struct {
 				PrefillAny("pfanyhow", map[string]interface{}{"x": "y", "z": 19}).
 				PrefillEnum(ExampleMetadataMultipleXEnum, xopconst.SpanKindClient).
 				PrefillEmbeddedEnum(LockedEEnumTwo).
-				Log()
+				Logger()
 			log.Warn().Int("int", 439).Int8("int8", 82).Int16("int16", 829).
 				Int32("int32", 4328).Int64("int64", -2382).
 				Uint("uint", 439).Uint8("uint8", 82).Uint16("uint16", 829).
@@ -456,8 +456,8 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "type-time",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
-			p := log.Sub().PrefillTime("-1m", time.Now().Add(-time.Minute).Round(time.Millisecond)).Log()
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
+			p := log.Sub().PrefillTime("-1m", time.Now().Add(-time.Minute).Round(time.Millisecond)).Logger()
 			p.Warn().Time("now", time.Now().Round(time.Millisecond)).Msgs("time!")
 			MicroNap()
 			log.Done()
@@ -465,8 +465,8 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "type-duration",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
-			p := log.Sub().PrefillDuration("1m", time.Minute).Log()
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
+			p := log.Sub().PrefillDuration("1m", time.Minute).Logger()
 			p.Warn().Duration("hour", time.Hour).Msg("duration")
 			MicroNap()
 			log.Done()
@@ -474,7 +474,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "type-link",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			log.Warn().Link(log.Span().Bundle().Trace, "me, again")
 			MicroNap()
 			log.Done()
@@ -482,7 +482,7 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "type-model",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			log.Warn().Model(map[string]interface{}{"x": "y", "z": 19}, "some stuff")
 			MicroNap()
 			log.Done()
@@ -490,8 +490,8 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "type-error",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
-			p := log.Sub().PrefillError("question", fmt.Errorf("why would you pre-fill an error?")).Log()
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
+			p := log.Sub().PrefillError("question", fmt.Errorf("why would you pre-fill an error?")).Logger()
 			p.Warn().Error("answer", fmt.Errorf("I don't know, why would you prefill an error")).Msgs(time.Now())
 			MicroNap()
 			log.Done()
@@ -499,27 +499,28 @@ var MessageCases = []struct {
 	},
 	{
 		Name: "log-levels",
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			var callCount int
 			sc := newStringCounter(&callCount, "foobar")
-			skipper := log.Sub().MinLevel(xopnum.InfoLevel).Log()
+			skipper := log.Sub().MinLevel(xopnum.InfoLevel).Logger()
 			skipper.Debug().
 				Stringer("avoid", sc).
 				String("avoid", "blaf").
 				Any("null", nil).
 				Error("no", fmt.Errorf("bar")).
 				Msg("no foobar")
-			log.Trace().Stringer("don't", sc).Msg("yes, foobar")
-			log.Debug().Stringer("do", sc).Msg("yes, foobar")
-			assert.Equal(t, 1, callCount, "stringer called once")
-			noSkip := log.Sub().MinLevel(xopnum.DebugLevel).Log()
+			log.Trace().Stringer("don't", sc).Msg("yes, trace")
+			log.Debug().Stringer("do", sc).Msg("yes, debug")
+			log.Log().Stringer("do", sc).Msg("yes, log")
+			assert.Equal(t, 2, callCount, "stringer called twice")
+			noSkip := log.Sub().MinLevel(xopnum.DebugLevel).Logger()
 			noSkip.Debug().
 				Stringer("stringer", sc).
 				String("string", "blaf").
 				Any("null", nil).
 				Error("yes", fmt.Errorf("blaf")).
 				Msg("yes foobar")
-			assert.Equal(t, 2, callCount, "stringer called twice")
+			assert.Equal(t, 3, callCount, "stringer called thrice")
 			MicroNap()
 			log.Done()
 		},
@@ -539,7 +540,7 @@ var MessageCases = []struct {
 				return bundle
 			}()),
 		},
-		Do: func(t *testing.T, log *xop.Log, tlog *xoptest.Logger) {
+		Do: func(t *testing.T, log *xop.Logger, tlog *xoptest.Logger) {
 			assert.Equal(t, "00-a60a3cc0123a043fee48839c9d52a645-c63f9d81e2285f34-01", log.Span().Bundle().Parent.String(), "trace parent")
 			assert.Equal(t, "a60a3cc0123a043fee48839c9d52a645", log.Span().Bundle().Trace.GetTraceID().String(), "trace trace")
 			assert.NotEqual(t, "c63f9d81e2285f34", log.Span().Bundle().Trace.GetSpanID().String(), "trace trace")

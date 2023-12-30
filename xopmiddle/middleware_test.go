@@ -142,7 +142,7 @@ var injectMethods = []struct {
 		name: "injector",
 		f: func(t *testing.T, inbound xopmiddle.Inbound, w http.ResponseWriter, r *http.Request) {
 			var called bool
-			inbound.Injector()(func(log *xop.Log) {
+			inbound.Injector()(func(log *xop.Logger) {
 				assert.NotNil(t, log, "log set")
 				called = true
 			}, w, r)
@@ -153,7 +153,7 @@ var injectMethods = []struct {
 		name: "injector with context",
 		f: func(t *testing.T, inbound xopmiddle.Inbound, w http.ResponseWriter, r *http.Request) {
 			var called bool
-			inbound.InjectorWithContext()(func(log *xop.Log, r *http.Request) {
+			inbound.InjectorWithContext()(func(log *xop.Logger, r *http.Request) {
 				_ = xop.FromContextOrPanic(r.Context())
 				assert.NotNil(t, log, "log set")
 				called = true

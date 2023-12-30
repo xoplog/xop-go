@@ -10,14 +10,14 @@ import (
 
 // Request provides access to the span that describes the overall
 // request. Metadata may be added at the request level.
-func (log *Log) Request() *Span {
-	return log.request.capSpan
+func (logger *Logger) Request() *Span {
+	return logger.request.capSpan
 }
 
 // Request provides access to the current span
 // Metadata may be added at the span level.
-func (log *Log) Span() *Span {
-	return log.capSpan
+func (logger *Logger) Span() *Span {
+	return logger.capSpan
 }
 
 func (span *Span) TraceState() xoptrace.State     { return span.seed.traceBundle.State }
@@ -27,7 +27,7 @@ func (span *Span) Trace() xoptrace.Trace          { return span.seed.traceBundle
 func (span *Span) Bundle() xoptrace.Bundle        { return span.seed.traceBundle.Copy() }
 
 func (span *Span) eft() *Span {
-	span.log.hasActivity(true)
+	span.logger.hasActivity(true)
 	return span
 }
 
@@ -73,7 +73,7 @@ func (span *Span) AnyImmutable(k *xopat.AnyAttribute, v interface{}) *Span {
 // on the base logger being used.
 // The return value does not need to be used.
 func (span *Span) Any(k *xopat.AnyAttribute, v interface{}) *Span {
-	if span.log.span.referencesKept {
+	if span.logger.span.referencesKept {
 		v = deepcopy.Copy(v)
 	}
 	span.base.MetadataAny(k, xopbase.ModelArg{

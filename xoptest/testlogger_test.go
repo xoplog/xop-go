@@ -18,18 +18,19 @@ import (
 func TestLogMethods(t *testing.T) {
 	start := time.Now()
 	tLog := xoptest.New(t)
-	log := tLog.Log()
+	log := tLog.Logger()
 	log.Info().Msg("basic info message")
 	log.Error().Msg("basic error message")
 	log.Alert().Msg("basic alert message")
+	log.Log().Msg("basic log message")
 	log.Debug().Msg("basic debug message")
 	log.Trace().Msg("basic trace message")
 	log.Info().String("foo", "bar").Int("num", 38).Template("a test {foo} with {num}")
-	lines := tLog.Recorder().FindLines(xoprecorder.MessageEquals("basic debug message"))
+	lines := tLog.Recorder().FindLines(xoprecorder.MessageEquals("basic log message"))
 	if assert.NotEmpty(t, lines, "found some") {
 		assert.True(t, !lines[0].Timestamp.Before(start), "time seq")
-		assert.Equal(t, "basic debug message", lines[0].Message, "message")
-		assert.Equal(t, xopnum.DebugLevel, lines[0].Level, "level")
+		assert.Equal(t, "basic log message", lines[0].Message, "message")
+		assert.Equal(t, xopnum.LogLevel, lines[0].Level, "level")
 	}
 	f := log.Sub().Fork("forkie")
 	f.Span().Int(xopconst.HTTPStatusCode, 204)
@@ -53,7 +54,7 @@ func TestReplayTextLogger(t *testing.T) {
 		mc := mc
 		t.Run(mc.Name, func(t *testing.T) {
 			tLog := xoptest.New(t)
-			log := tLog.Log()
+			log := tLog.Logger()
 			if len(mc.SeedMods) != 0 {
 				t.Logf("Applying %d extra seed mods", len(mc.SeedMods))
 				log = log.Span().SubSeed(mc.SeedMods...).Request(t.Name())

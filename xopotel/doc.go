@@ -37,7 +37,7 @@ creation to Open Telemetry.
 
 If you don't have access to a TracerProvider at all and instead have
 a "go.opentelemetry.io/otel/trace".Span, you can use that as the basis for generating
-logs with XOP by converting it directly to a *xop.Log.
+logs with XOP by converting it directly to a *xop.Logger.
 
 # BufferedReplayLogger
 

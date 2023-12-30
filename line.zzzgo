@@ -22,11 +22,11 @@ func (line *Line) Any(k string, v interface{}) *Line {
 	if line.skip {
 		return line
 	}
-	if line.log.settings.redactAny != nil {
-		line.log.settings.redactAny(line.line, k, v, !line.log.span.referencesKept)
+	if line.logger.settings.redactAny != nil {
+		line.logger.settings.redactAny(line.line, k, v, !line.logger.span.referencesKept)
 		return line
 	}
-	if line.log.span.referencesKept {
+	if line.logger.span.referencesKept {
 		// TODO: make copy function configurable
 		v = deepcopy.Copy(v)
 	}
@@ -62,8 +62,8 @@ func (line *Line) Error(k string, v error) *Line {
 	if line.skip {
 		return line
 	}
-	if line.log.settings.redactError != nil {
-		line.log.settings.redactError(line.line, k, v)
+	if line.logger.settings.redactError != nil {
+		line.logger.settings.redactError(line.line, k, v)
 		return line
 	}
 	line.line.String(k, v.Error(), xopbase.ErrorDataType)
@@ -77,8 +77,8 @@ func (line *Line) Stringer(k string, v fmt.Stringer) *Line {
 	if line.skip {
 		return line
 	}
-	if line.log.settings.redactString != nil {
-		line.log.settings.redactString(line.line, k, v.String())
+	if line.logger.settings.redactString != nil {
+		line.logger.settings.redactString(line.line, k, v.String())
 		return line
 	}
 	line.line.String(k, v.String(), xopbase.StringerDataType)
@@ -92,8 +92,8 @@ func (line *Line) String(k string, v string) *Line {
 	if line.skip {
 		return line
 	}
-	if line.log.settings.redactString != nil {
-		line.log.settings.redactString(line.line, k, v)
+	if line.logger.settings.redactString != nil {
+		line.logger.settings.redactString(line.line, k, v)
 		return line
 	}
 	line.line.String(k, v, xopbase.StringDataType)
