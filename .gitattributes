@@ -7,7 +7,6 @@ line.go linguist-generated
 seed.go linguist-generated
 span.go linguist-generated
 sub.go linguist-generated
-internal/enumer_test.go linguist-generated
 xopat/attributes.go linguist-generated
 xopbase/abbr.go linguist-generated
 xopbase/base.go linguist-generated
@@ -25,6 +24,7 @@ xoppb/replay.go linguist-generated
 xoprecorder/recorder.go linguist-generated
 xoprecorder/replay.go linguist-generated
 xoptrace/hexbytes.go linguist-generated
+xoputil/enumer_test.go linguist-generated
 xopbase/xopbaseutil/metadata.go linguist-generated
 xopjson/xopjsonutil/attributes.go linguist-generated
 xoptest/xoptestutil/enums.go linguist-generated

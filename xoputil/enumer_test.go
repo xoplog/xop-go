@@ -1,6 +1,6 @@
 // This file is generated, DO NOT EDIT.  It comes from the corresponding .zzzgo file
 
-package internal_test
+package xoputil_test
 
 import (
 	"encoding/json"

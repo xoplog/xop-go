@@ -12,10 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
+	"github.com/xoplog/xop-go/xoputil/xopversion"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
@@ -150,7 +150,7 @@ func (s Make) make(registry *Registry, exampleValue interface{}, subType Attribu
 	ck.AddConsoleString(s.Key)
 	ck.AppendByte('=')
 
-	namespace, sver, err := version.SplitVersionWithError(namespace)
+	namespace, sver, err := xopversion.SplitVersionWithError(namespace)
 	if err != nil {
 		return Attribute{}, err
 	}

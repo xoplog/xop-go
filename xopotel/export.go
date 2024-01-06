@@ -14,13 +14,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopconst"
 	"github.com/xoplog/xop-go/xopnum"
 	"github.com/xoplog/xop-go/xopproto"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil/xopversion"
 
 	"github.com/muir/gwrap"
 	"github.com/muir/list"
@@ -646,8 +646,8 @@ func buildSourceInfo(span sdktrace.ReadOnlySpan, attributeMap aMap) xopbase.Sour
 		}
 		namespace = defaulted(attributeMap.GetString(xopNamespace), source)
 	}
-	si.Source, si.SourceVersion = version.SplitVersion(source)
-	si.Namespace, si.NamespaceVersion = version.SplitVersion(namespace)
+	si.Source, si.SourceVersion = xopversion.SplitVersion(source)
+	si.Namespace, si.NamespaceVersion = xopversion.SplitVersion(namespace)
 	return si
 }
 
