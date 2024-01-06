@@ -5,7 +5,6 @@ package xopconsole
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"regexp"
 	"runtime"
@@ -13,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
@@ -21,6 +19,7 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 	"github.com/xoplog/xop-go/xoputil/replayutil"
+	"github.com/xoplog/xop-go/xoputil/xopversion"
 
 	"github.com/pkg/errors"
 )
@@ -565,8 +564,8 @@ func (x replayRequest) replayRequestStart(ctx context.Context, t string) error {
 			return errors.Errorf("unexpected stuff in request start: '%s'", word)
 		}
 	}
-	ns, nsVers := version.SplitVersion(x.namespaceAndVersion)
-	so, soVers := version.SplitVersion(x.sourceAndVersion)
+	ns, nsVers := xopversion.SplitVersion(x.namespaceAndVersion)
+	so, soVers := xopversion.SplitVersion(x.sourceAndVersion)
 	sourceInfo := xopbase.SourceInfo{
 		Source:           so,
 		SourceVersion:    soVers,

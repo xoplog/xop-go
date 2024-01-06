@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopnum"
@@ -20,6 +19,7 @@ import (
 	"github.com/xoplog/xop-go/xoptrace"
 	"github.com/xoplog/xop-go/xoputil"
 	"github.com/xoplog/xop-go/xoputil/replayutil"
+	"github.com/xoplog/xop-go/xoputil/xopversion"
 
 	"github.com/pkg/errors"
 )
@@ -260,11 +260,11 @@ func ReplayFromStrings(ctx context.Context, data string, logger xopbase.Logger) 
 		}
 		var err error
 		var sourceInfo xopbase.SourceInfo
-		sourceInfo.Source, sourceInfo.SourceVersion, err = version.SplitVersionWithError(requestInput.Source)
+		sourceInfo.Source, sourceInfo.SourceVersion, err = xopversion.SplitVersionWithError(requestInput.Source)
 		if err != nil {
 			return errors.Errorf("invalid source (%s) in request (%s)", requestInput.Source, requestInput.unparsed)
 		}
-		sourceInfo.Namespace, sourceInfo.NamespaceVersion, err = version.SplitVersionWithError(requestInput.Namespace)
+		sourceInfo.Namespace, sourceInfo.NamespaceVersion, err = xopversion.SplitVersionWithError(requestInput.Namespace)
 		if err != nil {
 			return errors.Errorf("invalid namespace (%s) in request (%s)", requestInput.Namespace, requestInput.unparsed)
 		}

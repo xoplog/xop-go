@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/xoplog/xop-go/internal/util/version"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil/xopversion"
 )
 
 // Seed is used to create a Logger. Seed contains
@@ -148,16 +148,16 @@ func (seed Seed) applyMods(mods []SeedModifier) Seed {
 		mod(&seed)
 	}
 	if seed.sourceInfo.Source == "" {
-		seed.sourceInfo.Source, seed.sourceInfo.SourceVersion = version.SplitVersion(filepath.Base(os.Args[0]))
+		seed.sourceInfo.Source, seed.sourceInfo.SourceVersion = xopversion.SplitVersion(filepath.Base(os.Args[0]))
 	}
 	if seed.sourceInfo.SourceVersion == nil {
-		seed.sourceInfo.SourceVersion = version.ZeroVersion
+		seed.sourceInfo.SourceVersion = xopversion.ZeroVersion
 	}
 	if seed.sourceInfo.Namespace == "" {
-		seed.sourceInfo.Namespace, seed.sourceInfo.NamespaceVersion = version.SplitVersion(xopat.DefaultNamespace)
+		seed.sourceInfo.Namespace, seed.sourceInfo.NamespaceVersion = xopversion.SplitVersion(xopat.DefaultNamespace)
 	}
 	if seed.sourceInfo.NamespaceVersion == nil {
-		seed.sourceInfo.NamespaceVersion = version.ZeroVersion
+		seed.sourceInfo.NamespaceVersion = xopversion.ZeroVersion
 	}
 	return seed
 }
@@ -267,7 +267,7 @@ func WithSettings(f func(*LogSettings)) SeedModifier {
 // If not specified, namespace will default to xopat.DefaultNamespace
 func WithNamespace(namespace string) SeedModifier {
 	return func(s *Seed) {
-		s.sourceInfo.Namespace, s.sourceInfo.NamespaceVersion = version.SplitVersion(namespace)
+		s.sourceInfo.Namespace, s.sourceInfo.NamespaceVersion = xopversion.SplitVersion(namespace)
 	}
 }
 
@@ -279,7 +279,7 @@ func WithNamespace(namespace string) SeedModifier {
 // If not specified, filepath.Base(os.Argv[0]) will be used.
 func WithSource(source string) SeedModifier {
 	return func(s *Seed) {
-		s.sourceInfo.Source, s.sourceInfo.SourceVersion = version.SplitVersion(source)
+		s.sourceInfo.Source, s.sourceInfo.SourceVersion = xopversion.SplitVersion(source)
 	}
 }
 

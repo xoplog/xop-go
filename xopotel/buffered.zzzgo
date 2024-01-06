@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/muir/gwrap"
-	"github.com/xoplog/xop-go/internal/util/pointer"
 	"github.com/xoplog/xop-go/xopat"
 	"github.com/xoplog/xop-go/xopbase"
 	"github.com/xoplog/xop-go/xopbase/xopbaseutil"
 	"github.com/xoplog/xop-go/xoprecorder"
 	"github.com/xoplog/xop-go/xoptrace"
+	"github.com/xoplog/xop-go/xoputil/pointer"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
