@@ -3,15 +3,22 @@ GOHOME ?= ${HOME}
 GOPATH ?= ${GOHOME}
 GOBIN ?= ${GOPATH}/bin
 
-ZZZGO = $(wildcard *.zzzgo */*.zzzgo */*/*.zzzgo)
+ZZZGO = $(wildcard ../xop*-go/*.zzzgo ../xop*-go/*/*.zzzgo ../xop*-go/*/*/*.zzzgo)
 ZZZGENERATED = $(patsubst %.zzzgo, %.go, $(ZZZGO))
 PB = xopproto/ingest.pb.go xopproto/ingest_grpc.pb.go
 TOOLS = ${GOBIN}/gofumpt ${GOBIN}/goimports ${GOBIN}/enumer
-TEST_ONLY =?
+TEST_ONLY ?= 
+
+RELATED = xopresty-go xopotel-go
 
 all:	$(ZZZGENERATED) $(PB) .gitattributes
 	go generate ./...
 	go build ./...
+	for i in $(RELATED); do (echo $$i ...; cd ../$$i && go generate ./... && go build ./...); done
+
+
+ci_checkout_peers:;
+	branch="$${GITHUB_REF##*/}"; for i in $(RELATED); do (cd ..; git clone https://github.com/xoplog/$$i --depth 1 -b $$branch || git clone https://github.com/xoplog/$$i --depth 1); done
 
 .gitattributes: $(ZZZGENERATED)
 	echo '*.zzzgo linguist-language=Go' > $@
@@ -25,7 +32,9 @@ test:	$(ZZZGENERATED) testadjuster
 	go test -v ./xopjson/... -run TestASingleLine
 	go test -v ./xopjson/... -tags xoptesting -run TestParameters -failfast $(TEST_ONLY)
 	go test -tags xoptesting ./... -failfast $(TEST_ONLY)
+	for i in $(RELATED); do (echo $$i...; cd ../$$i && go test -tags xoptesting ./... $(TEST_ONLY) ); done
 	go test -tags xoptesting -race ./... -failfast $(TEST_ONLY)
+	for i in $(RELATED); do (echo $$i...; cd ../$$i && go test -tags xoptesting -race ./... $(TEST_ONLY) ); done
 
 
 testadjuster: $(ZZZGenerated)
@@ -34,7 +43,9 @@ testadjuster: $(ZZZGenerated)
 
 citest:
 	go test ./... -failfast 
+	for i in $(RELATED); do (echo $$i...; cd ../$$i && go test -tags xoptesting ./... $(TEST_ONLY) ); done
 	go test -race ./... -failfast 
+	for i in $(RELATED); do (echo $$i...; cd ../$$i && go test -tags xoptesting -race ./... $(TEST_ONLY) ); done
 	XOPLEVEL_xoptestutil=warn XOPLEVEL_foo=debug go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjuster -count 1
 	XOPLEVEL_xoptestutil=debug XOPLEVEL_foo=warn go test -tags xoptesting ./xoptest/xoptestutil -run TestAdjuster -count 1
 
