@@ -1,0 +1,25 @@
+
+include ../xop-go/Makefile.common
+
+test:	$(ZZZGENERATED) 
+	go generate ./...
+	go test -tags xoptesting ./... -failfast $(TEST_ONLY)
+	go test -tags xoptesting -race ./... -failfast $(TEST_ONLY)
+
+citest:
+	go test ./... -failfast 
+	go test -race ./... -failfast 
+
+calculate_coverage:
+	echo "mode: atomic" > coverage.txt
+	for d in $$(go list ./...); do \
+	  go test -race -covermode=atomic -coverprofile=profile.out -coverpkg=github.com/xoplog/$(ME)/... $$d; \
+	  if [ -f profile.out ]; then \
+	    grep -v ^mode profile.out >> coverage.txt; \
+	    rm profile.out; \
+	  fi; \
+	done
+	grep -v '\.pb.go:' coverage.txt | \
+		egrep -v 'xoptestutil/|xopoteltest/' > coverage.txt.tmp
+	mv coverage.txt.tmp coverage.txt
+

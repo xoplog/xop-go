@@ -56,19 +56,10 @@ to open pull requests, especially to added base loggers or propagators.
 
 Expect the following changes as development continues:
 
-- Log line keys (for key/value attributes) will become typed and 
-  pre-registered (cheap, inline-possible registrations, not complex)
-
 - API changes as additional features are added
 
   Currently xop has no metrics support.  That will change and adding
   metrics will probably be the biggest API change
-
-- xopresty and xopotel will split off to their own repos.
-
-- Additional base loggers are coming
-
-  A full-fidelity console logger is expected soon.
 
 - Additional gateway base loggers will be written
 
@@ -108,6 +99,28 @@ accomplish it make logging more diffuclt and more complex. Xop tries
 to strike a blance between safety and usability.  Metadata on spans are 
 fully type-safe and keywords must be pre-registered.  Data elements on log
 lines are mostly type-safe but do not need to be pre-registered.
+
+## Base loggers
+
+Xop is a two-level logger. The top-level logger provides the API for 
+logging lines and spans, etc. The bottom-level loggers translate the logs
+to different formats.
+
+Some of the bottom-level loggers are "full fidelity" which means that
+they are bundled with a function that can consume their own output and
+re-log it to a different bottom-level logger thus translating from one
+format to another. Xop bottom-level loggers must implement the 
+[xopbase](https://pkg.go.dev/github.com/xoplog/xop-go/xopbase) Logger interface.
+
+| name | full fidelity | description |
+| -- | -- | -- |
+| [xopjson](https://pkg.go.dev/github.com/xoplog/xop-go/xopjson) | yes | JSON output |
+| [xopotel](https://pkg.go.dev/github.com/xoplog/xopotel-go) | yes | Output though OpenTelemetry spans (Go logger not available) |
+| [xopcon](https://pkg.go.dev/github.com/xoplog/xop-go/xopcon) | no | Console/text logger emphasizing human readability |
+| [xopconsole](https://pkg.go.dev/github.com/xoplog/xop-go/xopconsole) | yes | Console/text logger with no information loss |
+| [xoppb](https://pkg.go.dev/github.com/xoplog/xop-go/xoppb) | yes | Protobuf output |
+| [xoprecorder](https://pkg.go.dev/github.com/xoplog/xop-go/xoprecorder) | yes | Output into a structured in-memory buffer |
+| [xoptest](https://pkg.go.dev/github.com/xoplog/xop-go/xoptest) | no | Output to testing.T logger |
 
 ## Using xop
 
@@ -218,11 +231,12 @@ into various http router frameworks.
 Outgoing propagation is sharing the current trace id as the parent request
 to another server when making a request.  Xop currently only supports HTTP
 and that only with [resty](https://github.com/go-resty/resty) in the 
-xopmiddle package.  Adding additional outgoing propagators is an outstanding priority.
+[xopresty](https://github.com/xoplog/xopresty-go) package.  Adding additional
+outgoing propagators is an outstanding priority.
 
 ### Version compatibility
 
-xop is currently tested with go1.18 and go1.19.  It is probably 
+xop is currently tested with go1.18 through go1.20. It is probably 
 compatible with go1.17 and perhaps earlier.
 
 ## Terminology
